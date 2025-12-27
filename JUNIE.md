@@ -19,8 +19,8 @@ Snackbox is an employee snack purchasing system that enables staff to buy snacks
 - **Stock Management**:
   - Tracks quantities in storage
   - Tracks quantities on the shelf (manually updated by admins)
-  - Does NOT automatically track purchases per user for stock purposes
-  - Admins manually update shelf quantities
+  - Does NOT automatically reduce stock quantities when purchases are made
+  - Admins manually update shelf quantities based on visual inspection
 - **Product Batch Management**:
   - Supports products with multiple batches
   - Each batch has its own "best before" date

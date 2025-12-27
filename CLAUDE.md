@@ -60,11 +60,10 @@ Snackbox is an employee snack purchasing and inventory management system that st
   - Removal of expired batches
 
 ### Key Business Rules
-1. Purchases are recorded but do NOT automatically reduce shelf stock count
-2. Admins must manually update shelf quantities based on visual inspection
-3. Each employee has an account balance (payments minus purchases)
-4. Different batches of the same product are tracked separately by best before date
-5. Users can only see their own financial data, admins can see all users
+1. Stock quantities must be manually updated by admins; purchases do not automatically reduce shelf stock counts
+2. Each employee has an account balance (payments minus purchases)
+3. Different batches of the same product are tracked separately by best before date
+4. Users can only see their own financial data, admins can see all users
 
 ### Domain Model Concepts
 - **User/Employee**: Person who can purchase snacks
