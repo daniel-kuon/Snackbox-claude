@@ -1,6 +1,34 @@
 # Snackbox Project - GitHub Copilot Guidelines
 
-## Project Quick Reference
+## What is Snackbox?
+
+**⚠️ Update this description when implementing, modifying, or removing features.**
+
+**Snackbox** is an employee snack purchasing system with barcode scanning.
+
+### Key Features
+- **Purchase**: Employees scan barcodes to buy snacks
+- **Financial Tracking**: Tracks spending, payments, and balance (debt/credit) per employee
+- **History**: Users view their purchase history and current balance
+- **Admin Functions**: 
+  - Enter employee payments
+  - Manage inventory (storage and shelf quantities)
+  - Manual stock updates (purchases don't auto-decrement stock)
+- **Batch Management**: Products have multiple batches, each with a "best before" date
+
+### User Roles
+- **Regular Users**: Scan, purchase, view own data
+- **Admins**: Payment entry, stock management, all user functions
+
+### Domain Model
+- **User/Employee** → has balance (payments - purchases)
+- **Product** → scanned via barcode
+- **Batch** → product instance with best before date
+- **Purchase** → user buys product (recorded but doesn't auto-update stock)
+- **Payment** → user adds money to account
+- **Stock** → storage quantity + shelf quantity (manual updates)
+
+## Technical Reference
 
 **Tech Stack**: .NET 10 | Blazor MAUI Hybrid | .NET Aspire | PostgreSQL
 

@@ -1,6 +1,32 @@
 # Snackbox Project - Junie Guidelines
 
-## Project Overview
+## What is Snackbox?
+
+**IMPORTANT: Keep this description up-to-date as the project evolves. Update it when features are added, modified, or removed.**
+
+Snackbox is an employee snack purchasing system that enables staff to buy snacks by scanning barcodes. The application provides:
+
+### Core Features
+- **Employee Self-Service**: Users scan product barcodes to purchase snacks
+- **Financial Tracking**: 
+  - Tracks how much each employee has spent
+  - Tracks how much each employee has paid into the system
+  - Shows current debt/credit balance for each user
+  - Displays purchase history
+- **User Roles**:
+  - Regular users can scan, purchase, and view their own financial status
+  - Admin users can enter payments and manage stock
+- **Stock Management**:
+  - Tracks quantities in storage
+  - Tracks quantities on the shelf (manually updated by admins)
+  - Does NOT automatically track purchases per user for stock purposes
+  - Admins manually update shelf quantities
+- **Product Batch Management**:
+  - Supports products with multiple batches
+  - Each batch has its own "best before" date
+  - Enables proper inventory rotation and expiry management
+
+## Technical Overview
 
 Snackbox is a modern full-stack application built with .NET technologies, featuring a Blazor MAUI Hybrid frontend and a .NET 10 backend with .NET Aspire for orchestration.
 

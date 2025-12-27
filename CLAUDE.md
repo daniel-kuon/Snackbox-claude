@@ -1,6 +1,81 @@
 # Snackbox Project - Claude Guidelines
 
-## Project Overview
+## What is Snackbox?
+
+**IMPORTANT: This section describes the business domain and requirements. Keep it up-to-date as features are implemented, modified, or removed. When working on new features, refer to this description to ensure alignment with the project's purpose.**
+
+Snackbox is an employee snack purchasing and inventory management system that streamlines the process of buying snacks in the workplace.
+
+### Business Domain
+
+**Purpose**: Enable employees to purchase snacks through a self-service barcode scanning system while maintaining accurate financial tracking and inventory management.
+
+**Key Stakeholders**:
+- **Employees (Regular Users)**: Purchase snacks and track their spending
+- **Administrators**: Manage inventory, enter payments, and oversee the system
+
+### Core Functionality
+
+#### 1. Purchase System
+- Employees scan product barcodes to make purchases
+- System records each transaction
+- Purchases are tracked against the employee's account
+
+#### 2. Financial Management
+- **Spending Tracking**: Records how much each employee has spent
+- **Payment Tracking**: Records how much each employee has paid into the system
+- **Balance Calculation**: Shows current debt (spent more than paid) or credit (paid more than spent)
+- **Purchase History**: Users can view their past purchases and amounts
+- **Payment Entry**: Admins can record when employees make payments
+
+#### 3. User Roles and Permissions
+- **Regular Users**:
+  - Scan barcodes to purchase snacks
+  - View their own purchase history
+  - View their current balance (debt/credit)
+  - Make purchases that are recorded against their account
+- **Admin Users**:
+  - All regular user capabilities
+  - Enter payment transactions for employees
+  - Manage product inventory
+  - Update stock quantities
+  - Add/edit/remove products
+
+#### 4. Stock Management
+- **Two-Tier Inventory**:
+  - **Storage**: Products kept in reserve/storage area
+  - **Shelf**: Products currently available for purchase
+- **Manual Stock Updates**: Admins manually update shelf quantities (system does not auto-decrement based on purchases)
+- **Stock Tracking**: System tracks quantities in both storage and on shelf
+- **Admin Workflow**: When restocking, admin moves quantity from storage to shelf
+
+#### 5. Product and Batch Management
+- **Products**: Individual snack items with barcodes
+- **Multiple Batches**: Each product can have multiple batches
+- **Best Before Dates**: Each batch has its own expiration date
+- **Batch Tracking**: Enables:
+  - First-in-first-out (FIFO) inventory rotation
+  - Expiry management and alerts
+  - Batch-level stock tracking
+  - Removal of expired batches
+
+### Key Business Rules
+1. Purchases are recorded but do NOT automatically reduce shelf stock count
+2. Admins must manually update shelf quantities based on visual inspection
+3. Each employee has an account balance (payments minus purchases)
+4. Different batches of the same product are tracked separately by best before date
+5. Users can only see their own financial data, admins can see all users
+
+### Domain Model Concepts
+- **User/Employee**: Person who can purchase snacks
+- **Product**: A specific snack item with a barcode
+- **Batch**: A group of the same product with a specific best before date
+- **Purchase/Transaction**: A record of a user buying a product
+- **Payment**: A record of a user adding money to their account
+- **Stock Level**: Quantity available (storage vs. shelf)
+- **Balance**: User's financial standing (payments - purchases)
+
+## Technical Overview
 
 Snackbox is a modern full-stack application leveraging the .NET ecosystem with a Blazor MAUI Hybrid frontend and a .NET 10 backend orchestrated by .NET Aspire.
 
