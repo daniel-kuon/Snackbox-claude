@@ -187,6 +187,85 @@ dotnet ef database update --project src/Snackbox.Api
 dotnet ef migrations remove --project src/Snackbox.Api
 ```
 
+### Database Seeding
+
+**Always implement seed data** to provide a sensible starting dataset for development and testing.
+
+#### Using HasData in OnModelCreating
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    base.OnModelCreating(modelBuilder);
+
+    // Seed reference data
+    modelBuilder.Entity<Category>().HasData(
+        new Category { Id = 1, Name = "Electronics", CreatedAt = DateTime.UtcNow },
+        new Category { Id = 2, Name = "Books", CreatedAt = DateTime.UtcNow },
+        new Category { Id = 3, Name = "Clothing", CreatedAt = DateTime.UtcNow }
+    );
+
+    // Seed sample items
+    modelBuilder.Entity<Item>().HasData(
+        new Item { Id = 1, Name = "Laptop", CategoryId = 1, Price = 999.99m, CreatedAt = DateTime.UtcNow },
+        new Item { Id = 2, Name = "Programming Book", CategoryId = 2, Price = 49.99m, CreatedAt = DateTime.UtcNow }
+    );
+}
+```
+
+#### Seeder Service for Complex Data
+```csharp
+public class DatabaseSeeder
+{
+    private readonly ApplicationDbContext _context;
+    
+    public DatabaseSeeder(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+    
+    public async Task SeedAsync()
+    {
+        // Only seed if database is empty
+        if (await _context.Items.AnyAsync())
+            return;
+            
+        // Create sample data
+        var categories = new List<Category>
+        {
+            new() { Name = "Electronics" },
+            new() { Name = "Books" }
+        };
+        
+        await _context.Categories.AddRangeAsync(categories);
+        await _context.SaveChangesAsync();
+        
+        var items = new List<Item>
+        {
+            new() { Name = "Laptop", CategoryId = categories[0].Id, Price = 999.99m },
+            new() { Name = "Programming Book", CategoryId = categories[1].Id, Price = 49.99m }
+        };
+        
+        await _context.Items.AddRangeAsync(items);
+        await _context.SaveChangesAsync();
+    }
+}
+
+// Register and call in Program.cs
+builder.Services.AddScoped<DatabaseSeeder>();
+
+// After app.Run():
+using var scope = app.Services.CreateScope();
+var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+await seeder.SeedAsync();
+```
+
+#### What to Include in Seed Data
+- **Reference data**: Categories, statuses, types, roles
+- **Sample users**: Test accounts for different roles (development only)
+- **Representative entities**: Realistic examples of main business objects
+- **Edge cases**: Data for testing boundary conditions
+- **Localized content**: Sample data in multiple languages if applicable
+
 ## Localization Implementation
 
 ### Resource Files
@@ -334,10 +413,43 @@ builder.Build().Run();
 1. Create entity class
 2. Add DbSet to DbContext
 3. Configure in OnModelCreating
-4. Create migration
-5. Update database
-6. Add repository/service methods
-7. Write tests
+4. Add seed data using HasData or seeder service
+5. Create migration
+6. Update database
+7. Add repository/service methods
+8. Write tests
+
+## Database Seeding Best Practices
+
+### Key Principles
+- Seed data is **automatically injected** when database is created
+- Seed data should be **sensible and realistic**
+- Include both **reference data** and **sample business data**
+- Make seed data **appropriate for development and testing**
+- Keep seed data **version-controlled** with migrations
+
+### Implementation Approaches
+
+**Static Data (HasData)**
+- Use for reference data that rarely changes
+- Use for lookup tables (categories, statuses, roles)
+- Data is included in migrations
+
+**Dynamic Data (Seeder Service)**
+- Use for complex relationships
+- Use for larger sample datasets
+- Use when data needs conditional logic
+- Run after migrations on application startup
+
+### Seed Data Checklist
+- [ ] Reference/lookup tables populated
+- [ ] Sample users with different roles (dev/test only)
+- [ ] Representative business entities
+- [ ] Related entities with proper foreign keys
+- [ ] Data covers common use cases
+- [ ] Data includes edge cases for testing
+- [ ] Localized content if applicable
+- [ ] Timestamps set appropriately
 
 ## Resources and Documentation
 

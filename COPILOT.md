@@ -138,8 +138,82 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(200);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
         });
+
+        // Seed data - automatically injected when database is created
+        modelBuilder.Entity<Category>().HasData(
+            new Category { Id = 1, Name = "Electronics", CreatedAt = DateTime.UtcNow },
+            new Category { Id = 2, Name = "Books", CreatedAt = DateTime.UtcNow }
+        );
+
+        modelBuilder.Entity<Item>().HasData(
+            new Item { Id = 1, Name = "Laptop", CategoryId = 1, Price = 999.99m, CreatedAt = DateTime.UtcNow },
+            new Item { Id = 2, Name = "C# Book", CategoryId = 2, Price = 49.99m, CreatedAt = DateTime.UtcNow }
+        );
     }
 }
+```
+
+### Database Seeder Service
+```csharp
+// For complex seed data with relationships
+public class DatabaseSeeder
+{
+    private readonly ApplicationDbContext _context;
+    private readonly ILogger<DatabaseSeeder> _logger;
+
+    public DatabaseSeeder(ApplicationDbContext context, ILogger<DatabaseSeeder> logger)
+    {
+        _context = context;
+        _logger = logger;
+    }
+
+    public async Task SeedAsync()
+    {
+        if (await _context.Items.AnyAsync())
+        {
+            _logger.LogInformation("Database already seeded");
+            return;
+        }
+
+        _logger.LogInformation("Seeding database...");
+
+        var categories = new List<Category>
+        {
+            new() { Name = "Electronics", CreatedAt = DateTime.UtcNow },
+            new() { Name = "Books", CreatedAt = DateTime.UtcNow },
+            new() { Name = "Clothing", CreatedAt = DateTime.UtcNow }
+        };
+
+        await _context.Categories.AddRangeAsync(categories);
+        await _context.SaveChangesAsync();
+
+        var items = new List<Item>
+        {
+            new() { Name = "Laptop", CategoryId = categories[0].Id, Price = 999.99m, CreatedAt = DateTime.UtcNow },
+            new() { Name = "Mouse", CategoryId = categories[0].Id, Price = 29.99m, CreatedAt = DateTime.UtcNow },
+            new() { Name = "C# Programming", CategoryId = categories[1].Id, Price = 49.99m, CreatedAt = DateTime.UtcNow }
+        };
+
+        await _context.Items.AddRangeAsync(items);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Database seeded successfully");
+    }
+}
+
+// In Program.cs - register and call seeder
+builder.Services.AddScoped<DatabaseSeeder>();
+
+var app = builder.Build();
+
+// Seed database on startup
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
+}
+
+app.Run();
 ```
 
 ## Frontend Blazor Patterns

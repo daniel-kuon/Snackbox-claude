@@ -71,6 +71,7 @@ Snackbox is a modern full-stack application built with .NET technologies, featur
 2. **Follow PostgreSQL naming conventions** (lowercase, underscores)
 3. **Create indexes** for frequently queried columns
 4. **Use repositories or direct DbContext** based on complexity
+5. **Implement database seeding** with sensible seed data that is automatically injected when the database is created
 
 ### Localization
 
@@ -87,6 +88,19 @@ Snackbox is a modern full-stack application built with .NET technologies, featur
 - **Dashboard** for monitoring during development
 - **Configuration management** across services
 - **Telemetry** and logging infrastructure
+
+## Database Seeding
+
+- **Always implement seed data** for development and testing
+- **Create meaningful, realistic sample data** that represents production scenarios
+- **Seed data should be injected automatically** when the database is created or updated
+- **Use EF Core's `HasData()` method** in `OnModelCreating` for static seed data
+- **Implement a seeder service** for complex or dynamic seed data
+- **Include seed data for**:
+  - Reference data (categories, types, statuses)
+  - Sample users and roles (for development/testing)
+  - Representative business entities
+  - Test data for common scenarios
 
 ## Testing Requirements
 
