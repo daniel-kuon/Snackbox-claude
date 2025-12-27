@@ -141,13 +141,13 @@ public class ApplicationDbContext : DbContext
 
         // Seed data - automatically injected when database is created
         modelBuilder.Entity<Category>().HasData(
-            new Category { Id = 1, Name = "Electronics", CreatedAt = DateTime.UtcNow },
-            new Category { Id = 2, Name = "Books", CreatedAt = DateTime.UtcNow }
+            new Category { Id = 1, Name = "Electronics", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new Category { Id = 2, Name = "Books", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
         );
 
         modelBuilder.Entity<Item>().HasData(
-            new Item { Id = 1, Name = "Laptop", CategoryId = 1, Price = 999.99m, CreatedAt = DateTime.UtcNow },
-            new Item { Id = 2, Name = "C# Book", CategoryId = 2, Price = 49.99m, CreatedAt = DateTime.UtcNow }
+            new Item { Id = 1, Name = "Laptop", CategoryId = 1, Price = 999.99m, CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new Item { Id = 2, Name = "C# Book", CategoryId = 2, Price = 49.99m, CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
         );
     }
 }

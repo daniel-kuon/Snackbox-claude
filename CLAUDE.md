@@ -199,15 +199,15 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 
     // Seed reference data
     modelBuilder.Entity<Category>().HasData(
-        new Category { Id = 1, Name = "Electronics", CreatedAt = DateTime.UtcNow },
-        new Category { Id = 2, Name = "Books", CreatedAt = DateTime.UtcNow },
-        new Category { Id = 3, Name = "Clothing", CreatedAt = DateTime.UtcNow }
+        new Category { Id = 1, Name = "Electronics", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+        new Category { Id = 2, Name = "Books", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+        new Category { Id = 3, Name = "Clothing", CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
     );
 
     // Seed sample items
     modelBuilder.Entity<Item>().HasData(
-        new Item { Id = 1, Name = "Laptop", CategoryId = 1, Price = 999.99m, CreatedAt = DateTime.UtcNow },
-        new Item { Id = 2, Name = "Programming Book", CategoryId = 2, Price = 49.99m, CreatedAt = DateTime.UtcNow }
+        new Item { Id = 1, Name = "Laptop", CategoryId = 1, Price = 999.99m, CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+        new Item { Id = 2, Name = "Programming Book", CategoryId = 2, Price = 49.99m, CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
     );
 }
 ```
@@ -253,10 +253,16 @@ public class DatabaseSeeder
 // Register and call in Program.cs
 builder.Services.AddScoped<DatabaseSeeder>();
 
-// After app.Run():
-using var scope = app.Services.CreateScope();
-var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-await seeder.SeedAsync();
+var app = builder.Build();
+
+// Seed database on startup (before app.Run)
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
+}
+
+app.Run();
 ```
 
 #### What to Include in Seed Data
