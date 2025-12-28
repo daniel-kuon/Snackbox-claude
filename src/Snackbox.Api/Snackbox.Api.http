@@ -1,0 +1,6 @@
+@Snackbox.Api_HostAddress = http://localhost:5057
+
+GET {{Snackbox.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
