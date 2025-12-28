@@ -25,8 +25,9 @@ var api = builder.AddProject<Projects.Snackbox_Api>("api")
 
 // Add a custom resource for database reset using dotnet ef commands
 // This will appear in the Aspire dashboard and can be started manually
-var resetDb = builder.AddExecutable("reset-db", "cmd", workingDirectory: "..")
-    .WithArgs(["/c", "dotnet ef database drop --force --project src/Snackbox.Api && dotnet ef database update --project src/Snackbox.Api"])
+// Note: Working directory is set to the API project directory for proper EF Core context
+var resetDb = builder.AddExecutable("reset-db", "cmd", workingDirectory: "../Snackbox.Api")
+    .WithArgs(["/c", "dotnet ef database drop --force && dotnet ef database update"])
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
     .ExcludeFromManifest();
 
