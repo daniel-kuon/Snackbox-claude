@@ -1,0 +1,549 @@
+@page "/admin/users"
+@using Snackbox.Components.Services
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>User Management - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>User Management</h2>
+        <button class="btn btn-primary" @onclick="ShowCreateUser">
+            <span class="icon">+</span> Add User
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading users...</p>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+    else if (users != null && users.Any())
+    {
+        <div class="table-container">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Balance</th>
+                        <th>Active</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
+                    {
+                        <tr @onclick="() => NavigateToUserDetail(user.Id)" style="cursor: pointer;">
+                            <td>@user.Username</td>
+                            <td>@user.Email</td>
+                            <td>
+                                <span class="badge badge-@(user.Role.ToLower())">@user.Role</span>
+                            </td>
+                            <td class="@(user.Balance < 0 ? "text-danger" : "text-success")">
+                                €@user.Balance.ToString("F2")
+                            </td>
+                            <td>
+                                @if (user.IsActive)
+                                {
+                                    <span class="badge badge-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => NavigateToUserDetail(user.Id)">
+                                    View Details
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick:stopPropagation="true" @onclick="() => ShowEditUser(user.Id)">
+                                    Edit
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <p>No users found.</p>
+            <button class="btn btn-primary" @onclick="ShowCreateUser">Add Your First User</button>
+        </div>
+    }
+</div>
+
+@if (showCreateEditModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@(editingUserId == null ? "Create User" : "Edit User")</h3>
+                <button class="btn-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (modalError != null)
+                {
+                    <div class="alert alert-danger">@modalError</div>
+                }
+                <EditForm Model="@userForm" OnValidSubmit="@SaveUser">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label>Username</label>
+                        <InputText @bind-Value="userForm.Username" class="form-control" />
+                        <ValidationMessage For="@(() => userForm.Username)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email</label>
+                        <InputText @bind-Value="userForm.Email" class="form-control" type="email" />
+                        <ValidationMessage For="@(() => userForm.Email)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Role</label>
+                        <InputSelect @bind-Value="userForm.Role" class="form-control">
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => userForm.Role)" />
+                    </div>
+
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="userForm.IsActive" class="form-check-input" id="isActiveCheck" />
+                        <label class="form-check-label" for="isActiveCheck">
+                            Active
+                        </label>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Save
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+    }
+
+    .badge {
+        padding: 0.35em 0.65em;
+        border-radius: 0.25rem;
+        font-size: 0.875em;
+        font-weight: 500;
+    }
+
+    .badge-admin {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .badge-user {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .badge-success {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .badge-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .modal-dialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1001;
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .modal-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+    }
+
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #6c757d;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .form-check {
+        margin-bottom: 1rem;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn-outline-primary {
+        background-color: transparent;
+        color: #007bff;
+        border: 1px solid #007bff;
+    }
+
+    .btn-outline-secondary {
+        background-color: transparent;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .text-danger {
+        color: #dc3545;
+    }
+
+    .text-success {
+        color: #28a745;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .spinner-border {
+        width: 2rem;
+        height: 2rem;
+        border: 0.25em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        animation: spinner-border 0.75s linear infinite;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.2em;
+    }
+
+    @@keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+    }
+</style>
+
+@code {
+    private List<UserDto>? users;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool showCreateEditModal = false;
+    private int? editingUserId = null;
+    private UserFormModel userForm = new();
+    private string? modalError;
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load users: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NavigateToUserDetail(int userId)
+    {
+        Navigation.NavigateTo($"/admin/users/{userId}");
+    }
+
+    private void ShowCreateUser()
+    {
+        editingUserId = null;
+        userForm = new UserFormModel { IsActive = true, Role = "User" };
+        modalError = null;
+        showCreateEditModal = true;
+    }
+
+    private async Task ShowEditUser(int userId)
+    {
+        editingUserId = userId;
+        modalError = null;
+
+        try
+        {
+            var user = await Http.GetFromJsonAsync<UserDto>($"api/users/{userId}");
+            if (user != null)
+            {
+                userForm = new UserFormModel
+                {
+                    Username = user.Username,
+                    Email = user.Email,
+                    Role = user.Role,
+                    IsActive = user.IsActive
+                };
+                showCreateEditModal = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load user: {ex.Message}";
+        }
+    }
+
+    private async Task SaveUser()
+    {
+        isSaving = true;
+        modalError = null;
+
+        try
+        {
+            if (editingUserId == null)
+            {
+                // Create new user
+                var response = await Http.PostAsJsonAsync("api/users", new
+                {
+                    username = userForm.Username,
+                    email = userForm.Email,
+                    role = userForm.Role,
+                    isActive = userForm.IsActive
+                });
+
+                if (response.IsSuccessStatusCode)
+                {
+                    CloseModal();
+                    await LoadUsers();
+                }
+                else
+                {
+                    modalError = "Failed to create user. Please try again.";
+                }
+            }
+            else
+            {
+                // Update existing user
+                var response = await Http.PutAsJsonAsync($"api/users/{editingUserId}", new
+                {
+                    username = userForm.Username,
+                    email = userForm.Email,
+                    role = userForm.Role,
+                    isActive = userForm.IsActive
+                });
+
+                if (response.IsSuccessStatusCode)
+                {
+                    CloseModal();
+                    await LoadUsers();
+                }
+                else
+                {
+                    modalError = "Failed to update user. Please try again.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void CloseModal()
+    {
+        showCreateEditModal = false;
+        editingUserId = null;
+        userForm = new();
+        modalError = null;
+    }
+
+    private class UserFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Username { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Role { get; set; } = "User";
+
+        public bool IsActive { get; set; } = true;
+    }
+
+    private class UserDto
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public decimal Balance { get; set; }
+    }
+}

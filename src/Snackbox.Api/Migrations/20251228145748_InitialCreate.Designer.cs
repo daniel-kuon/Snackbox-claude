@@ -12,7 +12,7 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251227213040_InitialCreate")]
+    [Migration("20251228145748_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -53,6 +53,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
+                    b.Property<bool>("IsLoginOnly")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_login_only");
+
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
@@ -74,6 +78,7 @@ namespace Snackbox.Api.Migrations
                             Code = "USER2-5EUR",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsLoginOnly = false,
                             UserId = 2
                         },
                         new
@@ -83,6 +88,7 @@ namespace Snackbox.Api.Migrations
                             Code = "USER2-10EUR",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsLoginOnly = false,
                             UserId = 2
                         },
                         new
@@ -92,6 +98,7 @@ namespace Snackbox.Api.Migrations
                             Code = "USER3-5EUR",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsLoginOnly = false,
                             UserId = 3
                         },
                         new
@@ -101,6 +108,37 @@ namespace Snackbox.Api.Migrations
                             Code = "USER3-10EUR",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
+                            IsLoginOnly = false,
+                            UserId = 3
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Amount = 0m,
+                            Code = "ADMIN-LOGIN",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsLoginOnly = true,
+                            UserId = 1
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Amount = 0m,
+                            Code = "USER2-LOGIN",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsLoginOnly = true,
+                            UserId = 2
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Amount = 0m,
+                            Code = "USER3-LOGIN",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            IsLoginOnly = true,
                             UserId = 3
                         });
                 });

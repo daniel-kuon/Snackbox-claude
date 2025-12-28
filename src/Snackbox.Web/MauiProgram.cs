@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Snackbox.Components.Services;
 using Snackbox.Web.Services;
 
 namespace Snackbox.Web;
@@ -17,6 +18,10 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 
+		// Register storage service (MAUI secure storage)
+		builder.Services.AddSingleton<IStorageService>(sp =>
+			new MauiStorageService(SecureStorage.Default));
+
 		// Register HttpClient for API calls
 		builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
 		{
@@ -24,9 +29,6 @@ public static class MauiProgram
 			// This should be configurable based on environment
 			client.BaseAddress = new Uri("https://localhost:7000"); // Update with your API URL
 		});
-
-		// Register secure storage
-		builder.Services.AddSingleton<ISecureStorage>(SecureStorage.Default);
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

@@ -1,4 +1,4 @@
-﻿namespace Snackbox.Web.Services;
+﻿namespace Snackbox.Components.Services;
 
 public interface IAuthenticationService
 {

@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Snackbox.Api\Snackbox.Api.csproj" />
+    <ProjectReference Include="..\Snackbox.BlazorServer\Snackbox.BlazorServer.csproj" />
   </ItemGroup>
 
 </Project>

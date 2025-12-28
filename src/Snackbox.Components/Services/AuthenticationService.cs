@@ -1,19 +1,19 @@
 ﻿using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace Snackbox.Web.Services;
+namespace Snackbox.Components.Services;
 
 public class AuthenticationService : IAuthenticationService
 {
     private readonly HttpClient _httpClient;
-    private readonly ISecureStorage _secureStorage;
+    private readonly IStorageService _storageService;
     private const string TokenKey = "auth_token";
     private const string UserInfoKey = "user_info";
 
-    public AuthenticationService(HttpClient httpClient, ISecureStorage secureStorage)
+    public AuthenticationService(HttpClient httpClient, IStorageService storageService)
     {
         _httpClient = httpClient;
-        _secureStorage = secureStorage;
+        _storageService = storageService;
     }
 
     public async Task<LoginResult> LoginAsync(string barcodeValue)
@@ -29,8 +29,8 @@ public class AuthenticationService : IAuthenticationService
                 if (loginResponse != null)
                 {
                     // Store token and user info securely
-                    await _secureStorage.SetAsync(TokenKey, loginResponse.Token);
-                    await _secureStorage.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
+                    await _storageService.SetAsync(TokenKey, loginResponse.Token);
+                    await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
 
                     return new LoginResult
                     {
@@ -62,8 +62,8 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task LogoutAsync()
     {
-        _secureStorage.Remove(TokenKey);
-        _secureStorage.Remove(UserInfoKey);
+        _storageService.Remove(TokenKey);
+        _storageService.Remove(UserInfoKey);
         await Task.CompletedTask;
     }
 
@@ -77,7 +77,7 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
-            return await _secureStorage.GetAsync(TokenKey);
+            return await _storageService.GetAsync(TokenKey);
         }
         catch
         {
