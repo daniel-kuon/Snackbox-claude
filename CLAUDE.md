@@ -95,9 +95,6 @@ Snackbox is a modern full-stack application leveraging the .NET ecosystem with a
 - **Deployment Targets**:
   - Web (Blazor WebAssembly or Blazor Server)
   - Windows (WinUI)
-  - macOS
-  - iOS
-  - Android
 - **Components**: Shared Razor components across all platforms
 - **State Management**: Built-in Blazor state or Fluxor for complex scenarios
 - **Localization**: IStringLocalizer with English as default
@@ -208,18 +205,13 @@ dotnet test
 ```csharp
 #if WINDOWS
 // Windows-specific code
-#elif ANDROID
-// Android-specific code
-#elif IOS
-// iOS-specific code
 #endif
 ```
 
 ### Web vs Native Considerations
 - Use `IJSRuntime` carefully (may not work in all contexts)
 - Abstract platform-specific features behind interfaces
-- Test on multiple platforms regularly
-- Consider offline scenarios for mobile
+- Test on web and Windows platforms
 
 ### Component Structure
 ```razor
@@ -455,7 +447,6 @@ builder.Build().Run();
 - **Database**: Use async methods, add appropriate indexes
 - **API**: Implement caching where appropriate
 - **Blazor**: Use virtualization for large lists
-- **Mobile**: Minimize bundle size, lazy load components
 - **Aspire**: Leverage built-in health checks and telemetry
 
 ## Deployment
@@ -467,7 +458,7 @@ builder.Build().Run();
 ### Production
 - Deploy API as container or App Service
 - Deploy web app as static site or Blazor Server
-- Mobile apps via app stores
+- Windows app as standalone executable or MSIX package
 - Use managed PostgreSQL service
 - Configure Aspire for production orchestration
 
@@ -487,7 +478,7 @@ builder.Build().Run();
 3. Add localization resources
 4. Implement component logic
 5. Write bUnit tests
-6. Test on web and mobile
+6. Test on web and Windows
 
 ### Adding a New Database Entity
 1. Create entity class
