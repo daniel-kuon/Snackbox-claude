@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Trace;
 using Snackbox.Api.Data;
 using Snackbox.Api.DTOs;
 using Snackbox.Api.Telemetry;
@@ -105,13 +106,7 @@ public class AuthenticationService : IAuthenticationService
                 new KeyValuePair<string, object?>("reason", "exception"));
             
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.AddEvent(new ActivityEvent("exception",
-                tags: new ActivityTagsCollection
-                {
-                    { "exception.type", ex.GetType().FullName },
-                    { "exception.message", ex.Message },
-                    { "exception.stacktrace", ex.StackTrace }
-                }));
+            activity?.AddException(ex);
             
             throw;
         }
