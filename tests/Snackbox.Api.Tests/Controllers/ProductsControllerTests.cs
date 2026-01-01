@@ -6,6 +6,7 @@ using Snackbox.Api.Controllers;
 using Snackbox.Api.Data;
 using Snackbox.Api.DTOs;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 using Xunit;
 
 namespace Snackbox.Api.Tests.Controllers;
@@ -23,7 +24,8 @@ public class ProductsControllerTests : IDisposable
 
         _context = new ApplicationDbContext(options);
         var logger = new Mock<ILogger<ProductsController>>();
-        _controller = new ProductsController(_context, logger.Object);
+        var stockCalculation = new StockCalculationService();
+        _controller = new ProductsController(_context, logger.Object, stockCalculation);
 
         SeedTestData();
     }

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.DTOs;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
 
@@ -14,11 +15,13 @@ public class ShelvingActionsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ShelvingActionsController> _logger;
+    private readonly IStockCalculationService _stockCalculation;
 
-    public ShelvingActionsController(ApplicationDbContext context, ILogger<ShelvingActionsController> logger)
+    public ShelvingActionsController(ApplicationDbContext context, ILogger<ShelvingActionsController> logger, IStockCalculationService stockCalculation)
     {
         _context = context;
         _logger = logger;
+        _stockCalculation = stockCalculation;
     }
 
     [HttpGet]
@@ -136,11 +139,7 @@ public class ShelvingActionsController : ControllerBase
                 // Validate stock availability for certain action types
                 if (actionType == ShelvingActionType.MovedToShelf)
                 {
-                    var storageQty = batch.ShelvingActions
-                        .Where(sa => sa.Type == ShelvingActionType.AddedToStorage || sa.Type == ShelvingActionType.MovedFromShelf)
-                        .Sum(sa => sa.Quantity) - batch.ShelvingActions
-                        .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.RemovedFromStorage)
-                        .Sum(sa => sa.Quantity);
+                    var storageQty = _stockCalculation.CalculateStorageQuantity(batch.ShelvingActions);
 
                     if (action.Quantity > storageQty)
                     {
@@ -150,11 +149,7 @@ public class ShelvingActionsController : ControllerBase
                 }
                 else if (actionType == ShelvingActionType.MovedFromShelf || actionType == ShelvingActionType.RemovedFromShelf)
                 {
-                    var shelfQty = batch.ShelvingActions
-                        .Where(sa => sa.Type == ShelvingActionType.MovedToShelf)
-                        .Sum(sa => sa.Quantity) - batch.ShelvingActions
-                        .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
-                        .Sum(sa => sa.Quantity);
+                    var shelfQty = _stockCalculation.CalculateShelfQuantity(batch.ShelvingActions);
 
                     if (action.Quantity > shelfQty)
                     {
@@ -248,11 +243,7 @@ public class ShelvingActionsController : ControllerBase
         // Validate stock availability
         if (actionType == ShelvingActionType.MovedToShelf)
         {
-            var storageQty = batch.ShelvingActions
-                .Where(sa => sa.Type == ShelvingActionType.AddedToStorage || sa.Type == ShelvingActionType.MovedFromShelf)
-                .Sum(sa => sa.Quantity) - batch.ShelvingActions
-                .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.RemovedFromStorage)
-                .Sum(sa => sa.Quantity);
+            var storageQty = _stockCalculation.CalculateStorageQuantity(batch.ShelvingActions);
 
             if (dto.Quantity > storageQty)
             {
@@ -261,11 +252,7 @@ public class ShelvingActionsController : ControllerBase
         }
         else if (actionType == ShelvingActionType.MovedFromShelf || actionType == ShelvingActionType.RemovedFromShelf)
         {
-            var shelfQty = batch.ShelvingActions
-                .Where(sa => sa.Type == ShelvingActionType.MovedToShelf)
-                .Sum(sa => sa.Quantity) - batch.ShelvingActions
-                .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
-                .Sum(sa => sa.Quantity);
+            var shelfQty = _stockCalculation.CalculateShelfQuantity(batch.ShelvingActions);
 
             if (dto.Quantity > shelfQty)
             {

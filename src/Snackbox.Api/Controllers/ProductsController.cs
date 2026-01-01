@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.DTOs;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
 
@@ -14,11 +15,13 @@ public class ProductsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ProductsController> _logger;
+    private readonly IStockCalculationService _stockCalculation;
 
-    public ProductsController(ApplicationDbContext context, ILogger<ProductsController> logger)
+    public ProductsController(ApplicationDbContext context, ILogger<ProductsController> logger, IStockCalculationService stockCalculation)
     {
         _context = context;
         _logger = logger;
+        _stockCalculation = stockCalculation;
     }
 
     [HttpGet]
@@ -202,16 +205,8 @@ public class ProductsController : ControllerBase
         {
             BatchId = b.Id,
             BestBeforeDate = b.BestBeforeDate,
-            QuantityInStorage = b.ShelvingActions
-                .Where(sa => sa.Type == ShelvingActionType.AddedToStorage || sa.Type == ShelvingActionType.MovedFromShelf)
-                .Sum(sa => sa.Quantity) - b.ShelvingActions
-                .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.RemovedFromStorage)
-                .Sum(sa => sa.Quantity),
-            QuantityOnShelf = b.ShelvingActions
-                .Where(sa => sa.Type == ShelvingActionType.MovedToShelf)
-                .Sum(sa => sa.Quantity) - b.ShelvingActions
-                .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
-                .Sum(sa => sa.Quantity)
+            QuantityInStorage = _stockCalculation.CalculateStorageQuantity(b.ShelvingActions),
+            QuantityOnShelf = _stockCalculation.CalculateShelfQuantity(b.ShelvingActions)
         }).ToList();
 
         var dto = new ProductStockDto
@@ -243,16 +238,8 @@ public class ProductsController : ControllerBase
             {
                 BatchId = b.Id,
                 BestBeforeDate = b.BestBeforeDate,
-                QuantityInStorage = b.ShelvingActions
-                    .Where(sa => sa.Type == ShelvingActionType.AddedToStorage || sa.Type == ShelvingActionType.MovedFromShelf)
-                    .Sum(sa => sa.Quantity) - b.ShelvingActions
-                    .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.RemovedFromStorage)
-                    .Sum(sa => sa.Quantity),
-                QuantityOnShelf = b.ShelvingActions
-                    .Where(sa => sa.Type == ShelvingActionType.MovedToShelf)
-                    .Sum(sa => sa.Quantity) - b.ShelvingActions
-                    .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
-                    .Sum(sa => sa.Quantity)
+                QuantityInStorage = _stockCalculation.CalculateStorageQuantity(b.ShelvingActions),
+                QuantityOnShelf = _stockCalculation.CalculateShelfQuantity(b.ShelvingActions)
             }).ToList();
 
             return new ProductStockDto
