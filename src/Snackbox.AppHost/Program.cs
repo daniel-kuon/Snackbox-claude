@@ -14,7 +14,9 @@ var loki = builder.AddContainer("loki", "grafana/loki", "3.0.0")
 var tempo = builder.AddContainer("tempo", "grafana/tempo", "2.5.0")
     .WithHttpEndpoint(port: 3200, targetPort: 3200, name: "http")
     .WithHttpEndpoint(port: 4317, targetPort: 4317, name: "otlp-grpc")
-    .WithHttpEndpoint(port: 4318, targetPort: 4318, name: "otlp-http");
+    .WithHttpEndpoint(port: 4318, targetPort: 4318, name: "otlp-http")
+    .WithBindMount("./tempo-config.yaml", "/etc/tempo.yaml")
+    .WithArgs("-config.file=/etc/tempo.yaml");
 
 // Prometheus for metrics
 var prometheus = builder.AddContainer("prometheus", "prom/prometheus", "v2.54.1")
