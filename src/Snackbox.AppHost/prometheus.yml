@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs: []
+# Static scraping has been disabled.
+# Metrics are provided via OTLP push-based collection (otlp-write-receiver).

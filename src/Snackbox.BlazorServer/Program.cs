@@ -1,8 +1,19 @@
 using Snackbox.BlazorServer.Components;
 using Snackbox.BlazorServer.Services;
 using Snackbox.Components.Services;
+using Snackbox.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add OpenTelemetry configuration for Blazor Server
+builder.Services.AddOpenTelemetryConfiguration(
+    builder.Configuration,
+    "Snackbox.BlazorServer",
+    "1.0.0");
+
+builder.Logging.AddOpenTelemetryLogging(
+    builder.Configuration,
+    "Snackbox.BlazorServer");
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

@@ -2,6 +2,35 @@
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+// Add Observability Stack using Docker containers
+
+// Loki for logs
+var loki = builder.AddContainer("loki", "grafana/loki", "3.0.0")
+    .WithHttpEndpoint(port: 3100, targetPort: 3100, name: "http")
+    .WithBindMount("./loki-config.yaml", "/etc/loki/local-config.yaml")
+    .WithArgs("-config.file=/etc/loki/local-config.yaml");
+
+// Tempo for traces
+var tempo = builder.AddContainer("tempo", "grafana/tempo", "2.5.0")
+    .WithHttpEndpoint(port: 3200, targetPort: 3200, name: "http")
+    .WithHttpEndpoint(port: 4317, targetPort: 4317, name: "otlp-grpc")
+    .WithHttpEndpoint(port: 4318, targetPort: 4318, name: "otlp-http")
+    .WithBindMount("./tempo-config.yaml", "/etc/tempo.yaml")
+    .WithArgs("-config.file=/etc/tempo.yaml");
+
+// Prometheus for metrics
+var prometheus = builder.AddContainer("prometheus", "prom/prometheus", "v2.54.1")
+    .WithHttpEndpoint(port: 9090, targetPort: 9090, name: "http")
+    .WithBindMount("./prometheus.yml", "/etc/prometheus/prometheus.yml")
+    .WithArgs("--config.file=/etc/prometheus/prometheus.yml", "--enable-feature=otlp-write-receiver");
+
+// Grafana for visualization
+var grafana = builder.AddContainer("grafana", "grafana/grafana", "11.3.0")
+    .WithHttpEndpoint(port: 3000, targetPort: 3000, name: "http")
+    .WithEnvironment("GF_AUTH_ANONYMOUS_ENABLED", "true")
+    .WithEnvironment("GF_AUTH_ANONYMOUS_ORG_ROLE", "Admin")
+    .WithEnvironment("GF_AUTH_DISABLE_LOGIN_FORM", "true");
+
 IResourceBuilder<ParameterResource>? postgresPassword =
     builder.AddParameter("postgresspassword",
                          "postgresspassword",
@@ -18,12 +47,16 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
 var api = builder.AddProject<Projects.Snackbox_Api>("api")
     .WithReference(postgres)
     .WaitFor(postgres)
+    .WaitFor(tempo)
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://tempo:4317")
     .WithExternalHttpEndpoints();
 
 // Add Blazor Server web application
 var web = builder.AddProject<Projects.Snackbox_BlazorServer>("web")
     .WithReference(api)
     .WaitFor(api)
+    .WaitFor(tempo)
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://tempo:4317")
     .WithExternalHttpEndpoints();
 
 // Note: Windows native MAUI app should be run separately from Visual Studio/Rider
