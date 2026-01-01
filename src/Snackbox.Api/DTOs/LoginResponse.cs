@@ -7,4 +7,5 @@ public class LoginResponse
     public required string Email { get; set; }
     public bool IsAdmin { get; set; }
     public int UserId { get; set; }
+    public string PreferredLanguage { get; set; } = "en";
 }

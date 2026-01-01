@@ -7,6 +7,7 @@ public class User
     public required string Email { get; set; }
     public string? PasswordHash { get; set; } // Optional - if null, user can only login with barcode
     public bool IsAdmin { get; set; }
+    public string PreferredLanguage { get; set; } = "en"; // Default to English, supports "en" and "de"
     public DateTime CreatedAt { get; set; }
 
     // Navigation properties

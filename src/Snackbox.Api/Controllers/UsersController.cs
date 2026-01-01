@@ -14,6 +14,7 @@ public class UsersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<UsersController> _logger;
+    private static readonly string[] SupportedLanguages = { "en", "de" };
 
     public UsersController(ApplicationDbContext context, ILogger<UsersController> logger)
     {
@@ -34,6 +35,7 @@ public class UsersController : ControllerBase
                 Username = u.Username,
                 Email = u.Email,
                 IsAdmin = u.IsAdmin,
+                PreferredLanguage = u.PreferredLanguage,
                 Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount),
                 CreatedAt = u.CreatedAt
             })
@@ -62,6 +64,7 @@ public class UsersController : ControllerBase
             Username = user.Username,
             Email = user.Email,
             IsAdmin = user.IsAdmin,
+            PreferredLanguage = user.PreferredLanguage,
             Balance = user.Payments.Sum(p => p.Amount) - user.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount),
             CreatedAt = user.CreatedAt
         };
@@ -105,6 +108,7 @@ public class UsersController : ControllerBase
             Username = user.Username,
             Email = user.Email,
             IsAdmin = user.IsAdmin,
+            PreferredLanguage = user.PreferredLanguage,
             Balance = 0,
             CreatedAt = user.CreatedAt
         };
@@ -150,6 +154,7 @@ public class UsersController : ControllerBase
             Username = user.Username,
             Email = user.Email,
             IsAdmin = user.IsAdmin,
+            PreferredLanguage = user.PreferredLanguage,
             Balance = user.Payments.Sum(p => p.Amount) - user.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount),
             CreatedAt = user.CreatedAt
         };
@@ -183,4 +188,36 @@ public class UsersController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpPatch("{id}/language")]
+    public async Task<ActionResult> UpdateLanguage(int id, [FromBody] UpdateLanguageDto dto)
+    {
+        var user = await _context.Users.FindAsync(id);
+
+        if (user == null)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        // Validate language code against supported languages
+        if (!SupportedLanguages.Contains(dto.PreferredLanguage))
+        {
+            return BadRequest(new { 
+                message = $"Invalid language code. Supported languages: {string.Join(", ", SupportedLanguages)}" 
+            });
+        }
+
+        user.PreferredLanguage = dto.PreferredLanguage;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("User language updated: {UserId} - {Username} - Language: {Language}", 
+            user.Id, user.Username, user.PreferredLanguage);
+
+        return Ok(new { message = "Language preference updated successfully", preferredLanguage = user.PreferredLanguage });
+    }
+}
+
+public class UpdateLanguageDto
+{
+    public required string PreferredLanguage { get; set; }
 }

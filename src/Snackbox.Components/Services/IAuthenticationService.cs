@@ -17,5 +17,6 @@ public class LoginResult
     public string? Email { get; set; }
     public bool IsAdmin { get; set; }
     public int UserId { get; set; }
+    public string PreferredLanguage { get; set; } = "en";
     public string? ErrorMessage { get; set; }
 }

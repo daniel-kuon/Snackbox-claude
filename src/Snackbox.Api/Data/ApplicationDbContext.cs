@@ -85,6 +85,7 @@ public class ApplicationDbContext : DbContext
                 Email = "admin@snackbox.com",
                 PasswordHash = "$2a$11$hashedpassword", // In real app, use proper password hashing
                 IsAdmin = true,
+                PreferredLanguage = "en",
                 CreatedAt = seedDate
             },
             new User
@@ -94,6 +95,7 @@ public class ApplicationDbContext : DbContext
                 Email = "john.doe@company.com",
                 PasswordHash = "$2a$11$hashedpassword",
                 IsAdmin = false,
+                PreferredLanguage = "en",
                 CreatedAt = seedDate
             },
             new User
@@ -103,6 +105,7 @@ public class ApplicationDbContext : DbContext
                 Email = "jane.smith@company.com",
                 PasswordHash = null, // Barcode-only login - no password set
                 IsAdmin = false,
+                PreferredLanguage = "de", // German speaker for testing
                 CreatedAt = seedDate
             }
         );

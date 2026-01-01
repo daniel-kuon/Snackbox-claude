@@ -18,6 +18,10 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 
+		// Register localization services
+		builder.Services.AddLocalization();
+		builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
+
 		builder.Services.AddSingleton<WindowsScannerListener>();
 		builder.Services.AddSingleton<AppStateService>();
 

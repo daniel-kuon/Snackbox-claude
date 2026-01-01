@@ -8,6 +8,7 @@ public class ScannerService : IScannerService
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly ILocalizationService _localizationService;
     private System.Timers.Timer? _timeoutTimer;
 
     public event Action<PurchaseSession>? OnPurchaseStarted;
@@ -19,10 +20,11 @@ public class ScannerService : IScannerService
     public bool IsSessionActive => CurrentSession != null;
     public int TimeoutSeconds { get; }
 
-    public ScannerService(HttpClient httpClient, IConfiguration configuration)
+    public ScannerService(HttpClient httpClient, IConfiguration configuration, ILocalizationService localizationService)
     {
         _httpClient = httpClient;
         _configuration = configuration;
+        _localizationService = localizationService;
         TimeoutSeconds = configuration.GetValue<int>("Scanner:TimeoutSeconds", 60);
     }
 
@@ -93,6 +95,7 @@ public class ScannerService : IScannerService
             {
                 UserId = result.UserId.ToString(),
                 UserName = result.Username,
+                PreferredLanguage = result.PreferredLanguage,
                 OpenAmount = result.Balance,
                 LastPaymentAmount = result.LastPaymentAmount,
                 LastPaymentDate = result.LastPaymentDate,
@@ -104,6 +107,9 @@ public class ScannerService : IScannerService
                 }).ToList(),
                 StartTime = result.ScannedBarcodes.FirstOrDefault()?.ScannedAt ?? DateTime.UtcNow
             };
+
+            // Update language if user's preferred language differs from current
+            _localizationService.SetCulture(result.PreferredLanguage);
 
             // Determine if this is a new purchase or update
             if (!wasActive || previousUserId != CurrentSession.UserId)
@@ -139,6 +145,10 @@ public class ScannerService : IScannerService
     {
         StopTimeoutTimer();
         CurrentSession = null;
+        
+        // Reset language to English on timeout
+        _localizationService.SetCulture("en");
+        
         OnPurchaseTimeout?.Invoke();
     }
 
@@ -174,6 +184,7 @@ public class ScannerService : IScannerService
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
         public bool IsAdmin { get; set; }
+        public string PreferredLanguage { get; set; } = "en";
         public int PurchaseId { get; set; }
         public List<ScannedBarcodeDto> ScannedBarcodes { get; set; } = new();
         public decimal TotalAmount { get; set; }

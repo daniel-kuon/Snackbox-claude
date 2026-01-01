@@ -160,6 +160,7 @@ public class ScannerController : ControllerBase
             UserId = user.Id,
             Username = user.Username,
             IsAdmin = user.IsAdmin,
+            PreferredLanguage = user.PreferredLanguage,
             PurchaseId = currentPurchase.Id,
             ScannedBarcodes = currentPurchase.Scans
                 .OrderBy(s => s.ScannedAt)

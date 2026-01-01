@@ -2,19 +2,23 @@
 @page "/login"
 @using System.ComponentModel.DataAnnotations
 @using Snackbox.Components.Services
+@using Microsoft.Extensions.Localization
+@using Snackbox.Components.Resources
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
 @inject HttpClient Http
+@inject ILocalizationService LocalizationService
+@inject IStringLocalizer<SharedResources> Localizer
 
-<PageTitle>Login - Snackbox</PageTitle>
+<PageTitle>@Localizer["Login.Title"] - Snackbox</PageTitle>
 
 <div class="login-container">
     <div class="login-card">
-        <h2>Snackbox Login</h2>
+        <h2>@Localizer["Login.Title"]</h2>
 
         @if (setupPasswordMode)
         {
-            <p class="login-subtitle">Setup your password</p>
+            <p class="login-subtitle">@Localizer["PasswordSetup.Title"]</p>
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <div class="alert alert-danger" role="alert">@errorMessage</div>
@@ -87,7 +91,7 @@
         }
         else
         {
-            <p class="login-subtitle">Login with password or scan your barcode</p>
+            <p class="login-subtitle">@Localizer["Login.Subtitle"]</p>
 
             <p>@loginMode</p>
 
@@ -101,12 +105,12 @@
                 <button type="button"
                         class="tab-button @(loginMode == "password" ? "active" : "")"
                         @onclick='() => SwitchLoginMode("password")'>
-                    Password
+                    @Localizer["Login.TabPassword"]
                 </button>
                 <button type="button"
                         class="tab-button @(loginMode == "barcode" ? "active" : "")"
                         @onclick='() => SwitchLoginMode("barcode")'>
-                    Barcode
+                    @Localizer["Login.TabBarcode"]
                 </button>
             </div>
 
@@ -417,6 +421,8 @@
 
             if (result.Success)
             {
+                // Set the culture based on user's preferred language
+                LocalizationService.SetCulture(result.PreferredLanguage);
                 Navigation.NavigateTo("/admin/users", forceLoad: true);
             }
             else
@@ -455,6 +461,9 @@
 
             if (result.Success)
             {
+                // Set the culture based on user's preferred language
+                LocalizationService.SetCulture(result.PreferredLanguage);
+                
                 // Check if user has a password
                 var hasPassword = await CheckUserHasPassword(result.Username!);
 

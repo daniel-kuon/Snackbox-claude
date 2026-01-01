@@ -39,7 +39,8 @@ public class AuthenticationService : IAuthenticationService
                         Username = loginResponse.Username,
                         Email = loginResponse.Email,
                         IsAdmin = loginResponse.IsAdmin,
-                        UserId = loginResponse.UserId
+                        UserId = loginResponse.UserId,
+                        PreferredLanguage = loginResponse.PreferredLanguage
                     };
                 }
             }
@@ -83,7 +84,8 @@ public class AuthenticationService : IAuthenticationService
                         Username = loginResponse.Username,
                         Email = loginResponse.Email,
                         IsAdmin = loginResponse.IsAdmin,
-                        UserId = loginResponse.UserId
+                        UserId = loginResponse.UserId,
+                        PreferredLanguage = loginResponse.PreferredLanguage
                     };
                 }
             }
@@ -136,5 +138,6 @@ public class AuthenticationService : IAuthenticationService
         public string Email { get; set; } = string.Empty;
         public bool IsAdmin { get; set; }
         public int UserId { get; set; }
+        public string PreferredLanguage { get; set; } = "en";
     }
 }

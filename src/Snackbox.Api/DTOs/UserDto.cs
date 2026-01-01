@@ -6,6 +6,7 @@ public class UserDto
     public required string Username { get; set; }
     public required string Email { get; set; }
     public bool IsAdmin { get; set; }
+    public string PreferredLanguage { get; set; } = "en";
     public decimal Balance { get; set; }
     public DateTime CreatedAt { get; set; }
 }
