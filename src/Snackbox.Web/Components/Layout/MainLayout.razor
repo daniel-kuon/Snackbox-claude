@@ -1,17 +1,44 @@
 ﻿@inherits LayoutComponentBase
+@using Snackbox.Web.Services
+@inject AppStateService AppState
+@implements IDisposable
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+    @if (AppState.ShowNavbar)
+    {
+        <div class="sidebar">
+            <NavMenu />
         </div>
+    }
 
+    <main class="@(AppState.ShowNavbar ? "" : "fullscreen")">
         <article class="content px-4">
             @Body
         </article>
     </main>
 </div>
+
+<style>
+    main.fullscreen {
+        width: 100%;
+        padding: 0;
+    }
+
+    main.fullscreen .content {
+        padding: 0 !important;
+        max-width: 100%;
+    }
+</style>
+
+@code {
+    protected override void OnInitialized()
+    {
+        AppState.OnChange += StateHasChanged;
+
+    }
+
+    public void Dispose()
+    {
+        AppState.OnChange -= StateHasChanged;
+    }
+}

@@ -101,7 +101,7 @@ public class ApplicationDbContext : DbContext
                 Id = 3,
                 Username = "jane.smith",
                 Email = "jane.smith@company.com",
-                PasswordHash = "$2a$11$hashedpassword",
+                PasswordHash = null, // Barcode-only login - no password set
                 IsAdmin = false,
                 CreatedAt = seedDate
             }

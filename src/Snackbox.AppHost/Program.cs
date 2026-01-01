@@ -62,13 +62,10 @@ var web = builder.AddProject<Projects.Snackbox_BlazorServer>("web")
 // Note: Windows native MAUI app should be run separately from Visual Studio/Rider
 // Run using: dotnet run --project src/Snackbox.Web -f net10.0-windows10.0.19041.0
 
-var windowsMaui = builder.AddExecutable("maui-windows",
-    "dotnet",
-    workingDirectory: "../Snackbox.Web")
+var nativeApp = builder.AddExecutable("native-app", "dotnet", workingDirectory: "../Snackbox.Web")
     .WithArgs(["run", "-f", "net10.0-windows10.0.19041.0"])
     .WithReference(api)
-    .WaitFor(api)
-    .ExcludeFromManifest(); // Exclude from manifest as it's not cross-platform
+    .WaitFor(api);
 
 // Add a custom resource for database reset using dotnet ef commands
 // This will appear in the Aspire dashboard and can be started manually

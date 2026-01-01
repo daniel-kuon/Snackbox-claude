@@ -5,7 +5,7 @@
              xmlns:components="clr-namespace:Snackbox.Web.Components"
              x:Class="Snackbox.Web.MainPage">
 
-    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html" UrlLoading="OnUrlLoading">
         <BlazorWebView.RootComponents>
             <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
         </BlazorWebView.RootComponents>

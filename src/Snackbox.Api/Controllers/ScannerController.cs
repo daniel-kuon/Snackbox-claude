@@ -1,0 +1,181 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Snackbox.Api.Data;
+using Snackbox.Api.DTOs;
+using Snackbox.Api.Models;
+
+namespace Snackbox.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ScannerController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+    private readonly IConfiguration _configuration;
+    private const int DEFAULT_TIMEOUT_SECONDS = 60;
+
+    public ScannerController(ApplicationDbContext context, IConfiguration configuration)
+    {
+        _context = context;
+        _configuration = configuration;
+    }
+
+    [HttpPost("scan")]
+    public async Task<ActionResult<ScanBarcodeResponse>> ScanBarcode([FromBody] ScanBarcodeRequest request)
+    {
+        // Get timeout from configuration
+        var timeoutSeconds = _configuration.GetValue<int>("Scanner:TimeoutSeconds", DEFAULT_TIMEOUT_SECONDS);
+        var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
+
+        // Find the barcode
+        var barcode = await _context.Barcodes
+            .Include(b => b.User)
+                .ThenInclude(u => u.Payments)
+            .FirstOrDefaultAsync(b => b.Code == request.BarcodeCode);
+
+        if (barcode == null)
+        {
+            return Ok(new ScanBarcodeResponse
+            {
+                Success = false,
+                ErrorMessage = "Barcode not found",
+                UserId = 0,
+                Username = string.Empty
+            });
+        }
+
+        if (!barcode.IsActive)
+        {
+            return Ok(new ScanBarcodeResponse
+            {
+                Success = false,
+                ErrorMessage = "Barcode is inactive",
+                UserId = 0,
+                Username = string.Empty
+            });
+        }
+
+        var user = barcode.User;
+
+        // Find the last created purchase for this user
+        var lastPurchase = await _context.Purchases
+            .Include(p => p.Scans)
+                .ThenInclude(s => s.Barcode)
+            .Where(p => p.UserId == user.Id && p.CompletedAt == null)
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        Purchase currentPurchase;
+        bool isNewPurchase = false;
+
+        // Check if we should add to existing purchase or create new one
+        if (lastPurchase != null)
+        {
+            var lastScan = lastPurchase.Scans
+                .OrderByDescending(s => s.ScannedAt)
+                .FirstOrDefault();
+
+            // If last scan was within timeout window, add to existing purchase
+            if (lastScan != null && lastScan.ScannedAt >= timeoutThreshold)
+            {
+                currentPurchase = lastPurchase;
+            }
+            else
+            {
+                // Complete the old purchase and create a new one
+                if (lastPurchase.Scans.Any())
+                {
+                    lastPurchase.CompletedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Remove empty purchase
+                    _context.Purchases.Remove(lastPurchase);
+                }
+
+                currentPurchase = new Purchase
+                {
+                    UserId = user.Id,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Purchases.Add(currentPurchase);
+                isNewPurchase = true;
+            }
+        }
+        else
+        {
+            // No existing purchase, create new one
+            currentPurchase = new Purchase
+            {
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Purchases.Add(currentPurchase);
+            isNewPurchase = true;
+        }
+
+        // Add the barcode scan to the purchase
+        var barcodeScan = new BarcodeScan
+        {
+            Purchase = currentPurchase,
+            BarcodeId = barcode.Id,
+            Amount = barcode.Amount,
+            ScannedAt = DateTime.UtcNow
+        };
+        _context.BarcodeScans.Add(barcodeScan);
+
+        await _context.SaveChangesAsync();
+
+        // Reload purchase with all scans to get updated data
+        if (isNewPurchase)
+        {
+            await _context.Entry(currentPurchase)
+                .Collection(p => p.Scans)
+                .Query()
+                .Include(s => s.Barcode)
+                .LoadAsync();
+        }
+
+        // Calculate user's balance (total spent - total paid)
+        var totalSpent = await _context.BarcodeScans
+            .Where(bs => bs.Purchase.UserId == user.Id)
+            .SumAsync(bs => bs.Amount);
+
+        var totalPaid = await _context.Payments
+            .Where(p => p.UserId == user.Id)
+            .SumAsync(p => p.Amount);
+
+        var balance = totalSpent - totalPaid;
+
+        // Get last payment
+        var lastPayment = await _context.Payments
+            .Where(p => p.UserId == user.Id)
+            .OrderByDescending(p => p.PaidAt)
+            .FirstOrDefaultAsync();
+
+        // Build response
+        var response = new ScanBarcodeResponse
+        {
+            Success = true,
+            UserId = user.Id,
+            Username = user.Username,
+            IsAdmin = user.IsAdmin,
+            PurchaseId = currentPurchase.Id,
+            ScannedBarcodes = currentPurchase.Scans
+                .OrderBy(s => s.ScannedAt)
+                .Select(s => new ScannedBarcodeDto
+                {
+                    BarcodeCode = s.Barcode.Code,
+                    Amount = s.Amount,
+                    ScannedAt = s.ScannedAt
+                })
+                .ToList(),
+            TotalAmount = currentPurchase.Scans.Sum(s => s.Amount),
+            Balance = balance,
+            LastPaymentAmount = lastPayment?.Amount ?? 0,
+            LastPaymentDate = lastPayment?.PaidAt
+        };
+
+        return Ok(response);
+    }
+}

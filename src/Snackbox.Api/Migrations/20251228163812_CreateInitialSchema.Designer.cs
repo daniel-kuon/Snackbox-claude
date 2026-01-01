@@ -12,8 +12,8 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251228145748_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251228163812_CreateInitialSchema")]
+    partial class CreateInitialSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -559,7 +559,6 @@ namespace Snackbox.Api.Migrations
                         .HasColumnName("is_admin");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("password_hash");
 
@@ -604,7 +603,6 @@ namespace Snackbox.Api.Migrations
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "jane.smith@company.com",
                             IsAdmin = false,
-                            PasswordHash = "$2a$11$hashedpassword",
                             Username = "jane.smith"
                         });
                 });

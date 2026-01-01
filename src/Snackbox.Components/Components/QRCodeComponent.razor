@@ -1,0 +1,42 @@
+﻿@using Microsoft.JSInterop
+@using QRCoder
+@inject IJSRuntime JS
+
+<div class="qr-code-container">
+    @if (!string.IsNullOrEmpty(_qrCodeDataUrl))
+    {
+        <img src="@_qrCodeDataUrl" alt="QR Code" class="qr-code-image" />
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string PayPalUrl { get; set; } = string.Empty;
+
+    [Parameter]
+    public int Size { get; set; } = 300;
+
+    private string _qrCodeDataUrl = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        GenerateQRCode();
+    }
+
+    private void GenerateQRCode()
+    {
+        if (string.IsNullOrEmpty(PayPalUrl))
+        {
+            _qrCodeDataUrl = string.Empty;
+            return;
+        }
+
+        using var qrGenerator = new QRCodeGenerator();
+        using var qrCodeData = qrGenerator.CreateQrCode(PayPalUrl, QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new PngByteQRCode(qrCodeData);
+
+        var qrCodeBytes = qrCode.GetGraphic(20);
+        var base64 = Convert.ToBase64String(qrCodeBytes);
+        _qrCodeDataUrl = $"data:image/png;base64,{base64}";
+    }
+}

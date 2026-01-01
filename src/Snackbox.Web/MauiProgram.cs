@@ -18,21 +18,31 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 
+		builder.Services.AddSingleton<WindowsScannerListener>();
+		builder.Services.AddSingleton<AppStateService>();
+
 		// Register storage service (MAUI secure storage)
 		builder.Services.AddSingleton<IStorageService>(sp =>
 			new MauiStorageService(SecureStorage.Default));
 
 		// Register HttpClient for API calls
+		string clientBaseAddress = builder.Configuration["API_HTTPS"] ?? builder.Configuration["API_HTTP"] ?? "http://localhost:5057"?? throw new InvalidOperationException("API URL is not configured.");
 		builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
-		{
-			// Configure the base address for the API
-			// This should be configurable based on environment
-			client.BaseAddress = new Uri("https://localhost:7000"); // Update with your API URL
-		});
+		                                                                              {
+			                                                                              // Configure the base address for the API
+			                                                                              // This should be configurable based on environment
+			                                                                              client.BaseAddress = new Uri(clientBaseAddress);
+		                                                                              });
+
+		builder.Services.AddHttpClient<IScannerService, ScannerService>(client =>
+		                                                                {
+			                                                                client.BaseAddress = new Uri(clientBaseAddress);
+		                                                                });
+
+		builder.Logging.AddDebug();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
-		builder.Logging.AddDebug();
 #endif
 
 		return builder.Build();

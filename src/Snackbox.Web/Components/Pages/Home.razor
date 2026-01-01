@@ -1,5 +1,506 @@
-﻿@page "/"
+@page "/scan"
+@using Snackbox.Web.Services
+@using Snackbox.Components.Services
+@using Snackbox.Components.Models
+@using Snackbox.Components.Components
+@inject AppStateService AppState
+@inject WindowsScannerListener ScannerListener
+@inject IScannerService ScannerService
+@inject NavigationManager Navigation
+@implements IDisposable
 
-<h1>Hello, world!</h1>
+<PageTitle>Snackbox Scanner</PageTitle>
 
-Welcome to your new app.
+<div class="scanner-container">
+    @if (_errorMessage != null)
+    {
+        <div class="error-toast">@_errorMessage</div>
+    }
+
+    @if (!ScannerService.IsSessionActive)
+    {
+        <!-- Welcome Screen: Waiting for user to scan -->
+        <div class="scan-prompt-container">
+            <div class="scan-prompt-content">
+                <div class="scan-icon">📱</div>
+                <h1 class="scan-title">Welcome to Snackbox</h1>
+                <p class="scan-instruction">Please scan your card to continue</p>
+            </div>
+        </div>
+    }
+    else if (ScannerService.CurrentSession != null)
+    {
+        var session = ScannerService.CurrentSession;
+
+        <!-- Active Purchase Session -->
+        <div class="scanner-active" @key="session.UserId">
+            <!-- Header with user info -->
+            <div class="scanner-header">
+                <div class="user-info">
+                    <h2 class="user-name">@session.UserName</h2>
+                    <div class="user-balance">
+                        <span class="balance-label">@(session.OpenAmount > 0 ? "Open Payment:" : "Deposit:")</span>
+                        <span class="balance-amount @(session.OpenAmount > 0 ? "positive" : "negative")">
+                            @Math.Abs(session.OpenAmount).ToString("C")
+                        </span>
+                    </div>
+                </div>
+                <div class="timer-container">
+                    <div class="timer-circle">
+                        <span class="timer-text">@_remainingSeconds</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main content area -->
+            <div class="scanner-content">
+                <!-- Left side: Purchase items and totals -->
+                <div class="purchase-section">
+                    <h3 class="section-title">Scanned Amounts</h3>
+
+                    @if (session.ScannedBarcodes.Any())
+                    {
+                        <div class="items-list">
+                            @foreach (var barcode in session.ScannedBarcodes)
+                            {
+                                <div class="purchase-item">
+                                    <span class="item-name">@barcode.ScannedAt.ToString("HH:mm:ss")</span>
+                                    <span class="item-price">@barcode.Amount.ToString("C")</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="no-items">
+                            <p>Scan your personal barcodes to add amounts</p>
+                        </div>
+                    }
+
+                    <div class="purchase-total">
+                        <span class="total-label">Total:</span>
+                        <span class="total-amount">@session.TotalAmount.ToString("C")</span>
+                    </div>
+
+                    <!-- Last payment info -->
+                    @if (session.LastPaymentDate.HasValue)
+                    {
+                        <div class="last-payment">
+                            <div class="payment-label">Last Payment:</div>
+                            <div class="payment-details">
+                                <span class="payment-amount">@session.LastPaymentAmount.ToString("C")</span>
+                                <span class="payment-date">@session.LastPaymentDate.Value.ToString("dd MMM yyyy")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Right side: QR Code -->
+                <div class="qr-section">
+                    <h3 class="section-title">Pay via PayPal</h3>
+                    <div class="qr-code-wrapper">
+                        <QRCodeComponent PayPalUrl="@($"https://paypal.me/dkuon/{Math.Abs(session.OpenAmount):F2}")" Size="400" />
+                    </div>
+                    <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C")</p>
+                </div>
+            </div>
+
+            <!-- Scan instruction at bottom -->
+            <div class="scan-instruction-bottom">
+                <p>Continue scanning your personal barcodes or wait for auto-complete</p>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .scanner-container {
+        position: relative;
+        width: 100%;
+        min-height: 100vh;
+    }
+
+    .error-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #dc3545;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 1000;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @@keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .scan-prompt-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .scan-prompt-content {
+        text-align: center;
+        color: white;
+        padding: 3rem;
+    }
+
+    .scan-icon {
+        font-size: 8rem;
+        margin-bottom: 2rem;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .scan-title {
+        font-size: 3rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .scan-instruction {
+        font-size: 1.5rem;
+        opacity: 0.9;
+        font-weight: 300;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.8;
+        }
+    }
+
+    /* Active scanner styles */
+    .scanner-active {
+        padding: 2rem;
+        background: #f8f9fa;
+        min-height: 100vh;
+    }
+
+    .scanner-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .user-info h2 {
+        margin: 0 0 0.5rem 0;
+        color: #333;
+    }
+
+    .user-balance {
+        font-size: 1.2rem;
+    }
+
+    .balance-label {
+        color: #666;
+        margin-right: 0.5rem;
+    }
+
+    .balance-amount {
+        font-weight: 600;
+    }
+
+    .balance-amount.positive {
+        color: #dc3545;
+    }
+
+    .balance-amount.negative {
+        color: #28a745;
+    }
+
+    .timer-container {
+        display: flex;
+        align-items: center;
+    }
+
+    .timer-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #667eea;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .timer-text {
+        font-size: 2rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .scanner-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .purchase-section, .qr-section {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .section-title {
+        margin: 0 0 1.5rem 0;
+        color: #333;
+        font-size: 1.5rem;
+    }
+
+    .items-list {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 1.5rem;
+    }
+
+    .purchase-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .purchase-item:last-child {
+        border-bottom: none;
+    }
+
+    .item-name {
+        color: #666;
+    }
+
+    .item-price {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .no-items {
+        text-align: center;
+        padding: 2rem;
+        color: #999;
+    }
+
+    .purchase-total {
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+    }
+
+    .last-payment {
+        padding: 1rem;
+        background: #e7f3ff;
+        border-radius: 8px;
+        border-left: 4px solid #007bff;
+    }
+
+    .payment-label {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+    }
+
+    .payment-details {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .payment-amount {
+        font-weight: 600;
+        color: #007bff;
+        font-size: 1.2rem;
+    }
+
+    .payment-date {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .qr-code-wrapper {
+        display: flex;
+        justify-content: center;
+        margin: 2rem 0;
+    }
+
+    .qr-instruction {
+        text-align: center;
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .scan-instruction-bottom {
+        text-align: center;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .scan-instruction-bottom p {
+        margin: 0;
+        color: #666;
+        font-size: 1.1rem;
+    }
+</style>
+
+@code {
+    private int _remainingSeconds;
+    private System.Timers.Timer? _countdownTimer;
+    private string? _errorMessage;
+    private System.Timers.Timer? _errorTimer;
+
+    protected override void OnInitialized()
+    {
+        // Ensure navbar is hidden on home page initially
+        AppState.HideNavbar();
+
+        // Subscribe to scanner events
+        ScannerListener.CodeReceived += HandleCodeScanned;
+
+        // Subscribe to service events
+        ScannerService.OnPurchaseStarted += HandlePurchaseStarted;
+        ScannerService.OnPurchaseUpdated += HandlePurchaseUpdated;
+        ScannerService.OnPurchaseCompleted += HandlePurchaseCompleted;
+        ScannerService.OnPurchaseTimeout += HandlePurchaseTimeout;
+
+        // Start listening for scanner input
+        ScannerListener.Start();
+    }
+
+    private async void HandleCodeScanned(string code)
+    {
+        try
+        {
+            // Process the barcode through the service
+            await ScannerService.ProcessBarcodeAsync(code);
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Barcode not recognized");
+        }
+    }
+
+    private void HandlePurchaseStarted(PurchaseSession session)
+    {
+        // Keep navbar hidden for all users on this screen
+        AppState.HideNavbar();
+
+        _remainingSeconds = ScannerService.TimeoutSeconds;
+        StartCountdownTimer();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandlePurchaseUpdated(PurchaseSession session)
+    {
+        ResetCountdownTimer();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandlePurchaseCompleted()
+    {
+        StopCountdownTimer();
+        AppState.HideNavbar();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandlePurchaseTimeout()
+    {
+        StopCountdownTimer();
+        AppState.HideNavbar();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void StartCountdownTimer()
+    {
+        _countdownTimer = new System.Timers.Timer(1000);
+        _countdownTimer.Elapsed += (_, _) =>
+        {
+            _remainingSeconds--;
+            InvokeAsync(StateHasChanged);
+
+            if (_remainingSeconds <= 0)
+            {
+                StopCountdownTimer();
+            }
+        };
+        _countdownTimer.Start();
+    }
+
+    private void ResetCountdownTimer()
+    {
+        StopCountdownTimer();
+        _remainingSeconds = ScannerService.TimeoutSeconds;
+        StartCountdownTimer();
+    }
+
+    private void StopCountdownTimer()
+    {
+        if (_countdownTimer != null)
+        {
+            _countdownTimer.Stop();
+            _countdownTimer.Dispose();
+            _countdownTimer = null;
+        }
+    }
+
+    private void ShowError(string message)
+    {
+        _errorMessage = message;
+        InvokeAsync(StateHasChanged);
+
+        // Auto-hide error after 5 seconds
+        _errorTimer?.Dispose();
+        _errorTimer = new System.Timers.Timer(5000);
+        _errorTimer.Elapsed += (_, _) =>
+        {
+            _errorMessage = null;
+            InvokeAsync(StateHasChanged);
+            _errorTimer?.Dispose();
+        };
+        _errorTimer.AutoReset = false;
+        _errorTimer.Start();
+    }
+
+    public void Dispose()
+    {
+        ScannerListener.CodeReceived -= HandleCodeScanned;
+        ScannerService.OnPurchaseStarted -= HandlePurchaseStarted;
+        ScannerService.OnPurchaseUpdated -= HandlePurchaseUpdated;
+        ScannerService.OnPurchaseCompleted -= HandlePurchaseCompleted;
+        ScannerService.OnPurchaseTimeout -= HandlePurchaseTimeout;
+
+        StopCountdownTimer();
+        _errorTimer?.Dispose();
+    }
+}

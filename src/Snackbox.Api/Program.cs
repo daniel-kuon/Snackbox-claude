@@ -26,7 +26,7 @@ builder.Services.AddSwaggerGen();
 
 // Configure PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("snackboxdb")
-    ?? "Host=localhost;Database=snackbox;Username=postgres;Password=postgres";
+    ?? throw new InvalidOperationException("Database connection string 'snackboxdb' is not configured.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
@@ -106,3 +106,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Make the Program class accessible for integration tests
+public partial class Program { }
