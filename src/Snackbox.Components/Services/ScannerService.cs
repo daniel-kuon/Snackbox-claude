@@ -145,6 +145,10 @@ public class ScannerService : IScannerService
     {
         StopTimeoutTimer();
         CurrentSession = null;
+        
+        // Reset language to English on timeout
+        _localizationService.SetCulture("en");
+        
         OnPurchaseTimeout?.Invoke();
     }
 

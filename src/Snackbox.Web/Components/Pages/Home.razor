@@ -3,9 +3,13 @@
 @using Snackbox.Components.Services
 @using Snackbox.Components.Models
 @using Snackbox.Components.Components
+@using Snackbox.Components.Resources
+@using Microsoft.Extensions.Localization
 @inject AppStateService AppState
 @inject WindowsScannerListener ScannerListener
 @inject IScannerService ScannerService
+@inject ILocalizationService LocalizationService
+@inject IStringLocalizer<SharedResources> Localizer
 @inject NavigationManager Navigation
 @implements IDisposable
 
@@ -23,8 +27,8 @@
         <div class="scan-prompt-container">
             <div class="scan-prompt-content">
                 <div class="scan-icon">📱</div>
-                <h1 class="scan-title">Welcome to Snackbox</h1>
-                <p class="scan-instruction">Please scan your card to continue</p>
+                <h1 class="scan-title">@Localizer["Scanner.Welcome"]</h1>
+                <p class="scan-instruction">@Localizer["Scanner.ScanToBegin"]</p>
             </div>
         </div>
     }
@@ -56,7 +60,7 @@
             <div class="scanner-content">
                 <!-- Left side: Purchase items and totals -->
                 <div class="purchase-section">
-                    <h3 class="section-title">Scanned Amounts</h3>
+                    <h3 class="section-title">@Localizer["Scanner.ScannedAmounts"]</h3>
 
                     @if (session.ScannedBarcodes.Any())
                     {
@@ -73,12 +77,12 @@
                     else
                     {
                         <div class="no-items">
-                            <p>Scan your personal barcodes to add amounts</p>
+                            <p>@Localizer["Scanner.NoItems"]</p>
                         </div>
                     }
 
                     <div class="purchase-total">
-                        <span class="total-label">Total:</span>
+                        <span class="total-label">@Localizer["Scanner.Total"]</span>
                         <span class="total-amount">@session.TotalAmount.ToString("C")</span>
                     </div>
 
@@ -86,7 +90,7 @@
                     @if (session.LastPaymentDate.HasValue)
                     {
                         <div class="last-payment">
-                            <div class="payment-label">Last Payment:</div>
+                            <div class="payment-label">@Localizer["Scanner.LastPayment"]</div>
                             <div class="payment-details">
                                 <span class="payment-amount">@session.LastPaymentAmount.ToString("C")</span>
                                 <span class="payment-date">@session.LastPaymentDate.Value.ToString("dd MMM yyyy")</span>
@@ -97,17 +101,17 @@
 
                 <!-- Right side: QR Code -->
                 <div class="qr-section">
-                    <h3 class="section-title">Pay via PayPal</h3>
+                    <h3 class="section-title">@Localizer["Scanner.PayViaPayPal"]</h3>
                     <div class="qr-code-wrapper">
                         <QRCodeComponent PayPalUrl="@($"https://paypal.me/dkuon/{Math.Abs(session.OpenAmount):F2}")" Size="400" />
                     </div>
-                    <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C")</p>
+                    <p class="qr-instruction">@Localizer["Scanner.ScanToPay", Math.Abs(session.OpenAmount).ToString("C")]</p>
                 </div>
             </div>
 
             <!-- Scan instruction at bottom -->
             <div class="scan-instruction-bottom">
-                <p>Continue scanning your personal barcodes or wait for auto-complete</p>
+                <p>@Localizer["Scanner.ContinueScanning"]</p>
             </div>
         </div>
     }
@@ -385,6 +389,12 @@
         // Ensure navbar is hidden on home page initially
         AppState.HideNavbar();
 
+        // Reset to English when scanner screen loads (no active session)
+        if (!ScannerService.IsSessionActive)
+        {
+            LocalizationService.SetCulture("en");
+        }
+
         // Subscribe to scanner events
         ScannerListener.CodeReceived += HandleCodeScanned;
 
@@ -394,8 +404,16 @@
         ScannerService.OnPurchaseCompleted += HandlePurchaseCompleted;
         ScannerService.OnPurchaseTimeout += HandlePurchaseTimeout;
 
+        // Subscribe to culture changes to force re-render
+        LocalizationService.OnCultureChanged += HandleCultureChanged;
+
         // Start listening for scanner input
         ScannerListener.Start();
+    }
+
+    private void HandleCultureChanged()
+    {
+        InvokeAsync(StateHasChanged);
     }
 
     private async void HandleCodeScanned(string code)
@@ -499,6 +517,7 @@
         ScannerService.OnPurchaseUpdated -= HandlePurchaseUpdated;
         ScannerService.OnPurchaseCompleted -= HandlePurchaseCompleted;
         ScannerService.OnPurchaseTimeout -= HandlePurchaseTimeout;
+        LocalizationService.OnCultureChanged -= HandleCultureChanged;
 
         StopCountdownTimer();
         _errorTimer?.Dispose();
