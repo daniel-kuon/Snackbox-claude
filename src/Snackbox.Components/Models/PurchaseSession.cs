@@ -4,6 +4,7 @@ public class PurchaseSession
 {
     public string UserId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
+    public string PreferredLanguage { get; set; } = "en";
     public decimal OpenAmount { get; set; }
     public decimal LastPaymentAmount { get; set; }
     public DateTime? LastPaymentDate { get; set; }
