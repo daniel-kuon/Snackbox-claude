@@ -14,6 +14,7 @@ public class UsersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<UsersController> _logger;
+    private static readonly string[] SupportedLanguages = { "en", "de" };
 
     public UsersController(ApplicationDbContext context, ILogger<UsersController> logger)
     {
@@ -198,10 +199,12 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
-        // Validate language code
-        if (dto.PreferredLanguage != "en" && dto.PreferredLanguage != "de")
+        // Validate language code against supported languages
+        if (!SupportedLanguages.Contains(dto.PreferredLanguage))
         {
-            return BadRequest(new { message = "Invalid language code. Supported languages: en, de" });
+            return BadRequest(new { 
+                message = $"Invalid language code. Supported languages: {string.Join(", ", SupportedLanguages)}" 
+            });
         }
 
         user.PreferredLanguage = dto.PreferredLanguage;

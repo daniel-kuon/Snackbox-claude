@@ -24,6 +24,7 @@ public interface ILocalizationService
 public class LocalizationService : ILocalizationService
 {
     private CultureInfo _currentCulture;
+    private static readonly string[] SupportedLanguages = { "en", "de" };
 
     public LocalizationService()
     {
@@ -37,15 +38,31 @@ public class LocalizationService : ILocalizationService
 
     public void SetCulture(string culture)
     {
-        var newCulture = new CultureInfo(culture);
-        
-        if (!_currentCulture.Equals(newCulture))
+        try
         {
-            _currentCulture = newCulture;
-            CultureInfo.CurrentCulture = newCulture;
-            CultureInfo.CurrentUICulture = newCulture;
+            var newCulture = new CultureInfo(culture);
             
-            OnCultureChanged?.Invoke();
+            if (!_currentCulture.Equals(newCulture))
+            {
+                _currentCulture = newCulture;
+                CultureInfo.CurrentCulture = newCulture;
+                CultureInfo.CurrentUICulture = newCulture;
+                
+                OnCultureChanged?.Invoke();
+            }
+        }
+        catch (CultureNotFoundException)
+        {
+            // If invalid culture code provided, fall back to English
+            var fallbackCulture = new CultureInfo("en");
+            if (!_currentCulture.Equals(fallbackCulture))
+            {
+                _currentCulture = fallbackCulture;
+                CultureInfo.CurrentCulture = fallbackCulture;
+                CultureInfo.CurrentUICulture = fallbackCulture;
+                
+                OnCultureChanged?.Invoke();
+            }
         }
     }
 }
