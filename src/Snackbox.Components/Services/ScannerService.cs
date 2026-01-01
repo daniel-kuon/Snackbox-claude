@@ -102,7 +102,14 @@ public class ScannerService : IScannerService
                     Amount = b.Amount,
                     ScannedAt = b.ScannedAt
                 }).ToList(),
-                StartTime = result.ScannedBarcodes.FirstOrDefault()?.ScannedAt ?? DateTime.UtcNow
+                StartTime = result.ScannedBarcodes.FirstOrDefault()?.ScannedAt ?? DateTime.UtcNow,
+                RecentPurchases = result.RecentPurchases.Select(rp => new RecentPurchase
+                {
+                    PurchaseId = rp.PurchaseId,
+                    TotalAmount = rp.TotalAmount,
+                    CompletedAt = rp.CompletedAt,
+                    ItemCount = rp.ItemCount
+                }).ToList()
             };
 
             // Determine if this is a new purchase or update
@@ -128,8 +135,8 @@ public class ScannerService : IScannerService
 
     public async Task CompletePurchaseAsync()
     {
-        // Purchase is already completed on the server side
-        // Just clean up local state
+        // Purchase is auto-completed on the server when timeout expires and user scans again
+        // This method just cleans up the local UI state when timeout occurs
         StopTimeoutTimer();
         OnPurchaseCompleted?.Invoke();
         CurrentSession = null;
@@ -137,6 +144,7 @@ public class ScannerService : IScannerService
 
     public void ResetSession()
     {
+        // Reset the local session state (called when timeout expires)
         StopTimeoutTimer();
         CurrentSession = null;
         OnPurchaseTimeout?.Invoke();
@@ -180,6 +188,7 @@ public class ScannerService : IScannerService
         public decimal Balance { get; set; }
         public decimal LastPaymentAmount { get; set; }
         public DateTime? LastPaymentDate { get; set; }
+        public List<RecentPurchaseDto> RecentPurchases { get; set; } = new();
     }
 
     private class ScannedBarcodeDto
@@ -187,5 +196,13 @@ public class ScannerService : IScannerService
         public string BarcodeCode { get; set; } = string.Empty;
         public decimal Amount { get; set; }
         public DateTime ScannedAt { get; set; }
+    }
+
+    private class RecentPurchaseDto
+    {
+        public int PurchaseId { get; set; }
+        public decimal TotalAmount { get; set; }
+        public DateTime CompletedAt { get; set; }
+        public int ItemCount { get; set; }
     }
 }

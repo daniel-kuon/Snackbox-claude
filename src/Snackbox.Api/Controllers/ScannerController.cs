@@ -57,7 +57,7 @@ public class ScannerController : ControllerBase
 
         var user = barcode.User;
 
-        // Find the last created purchase for this user
+        // Find the last incomplete purchase for this user
         var lastPurchase = await _context.Purchases
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
@@ -82,14 +82,15 @@ public class ScannerController : ControllerBase
             }
             else
             {
-                // Complete the old purchase and create a new one
+                // Timeout expired - complete the old purchase and create a new one
                 if (lastPurchase.Scans.Any())
                 {
-                    lastPurchase.CompletedAt = DateTime.UtcNow;
+                    // Use the last scan time as the completion time (more accurate than "now")
+                    lastPurchase.CompletedAt = lastScan?.ScannedAt ?? DateTime.UtcNow;
                 }
                 else
                 {
-                    // Remove empty purchase
+                    // Remove empty purchase (shouldn't happen, but handle it)
                     _context.Purchases.Remove(lastPurchase);
                 }
 
@@ -104,7 +105,7 @@ public class ScannerController : ControllerBase
         }
         else
         {
-            // No existing purchase, create new one
+            // No existing incomplete purchase, create new one
             currentPurchase = new Purchase
             {
                 UserId = user.Id,
@@ -153,6 +154,24 @@ public class ScannerController : ControllerBase
             .OrderByDescending(p => p.PaidAt)
             .FirstOrDefaultAsync();
 
+        // Get last 3 completed purchases (excluding the current one)
+        var recentPurchases = await _context.Purchases
+            .Include(p => p.Scans)
+            .Where(p => p.UserId == user.Id && p.CompletedAt != null && p.Id != currentPurchase.Id)
+            .OrderByDescending(p => p.CompletedAt)
+            .Take(3)
+            .Select(p => new RecentPurchaseDto
+            {
+                PurchaseId = p.Id,
+                TotalAmount = p.Scans.Sum(s => s.Amount),
+                CompletedAt = p.CompletedAt!.Value,
+                ItemCount = p.Scans.Count
+            })
+            .ToListAsync();
+
+        // Log for debugging
+        Console.WriteLine($"User {user.Id} - Found {recentPurchases.Count} recent purchases");
+
         // Build response
         var response = new ScanBarcodeResponse
         {
@@ -173,7 +192,8 @@ public class ScannerController : ControllerBase
             TotalAmount = currentPurchase.Scans.Sum(s => s.Amount),
             Balance = balance,
             LastPaymentAmount = lastPayment?.Amount ?? 0,
-            LastPaymentDate = lastPayment?.PaidAt
+            LastPaymentDate = lastPayment?.PaidAt,
+            RecentPurchases = recentPurchases
         };
 
         return Ok(response);

@@ -68,6 +68,10 @@ public class WindowsScannerListener : IDisposable
                 if (!string.IsNullOrEmpty(code))
                 {
                     _resetTimer.Stop();
+                    
+                    // Bring window to foreground
+                    BringWindowToForeground();
+                    
                     // Invoke on UI thread if needed, or handle in component
                     CodeReceived?.Invoke(code);
                 }
@@ -93,6 +97,34 @@ public class WindowsScannerListener : IDisposable
         return (char)('0' + (key - VirtualKeys.Number0));
     }
 
+    private void BringWindowToForeground()
+    {
+        try
+        {
+            var handle = GetForegroundWindow();
+            if (handle == IntPtr.Zero)
+            {
+                // Get the main window handle of current process
+                var process = System.Diagnostics.Process.GetCurrentProcess();
+                handle = process.MainWindowHandle;
+            }
+
+            if (handle != IntPtr.Zero)
+            {
+                // Restore window if minimized
+                ShowWindow(handle, SW_RESTORE);
+                // Bring to foreground
+                SetForegroundWindow(handle);
+                // Flash window to get attention
+                FlashWindow(handle, true);
+            }
+        }
+        catch
+        {
+            // Silently fail if we can't bring window to foreground
+        }
+    }
+
     public void Dispose()
     {
         Stop();
@@ -100,6 +132,8 @@ public class WindowsScannerListener : IDisposable
     }
 
     #region Win32 API
+    private const int SW_RESTORE = 9;
+
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
 
@@ -112,6 +146,21 @@ public class WindowsScannerListener : IDisposable
 
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool FlashWindow(IntPtr hWnd, bool bInvert);
 
     private enum VirtualKeys
     {
