@@ -427,6 +427,8 @@ Resource files are located in `src/Snackbox.Components/Resources/`:
 
 **Subscribing to Culture Changes:**
 ```csharp
+@implements IDisposable
+
 @code {
     protected override void OnInitialized()
     {
@@ -471,8 +473,11 @@ System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = new("en");
 
 1. Create new resource file: `SharedResources.{culture}.resx`
 2. Copy all keys from `SharedResources.resx` and translate
-3. Register culture in `LocalizationService._supported`
-4. Add culture to supported cultures in `Program.cs` (Blazor Server)
+3. Update `LocalizationService` to support the new culture:
+   - Modify the `_supported` array in `LocalizationService.cs` to include the new culture
+   - Example: `private static readonly CultureInfo[] _supported = new[] { new CultureInfo("en"), new CultureInfo("de"), new CultureInfo("fr") };`
+4. Add culture to supported cultures in `Program.cs` (Blazor Server):
+   - Update the `supportedCultures` array: `var supportedCultures = new[] { "en", "de", "fr" };`
 5. Rebuild and run - language appears automatically in selectors
 
 ### Adding New Localization Keys
