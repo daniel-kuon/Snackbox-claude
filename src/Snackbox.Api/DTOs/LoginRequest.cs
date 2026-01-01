@@ -2,5 +2,7 @@ namespace Snackbox.Api.DTOs;
 
 public class LoginRequest
 {
-    public required string BarcodeValue { get; set; }
+    public string? Username { get; set; }
+    public string? Password { get; set; }
+    public string? BarcodeValue { get; set; }
 }

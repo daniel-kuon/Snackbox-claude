@@ -3,6 +3,7 @@
 public interface IAuthenticationService
 {
     Task<LoginResult> LoginAsync(string barcodeValue);
+    Task<LoginResult> LoginWithPasswordAsync(string username, string password);
     Task LogoutAsync();
     Task<bool> IsAuthenticatedAsync();
     Task<string?> GetTokenAsync();

@@ -556,7 +556,6 @@ namespace Snackbox.Api.Migrations
                         .HasColumnName("is_admin");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("password_hash");
 
@@ -601,7 +600,6 @@ namespace Snackbox.Api.Migrations
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "jane.smith@company.com",
                             IsAdmin = false,
-                            PasswordHash = "$2a$11$hashedpassword",
                             Username = "jane.smith"
                         });
                 });

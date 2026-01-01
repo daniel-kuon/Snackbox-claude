@@ -12,8 +12,14 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<IStorageService, WebStorageService>();
 
 // Register HttpClient for API calls
-var apiUrl = builder.Configuration["ApiUrl"] ?? builder.Configuration.GetConnectionString("api") ?? "https://localhost:7000";
+var apiUrl = builder.Configuration["API_HTTPS"] ?? builder.Configuration["API_HTTP"] ?? throw new InvalidOperationException("API URL is not configured.");
 builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
+{
+    client.BaseAddress = new Uri(apiUrl);
+});
+
+// Register scanner service with HttpClient for Windows
+builder.Services.AddHttpClient<IScannerService, ScannerService>(client =>
 {
     client.BaseAddress = new Uri(apiUrl);
 });
@@ -37,6 +43,7 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
+   .AddAdditionalAssemblies(typeof(Snackbox.Components.Pages.Login).Assembly)
     .AddInteractiveServerRenderMode();
 
 app.Run();

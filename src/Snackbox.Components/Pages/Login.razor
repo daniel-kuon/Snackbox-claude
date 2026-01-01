@@ -1,55 +1,201 @@
-﻿@page "/login"
+@page "/"
+@page "/login"
+@using System.ComponentModel.DataAnnotations
 @using Snackbox.Components.Services
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
+@inject HttpClient Http
 
 <PageTitle>Login - Snackbox</PageTitle>
 
 <div class="login-container">
     <div class="login-card">
         <h2>Snackbox Login</h2>
-        <p class="login-subtitle">Scan your barcode to login</p>
 
-        @if (!string.IsNullOrEmpty(errorMessage))
+        @if (setupPasswordMode)
         {
-            <div class="alert alert-danger" role="alert">
-                @errorMessage
+            <p class="login-subtitle">Setup your password</p>
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger" role="alert">@errorMessage</div>
+            }
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success" role="alert">@successMessage</div>
+            }
+
+            <EditForm Model="@passwordSetupModel" OnValidSubmit="@HandlePasswordSetup">
+                <DataAnnotationsValidator />
+
+                <p class="text-muted mb-3">
+                    Welcome <strong>@username</strong>! You don't have a password set yet.
+                    Please scan one of your barcodes, enter your email address, and create a password to enable password login.
+                </p>
+
+                <div class="form-group">
+                    <label for="setupBarcode">Scan your barcode</label>
+                    <InputText
+                        id="setupBarcode"
+                        @bind-Value="passwordSetupModel.BarcodeValue"
+                        class="form-control"
+                        placeholder="Scan your barcode"
+                        autofocus
+                        disabled="@isLoading" />
+                    <ValidationMessage For="@(() => passwordSetupModel.BarcodeValue)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="setupEmail">Email Address</label>
+                    <InputText
+                        id="setupEmail"
+                        type="email"
+                        @bind-Value="passwordSetupModel.Email"
+                        class="form-control"
+                        placeholder="Enter your email address"
+                        disabled="@isLoading" />
+                    <ValidationMessage For="@(() => passwordSetupModel.Email)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="setupPassword">New Password</label>
+                    <InputText
+                        id="setupPassword"
+                        type="password"
+                        @bind-Value="passwordSetupModel.NewPassword"
+                        class="form-control"
+                        placeholder="Enter your new password"
+                        disabled="@isLoading" />
+                    <ValidationMessage For="@(() => passwordSetupModel.NewPassword)" />
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                        <span> Setting password...</span>
+                    }
+                    else
+                    {
+                        <span>Set Password</span>
+                    }
+                </button>
+
+                <button type="button" class="btn btn-secondary btn-block mt-2" @onclick="CancelPasswordSetup" disabled="@isLoading">
+                    Skip for now
+                </button>
+            </EditForm>
+        }
+        else
+        {
+            <p class="login-subtitle">Login with password or scan your barcode</p>
+
+            <p>@loginMode</p>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger" role="alert">@errorMessage</div>
+            }
+
+            <!-- Tab buttons -->
+            <div class="login-tabs">
+                <button type="button"
+                        class="tab-button @(loginMode == "password" ? "active" : "")"
+                        @onclick='() => SwitchLoginMode("password")'>
+                    Password
+                </button>
+                <button type="button"
+                        class="tab-button @(loginMode == "barcode" ? "active" : "")"
+                        @onclick='() => SwitchLoginMode("barcode")'>
+                    Barcode
+                </button>
+            </div>
+
+            @if (loginMode == "password")
+            {
+                <EditForm Model="@passwordLoginModel" OnValidSubmit="@HandlePasswordLogin" FormName="passwordLogin">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <InputText
+                            id="username"
+                            @bind-Value="passwordLoginModel.Username"
+                            class="form-control"
+                            placeholder="Enter your username"
+                            autofocus
+                            disabled="@isLoading" />
+                        <ValidationMessage For="@(() => passwordLoginModel.Username)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <InputText
+                            id="password"
+                            type="password"
+                            @bind-Value="passwordLoginModel.Password"
+                            class="form-control"
+                            placeholder="Enter your password"
+                            disabled="@isLoading" />
+                        <ValidationMessage For="@(() => passwordLoginModel.Password)" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                            <span> Logging in...</span>
+                        }
+                        else
+                        {
+                            <span>Login</span>
+                        }
+                    </button>
+                </EditForm>
+            }
+            else
+            {
+                <EditForm Model="@barcodeLoginModel" OnValidSubmit="@HandleBarcodeLogin" FormName="barcodeLogin">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label for="barcodeInput">Barcode</label>
+                        <InputText
+                            id="barcodeInput"
+                            @bind-Value="barcodeLoginModel.BarcodeValue"
+                            class="form-control form-control-lg"
+                            placeholder="Scan or enter barcode"
+                            autofocus
+                            disabled="@isLoading" />
+                        <ValidationMessage For="@(() => barcodeLoginModel.BarcodeValue)" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                            <span> Logging in...</span>
+                        }
+                        else
+                        {
+                            <span>Login</span>
+                        }
+                    </button>
+                </EditForm>
+            }
+
+            <div class="login-info">
+                <small class="text-muted">
+                    @if (loginMode == "password")
+                    {
+                        <text>Don't have a password? Switch to barcode login and one will be set up for you.</text>
+                    }
+                    else
+                    {
+                        <text>Use your personal barcode or login-only barcode to authenticate</text>
+                    }
+                </small>
             </div>
         }
-
-        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
-            <DataAnnotationsValidator />
-
-            <div class="form-group">
-                <label for="barcodeInput">Barcode</label>
-                <InputText
-                    id="barcodeInput"
-                    @bind-Value="loginModel.BarcodeValue"
-                    class="form-control form-control-lg"
-                    placeholder="Scan or enter barcode"
-                    autofocus
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => loginModel.BarcodeValue)" />
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@isLoading">
-                @if (isLoading)
-                {
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    <span> Logging in...</span>
-                }
-                else
-                {
-                    <span>Login</span>
-                }
-            </button>
-        </EditForm>
-
-        <div class="login-info">
-            <small class="text-muted">
-                Use your personal barcode or login-only barcode to authenticate
-            </small>
-        </div>
     </div>
 </div>
 
@@ -63,7 +209,7 @@
     }
 
     .login-card {
-        max-width: 400px;
+        max-width: 450px;
         width: 100%;
         padding: 2rem;
         background: white;
@@ -80,7 +226,34 @@
     .login-subtitle {
         text-align: center;
         color: #666;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .login-tabs {
+        display: flex;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #ddd;
+    }
+
+    .tab-button {
+        flex: 1;
+        padding: 0.75rem;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-weight: 500;
+        color: #666;
+        transition: all 0.2s;
+    }
+
+    .tab-button:hover {
+        color: #007bff;
+    }
+
+    .tab-button.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
     }
 
     .form-group {
@@ -132,9 +305,19 @@
         background-color: #0056b3;
     }
 
-    .btn-primary:disabled {
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+        background-color: #545b62;
+    }
+
+    .btn:disabled {
         background-color: #6c757d;
         cursor: not-allowed;
+        opacity: 0.65;
     }
 
     .btn-lg {
@@ -147,6 +330,14 @@
         width: 100%;
     }
 
+    .mt-2 {
+        margin-top: 0.5rem;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem;
+    }
+
     .alert {
         padding: 0.75rem 1rem;
         margin-bottom: 1rem;
@@ -157,6 +348,12 @@
         background-color: #f8d7da;
         border: 1px solid #f5c6cb;
         color: #721c24;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
     }
 
     .login-info {
@@ -190,23 +387,87 @@
 </style>
 
 @code {
-    private LoginModel loginModel = new();
+    private string loginMode = "password";
+    private bool setupPasswordMode = false;
+    private string? username;
     private string? errorMessage;
+    private string? successMessage;
     private bool isLoading;
 
-    private async Task HandleLogin()
+    private PasswordLoginModel passwordLoginModel = new();
+    private BarcodeLoginModel barcodeLoginModel = new();
+    private PasswordSetupModel passwordSetupModel = new();
+
+    private void SwitchLoginMode(string mode)
+    {
+        loginMode = mode;
+        errorMessage = null;
+    }
+
+    private async Task HandlePasswordLogin()
     {
         errorMessage = null;
         isLoading = true;
 
         try
         {
-            var result = await AuthService.LoginAsync(loginModel.BarcodeValue);
+            var result = await AuthService.LoginWithPasswordAsync(
+                passwordLoginModel.Username,
+                passwordLoginModel.Password);
 
             if (result.Success)
             {
-                // Redirect to home page on successful login
-                Navigation.NavigateTo("/", forceLoad: true);
+                Navigation.NavigateTo("/admin/users", forceLoad: true);
+            }
+            else
+            {
+                // Check if user exists but has no password
+                if (result.ErrorMessage?.Contains("no password") == true)
+                {
+                    username = passwordLoginModel.Username;
+                    setupPasswordMode = true;
+                    errorMessage = null;
+                }
+                else
+                {
+                    errorMessage = result.ErrorMessage ?? "Login failed. Please check your credentials.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleBarcodeLogin()
+    {
+        errorMessage = null;
+        isLoading = true;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(barcodeLoginModel.BarcodeValue);
+
+            if (result.Success)
+            {
+                // Check if user has a password
+                var hasPassword = await CheckUserHasPassword(result.Username!);
+
+                if (!hasPassword)
+                {
+                    username = result.Username;
+                    setupPasswordMode = true;
+                    errorMessage = null;
+                }
+                else
+                {
+                    Navigation.NavigateTo("/admin/users", forceLoad: true);
+                }
             }
             else
             {
@@ -223,9 +484,95 @@
         }
     }
 
-    private class LoginModel
+    private async Task HandlePasswordSetup()
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Barcode is required")]
+        errorMessage = null;
+        successMessage = null;
+        isLoading = true;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/auth/set-password", new
+            {
+                BarcodeValue = passwordSetupModel.BarcodeValue,
+                Email = passwordSetupModel.Email,
+                NewPassword = passwordSetupModel.NewPassword
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = "Password set successfully! You can now login with your password.";
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/admin/users", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = "Failed to set password. Please make sure you scanned a valid barcode and entered the correct email address.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void CancelPasswordSetup()
+    {
+        setupPasswordMode = false;
+        username = null;
+        errorMessage = null;
+        successMessage = null;
+        Navigation.NavigateTo("/admin/users", forceLoad: true);
+    }
+
+    private async Task<bool> CheckUserHasPassword(string username)
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<HasPasswordResponse>($"/api/auth/has-password/{username}");
+            return response?.HasPassword ?? false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private class PasswordLoginModel
+    {
+        [Required(ErrorMessage = "Username is required")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password is required")]
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private class BarcodeLoginModel
+    {
+        [Required(ErrorMessage = "Barcode is required")]
         public string BarcodeValue { get; set; } = string.Empty;
+    }
+
+    private class PasswordSetupModel
+    {
+        [Required(ErrorMessage = "Barcode is required")]
+        public string BarcodeValue { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email address")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password is required")]
+        [MinLength(6, ErrorMessage = "Password must be at least 6 characters")]
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    private class HasPasswordResponse
+    {
+        public bool HasPassword { get; set; }
     }
 }
