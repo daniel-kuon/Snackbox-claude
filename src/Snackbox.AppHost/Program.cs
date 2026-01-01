@@ -2,6 +2,25 @@
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+// Add Observability Stack (Grafana, Loki, Tempo, Mimir)
+var grafana = builder.AddGrafana("grafana")
+    .WithDataVolume();
+
+var loki = builder.AddLoki("loki")
+    .WithDataVolume();
+
+var tempo = builder.AddTempo("tempo")
+    .WithDataVolume();
+
+var mimir = builder.AddMimir("mimir")
+    .WithDataVolume();
+
+// Connect Grafana to data sources
+grafana
+    .WithDataSource(loki)
+    .WithDataSource(tempo)
+    .WithDataSource(mimir);
+
 IResourceBuilder<ParameterResource>? postgresPassword =
     builder.AddParameter("postgresspassword",
                          "postgresspassword",
@@ -17,12 +36,18 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
 // Add API project with Swagger UI available at /swagger
 var api = builder.AddProject<Projects.Snackbox_Api>("api")
     .WithReference(postgres)
+    .WithReference(loki)
+    .WithReference(tempo)
+    .WithReference(mimir)
     .WaitFor(postgres)
     .WithExternalHttpEndpoints();
 
 // Add Blazor Server web application
 var web = builder.AddProject<Projects.Snackbox_BlazorServer>("web")
     .WithReference(api)
+    .WithReference(loki)
+    .WithReference(tempo)
+    .WithReference(mimir)
     .WaitFor(api)
     .WithExternalHttpEndpoints();
 

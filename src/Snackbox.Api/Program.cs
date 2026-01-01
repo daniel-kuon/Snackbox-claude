@@ -4,8 +4,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Snackbox.Api.Data;
 using Snackbox.Api.Services;
+using Snackbox.Api.Telemetry;
+using Snackbox.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add OpenTelemetry configuration
+builder.Services.AddOpenTelemetryConfiguration(
+    builder.Configuration,
+    SnackboxTelemetry.ServiceName,
+    SnackboxTelemetry.ServiceVersion);
+
+builder.Logging.AddOpenTelemetryLogging(
+    builder.Configuration,
+    SnackboxTelemetry.ServiceName);
 
 // Add services to the container.
 builder.Services.AddControllers();
