@@ -9,6 +9,7 @@ public class ScanBarcodeResponse
     public int UserId { get; set; }
     public required string Username { get; set; }
     public bool IsAdmin { get; set; }
+    public string PreferredLanguage { get; set; } = "en";
 
     // Current purchase information
     public int PurchaseId { get; set; }

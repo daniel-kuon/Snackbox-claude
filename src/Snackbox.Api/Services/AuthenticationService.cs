@@ -40,7 +40,8 @@ public class AuthenticationService : IAuthenticationService
             Username = barcode.User.Username,
             Email = barcode.User.Email,
             IsAdmin = barcode.User.IsAdmin,
-            UserId = barcode.User.Id
+            UserId = barcode.User.Id,
+            PreferredLanguage = barcode.User.PreferredLanguage
         };
     }
 
@@ -68,7 +69,8 @@ public class AuthenticationService : IAuthenticationService
             Username = user.Username,
             Email = user.Email,
             IsAdmin = user.IsAdmin,
-            UserId = user.Id
+            UserId = user.Id,
+            PreferredLanguage = user.PreferredLanguage
         };
     }
 
