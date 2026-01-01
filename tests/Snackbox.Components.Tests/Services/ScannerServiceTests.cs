@@ -14,6 +14,7 @@ public class ScannerServiceTests : IDisposable
     private readonly Mock<HttpMessageHandler> _httpMessageHandlerMock;
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly Mock<ILocalizationService> _localizationServiceMock;
     private readonly ScannerService _scannerService;
 
     public ScannerServiceTests()
@@ -34,7 +35,10 @@ public class ScannerServiceTests : IDisposable
             .AddInMemoryCollection(inMemorySettings!)
             .Build();
 
-        _scannerService = new ScannerService(_httpClient, _configuration);
+        // Setup mock LocalizationService  
+        _localizationServiceMock = new Mock<ILocalizationService>();
+
+        _scannerService = new ScannerService(_httpClient, _configuration, _localizationServiceMock.Object);
     }
 
     [Fact]
@@ -46,6 +50,7 @@ public class ScannerServiceTests : IDisposable
             Success = true,
             UserId = 1,
             Username = "testuser",
+            PreferredLanguage = "en",
             PurchaseId = 1,
             ScannedBarcodes = new[]
             {
@@ -88,6 +93,7 @@ public class ScannerServiceTests : IDisposable
             Success = true,
             UserId = 1,
             Username = "testuser",
+            PreferredLanguage = "en",
             PurchaseId = 1,
             ScannedBarcodes = new[]
             {
@@ -108,6 +114,7 @@ public class ScannerServiceTests : IDisposable
             Success = true,
             UserId = 1,
             Username = "testuser",
+            PreferredLanguage = "en",
             PurchaseId = 1,
             ScannedBarcodes = new[]
             {
@@ -135,7 +142,7 @@ public class ScannerServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ProcessBarcodeAsync_InvalidBarcode_DoesNotStartSession()
+    public async Task ProcessBarcodeAsync_InvalidBarcode_ThrowsException()
     {
         // Arrange
         var apiResponse = new
@@ -144,6 +151,7 @@ public class ScannerServiceTests : IDisposable
             ErrorMessage = "Barcode not found",
             UserId = 0,
             Username = "",
+            PreferredLanguage = "en",
             PurchaseId = 0,
             ScannedBarcodes = Array.Empty<object>(),
             TotalAmount = 0m,
@@ -154,10 +162,10 @@ public class ScannerServiceTests : IDisposable
 
         SetupHttpResponse(HttpStatusCode.OK, apiResponse);
 
-        // Act
-        await _scannerService.ProcessBarcodeAsync("INVALID");
-
-        // Assert
+        // Act & Assert
+        await Assert.ThrowsAsync<Exception>(async () => 
+            await _scannerService.ProcessBarcodeAsync("INVALID"));
+        
         Assert.False(_scannerService.IsSessionActive);
         Assert.Null(_scannerService.CurrentSession);
     }
@@ -181,15 +189,15 @@ public class ScannerServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ProcessBarcodeAsync_HttpError_DoesNotStartSession()
+    public async Task ProcessBarcodeAsync_HttpError_ThrowsException()
     {
         // Arrange
         SetupHttpResponse<object>(HttpStatusCode.InternalServerError, null);
 
-        // Act
-        await _scannerService.ProcessBarcodeAsync("TEST-5EUR");
-
-        // Assert
+        // Act & Assert
+        await Assert.ThrowsAsync<Exception>(async () => 
+            await _scannerService.ProcessBarcodeAsync("TEST-5EUR"));
+        
         Assert.False(_scannerService.IsSessionActive);
     }
 
@@ -202,6 +210,7 @@ public class ScannerServiceTests : IDisposable
             Success = true,
             UserId = 1,
             Username = "testuser",
+            PreferredLanguage = "en",
             PurchaseId = 1,
             ScannedBarcodes = new[] { new { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow } },
             TotalAmount = 5.00m,
@@ -234,6 +243,7 @@ public class ScannerServiceTests : IDisposable
             Success = true,
             UserId = 1,
             Username = "testuser",
+            PreferredLanguage = "en",
             PurchaseId = 1,
             ScannedBarcodes = new[] { new { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow } },
             TotalAmount = 5.00m,
@@ -272,6 +282,7 @@ public class ScannerServiceTests : IDisposable
             Success = true,
             UserId = 1,
             Username = "user1",
+            PreferredLanguage = "en",
             PurchaseId = 1,
             ScannedBarcodes = new[] { new { BarcodeCode = "USER1-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow } },
             TotalAmount = 5.00m,
@@ -289,6 +300,7 @@ public class ScannerServiceTests : IDisposable
             Success = true,
             UserId = 2,
             Username = "user2",
+            PreferredLanguage = "en",
             PurchaseId = 2,
             ScannedBarcodes = new[] { new { BarcodeCode = "USER2-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow } },
             TotalAmount = 5.00m,
