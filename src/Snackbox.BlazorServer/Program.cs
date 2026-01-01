@@ -8,6 +8,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Register localization services
+builder.Services.AddLocalization();
+builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
+
 // Register storage service for web
 builder.Services.AddSingleton<IStorageService, WebStorageService>();
 

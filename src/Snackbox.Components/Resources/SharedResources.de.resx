@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" msdata:Ordinal="5" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  
+  <!-- Login Page -->
+  <data name="Login.Title" xml:space="preserve">
+    <value>Snackbox Anmeldung</value>
+  </data>
+  <data name="Login.Subtitle" xml:space="preserve">
+    <value>Mit Passwort anmelden oder Barcode scannen</value>
+  </data>
+  <data name="Login.TabPassword" xml:space="preserve">
+    <value>Passwort</value>
+  </data>
+  <data name="Login.TabBarcode" xml:space="preserve">
+    <value>Barcode</value>
+  </data>
+  <data name="Login.Username" xml:space="preserve">
+    <value>Benutzername</value>
+  </data>
+  <data name="Login.Password" xml:space="preserve">
+    <value>Passwort</value>
+  </data>
+  <data name="Login.Barcode" xml:space="preserve">
+    <value>Barcode</value>
+  </data>
+  <data name="Login.UsernameRequired" xml:space="preserve">
+    <value>Benutzername ist erforderlich</value>
+  </data>
+  <data name="Login.PasswordRequired" xml:space="preserve">
+    <value>Passwort ist erforderlich</value>
+  </data>
+  <data name="Login.BarcodeRequired" xml:space="preserve">
+    <value>Barcode ist erforderlich</value>
+  </data>
+  <data name="Login.UsernamePlaceholder" xml:space="preserve">
+    <value>Geben Sie Ihren Benutzernamen ein</value>
+  </data>
+  <data name="Login.PasswordPlaceholder" xml:space="preserve">
+    <value>Geben Sie Ihr Passwort ein</value>
+  </data>
+  <data name="Login.BarcodePlaceholder" xml:space="preserve">
+    <value>Barcode scannen oder eingeben</value>
+  </data>
+  <data name="Login.LoginButton" xml:space="preserve">
+    <value>Anmelden</value>
+  </data>
+  <data name="Login.LoggingIn" xml:space="preserve">
+    <value>Anmelden...</value>
+  </data>
+  <data name="Login.PasswordInfo" xml:space="preserve">
+    <value>Kein Passwort? Wechseln Sie zur Barcode-Anmeldung und es wird für Sie eingerichtet.</value>
+  </data>
+  <data name="Login.BarcodeInfo" xml:space="preserve">
+    <value>Verwenden Sie Ihren persönlichen Barcode oder Login-Barcode zur Authentifizierung</value>
+  </data>
+  
+  <!-- Password Setup -->
+  <data name="PasswordSetup.Title" xml:space="preserve">
+    <value>Passwort einrichten</value>
+  </data>
+  <data name="PasswordSetup.Welcome" xml:space="preserve">
+    <value>Willkommen {0}! Sie haben noch kein Passwort festgelegt. Bitte scannen Sie einen Ihrer Barcodes, geben Sie Ihre E-Mail-Adresse ein und erstellen Sie ein Passwort, um die Passwortanmeldung zu aktivieren.</value>
+  </data>
+  <data name="PasswordSetup.ScanBarcode" xml:space="preserve">
+    <value>Scannen Sie Ihren Barcode</value>
+  </data>
+  <data name="PasswordSetup.Email" xml:space="preserve">
+    <value>E-Mail-Adresse</value>
+  </data>
+  <data name="PasswordSetup.NewPassword" xml:space="preserve">
+    <value>Neues Passwort</value>
+  </data>
+  <data name="PasswordSetup.EmailPlaceholder" xml:space="preserve">
+    <value>Geben Sie Ihre E-Mail-Adresse ein</value>
+  </data>
+  <data name="PasswordSetup.PasswordPlaceholder" xml:space="preserve">
+    <value>Geben Sie Ihr neues Passwort ein</value>
+  </data>
+  <data name="PasswordSetup.SetPasswordButton" xml:space="preserve">
+    <value>Passwort festlegen</value>
+  </data>
+  <data name="PasswordSetup.SettingPassword" xml:space="preserve">
+    <value>Passwort wird festgelegt...</value>
+  </data>
+  <data name="PasswordSetup.SkipButton" xml:space="preserve">
+    <value>Vorerst überspringen</value>
+  </data>
+  <data name="PasswordSetup.EmailRequired" xml:space="preserve">
+    <value>E-Mail ist erforderlich</value>
+  </data>
+  <data name="PasswordSetup.InvalidEmail" xml:space="preserve">
+    <value>Ungültige E-Mail-Adresse</value>
+  </data>
+  <data name="PasswordSetup.PasswordMinLength" xml:space="preserve">
+    <value>Das Passwort muss mindestens 6 Zeichen lang sein</value>
+  </data>
+  
+  <!-- Scanner View -->
+  <data name="Scanner.Welcome" xml:space="preserve">
+    <value>Willkommen bei Snackbox</value>
+  </data>
+  <data name="Scanner.ScanToBegin" xml:space="preserve">
+    <value>Scannen Sie Ihren persönlichen Barcode, um zu beginnen</value>
+  </data>
+  <data name="Scanner.Balance" xml:space="preserve">
+    <value>Saldo:</value>
+  </data>
+  <data name="Scanner.ScannedAmounts" xml:space="preserve">
+    <value>Gescannte Beträge</value>
+  </data>
+  <data name="Scanner.NoItems" xml:space="preserve">
+    <value>Scannen Sie Ihre persönlichen Barcodes, um Beträge hinzuzufügen</value>
+  </data>
+  <data name="Scanner.Total" xml:space="preserve">
+    <value>Gesamt:</value>
+  </data>
+  <data name="Scanner.LastPayment" xml:space="preserve">
+    <value>Letzte Zahlung:</value>
+  </data>
+  <data name="Scanner.PayViaPayPal" xml:space="preserve">
+    <value>Per PayPal bezahlen</value>
+  </data>
+  <data name="Scanner.ScanToPay" xml:space="preserve">
+    <value>Scannen um {0} zu bezahlen</value>
+  </data>
+  <data name="Scanner.ContinueScanning" xml:space="preserve">
+    <value>Scannen Sie weiterhin Ihre persönlichen Barcodes oder warten Sie auf die automatische Fertigstellung</value>
+  </data>
+  
+  <!-- Admin - Users -->
+  <data name="Admin.Users.Title" xml:space="preserve">
+    <value>Benutzerverwaltung</value>
+  </data>
+  <data name="Admin.Users.AddUser" xml:space="preserve">
+    <value>Benutzer hinzufügen</value>
+  </data>
+  <data name="Admin.Users.Loading" xml:space="preserve">
+    <value>Benutzer werden geladen...</value>
+  </data>
+  <data name="Admin.Users.Username" xml:space="preserve">
+    <value>Benutzername</value>
+  </data>
+  <data name="Admin.Users.Email" xml:space="preserve">
+    <value>E-Mail</value>
+  </data>
+  <data name="Admin.Users.Role" xml:space="preserve">
+    <value>Rolle</value>
+  </data>
+  <data name="Admin.Users.Balance" xml:space="preserve">
+    <value>Saldo</value>
+  </data>
+  <data name="Admin.Users.Active" xml:space="preserve">
+    <value>Aktiv</value>
+  </data>
+  <data name="Admin.Users.Actions" xml:space="preserve">
+    <value>Aktionen</value>
+  </data>
+  
+  <!-- Common -->
+  <data name="Common.Loading" xml:space="preserve">
+    <value>Laden...</value>
+  </data>
+  <data name="Common.Save" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="Common.Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="Common.Delete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="Common.Edit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="Common.Yes" xml:space="preserve">
+    <value>Ja</value>
+  </data>
+  <data name="Common.No" xml:space="preserve">
+    <value>Nein</value>
+  </data>
+</root>
