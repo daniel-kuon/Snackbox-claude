@@ -5,16 +5,18 @@
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
 @inject HttpClient Http
+@inject IStringLocalizer<SharedResources> L
+@inject ILocalizationService Localization
 
-<PageTitle>Login - Snackbox</PageTitle>
+<PageTitle>@L["Login.PageTitle"]</PageTitle>
 
 <div class="login-container">
     <div class="login-card">
-        <h2>Snackbox Login</h2>
+        <h2>@L["Login.Title"]</h2>
 
         @if (setupPasswordMode)
         {
-            <p class="login-subtitle">Setup your password</p>
+            <p class="login-subtitle">@L["Login.SetupPassword"]</p>
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <div class="alert alert-danger" role="alert">@errorMessage</div>
@@ -28,42 +30,41 @@
                 <DataAnnotationsValidator />
 
                 <p class="text-muted mb-3">
-                    Welcome <strong>@username</strong>! You don't have a password set yet.
-                    Please scan one of your barcodes, enter your email address, and create a password to enable password login.
+                    @L["Login.WelcomeNoPassword", username]
                 </p>
 
                 <div class="form-group">
-                    <label for="setupBarcode">Scan your barcode</label>
+                    <label for="setupBarcode">@L["Login.Label.ScanYourBarcode"]</label>
                     <InputText
                         id="setupBarcode"
                         @bind-Value="passwordSetupModel.BarcodeValue"
                         class="form-control"
-                        placeholder="Scan your barcode"
+                        placeholder="@L["Login.Placeholder.ScanYourBarcode"]"
                         autofocus
                         disabled="@isLoading" />
                     <ValidationMessage For="@(() => passwordSetupModel.BarcodeValue)" />
                 </div>
 
                 <div class="form-group">
-                    <label for="setupEmail">Email Address</label>
+                    <label for="setupEmail">@L["Login.Label.Email"]</label>
                     <InputText
                         id="setupEmail"
                         type="email"
                         @bind-Value="passwordSetupModel.Email"
                         class="form-control"
-                        placeholder="Enter your email address"
+                        placeholder="@L["Login.Placeholder.Email"]"
                         disabled="@isLoading" />
                     <ValidationMessage For="@(() => passwordSetupModel.Email)" />
                 </div>
 
                 <div class="form-group">
-                    <label for="setupPassword">New Password</label>
+                    <label for="setupPassword">@L["Login.Label.NewPassword"]</label>
                     <InputText
                         id="setupPassword"
                         type="password"
                         @bind-Value="passwordSetupModel.NewPassword"
                         class="form-control"
-                        placeholder="Enter your new password"
+                        placeholder="@L["Login.Placeholder.NewPassword"]"
                         disabled="@isLoading" />
                     <ValidationMessage For="@(() => passwordSetupModel.NewPassword)" />
                 </div>
@@ -72,22 +73,22 @@
                     @if (isLoading)
                     {
                         <span class="spinner-border spinner-border-sm"></span>
-                        <span> Setting password...</span>
+                        <span> @L["Login.Loading.SettingPassword"]</span>
                     }
                     else
                     {
-                        <span>Set Password</span>
+                        <span>@L["Login.Button.SetPassword"]</span>
                     }
                 </button>
 
                 <button type="button" class="btn btn-secondary btn-block mt-2" @onclick="CancelPasswordSetup" disabled="@isLoading">
-                    Skip for now
+                    @L["Login.Button.Skip"]
                 </button>
             </EditForm>
         }
         else
         {
-            <p class="login-subtitle">Login with password or scan your barcode</p>
+            <p class="login-subtitle">@L["Login.Subtitle"]</p>
 
             <p>@loginMode</p>
 
@@ -101,12 +102,12 @@
                 <button type="button"
                         class="tab-button @(loginMode == "password" ? "active" : "")"
                         @onclick='() => SwitchLoginMode("password")'>
-                    Password
+                    @L["Login.Tab.Password"]
                 </button>
                 <button type="button"
                         class="tab-button @(loginMode == "barcode" ? "active" : "")"
                         @onclick='() => SwitchLoginMode("barcode")'>
-                    Barcode
+                    @L["Login.Tab.Barcode"]
                 </button>
             </div>
 
@@ -116,25 +117,25 @@
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
-                        <label for="username">Username</label>
+                        <label for="username">@L["Login.Label.Username"]</label>
                         <InputText
                             id="username"
                             @bind-Value="passwordLoginModel.Username"
                             class="form-control"
-                            placeholder="Enter your username"
+                            placeholder="@L["Login.Placeholder.Username"]"
                             autofocus
                             disabled="@isLoading" />
                         <ValidationMessage For="@(() => passwordLoginModel.Username)" />
                     </div>
 
                     <div class="form-group">
-                        <label for="password">Password</label>
+                        <label for="password">@L["Login.Label.Password"]</label>
                         <InputText
                             id="password"
                             type="password"
                             @bind-Value="passwordLoginModel.Password"
                             class="form-control"
-                            placeholder="Enter your password"
+                            placeholder="@L["Login.Placeholder.Password"]"
                             disabled="@isLoading" />
                         <ValidationMessage For="@(() => passwordLoginModel.Password)" />
                     </div>
@@ -143,11 +144,11 @@
                         @if (isLoading)
                         {
                             <span class="spinner-border spinner-border-sm"></span>
-                            <span> Logging in...</span>
+                            <span> @L["Login.Loading.LoggingIn"]</span>
                         }
                         else
                         {
-                            <span>Login</span>
+                            <span>@L["Login.Button.Login"]</span>
                         }
                     </button>
                 </EditForm>
@@ -158,12 +159,12 @@
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
-                        <label for="barcodeInput">Barcode</label>
+                        <label for="barcodeInput">@L["Login.Label.Barcode"]</label>
                         <InputText
                             id="barcodeInput"
                             @bind-Value="barcodeLoginModel.BarcodeValue"
                             class="form-control form-control-lg"
-                            placeholder="Scan or enter barcode"
+                            placeholder="@L["Login.Placeholder.Barcode"]"
                             autofocus
                             disabled="@isLoading" />
                         <ValidationMessage For="@(() => barcodeLoginModel.BarcodeValue)" />
@@ -173,11 +174,11 @@
                         @if (isLoading)
                         {
                             <span class="spinner-border spinner-border-sm"></span>
-                            <span> Logging in...</span>
+                            <span> @L["Login.Loading.LoggingIn"]</span>
                         }
                         else
                         {
-                            <span>Login</span>
+                            <span>@L["Login.Button.Login"]</span>
                         }
                     </button>
                 </EditForm>
@@ -187,17 +188,29 @@
                 <small class="text-muted">
                     @if (loginMode == "password")
                     {
-                        <text>Don't have a password? Switch to barcode login and one will be set up for you.</text>
+                        <text>@L["Login.Info.NoPassword"]</text>
                     }
                     else
                     {
-                        <text>Use your personal barcode or login-only barcode to authenticate</text>
-                    }
+                        <text>@L["Login.Info.UseBarcode"]</text>
+                }
                 </small>
             </div>
         }
     </div>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Localization.OnCultureChanged += _ => StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Localization.OnCultureChanged -= _ => StateHasChanged();
+    }
+}
 
 <style>
     .login-container {

@@ -18,6 +18,10 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 
+		// Localization services (shared components use resource-based localization)
+		builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+		builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
+
 		builder.Services.AddSingleton<WindowsScannerListener>();
 		builder.Services.AddSingleton<AppStateService>();
 
@@ -40,6 +44,10 @@ public static class MauiProgram
 		                                                                });
 
 		builder.Logging.AddDebug();
+
+		// Set default culture to English
+		System.Globalization.CultureInfo.DefaultThreadCurrentCulture = new("en");
+		System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = new("en");
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

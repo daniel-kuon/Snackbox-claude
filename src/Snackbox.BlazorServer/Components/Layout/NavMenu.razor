@@ -1,6 +1,20 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Snackbox</a>
+﻿@inject IStringLocalizer<SharedResources> L
+@inject Snackbox.Components.Services.ILocalizationService Localization
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+        <a class="navbar-brand" href="">@L["App.Name"]</a>
+
+        <div class="d-flex align-items-center gap-2 text-light">
+            <label class="me-1" for="langSelect" style="font-size: .9rem; opacity: .8;">Lang:</label>
+            <select id="langSelect" class="form-select form-select-sm" style="width: auto;"
+                    @onchange="OnLanguageChanged">
+                @foreach (var c in Localization.SupportedCultures)
+                {
+                    <option value="@c.Name" selected="@(c.Name == Localization.CurrentCulture.Name)">@c.NativeName</option>
+                }
+            </select>
+        </div>
     </div>
 </div>
 
@@ -10,15 +24,15 @@
     <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="login" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Login
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> @L["Nav.Login"]
             </NavLink>
         </div>
 
         <div class="nav-section">
-            <div class="nav-section-title">Administration</div>
+            <div class="nav-section-title">@L["Nav.Administration"]</div>
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="admin/users">
-                    <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Users
+                    <span class="bi bi-people-nav-menu" aria-hidden="true"></span> @L["Nav.Users"]
                 </NavLink>
             </div>
         </div>
@@ -41,3 +55,12 @@
         letter-spacing: 0.05em;
     }
 </style>
+
+@code {
+    private async Task OnLanguageChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "en";
+        await Localization.SetCultureAsync(value);
+        StateHasChanged();
+    }
+}
