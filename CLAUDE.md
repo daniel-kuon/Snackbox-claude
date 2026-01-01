@@ -59,6 +59,13 @@ Snackbox is an employee snack purchasing and inventory management system that st
   - Batch-level stock tracking
   - Removal of expired batches
 
+#### 6. Localization and User Preferences
+- **Multi-Language Support**: English and German available
+- **User-Specific Languages**: Each user can have their own language preference
+- **Dynamic Switching**: Language can be changed at runtime
+- **Automatic Application**: User's preferred language is automatically applied when they scan their barcode
+- **Persistent Preferences**: Language choices are saved and restored across sessions
+
 ### Key Business Rules
 1. Stock quantities must be manually updated by admins; purchases do not automatically reduce shelf stock counts
 2. Each employee has an account balance (payments minus purchases)
@@ -97,7 +104,10 @@ Snackbox is a modern full-stack application leveraging the .NET ecosystem with a
   - Windows (WinUI)
 - **Components**: Shared Razor components across all platforms
 - **State Management**: Built-in Blazor state or Fluxor for complex scenarios
-- **Localization**: IStringLocalizer with English as default
+- **Localization**: Runtime language switching with IStringLocalizer
+  - English (default) and German supported
+  - User-specific language preferences
+  - Automatic language application on barcode scan
 
 ### Testing Strategy
 - **Unit Tests**: xUnit for backend logic
@@ -130,9 +140,14 @@ Snackbox.Web/
 ├── Components/       # Reusable Blazor components
 ├── Pages/           # Page components with routing
 ├── Services/        # API clients and business logic
-├── Resources/       # Localization resources
 ├── wwwroot/        # Static assets
 └── MauiProgram.cs  # MAUI configuration
+
+Snackbox.Components/
+├── Pages/           # Shared page components
+├── Services/        # Shared services including LocalizationService
+├── Resources/       # Localization resources (.resx files)
+└── _Imports.razor   # Global using directives
 ```
 
 ## Development Workflow
@@ -340,21 +355,158 @@ app.Run();
 
 ## Localization Implementation
 
-### Resource Files
-- Store in `Resources/` folder
-- Format: `PageName.{culture}.resx`
-- Default: `PageName.resx` (English)
+Snackbox supports runtime language switching with user-specific preferences. For detailed information, see [docs/LOCALIZATION.md](docs/LOCALIZATION.md).
 
-### Usage in Components
-```csharp
-@inject IStringLocalizer<PageName> Localizer
+### Architecture
 
-<h1>@Localizer["WelcomeMessage"]</h1>
-```
+The localization system consists of:
+
+1. **LocalizationService** (`Snackbox.Components.Services.LocalizationService`):
+   - Manages current culture (CultureInfo)
+   - Persists language preferences via IStorageService
+   - Raises events when language changes
+   - Supports global and user-specific preferences
+
+2. **Resource Files** (`Snackbox.Components/Resources/`):
+   - `SharedResources.resx` - Base English resources
+   - `SharedResources.de.resx` - German translations
+   - `SharedResources.cs` - Marker class for localization
+
+3. **Storage Keys**:
+   - `preferred_language` - Global language preference
+   - `preferred_language:{userId}` - User-specific preference
 
 ### Supported Languages
-- **Default**: English (en-US)
-- Add additional languages as needed with corresponding .resx files
+
+- **English (en)** - Default language
+- **German (de)** - Full translation available
+
+### Key Features
+
+1. **Runtime Language Switching**:
+   - Global language selector in top navigation (Blazor Server)
+   - Per-user language selector on scanner page (when session active)
+   - Immediate UI update on language change
+
+2. **User-Specific Preferences**:
+   - Each user can have their own language preference
+   - Language automatically applied when user scans barcode
+   - Persisted across sessions via IStorageService
+
+3. **Automatic Application**:
+   - ScannerService calls `LocalizationService.ApplyUserLanguageAsync(userId)`
+   - User's language applied immediately after successful scan
+   - Falls back to global preference if user has no specific setting
+
+### Resource Files
+
+Resource files are located in `src/Snackbox.Components/Resources/`:
+- Store in `Resources/` folder
+- Base format: `SharedResources.resx` (English)
+- Localized format: `SharedResources.{culture}.resx` (e.g., `SharedResources.de.resx`)
+- Marker class: `SharedResources.cs`
+
+### Usage in Components
+
+**Injecting the Localizer:**
+```razor
+@inject IStringLocalizer<SharedResources> L
+@inject ILocalizationService Localization
+```
+
+**Using Localized Strings:**
+```razor
+<h1>@L["Scanner.WelcomeTitle"]</h1>
+<p>@L["Scanner.Balance"]</p>
+```
+
+**With Parameters:**
+```razor
+<p>@L["Scanner.QRInstruction", amount]</p>
+```
+
+**Subscribing to Culture Changes:**
+```csharp
+@implements IDisposable
+
+@code {
+    protected override void OnInitialized()
+    {
+        Localization.OnCultureChanged += _ => StateHasChanged();
+    }
+    
+    public void Dispose()
+    {
+        Localization.OnCultureChanged -= _ => StateHasChanged();
+    }
+}
+```
+
+### Service Registration
+
+**Blazor Server (Program.cs):**
+```csharp
+// Add localization services
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
+
+// Configure request localization
+var supportedCultures = new[] { "en", "de" };
+var localizationOptions = new RequestLocalizationOptions()
+    .SetDefaultCulture("en")
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures);
+app.UseRequestLocalization(localizationOptions);
+```
+
+**MAUI (MauiProgram.cs):**
+```csharp
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
+
+// Set default culture
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = new("en");
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = new("en");
+```
+
+### Adding a New Language
+
+1. Create new resource file: `SharedResources.{culture}.resx`
+2. Copy all keys from `SharedResources.resx` and translate
+3. Update `LocalizationService` to support the new culture:
+   - Modify the `_supported` array in `LocalizationService.cs` to include the new culture
+   - Example: `private static readonly CultureInfo[] _supported = new[] { new CultureInfo("en"), new CultureInfo("de"), new CultureInfo("fr") };`
+4. Add culture to supported cultures in `Program.cs` (Blazor Server):
+   - Update the `supportedCultures` array: `var supportedCultures = new[] { "en", "de", "fr" };`
+5. Rebuild and run - language appears automatically in selectors
+
+### Adding New Localization Keys
+
+1. Add key with English text to `SharedResources.resx`
+2. Add same key with translation to all localized `.resx` files
+3. Use in components: `@L["Your.New.Key"]`
+
+### Fallback Behavior
+
+- If translation is missing in a specific culture, falls back to English (base resource)
+- If user has no language preference, uses global preference
+- If no preference set, defaults to English
+- Both CurrentCulture and CurrentUICulture are set for proper date/currency formatting
+
+### Language Selectors
+
+**Global Selector (NavMenu.razor):**
+- Available in top navigation bar
+- Changes global language preference
+- Affects all pages immediately
+
+**User-Specific Selector (ScannerView.razor):**
+- Appears when user session is active
+- Changes language for specific user
+- Persisted as user preference
+- Automatically applied on next scan
+
+For more detailed information and troubleshooting, see [docs/LOCALIZATION.md](docs/LOCALIZATION.md).
 
 ## Testing Guidelines
 
@@ -539,7 +691,15 @@ builder.Build().Run();
 1. **Aspire not starting**: Ensure workload is installed
 2. **Database connection fails**: Check PostgreSQL is running
 3. **MAUI build errors**: Verify MAUI workload installation
-4. **Localization not working**: Check resource file build action is `EmbeddedResource`
+4. **Localization not working**: 
+   - Check resource file build action is `EmbeddedResource`
+   - Verify `SharedResources.cs` marker class exists
+   - Ensure `AddLocalization` is called in startup
+   - Check that resource files follow naming convention: `SharedResources.{culture}.resx`
+5. **Language not changing**: 
+   - Verify component subscribes to `OnCultureChanged` event
+   - Check that `StateHasChanged()` is called in event handler
+   - Ensure preference is being saved via IStorageService
 
 ### Getting Help
 
