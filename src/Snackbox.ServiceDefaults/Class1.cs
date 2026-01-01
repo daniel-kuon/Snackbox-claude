@@ -33,7 +33,13 @@ public static class OpenTelemetryExtensions
 
         // Configure OpenTelemetry
         services.AddOpenTelemetry()
-            .ConfigureResource(resource => resource.AddService(serviceName))
+            .ConfigureResource(resource => resource
+                .AddService(serviceName: serviceName, serviceVersion: serviceVersion)
+                .AddAttributes(new Dictionary<string, object>
+                {
+                    ["deployment.environment"] = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Development",
+                    ["service.namespace"] = "Snackbox"
+                }))
             .WithTracing(tracing =>
             {
                 tracing

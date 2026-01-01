@@ -249,8 +249,7 @@ public class PurchasesController : ControllerBase
             userId.Value);
 
         SnackboxTelemetry.ProductScanCounter.Add(1,
-            new KeyValuePair<string, object?>("product.id", product.Id),
-            new KeyValuePair<string, object?>("product.name", product.Name));
+            new KeyValuePair<string, object?>("product.id", product.Id));
 
         // Reload to get updated scans
         await _context.Entry(purchase).Collection(p => p.Scans).LoadAsync();

@@ -2,11 +2,6 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-scrape_configs:
-  - job_name: 'snackbox-api'
-    static_configs:
-      - targets: ['api:8080']
-
-  - job_name: 'snackbox-web'
-    static_configs:
-      - targets: ['web:8080']
+scrape_configs: []
+# Static scraping has been disabled.
+# Metrics are provided via OTLP push-based collection (otlp-write-receiver).
