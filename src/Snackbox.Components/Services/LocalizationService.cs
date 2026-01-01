@@ -24,7 +24,6 @@ public interface ILocalizationService
 public class LocalizationService : ILocalizationService
 {
     private CultureInfo _currentCulture;
-    private static readonly string[] SupportedLanguages = { "en", "de" };
 
     public LocalizationService()
     {
