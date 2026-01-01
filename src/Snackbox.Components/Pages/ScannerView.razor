@@ -5,9 +5,11 @@
 @using Snackbox.Components.Components
 @inject IScannerService ScannerService
 @inject IJSRuntime JS
+@inject IStringLocalizer<SharedResources> L
+@inject ILocalizationService Localization
 @implements IDisposable
 
-<PageTitle>Snackbox Scanner</PageTitle>
+<PageTitle>@L["Scanner.PageTitle"]</PageTitle>
 
 <div class="scanner-container">
     @if (!ScannerService.IsSessionActive)
@@ -15,8 +17,8 @@
         <!-- Initial State: Waiting for user to scan -->
         <div class="scanner-idle">
             <div class="scanner-icon">📱</div>
-            <h1 class="scanner-title">Welcome to Snackbox</h1>
-            <p class="scanner-instruction">Scan your personal barcode to begin</p>
+            <h1 class="scanner-title">@L["Scanner.WelcomeTitle"]</h1>
+            <p class="scanner-instruction">@L["Scanner.WelcomeInstruction"]</p>
         </div>
     }
     else if (ScannerService.CurrentSession != null)
@@ -31,11 +33,21 @@
                 <div class="user-info">
                     <h2 class="user-name">@session.UserName</h2>
                     <div class="user-balance">
-                        <span class="balance-label">Balance:</span>
+                        <span class="balance-label">@L["Scanner.Balance"]</span>
                         <span class="balance-amount @(session.OpenAmount < 0 ? "negative" : "positive")">
                             @session.OpenAmount.ToString("C")
                         </span>
                     </div>
+                </div>
+                <div class="language-select">
+                    <label class="me-1" for="langSelectScanner" style="font-size: .9rem; opacity: .8;">Lang:</label>
+                    <select id="langSelectScanner" class="form-select form-select-sm" style="width: auto;"
+                            @onchange="async (e) => await OnLanguageChangedForUser(e, session.UserId)">
+                        @foreach (var c in Localization.SupportedCultures)
+                        {
+                            <option value="@c.Name" selected="@(c.Name == Localization.CurrentCulture.Name)">@c.NativeName</option>
+                        }
+                    </select>
                 </div>
                 <div class="timer-container">
                     <div class="timer-circle">
@@ -48,7 +60,7 @@
             <div class="scanner-content">
                 <!-- Left side: Purchase items and totals -->
                 <div class="purchase-section">
-                    <h3 class="section-title">Scanned Amounts</h3>
+                    <h3 class="section-title">@L["Scanner.ScannedAmounts"]</h3>
 
                     @if (session.ScannedBarcodes.Any())
                     {
@@ -65,12 +77,12 @@
                     else
                     {
                         <div class="no-items">
-                            <p>Scan your personal barcodes to add amounts</p>
+                            <p>@L["Scanner.NoItems"]</p>
                         </div>
                     }
 
                     <div class="purchase-total">
-                        <span class="total-label">Total:</span>
+                        <span class="total-label">@L["Scanner.Total"]</span>
                         <span class="total-amount">@session.TotalAmount.ToString("C")</span>
                     </div>
 
@@ -78,7 +90,7 @@
                     @if (session.LastPaymentDate.HasValue)
                     {
                         <div class="last-payment">
-                            <div class="payment-label">Last Payment:</div>
+                            <div class="payment-label">@L["Scanner.LastPayment"]</div>
                             <div class="payment-details">
                                 <span class="payment-amount">@session.LastPaymentAmount.ToString("C")</span>
                                 <span class="payment-date">@session.LastPaymentDate.Value.ToString("dd MMM yyyy")</span>
@@ -89,17 +101,17 @@
 
                 <!-- Right side: QR Code -->
                 <div class="qr-section">
-                    <h3 class="section-title">Pay via PayPal</h3>
+                    <h3 class="section-title">@L["Scanner.PayViaPayPal"]</h3>
                     <div class="qr-code-wrapper">
                         <QRCodeComponent PayPalUrl="@paypalUrl" Size="400" />
                     </div>
-                    <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C")</p>
+                    <p class="qr-instruction">@L["Scanner.QRInstruction", Math.Abs(session.OpenAmount).ToString("C")]</p>
                 </div>
             </div>
 
             <!-- Scan instruction at bottom -->
             <div class="scan-instruction">
-                <p>Continue scanning your personal barcodes or wait for auto-complete</p>
+                <p>@L["Scanner.ScanInstruction"]</p>
             </div>
         </div>
     }
@@ -117,6 +129,7 @@
         ScannerService.OnPurchaseUpdated += HandlePurchaseUpdated;
         ScannerService.OnPurchaseCompleted += HandlePurchaseCompleted;
         ScannerService.OnPurchaseTimeout += HandlePurchaseTimeout;
+        Localization.OnCultureChanged += _ => InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -201,12 +214,20 @@
         }
     }
 
+    private async Task OnLanguageChangedForUser(ChangeEventArgs e, string userId)
+    {
+        var value = e.Value?.ToString() ?? "en";
+        await Localization.SetCultureAsync(value, userId);
+        await InvokeAsync(StateHasChanged);
+    }
+
     public void Dispose()
     {
         ScannerService.OnPurchaseStarted -= HandlePurchaseStarted;
         ScannerService.OnPurchaseUpdated -= HandlePurchaseUpdated;
         ScannerService.OnPurchaseCompleted -= HandlePurchaseCompleted;
         ScannerService.OnPurchaseTimeout -= HandlePurchaseTimeout;
+        Localization.OnCultureChanged -= _ => InvokeAsync(StateHasChanged);
 
         StopCountdownTimer();
     }

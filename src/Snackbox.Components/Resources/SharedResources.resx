@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="App.Name" xml:space="preserve"><value>Snackbox</value></data>
+  <data name="Nav.Login" xml:space="preserve"><value>Login</value></data>
+  <data name="Nav.Administration" xml:space="preserve"><value>Administration</value></data>
+  <data name="Nav.Users" xml:space="preserve"><value>Users</value></data>
+  <data name="Layout.About" xml:space="preserve"><value>About</value></data>
+  <data name="Error.Unhandled" xml:space="preserve"><value>An unhandled error has occurred.</value></data>
+  <data name="Common.Reload" xml:space="preserve"><value>Reload</value></data>
+
+  <data name="Scanner.PageTitle" xml:space="preserve"><value>Snackbox Scanner</value></data>
+  <data name="Scanner.WelcomeTitle" xml:space="preserve"><value>Welcome to Snackbox</value></data>
+  <data name="Scanner.WelcomeInstruction" xml:space="preserve"><value>Scan your personal barcode to begin</value></data>
+  <data name="Scanner.Balance" xml:space="preserve"><value>Balance:</value></data>
+  <data name="Scanner.ScannedAmounts" xml:space="preserve"><value>Scanned Amounts</value></data>
+  <data name="Scanner.NoItems" xml:space="preserve"><value>Scan your personal barcodes to add amounts</value></data>
+  <data name="Scanner.Total" xml:space="preserve"><value>Total:</value></data>
+  <data name="Scanner.LastPayment" xml:space="preserve"><value>Last Payment:</value></data>
+  <data name="Scanner.PayViaPayPal" xml:space="preserve"><value>Pay via PayPal</value></data>
+  <data name="Scanner.QRInstruction" xml:space="preserve"><value>Scan to pay {0}</value></data>
+  <data name="Scanner.ScanInstruction" xml:space="preserve"><value>Continue scanning your personal barcodes or wait for auto-complete</value></data>
+
+  <data name="Login.PageTitle" xml:space="preserve"><value>Login - Snackbox</value></data>
+  <data name="Login.Title" xml:space="preserve"><value>Snackbox Login</value></data>
+  <data name="Login.SetupPassword" xml:space="preserve"><value>Setup your password</value></data>
+  <data name="Login.WelcomeNoPassword" xml:space="preserve"><value>Welcome {0}! You don't have a password set yet. Please scan one of your barcodes, enter your email address, and create a password to enable password login.</value></data>
+  <data name="Login.Label.ScanYourBarcode" xml:space="preserve"><value>Scan your barcode</value></data>
+  <data name="Login.Placeholder.ScanYourBarcode" xml:space="preserve"><value>Scan your barcode</value></data>
+  <data name="Login.Label.Email" xml:space="preserve"><value>Email Address</value></data>
+  <data name="Login.Placeholder.Email" xml:space="preserve"><value>Enter your email address</value></data>
+  <data name="Login.Label.NewPassword" xml:space="preserve"><value>New Password</value></data>
+  <data name="Login.Placeholder.NewPassword" xml:space="preserve"><value>Enter your new password</value></data>
+  <data name="Login.Button.SetPassword" xml:space="preserve"><value>Set Password</value></data>
+  <data name="Login.Button.Skip" xml:space="preserve"><value>Skip for now</value></data>
+  <data name="Login.Subtitle" xml:space="preserve"><value>Login with password or scan your barcode</value></data>
+  <data name="Login.Tab.Password" xml:space="preserve"><value>Password</value></data>
+  <data name="Login.Tab.Barcode" xml:space="preserve"><value>Barcode</value></data>
+  <data name="Login.Label.Username" xml:space="preserve"><value>Username</value></data>
+  <data name="Login.Placeholder.Username" xml:space="preserve"><value>Enter your username</value></data>
+  <data name="Login.Label.Password" xml:space="preserve"><value>Password</value></data>
+  <data name="Login.Placeholder.Password" xml:space="preserve"><value>Enter your password</value></data>
+  <data name="Login.Label.Barcode" xml:space="preserve"><value>Barcode</value></data>
+  <data name="Login.Placeholder.Barcode" xml:space="preserve"><value>Scan or enter barcode</value></data>
+  <data name="Login.Button.Login" xml:space="preserve"><value>Login</value></data>
+  <data name="Login.Loading.LoggingIn" xml:space="preserve"><value>Logging in...</value></data>
+  <data name="Login.Loading.SettingPassword" xml:space="preserve"><value>Setting password...</value></data>
+  <data name="Login.Info.NoPassword" xml:space="preserve"><value>Don't have a password? Switch to barcode login and one will be set up for you.</value></data>
+  <data name="Login.Info.UseBarcode" xml:space="preserve"><value>Use your personal barcode or login-only barcode to authenticate</value></data>
+
+  <data name="Users.PageTitle" xml:space="preserve"><value>User Management - Snackbox Admin</value></data>
+  <data name="Users.Header" xml:space="preserve"><value>User Management</value></data>
+  <data name="Users.AddUser" xml:space="preserve"><value>Add User</value></data>
+  <data name="Common.Loading" xml:space="preserve"><value>Loading...</value></data>
+  <data name="Users.LoadingUsers" xml:space="preserve"><value>Loading users...</value></data>
+  <data name="Common.Error.LoadUsers" xml:space="preserve"><value>Failed to load users: {0}</value></data>
+  <data name="Users.Table.Username" xml:space="preserve"><value>Username</value></data>
+  <data name="Users.Table.Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Users.Table.Role" xml:space="preserve"><value>Role</value></data>
+  <data name="Users.Table.Balance" xml:space="preserve"><value>Balance</value></data>
+  <data name="Users.Table.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Common.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Common.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Common.Inactive" xml:space="preserve"><value>Inactive</value></data>
+  <data name="Common.ViewDetails" xml:space="preserve"><value>View Details</value></data>
+  <data name="Common.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Users.Empty" xml:space="preserve"><value>No users found.</value></data>
+  <data name="Users.AddFirst" xml:space="preserve"><value>Add Your First User</value></data>
+  <data name="Users.Create" xml:space="preserve"><value>Create User</value></data>
+  <data name="Users.Edit" xml:space="preserve"><value>Edit User</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Common.Save" xml:space="preserve"><value>Save</value></data>
+
+  <data name="UserDetail.PageTitle" xml:space="preserve"><value>User Details - Snackbox Admin</value></data>
+  <data name="Common.BackToUsers" xml:space="preserve"><value>Back to Users</value></data>
+  <data name="UserDetail.LoadingUser" xml:space="preserve"><value>Loading user details...</value></data>
+  <data name="Common.Balance" xml:space="preserve"><value>Balance</value></data>
+  <data name="Common.Role" xml:space="preserve"><value>Role</value></data>
+  <data name="Common.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Common.Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="Common.No" xml:space="preserve"><value>No</value></data>
+  <data name="UserDetail.Tabs.Info" xml:space="preserve"><value>User Information</value></data>
+  <data name="UserDetail.Tabs.Payments" xml:space="preserve"><value>Payments</value></data>
+  <data name="UserDetail.Tabs.Purchases" xml:space="preserve"><value>Purchases</value></data>
+  <data name="UserDetail.Tabs.Barcodes" xml:space="preserve"><value>Barcodes</value></data>
+  <data name="UserDetail.Info.Username" xml:space="preserve"><value>Username:</value></data>
+  <data name="UserDetail.Info.Email" xml:space="preserve"><value>Email:</value></data>
+  <data name="UserDetail.Info.Role" xml:space="preserve"><value>Role:</value></data>
+  <data name="UserDetail.Info.Active" xml:space="preserve"><value>Active:</value></data>
+  <data name="UserDetail.Info.Balance" xml:space="preserve"><value>Balance:</value></data>
+  <data name="Payments.History" xml:space="preserve"><value>Payment History</value></data>
+  <data name="Payments.Add" xml:space="preserve"><value>Add Payment</value></data>
+  <data name="Payments.Loading" xml:space="preserve"><value>Loading payments...</value></data>
+  <data name="Payments.Empty" xml:space="preserve"><value>No payments recorded yet.</value></data>
+  <data name="Purchases.History" xml:space="preserve"><value>Purchase History</value></data>
+  <data name="Purchases.Loading" xml:space="preserve"><value>Loading purchases...</value></data>
+  <data name="Purchases.Table.Date" xml:space="preserve"><value>Date</value></data>
+  <data name="Purchases.Table.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Purchases.Table.Quantity" xml:space="preserve"><value>Quantity</value></data>
+  <data name="Purchases.Table.Price" xml:space="preserve"><value>Price</value></data>
+  <data name="Purchases.Table.Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Purchases.Empty" xml:space="preserve"><value>No purchases recorded yet.</value></data>
+  <data name="Barcodes.Title" xml:space="preserve"><value>Barcodes</value></data>
+  <data name="Barcodes.Add" xml:space="preserve"><value>Add Barcode</value></data>
+  <data name="Barcodes.Loading" xml:space="preserve"><value>Loading barcodes...</value></data>
+  <data name="Barcodes.Table.Code" xml:space="preserve"><value>Code</value></data>
+  <data name="Barcodes.Table.Amount" xml:space="preserve"><value>Amount</value></data>
+  <data name="Barcodes.Table.Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Barcodes.Table.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Barcodes.Table.Created" xml:space="preserve"><value>Created</value></data>
+  <data name="Barcodes.Type.LoginOnly" xml:space="preserve"><value>Login Only</value></data>
+  <data name="Barcodes.Type.Payment" xml:space="preserve"><value>Payment</value></data>
+  <data name="Common.Error.Format" xml:space="preserve"><value>Error: {0}</value></data>
+  <data name="Payments.Add.Title" xml:space="preserve"><value>Add Payment</value></data>
+  <data name="Payments.Amount" xml:space="preserve"><value>Amount (€)</value></data>
+  <data name="Payments.Notes" xml:space="preserve"><value>Notes (optional)</value></data>
+  <data name="Payments.Save" xml:space="preserve"><value>Save Payment</value></data>
+  <data name="Barcodes.Add.Title" xml:space="preserve"><value>Add Barcode</value></data>
+  <data name="Barcodes.Label.Barcode" xml:space="preserve"><value>Barcode</value></data>
+  <data name="Common.SaveBarcode" xml:space="preserve"><value>Save Barcode</value></data>
+
+  <data name="NotFound.Title" xml:space="preserve"><value>Not Found</value></data>
+  <data name="NotFound.Message" xml:space="preserve"><value>Sorry, the content you are looking for does not exist.</value></data>
+  <data name="Error.PageTitle" xml:space="preserve"><value>Error</value></data>
+  <data name="Error.Title" xml:space="preserve"><value>Error.</value></data>
+  <data name="Error.ProcessingRequest" xml:space="preserve"><value>An error occurred while processing your request.</value></data>
+  <data name="Error.RequestId" xml:space="preserve"><value>Request ID:</value></data>
+  <data name="Error.DevelopmentMode" xml:space="preserve"><value>Development Mode</value></data>
+  <data name="Error.DevelopmentInfo1" xml:space="preserve"><value>Swapping to &lt;strong&gt;Development&lt;/strong&gt; environment will display more detailed information about the error that occurred.</value></data>
+  <data name="Error.DevelopmentInfo2" xml:space="preserve"><value>&lt;strong&gt;The Development environment shouldn't be enabled for deployed applications.&lt;/strong&gt; It can result in displaying sensitive information from exceptions to end users. For local debugging, enable the &lt;strong&gt;Development&lt;/strong&gt; environment by setting the &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; environment variable to &lt;strong&gt;Development&lt;/strong&gt; and restarting the app.</value></data>
+
+</root>

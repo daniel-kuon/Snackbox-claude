@@ -8,6 +8,7 @@ public class ScannerService : IScannerService
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly ILocalizationService? _localization;
     private System.Timers.Timer? _timeoutTimer;
 
     public event Action<PurchaseSession>? OnPurchaseStarted;
@@ -19,10 +20,11 @@ public class ScannerService : IScannerService
     public bool IsSessionActive => CurrentSession != null;
     public int TimeoutSeconds { get; }
 
-    public ScannerService(HttpClient httpClient, IConfiguration configuration)
+    public ScannerService(HttpClient httpClient, IConfiguration configuration, ILocalizationService? localization = null)
     {
         _httpClient = httpClient;
         _configuration = configuration;
+        _localization = localization;
         TimeoutSeconds = configuration.GetValue<int>("Scanner:TimeoutSeconds", 60);
     }
 
@@ -110,6 +112,11 @@ public class ScannerService : IScannerService
             {
                 // New session started
                 StartTimeoutTimer();
+                // Apply user language preference dynamically
+                if (!string.IsNullOrWhiteSpace(CurrentSession.UserId))
+                {
+                    _ = _localization?.ApplyUserLanguageAsync(CurrentSession.UserId);
+                }
                 OnPurchaseStarted?.Invoke(CurrentSession);
             }
             else

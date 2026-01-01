@@ -1,17 +1,19 @@
 @page "/admin/users/{UserId:int}"
 @inject HttpClient Http
+@inject IStringLocalizer<SharedResources> L
+@inject ILocalizationService Localization
 @inject NavigationManager Navigation
 
-<PageTitle>User Details - Snackbox Admin</PageTitle>
+<PageTitle>@L["UserDetail.PageTitle"]</PageTitle>
 
 <div class="container-fluid">
     @if (isLoading)
     {
         <div class="loading-container">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">@L["Common.Loading"]</span>
             </div>
-            <p>Loading user details...</p>
+            <p>@L["UserDetail.LoadingUser"]</p>
         </div>
     }
     else if (errorMessage != null)
@@ -19,7 +21,7 @@
         <div class="alert alert-danger" role="alert">
             @errorMessage
         </div>
-        <button class="btn btn-secondary" @onclick="NavigateBack">Back to Users</button>
+        <button class="btn btn-secondary" @onclick="NavigateBack">@L["Common.BackToUsers"]</button>
     }
     else if (user != null)
     {
@@ -33,27 +35,27 @@
 
         <div class="user-summary">
             <div class="summary-card">
-                <div class="summary-label">Balance</div>
+                <div class="summary-label">@L["Common.Balance"]</div>
                 <div class="summary-value @(user.Balance < 0 ? "text-danger" : "text-success")">
                     €@user.Balance.ToString("F2")
                 </div>
             </div>
             <div class="summary-card">
-                <div class="summary-label">Role</div>
+                <div class="summary-label">@L["Common.Role"]</div>
                 <div class="summary-value">
                     <span class="badge badge-@(user.Role.ToLower())">@user.Role</span>
                 </div>
             </div>
             <div class="summary-card">
-                <div class="summary-label">Status</div>
+                <div class="summary-label">@L["Common.Status"]</div>
                 <div class="summary-value">
                     @if (user.IsActive)
                     {
-                        <span class="badge badge-success">Active</span>
+                        <span class="badge badge-success">@L["Common.Active"]</span>
                     }
                     else
                     {
-                        <span class="badge badge-secondary">Inactive</span>
+                        <span class="badge badge-secondary">@L["Common.Inactive"]</span>
                     }
                 </div>
             </div>
@@ -61,16 +63,16 @@
 
         <div class="tabs">
             <button class="tab-button @(activeTab == "info" ? "active" : "")" @onclick='() => activeTab = "info"'>
-                User Information
+                @L["UserDetail.Tabs.Info"]
             </button>
             <button class="tab-button @(activeTab == "payments" ? "active" : "")" @onclick='() => activeTab = "payments"'>
-                Payments
+                @L["UserDetail.Tabs.Payments"]
             </button>
             <button class="tab-button @(activeTab == "purchases" ? "active" : "")" @onclick='() => activeTab = "purchases"'>
-                Purchases
+                @L["UserDetail.Tabs.Purchases"]
             </button>
             <button class="tab-button @(activeTab == "barcodes" ? "active" : "")" @onclick='() => activeTab = "barcodes"'>
-                Barcodes
+                @L["UserDetail.Tabs.Barcodes"]
             </button>
         </div>
 
@@ -79,23 +81,23 @@
             {
                 <div class="info-section">
                     <div class="info-row">
-                        <span class="info-label">Username:</span>
+                        <span class="info-label">@L["UserDetail.Info.Username"]</span>
                         <span class="info-value">@user.Username</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Email:</span>
+                        <span class="info-label">@L["UserDetail.Info.Email"]</span>
                         <span class="info-value">@user.Email</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Role:</span>
+                        <span class="info-label">@L["UserDetail.Info.Role"]</span>
                         <span class="info-value">@user.Role</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Active:</span>
-                        <span class="info-value">@(user.IsActive ? "Yes" : "No")</span>
+                        <span class="info-label">@L["UserDetail.Info.Active"]</span>
+                        <span class="info-value">@(user.IsActive ? L["Common.Yes"].Value : L["Common.No"].Value)</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Balance:</span>
+                        <span class="info-label">@L["UserDetail.Info.Balance"]</span>
                         <span class="info-value @(user.Balance < 0 ? "text-danger" : "text-success")">€@user.Balance.ToString("F2")</span>
                     </div>
                 </div>
@@ -103,15 +105,15 @@
             else if (activeTab == "payments")
             {
                 <div class="section-header">
-                    <h3>Payment History</h3>
-                    <button class="btn btn-primary btn-sm" @onclick="ShowAddPayment">+ Add Payment</button>
+                    <h3>@L["Payments.History"]</h3>
+                    <button class="btn btn-primary btn-sm" @onclick="ShowAddPayment">+ @L["Payments.Add"]</button>
                 </div>
 
                 @if (payments == null)
                 {
                     <div class="loading-container">
                         <div class="spinner-border spinner-border-sm"></div>
-                        <span>Loading payments...</span>
+                        <span>@L["Payments.Loading"]</span>
                     </div>
                 }
                 else if (payments.Any())
@@ -119,9 +121,9 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Amount</th>
-                                <th>Notes</th>
+                                <th>@L["Purchases.Table.Date"]</th>
+                                <th>@L["Barcodes.Table.Amount"]</th>
+                                <th>@L["Payments.Notes"]</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -139,21 +141,21 @@
                 else
                 {
                     <div class="empty-state">
-                        <p>No payments recorded yet.</p>
+                        <p>@L["Payments.Empty"]</p>
                     </div>
                 }
             }
             else if (activeTab == "purchases")
             {
                 <div class="section-header">
-                    <h3>Purchase History</h3>
+                    <h3>@L["Purchases.History"]</h3>
                 </div>
 
                 @if (purchases == null)
                 {
                     <div class="loading-container">
                         <div class="spinner-border spinner-border-sm"></div>
-                        <span>Loading purchases...</span>
+                        <span>@L["Purchases.Loading"]</span>
                     </div>
                 }
                 else if (purchases.Any())
@@ -161,11 +163,11 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Product</th>
-                                <th>Quantity</th>
-                                <th>Price</th>
-                                <th>Total</th>
+                                <th>@L["Purchases.Table.Date"]</th>
+                                <th>@L["Purchases.Table.Product"]</th>
+                                <th>@L["Purchases.Table.Quantity"]</th>
+                                <th>@L["Purchases.Table.Price"]</th>
+                                <th>@L["Purchases.Table.Total"]</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -185,22 +187,22 @@
                 else
                 {
                     <div class="empty-state">
-                        <p>No purchases recorded yet.</p>
+                        <p>@L["Purchases.Empty"]</p>
                     </div>
                 }
             }
             else if (activeTab == "barcodes")
             {
                 <div class="section-header">
-                    <h3>Barcodes</h3>
-                    <button class="btn btn-primary btn-sm" @onclick="ShowAddBarcode">+ Add Barcode</button>
+                    <h3>@L["Barcodes.Title"]</h3>
+                    <button class="btn btn-primary btn-sm" @onclick="ShowAddBarcode">+ @L["Barcodes.Add"]</button>
                 </div>
 
                 @if (barcodes == null)
                 {
                     <div class="loading-container">
                         <div class="spinner-border spinner-border-sm"></div>
-                        <span>Loading barcodes...</span>
+                        <span>@L["Barcodes.Loading"]</span>
                     </div>
                 }
                 else if (barcodes.Any())
@@ -208,11 +210,11 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Code</th>
-                                <th>Amount</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                                <th>Created</th>
+                                <th>@L["Barcodes.Table.Code"]</th>
+                                <th>@L["Barcodes.Table.Amount"]</th>
+                                <th>@L["Barcodes.Table.Type"]</th>
+                                <th>@L["Barcodes.Table.Status"]</th>
+                                <th>@L["Barcodes.Table.Created"]</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -224,21 +226,21 @@
                                     <td>
                                         @if (barcode.IsLoginOnly)
                                         {
-                                            <span class="badge badge-info">Login Only</span>
+                                            <span class="badge badge-info">@L["Barcodes.Type.LoginOnly"]</span>
                                         }
                                         else
                                         {
-                                            <span class="badge badge-primary">Payment</span>
+                                            <span class="badge badge-primary">@L["Barcodes.Type.Payment"]</span>
                                         }
                                     </td>
                                     <td>
                                         @if (barcode.IsActive)
                                         {
-                                            <span class="badge badge-success">Active</span>
+                                            <span class="badge badge-success">@L["Common.Active"]</span>
                                         }
                                         else
                                         {
-                                            <span class="badge badge-secondary">Inactive</span>
+                                            <span class="badge badge-secondary">@L["Common.Inactive"]</span>
                                         }
                                     </td>
                                     <td>@barcode.CreatedAt.ToString("yyyy-MM-dd")</td>
@@ -250,7 +252,7 @@
                 else
                 {
                     <div class="empty-state">
-                        <p>No barcodes assigned yet.</p>
+                        <p>@L["Users.Empty"]</p>
                     </div>
                 }
             }
@@ -264,7 +266,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Add Payment</h3>
+                <h3>@L["Payments.Add.Title"]</h3>
                 <button class="btn-close" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
@@ -276,24 +278,24 @@
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
-                        <label>Amount (€)</label>
+                        <label>@L["Payments.Amount"]</label>
                         <InputNumber @bind-Value="paymentForm.Amount" class="form-control" step="0.01" />
                         <ValidationMessage For="@(() => paymentForm.Amount)" />
                     </div>
 
                     <div class="form-group">
-                        <label>Notes (optional)</label>
+                        <label>@L["Payments.Notes"]</label>
                         <InputTextArea @bind-Value="paymentForm.Notes" class="form-control" rows="3" />
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModals">@L["Common.Cancel"]</button>
                         <button type="submit" class="btn btn-primary" disabled="@isSaving">
                             @if (isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
-                            Save Payment
+                            @L["Payments.Save"]
                         </button>
                     </div>
                 </EditForm>
@@ -308,7 +310,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Add Barcode</h3>
+                <h3>@L["Barcodes.Add.Title"]</h3>
                 <button class="btn-close" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
@@ -320,13 +322,13 @@
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
-                        <label>Barcode</label>
+                        <label>@L["Barcodes.Label.Barcode"]</label>
                         <InputText @bind-Value="barcodeForm.Code" class="form-control" />
                         <ValidationMessage For="@(() => barcodeForm.Code)" />
                     </div>
 
                     <div class="form-group">
-                        <label>Amount (€)</label>
+                        <label>@L["Payments.Amount"]</label>
                         <InputNumber @bind-Value="barcodeForm.Amount" class="form-control" step="0.01" />
                         <ValidationMessage For="@(() => barcodeForm.Amount)" />
                     </div>
@@ -334,31 +336,43 @@
                     <div class="form-check">
                         <InputCheckbox @bind-Value="barcodeForm.IsLoginOnly" class="form-check-input" id="isLoginOnlyCheck" />
                         <label class="form-check-label" for="isLoginOnlyCheck">
-                            Login Only (no payment)
+                            @L["Barcodes.Type.LoginOnly"] (no payment)
                         </label>
                     </div>
 
                     <div class="form-check">
                         <InputCheckbox @bind-Value="barcodeForm.IsActive" class="form-check-input" id="isActiveCheck" />
                         <label class="form-check-label" for="isActiveCheck">
-                            Active
+                            @L["Common.Active"]
                         </label>
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModals">@L["Common.Cancel"]</button>
                         <button type="submit" class="btn btn-primary" disabled="@isSaving">
                             @if (isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
-                            Save Barcode
+                            @L["Common.SaveBarcode"]
                         </button>
                     </div>
                 </EditForm>
             </div>
         </div>
     </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Localization.OnCultureChanged += _ => StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Localization.OnCultureChanged -= _ => StateHasChanged();
+    }
 }
 
 <style>

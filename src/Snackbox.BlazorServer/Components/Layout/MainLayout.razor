@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@inject IStringLocalizer<SharedResources> L
+@inject Snackbox.Components.Services.ILocalizationService Localization
 
 <div class="page">
     <div class="sidebar">
@@ -7,7 +9,7 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">@L["Layout.About"]</a>
         </div>
 
         <article class="content px-4">
@@ -17,7 +19,19 @@
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    @L["Error.Unhandled"]
+    <a href="." class="reload">@L["Common.Reload"]</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Localization.OnCultureChanged += _ => StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Localization.OnCultureChanged -= _ => StateHasChanged();
+    }
+}

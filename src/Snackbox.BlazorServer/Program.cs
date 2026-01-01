@@ -8,8 +8,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Localization services
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
 // Register storage service for web
 builder.Services.AddSingleton<IStorageService, WebStorageService>();
+
+// Localization state service for dynamic language switching
+builder.Services.AddSingleton<Snackbox.Components.Services.ILocalizationService, Snackbox.Components.Services.LocalizationService>();
 
 // Register HttpClient for API calls
 var apiUrl = builder.Configuration["API_HTTPS"] ?? builder.Configuration["API_HTTP"] ?? throw new InvalidOperationException("API URL is not configured.");
@@ -40,6 +46,14 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+// Configure request localization
+var supportedCultures = new[] { "en", "de" };
+var localizationOptions = new RequestLocalizationOptions()
+    .SetDefaultCulture("en")
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures);
+app.UseRequestLocalization(localizationOptions);
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
