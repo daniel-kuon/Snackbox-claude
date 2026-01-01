@@ -160,4 +160,114 @@ public class ProductsController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpGet("barcode/{barcode}")]
+    public async Task<ActionResult<ProductDto>> GetByBarcode(string barcode)
+    {
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.Barcode == barcode);
+
+        if (product == null)
+        {
+            return NotFound(new { message = "Product not found" });
+        }
+
+        var dto = new ProductDto
+        {
+            Id = product.Id,
+            Name = product.Name,
+            Barcode = product.Barcode,
+            Price = product.Price,
+            Description = product.Description,
+            CreatedAt = product.CreatedAt
+        };
+
+        return Ok(dto);
+    }
+
+    [HttpGet("{id}/stock")]
+    public async Task<ActionResult<ProductStockDto>> GetProductStock(int id)
+    {
+        var product = await _context.Products
+            .Include(p => p.Batches)
+            .ThenInclude(b => b.ShelvingActions)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (product == null)
+        {
+            return NotFound(new { message = "Product not found" });
+        }
+
+        var batches = product.Batches.Select(b => new BatchStockInfo
+        {
+            BatchId = b.Id,
+            BestBeforeDate = b.BestBeforeDate,
+            QuantityInStorage = b.ShelvingActions
+                .Where(sa => sa.Type == ShelvingActionType.AddedToStorage || sa.Type == ShelvingActionType.MovedFromShelf)
+                .Sum(sa => sa.Quantity) - b.ShelvingActions
+                .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.RemovedFromStorage)
+                .Sum(sa => sa.Quantity),
+            QuantityOnShelf = b.ShelvingActions
+                .Where(sa => sa.Type == ShelvingActionType.MovedToShelf)
+                .Sum(sa => sa.Quantity) - b.ShelvingActions
+                .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
+                .Sum(sa => sa.Quantity)
+        }).ToList();
+
+        var dto = new ProductStockDto
+        {
+            ProductId = product.Id,
+            ProductName = product.Name,
+            ProductBarcode = product.Barcode,
+            Price = product.Price,
+            Description = product.Description,
+            TotalInStorage = batches.Sum(b => b.QuantityInStorage),
+            TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
+            Batches = batches
+        };
+
+        return Ok(dto);
+    }
+
+    [HttpGet("stock")]
+    public async Task<ActionResult<IEnumerable<ProductStockDto>>> GetAllProductStock()
+    {
+        var products = await _context.Products
+            .Include(p => p.Batches)
+            .ThenInclude(b => b.ShelvingActions)
+            .ToListAsync();
+
+        var result = products.Select(product =>
+        {
+            var batches = product.Batches.Select(b => new BatchStockInfo
+            {
+                BatchId = b.Id,
+                BestBeforeDate = b.BestBeforeDate,
+                QuantityInStorage = b.ShelvingActions
+                    .Where(sa => sa.Type == ShelvingActionType.AddedToStorage || sa.Type == ShelvingActionType.MovedFromShelf)
+                    .Sum(sa => sa.Quantity) - b.ShelvingActions
+                    .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.RemovedFromStorage)
+                    .Sum(sa => sa.Quantity),
+                QuantityOnShelf = b.ShelvingActions
+                    .Where(sa => sa.Type == ShelvingActionType.MovedToShelf)
+                    .Sum(sa => sa.Quantity) - b.ShelvingActions
+                    .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
+                    .Sum(sa => sa.Quantity)
+            }).ToList();
+
+            return new ProductStockDto
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                ProductBarcode = product.Barcode,
+                Price = product.Price,
+                Description = product.Description,
+                TotalInStorage = batches.Sum(b => b.QuantityInStorage),
+                TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
+                Batches = batches
+            };
+        }).ToList();
+
+        return Ok(result);
+    }
 }

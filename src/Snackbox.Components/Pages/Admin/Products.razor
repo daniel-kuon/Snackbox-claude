@@ -1,0 +1,627 @@
+@page "/admin/products"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Product Management - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Product Management</h2>
+        <button class="btn btn-primary" @onclick="ShowCreateProduct">
+            <span class="icon">+</span> Add Product
+        </button>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="search-bar">
+        <input type="text" class="form-control search-input" placeholder="Search products..." 
+               @bind="searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
+        <select class="form-control sort-select" @bind="sortBy" @bind:after="SortProducts">
+            <option value="name">Sort by Name</option>
+            <option value="barcode">Sort by Barcode</option>
+            <option value="price">Sort by Price</option>
+            <option value="created">Sort by Created Date</option>
+        </select>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading products...</p>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+    else if (filteredProducts != null && filteredProducts.Any())
+    {
+        <div class="table-container">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Barcode</th>
+                        <th>Price</th>
+                        <th>Description</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in filteredProducts)
+                    {
+                        <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;">
+                            <td>@product.Name</td>
+                            <td><code>@product.Barcode</code></td>
+                            <td>€@product.Price.ToString("F2")</td>
+                            <td>@(product.Description ?? "-")</td>
+                            <td>@product.CreatedAt.ToString("yyyy-MM-dd")</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => NavigateToProductDetail(product.Id)">
+                                    View
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick:stopPropagation="true" @onclick="() => ShowEditProduct(product)">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick:stopPropagation="true" @onclick="() => ConfirmDelete(product)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <p>No products found.</p>
+            <button class="btn btn-primary" @onclick="ShowCreateProduct">Add Your First Product</button>
+        </div>
+    }
+</div>
+
+@if (showCreateEditModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@(editingProduct == null ? "Create Product" : "Edit Product")</h3>
+                <button class="btn-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (modalError != null)
+                {
+                    <div class="alert alert-danger">@modalError</div>
+                }
+                <EditForm Model="@productForm" OnValidSubmit="@SaveProduct">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label>Product Name</label>
+                        <InputText @bind-Value="productForm.Name" class="form-control" />
+                        <ValidationMessage For="@(() => productForm.Name)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Barcode</label>
+                        <InputText @bind-Value="productForm.Barcode" class="form-control" />
+                        <ValidationMessage For="@(() => productForm.Barcode)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Price (€)</label>
+                        <InputNumber @bind-Value="productForm.Price" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => productForm.Price)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description (optional)</label>
+                        <InputTextArea @bind-Value="productForm.Description" class="form-control" rows="3" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Save
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showDeleteModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Delete</h3>
+                <button class="btn-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (modalError != null)
+                {
+                    <div class="alert alert-danger">@modalError</div>
+                }
+                <p>Are you sure you want to delete the product "<strong>@productToDelete?.Name</strong>"?</p>
+                <p class="text-muted">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="DeleteProduct" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .search-bar {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-input {
+        flex: 1;
+        max-width: 400px;
+    }
+
+    .sort-select {
+        width: auto;
+    }
+
+    .table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .table {
+        margin-bottom: 0;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        padding: 0.75rem;
+        text-align: left;
+    }
+
+    .table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .modal-dialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1001;
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .modal-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+    }
+
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #6c757d;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .btn-outline-primary {
+        background-color: transparent;
+        color: #007bff;
+        border: 1px solid #007bff;
+    }
+
+    .btn-outline-secondary {
+        background-color: transparent;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+    }
+
+    .btn-outline-danger {
+        background-color: transparent;
+        color: #dc3545;
+        border: 1px solid #dc3545;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .spinner-border {
+        width: 2rem;
+        height: 2rem;
+        border: 0.25em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        animation: spinner-border 0.75s linear infinite;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.2em;
+    }
+
+    @@keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+
+    code {
+        background: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        font-family: monospace;
+    }
+
+    .text-muted {
+        color: #6c757d;
+    }
+</style>
+
+@code {
+    private List<ProductDto>? products;
+    private List<ProductDto>? filteredProducts;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string searchTerm = "";
+    private string sortBy = "name";
+
+    private bool showCreateEditModal = false;
+    private bool showDeleteModal = false;
+    private ProductDto? editingProduct = null;
+    private ProductDto? productToDelete = null;
+    private ProductFormModel productForm = new();
+    private string? modalError;
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            products = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
+            FilterProducts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load products: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterProducts()
+    {
+        if (products == null) return;
+
+        filteredProducts = products
+            .Where(p => string.IsNullOrEmpty(searchTerm) ||
+                        p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        p.Barcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        (p.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+            .ToList();
+
+        SortProducts();
+    }
+
+    private void SortProducts()
+    {
+        if (filteredProducts == null) return;
+
+        filteredProducts = sortBy switch
+        {
+            "name" => filteredProducts.OrderBy(p => p.Name).ToList(),
+            "barcode" => filteredProducts.OrderBy(p => p.Barcode).ToList(),
+            "price" => filteredProducts.OrderBy(p => p.Price).ToList(),
+            "created" => filteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
+            _ => filteredProducts
+        };
+    }
+
+    private void NavigateToProductDetail(int productId)
+    {
+        Navigation.NavigateTo($"/admin/products/{productId}");
+    }
+
+    private void ShowCreateProduct()
+    {
+        editingProduct = null;
+        productForm = new ProductFormModel();
+        modalError = null;
+        showCreateEditModal = true;
+    }
+
+    private void ShowEditProduct(ProductDto product)
+    {
+        editingProduct = product;
+        productForm = new ProductFormModel
+        {
+            Name = product.Name,
+            Barcode = product.Barcode,
+            Price = product.Price,
+            Description = product.Description
+        };
+        modalError = null;
+        showCreateEditModal = true;
+    }
+
+    private void ConfirmDelete(ProductDto product)
+    {
+        productToDelete = product;
+        modalError = null;
+        showDeleteModal = true;
+    }
+
+    private async Task SaveProduct()
+    {
+        isSaving = true;
+        modalError = null;
+
+        try
+        {
+            HttpResponseMessage response;
+
+            if (editingProduct == null)
+            {
+                response = await Http.PostAsJsonAsync("api/products", new
+                {
+                    name = productForm.Name,
+                    barcode = productForm.Barcode,
+                    price = productForm.Price,
+                    description = productForm.Description
+                });
+            }
+            else
+            {
+                response = await Http.PutAsJsonAsync($"api/products/{editingProduct.Id}", new
+                {
+                    name = productForm.Name,
+                    barcode = productForm.Barcode,
+                    price = productForm.Price,
+                    description = productForm.Description
+                });
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModal();
+                await LoadProducts();
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                modalError = error?.Message ?? "Failed to save product. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteProduct()
+    {
+        if (productToDelete == null) return;
+
+        isSaving = true;
+        modalError = null;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/products/{productToDelete.Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModal();
+                await LoadProducts();
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                modalError = error?.Message ?? "Failed to delete product. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void CloseModal()
+    {
+        showCreateEditModal = false;
+        showDeleteModal = false;
+        editingProduct = null;
+        productToDelete = null;
+        productForm = new();
+        modalError = null;
+    }
+
+    private class ProductDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Barcode { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string? Description { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    private class ProductFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Product name is required")]
+        public string Name { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Barcode is required")]
+        public string Barcode { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.Range(0.01, 10000, ErrorMessage = "Price must be between 0.01 and 10000")]
+        public decimal Price { get; set; }
+
+        public string? Description { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string? Message { get; set; }
+    }
+}

@@ -1,0 +1,399 @@
+@page "/admin/stock"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Stock Management - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Stock Management</h2>
+        <button class="btn btn-primary" @onclick="NavigateToBatchScan">
+            <span class="icon">📦</span> Batch Scan
+        </button>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="search-bar">
+        <input type="text" class="form-control search-input" placeholder="Search products..." 
+               @bind="searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
+        <select class="form-control sort-select" @bind="sortBy" @bind:after="SortProducts">
+            <option value="name">Sort by Name</option>
+            <option value="storage">Sort by Storage Qty</option>
+            <option value="shelf">Sort by Shelf Qty</option>
+            <option value="total">Sort by Total Stock</option>
+        </select>
+        <select class="form-control filter-select" @bind="stockFilter" @bind:after="FilterProducts">
+            <option value="all">All Products</option>
+            <option value="inStock">In Stock Only</option>
+            <option value="lowStock">Low Stock (&lt; 10)</option>
+            <option value="outOfStock">Out of Stock</option>
+        </select>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading stock data...</p>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+    else if (filteredProducts != null && filteredProducts.Any())
+    {
+        <div class="stock-summary-bar">
+            <div class="summary-item">
+                <span class="summary-label">Total Products:</span>
+                <span class="summary-value">@filteredProducts.Count</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Total in Storage:</span>
+                <span class="summary-value">@filteredProducts.Sum(p => p.TotalInStorage)</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Total on Shelf:</span>
+                <span class="summary-value">@filteredProducts.Sum(p => p.TotalOnShelf)</span>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Price</th>
+                        <th>In Storage</th>
+                        <th>On Shelf</th>
+                        <th>Total</th>
+                        <th>Batches</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in filteredProducts)
+                    {
+                        var total = product.TotalInStorage + product.TotalOnShelf;
+                        var stockClass = total == 0 ? "out-of-stock" : total < 10 ? "low-stock" : "";
+                        
+                        <tr class="@stockClass" @onclick="() => NavigateToProduct(product.ProductId)" style="cursor: pointer;">
+                            <td>@product.ProductName</td>
+                            <td><code>@product.ProductBarcode</code></td>
+                            <td>€@product.Price.ToString("F2")</td>
+                            <td>@product.TotalInStorage</td>
+                            <td>@product.TotalOnShelf</td>
+                            <td>
+                                <strong>@total</strong>
+                                @if (total == 0)
+                                {
+                                    <span class="badge badge-danger">Out of Stock</span>
+                                }
+                                else if (total < 10)
+                                {
+                                    <span class="badge badge-warning">Low</span>
+                                }
+                            </td>
+                            <td>@product.Batches.Count</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => NavigateToProduct(product.ProductId)">
+                                    View Details
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <p>No products in stock match your criteria.</p>
+        </div>
+    }
+</div>
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .search-bar {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        flex: 1;
+        min-width: 200px;
+        max-width: 400px;
+    }
+
+    .sort-select, .filter-select {
+        width: auto;
+        min-width: 150px;
+    }
+
+    .stock-summary-bar {
+        display: flex;
+        gap: 2rem;
+        padding: 1rem 1.5rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+
+    .summary-item {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .summary-label {
+        color: #6c757d;
+    }
+
+    .summary-value {
+        font-weight: 600;
+        color: #007bff;
+    }
+
+    .table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .table {
+        margin-bottom: 0;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        padding: 0.75rem;
+        text-align: left;
+    }
+
+    .table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .table tr.out-of-stock {
+        background-color: #fff5f5;
+    }
+
+    .table tr.low-stock {
+        background-color: #fffbeb;
+    }
+
+    .badge {
+        padding: 0.35em 0.65em;
+        border-radius: 0.25rem;
+        font-size: 0.75em;
+        font-weight: 500;
+        margin-left: 0.5rem;
+    }
+
+    .badge-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .badge-warning {
+        background-color: #ffc107;
+        color: #212529;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-outline-primary {
+        background-color: transparent;
+        color: #007bff;
+        border: 1px solid #007bff;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .form-control {
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .spinner-border {
+        width: 2rem;
+        height: 2rem;
+        border: 0.25em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        animation: spinner-border 0.75s linear infinite;
+    }
+
+    @@keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+
+    code {
+        background: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        font-family: monospace;
+    }
+</style>
+
+@code {
+    private List<ProductStockDto>? products;
+    private List<ProductStockDto>? filteredProducts;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string searchTerm = "";
+    private string sortBy = "name";
+    private string stockFilter = "all";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStock();
+    }
+
+    private async Task LoadStock()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            products = await Http.GetFromJsonAsync<List<ProductStockDto>>("api/products/stock");
+            FilterProducts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load stock data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterProducts()
+    {
+        if (products == null) return;
+
+        filteredProducts = products
+            .Where(p => string.IsNullOrEmpty(searchTerm) ||
+                        p.ProductName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        p.ProductBarcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .Where(p => stockFilter switch
+            {
+                "inStock" => p.TotalInStorage + p.TotalOnShelf > 0,
+                "lowStock" => p.TotalInStorage + p.TotalOnShelf > 0 && p.TotalInStorage + p.TotalOnShelf < 10,
+                "outOfStock" => p.TotalInStorage + p.TotalOnShelf == 0,
+                _ => true
+            })
+            .ToList();
+
+        SortProducts();
+    }
+
+    private void SortProducts()
+    {
+        if (filteredProducts == null) return;
+
+        filteredProducts = sortBy switch
+        {
+            "name" => filteredProducts.OrderBy(p => p.ProductName).ToList(),
+            "storage" => filteredProducts.OrderByDescending(p => p.TotalInStorage).ToList(),
+            "shelf" => filteredProducts.OrderByDescending(p => p.TotalOnShelf).ToList(),
+            "total" => filteredProducts.OrderByDescending(p => p.TotalInStorage + p.TotalOnShelf).ToList(),
+            _ => filteredProducts
+        };
+    }
+
+    private void NavigateToProduct(int productId)
+    {
+        Navigation.NavigateTo($"/admin/products/{productId}");
+    }
+
+    private void NavigateToBatchScan()
+    {
+        Navigation.NavigateTo("/admin/batch-scan");
+    }
+
+    private class ProductStockDto
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public string ProductBarcode { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string? Description { get; set; }
+        public int TotalInStorage { get; set; }
+        public int TotalOnShelf { get; set; }
+        public List<BatchStockInfo> Batches { get; set; } = new();
+    }
+
+    private class BatchStockInfo
+    {
+        public int BatchId { get; set; }
+        public DateTime BestBeforeDate { get; set; }
+        public int QuantityInStorage { get; set; }
+        public int QuantityOnShelf { get; set; }
+    }
+}

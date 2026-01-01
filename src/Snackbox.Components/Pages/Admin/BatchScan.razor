@@ -1,0 +1,589 @@
+@page "/admin/batch-scan"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Batch Scan - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <div>
+            <h2>Batch Scan</h2>
+            <p class="text-muted">Scan product barcodes to create multiple stock changes at once</p>
+        </div>
+        <button class="btn btn-secondary" @onclick="NavigateBack">Back to Stock</button>
+    </div>
+
+    <div class="scan-section">
+        <div class="scan-controls">
+            <div class="scan-input-group">
+                <label>Scan or Enter Barcode</label>
+                <input type="text" class="form-control form-control-lg" 
+                       @bind="currentBarcode" @bind:event="oninput"
+                       @onkeyup="HandleBarcodeInput"
+                       placeholder="Scan barcode..." 
+                       autofocus
+                       @ref="barcodeInputRef" />
+            </div>
+
+            <div class="action-type-group">
+                <label>Action Type</label>
+                <select class="form-control" @bind="selectedActionType">
+                    <option value="AddedToStorage">Add to Storage</option>
+                    <option value="MovedToShelf">Add Directly to Shelf</option>
+                </select>
+            </div>
+
+            <div class="quantity-group">
+                <label>Default Quantity</label>
+                <input type="number" class="form-control" @bind="defaultQuantity" min="1" />
+            </div>
+        </div>
+    </div>
+
+    @if (scannedItems.Any())
+    {
+        <div class="scanned-items-section">
+            <div class="section-header">
+                <h3>Scanned Items (@scannedItems.Count)</h3>
+                <div class="section-actions">
+                    <button class="btn btn-outline-secondary" @onclick="ClearAll">Clear All</button>
+                    <button class="btn btn-primary" @onclick="ProcessBatch" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        Process Batch (@scannedItems.Count items)
+                    </button>
+                </div>
+            </div>
+
+            @if (processError != null)
+            {
+                <div class="alert alert-danger">@processError</div>
+            }
+
+            @if (processSuccess != null)
+            {
+                <div class="alert alert-success">@processSuccess</div>
+            }
+
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Barcode</th>
+                            <th>Action</th>
+                            <th>Quantity</th>
+                            <th>Best Before Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in scannedItems)
+                        {
+                            <tr>
+                                <td>@item.ProductName</td>
+                                <td><code>@item.ProductBarcode</code></td>
+                                <td>
+                                    <select class="form-control form-control-sm" @bind="item.ActionType">
+                                        <option value="AddedToStorage">Add to Storage</option>
+                                        <option value="MovedToShelf">Add to Shelf</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm quantity-input" 
+                                           @bind="item.Quantity" min="1" />
+                                </td>
+                                <td>
+                                    <div class="date-selector">
+                                        @if (item.ExistingDates.Any())
+                                        {
+                                            <select class="form-control form-control-sm" @bind="item.SelectedDateOption">
+                                                <option value="new">New Date...</option>
+                                                @foreach (var date in item.ExistingDates)
+                                                {
+                                                    <option value="@date.ToString("yyyy-MM-dd")">@date.ToString("yyyy-MM-dd")</option>
+                                                }
+                                            </select>
+                                        }
+                                        @if (!item.ExistingDates.Any() || item.SelectedDateOption == "new")
+                                        {
+                                            <input type="date" class="form-control form-control-sm" 
+                                                   @bind="item.BestBeforeDate" />
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveItem(item)">
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <h3>No Items Scanned Yet</h3>
+            <p>Scan product barcodes to add them to the batch</p>
+        </div>
+    }
+
+    @if (scanError != null)
+    {
+        <div class="scan-error">
+            <div class="alert alert-warning">
+                @scanError
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => scanError = null">Dismiss</button>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+    }
+
+    .scan-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+
+    .scan-controls {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .scan-input-group label,
+    .action-type-group label,
+    .quantity-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .form-control-lg {
+        padding: 0.75rem 1rem;
+        font-size: 1.1rem;
+    }
+
+    .scanned-items-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .section-header h3 {
+        margin: 0;
+    }
+
+    .section-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .table-container {
+        overflow-x: auto;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 0;
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+        vertical-align: middle;
+    }
+
+    .quantity-input {
+        width: 80px;
+    }
+
+    .date-selector {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .date-selector select,
+    .date-selector input {
+        width: 150px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+
+    .empty-state p {
+        color: #6c757d;
+    }
+
+    .scan-error {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+    }
+
+    .scan-error .alert {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .form-control {
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .form-control-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn-outline-secondary {
+        background-color: transparent;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+    }
+
+    .btn-outline-danger {
+        background-color: transparent;
+        color: #dc3545;
+        border: 1px solid #dc3545;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .alert-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        color: #856404;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+
+    .spinner-border {
+        width: 1rem;
+        height: 1rem;
+        border: 0.2em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        animation: spinner-border 0.75s linear infinite;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.2em;
+    }
+
+    @@keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+
+    code {
+        background: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        font-family: monospace;
+    }
+
+    .text-muted {
+        color: #6c757d;
+    }
+
+    @@media (max-width: 768px) {
+        .scan-controls {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@code {
+    private ElementReference barcodeInputRef;
+    private string currentBarcode = "";
+    private string selectedActionType = "AddedToStorage";
+    private int defaultQuantity = 1;
+    private List<ScannedItem> scannedItems = new();
+    private string? scanError;
+    private string? processError;
+    private string? processSuccess;
+    private bool isProcessing = false;
+
+    private async Task HandleBarcodeInput(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(currentBarcode))
+        {
+            await LookupAndAddProduct(currentBarcode.Trim());
+            currentBarcode = "";
+        }
+    }
+
+    private async Task LookupAndAddProduct(string barcode)
+    {
+        scanError = null;
+
+        try
+        {
+            var product = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{barcode}");
+            
+            if (product == null)
+            {
+                scanError = $"Product with barcode '{barcode}' not found.";
+                return;
+            }
+
+            // Get existing best-before dates for this product
+            var existingDates = new List<DateTime>();
+            try
+            {
+                var stock = await Http.GetFromJsonAsync<ProductStockDto>($"api/products/{product.Id}/stock");
+                if (stock != null)
+                {
+                    existingDates = stock.Batches.Select(b => b.BestBeforeDate).Distinct().OrderBy(d => d).ToList();
+                }
+            }
+            catch
+            {
+                // Ignore errors fetching existing dates
+            }
+
+            var item = new ScannedItem
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                ProductBarcode = product.Barcode,
+                ActionType = selectedActionType,
+                Quantity = defaultQuantity,
+                BestBeforeDate = DateTime.Today.AddMonths(6),
+                ExistingDates = existingDates,
+                SelectedDateOption = existingDates.Any() ? existingDates.First().ToString("yyyy-MM-dd") : "new"
+            };
+
+            scannedItems.Add(item);
+            processSuccess = null;
+            processError = null;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            scanError = $"Product with barcode '{barcode}' not found.";
+        }
+        catch (Exception ex)
+        {
+            scanError = $"Error looking up product: {ex.Message}";
+        }
+    }
+
+    private void RemoveItem(ScannedItem item)
+    {
+        scannedItems.Remove(item);
+    }
+
+    private void ClearAll()
+    {
+        scannedItems.Clear();
+        processError = null;
+        processSuccess = null;
+    }
+
+    private async Task ProcessBatch()
+    {
+        if (!scannedItems.Any()) return;
+
+        isProcessing = true;
+        processError = null;
+        processSuccess = null;
+
+        try
+        {
+            var actions = scannedItems.Select(item => new
+            {
+                productBarcode = item.ProductBarcode,
+                bestBeforeDate = item.GetEffectiveBestBeforeDate(),
+                quantity = item.Quantity,
+                type = item.ActionType
+            }).ToList();
+
+            var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", new { actions });
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<BatchResult>();
+                
+                if (result?.Errors?.Any() == true)
+                {
+                    processError = $"Some actions failed: {string.Join(", ", result.Errors)}";
+                    processSuccess = $"Successfully processed {result.Results?.Count ?? 0} items.";
+                }
+                else
+                {
+                    processSuccess = $"Successfully processed {scannedItems.Count} items.";
+                    scannedItems.Clear();
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                processError = error?.Message ?? "Failed to process batch. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            processError = $"Error processing batch: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/admin/stock");
+    }
+
+    private class ScannedItem
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public string ProductBarcode { get; set; } = string.Empty;
+        public string ActionType { get; set; } = "AddedToStorage";
+        public int Quantity { get; set; } = 1;
+        public DateTime BestBeforeDate { get; set; } = DateTime.Today.AddMonths(6);
+        public List<DateTime> ExistingDates { get; set; } = new();
+        public string SelectedDateOption { get; set; } = "new";
+
+        public DateTime GetEffectiveBestBeforeDate()
+        {
+            if (SelectedDateOption == "new")
+            {
+                return BestBeforeDate;
+            }
+            return DateTime.Parse(SelectedDateOption);
+        }
+    }
+
+    private class ProductDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Barcode { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string? Description { get; set; }
+    }
+
+    private class ProductStockDto
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public string ProductBarcode { get; set; } = string.Empty;
+        public List<BatchStockInfo> Batches { get; set; } = new();
+    }
+
+    private class BatchStockInfo
+    {
+        public int BatchId { get; set; }
+        public DateTime BestBeforeDate { get; set; }
+    }
+
+    private class BatchResult
+    {
+        public List<object>? Results { get; set; }
+        public List<string>? Errors { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string? Message { get; set; }
+    }
+}
