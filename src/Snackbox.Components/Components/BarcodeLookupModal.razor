@@ -37,7 +37,7 @@
                                    disabled="@isSearching" />
                             <button class="btn btn-primary" 
                                     @onclick="SearchBarcode" 
-                                    disabled="@(isSearching || string.IsNullOrWhiteSpace(barcodeInput))">
+                                    disabled="@(isSearching || string.IsNullOrWhiteSpace(barcodeInput) || !IsBarcodeValid())">
                                 @if (isSearching)
                                 {
                                     <span class="spinner-border spinner-border-sm"></span>
@@ -85,6 +85,44 @@
                             </div>
                         }
                     </div>
+
+                    <!-- Barcode Duplicate Check -->
+                    @if (!string.IsNullOrWhiteSpace(existingProductWithBarcode))
+                    {
+                        <div class="alert alert-warning">
+                            <strong>⚠ Warning:</strong> A product with this barcode already exists: <strong>@existingProductWithBarcode</strong>
+                            <br/>Creating a new product will result in a duplicate barcode error.
+                        </div>
+                    }
+
+                    <!-- Similar Products Section -->
+                    @if (similarProducts != null && similarProducts.Any())
+                    {
+                        <div class="similar-products-section">
+                            <h4>⚠ Potential Matches Found</h4>
+                            <p class="text-muted">The following existing products may be similar. Consider using one of these instead of creating a duplicate:</p>
+                            
+                            <div class="similar-products-list">
+                                @foreach (var similar in similarProducts)
+                                {
+                                    <div class="similar-product-item">
+                                        <div class="similar-product-info">
+                                            <strong>@similar.Name</strong>
+                                            <div class="similar-product-details">
+                                                <span class="badge">@similar.Barcode</span>
+                                                <span>€@similar.Price.ToString("F2")</span>
+                                                @if (!string.IsNullOrWhiteSpace(similar.Description))
+                                                {
+                                                    <span class="text-muted">@similar.Description</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="match-score">@similar.MatchScore% match</div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
 
                     <!-- Product Name Selection -->
                     <div class="form-group">
@@ -155,7 +193,7 @@
                                   @bind:event="oninput"
                                   class="form-control" 
                                   rows="3" 
-                                  placeholder="Enter product description">@(lookupResult?.Description ?? "")</textarea>
+                                  placeholder="Enter product description"></textarea>
                     </div>
                 }
             </div>
@@ -211,6 +249,75 @@
         font-size: 1.1rem;
         font-weight: 600;
     }
+
+    .similar-products-section {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1.5rem;
+    }
+
+    .similar-products-section h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #856404;
+    }
+
+    .similar-products-list {
+        margin-top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .similar-product-item {
+        background-color: white;
+        padding: 0.75rem;
+        border-radius: 4px;
+        border: 1px solid #ffc107;
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+    }
+
+    .similar-product-info {
+        flex: 1;
+    }
+
+    .similar-product-details {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+        flex-wrap: wrap;
+    }
+
+    .badge {
+        background-color: #6c757d;
+        color: white;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        font-family: monospace;
+    }
+
+    .match-score {
+        font-weight: 600;
+        color: #856404;
+        white-space: nowrap;
+    }
+
+    .alert-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+
 
     .info-field {
         display: flex;
@@ -416,6 +523,17 @@
     private string customName = "";
     private decimal productPrice = 0;
     private string? productDescription;
+    private string? existingProductWithBarcode;
+    private List<SimilarProductDto>? similarProducts;
+
+    private bool IsBarcodeValid()
+    {
+        if (string.IsNullOrWhiteSpace(barcodeInput))
+            return false;
+        
+        // UPC, EAN, ISBN barcodes are typically 8-14 digits
+        return System.Text.RegularExpressions.Regex.IsMatch(barcodeInput.Trim(), @"^[0-9]{8,14}$");
+    }
 
     private async Task SearchBarcode()
     {
@@ -435,6 +553,12 @@
                 isProductFound = true;
                 productDescription = response.Product.Description;
                 selectedNameOption = "title";
+                
+                // Check for existing product with same barcode
+                await CheckForDuplicateBarcode(lookupResult.Barcode);
+                
+                // Find similar products using fuzzy matching
+                await FindSimilarProducts(lookupResult.Title, lookupResult.Manufacturer, lookupResult.Brand);
             }
             else
             {
@@ -451,22 +575,174 @@
         }
     }
 
+    private async Task CheckForDuplicateBarcode(string barcode)
+    {
+        try
+        {
+            var existingProduct = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{Uri.EscapeDataString(barcode)}");
+            if (existingProduct != null)
+            {
+                existingProductWithBarcode = existingProduct.Name;
+            }
+            else
+            {
+                existingProductWithBarcode = null;
+            }
+        }
+        catch
+        {
+            // Product not found, which is good
+            existingProductWithBarcode = null;
+        }
+    }
+
+    private async Task FindSimilarProducts(string title, string? manufacturer, string? brand)
+    {
+        try
+        {
+            var allProducts = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
+            if (allProducts == null || !allProducts.Any())
+            {
+                similarProducts = null;
+                return;
+            }
+
+            var matches = new List<SimilarProductDto>();
+            
+            foreach (var product in allProducts)
+            {
+                var matchScore = CalculateSimilarityScore(product.Name, title, manufacturer, brand);
+                if (matchScore >= 60) // Threshold for showing as similar
+                {
+                    matches.Add(new SimilarProductDto
+                    {
+                        Name = product.Name,
+                        Barcode = product.Barcode,
+                        Price = product.Price,
+                        Description = product.Description,
+                        MatchScore = matchScore
+                    });
+                }
+            }
+
+            similarProducts = matches.OrderByDescending(m => m.MatchScore).Take(5).ToList();
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't break the flow
+            Console.WriteLine($"Error finding similar products: {ex.Message}");
+            similarProducts = null;
+        }
+    }
+
+    private int CalculateSimilarityScore(string existingName, string newTitle, string? manufacturer, string? brand)
+    {
+        var searchTerms = new List<string> { newTitle };
+        if (!string.IsNullOrWhiteSpace(manufacturer))
+            searchTerms.Add(manufacturer);
+        if (!string.IsNullOrWhiteSpace(brand))
+            searchTerms.Add(brand);
+
+        var existingLower = existingName.ToLowerInvariant();
+        var maxScore = 0;
+
+        foreach (var term in searchTerms)
+        {
+            var termLower = term.ToLowerInvariant();
+            
+            // Exact match
+            if (existingLower == termLower)
+                return 100;
+            
+            // Contains check
+            if (existingLower.Contains(termLower))
+                maxScore = Math.Max(maxScore, 90);
+            else if (termLower.Contains(existingLower))
+                maxScore = Math.Max(maxScore, 85);
+            
+            // Word matching
+            var existingWords = existingLower.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+            var termWords = termLower.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            var commonWords = existingWords.Intersect(termWords).Count();
+            if (commonWords > 0)
+            {
+                var wordScore = (int)((double)commonWords / Math.Max(existingWords.Length, termWords.Length) * 80);
+                maxScore = Math.Max(maxScore, wordScore);
+            }
+            
+            // Levenshtein distance for similar spellings
+            var distance = LevenshteinDistance(existingLower, termLower);
+            var maxLength = Math.Max(existingLower.Length, termLower.Length);
+            if (maxLength > 0)
+            {
+                var similarity = (int)((1.0 - (double)distance / maxLength) * 70);
+                maxScore = Math.Max(maxScore, similarity);
+            }
+        }
+
+        return maxScore;
+    }
+
+    private int LevenshteinDistance(string source, string target)
+    {
+        if (string.IsNullOrEmpty(source))
+            return target?.Length ?? 0;
+        if (string.IsNullOrEmpty(target))
+            return source.Length;
+
+        var matrix = new int[source.Length + 1, target.Length + 1];
+
+        for (var i = 0; i <= source.Length; i++)
+            matrix[i, 0] = i;
+        for (var j = 0; j <= target.Length; j++)
+            matrix[0, j] = j;
+
+        for (var i = 1; i <= source.Length; i++)
+        {
+            for (var j = 1; j <= target.Length; j++)
+            {
+                var cost = (target[j - 1] == source[i - 1]) ? 0 : 1;
+                matrix[i, j] = Math.Min(
+                    Math.Min(matrix[i - 1, j] + 1, matrix[i, j - 1] + 1),
+                    matrix[i - 1, j - 1] + cost);
+            }
+        }
+
+        return matrix[source.Length, target.Length];
+    }
+
     private void SelectNameOption(string option)
     {
         selectedNameOption = option;
+    }
+
+    private static string BuildCompositeProductName(string? prefix, string title)
+    {
+        var safePrefix = string.IsNullOrWhiteSpace(prefix) ? null : prefix.Trim();
+        var safeTitle = string.IsNullOrWhiteSpace(title) ? "" : title.Trim();
+
+        if (safePrefix == null)
+        {
+            return safeTitle;
+        }
+
+        return $"{safePrefix} - {safeTitle}";
     }
 
     private string GetSelectedProductName()
     {
         if (lookupResult == null) return "";
 
+        var title = lookupResult.Title ?? string.Empty;
+
         return selectedNameOption switch
         {
-            "title" => lookupResult.Title,
-            "manufacturer" => $"{lookupResult.Manufacturer} - {lookupResult.Title}",
-            "brand" => $"{lookupResult.Brand} - {lookupResult.Title}",
-            "custom" => customName,
-            _ => lookupResult.Title
+            "title" => title,
+            "manufacturer" => BuildCompositeProductName(lookupResult.Manufacturer, title),
+            "brand" => BuildCompositeProductName(lookupResult.Brand, title),
+            "custom" => customName ?? string.Empty,
+            _ => title
         };
     }
 
@@ -539,6 +815,8 @@
         productPrice = 0;
         productDescription = null;
         errorMessage = null;
+        existingProductWithBarcode = null;
+        similarProducts = null;
     }
 
     private void ResetAll()
@@ -568,6 +846,24 @@
         public string? Description { get; set; }
         public string? Category { get; set; }
         public string Barcode { get; set; } = string.Empty;
+    }
+
+    private class ProductDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Barcode { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string? Description { get; set; }
+    }
+
+    private class SimilarProductDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Barcode { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string? Description { get; set; }
+        public int MatchScore { get; set; }
     }
 
     private class ErrorResponse

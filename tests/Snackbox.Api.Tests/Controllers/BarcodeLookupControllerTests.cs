@@ -241,7 +241,7 @@ public class BarcodeLookupServiceTests
 
         // Assert
         Assert.False(result.Success);
-        Assert.Contains("API request failed", result.ErrorMessage);
+        Assert.Equal("Invalid barcode format.", result.ErrorMessage);
     }
 
     [Fact]

@@ -13,7 +13,13 @@ public class BarcodeLookupService : IBarcodeLookupService
     {
         _httpClient = httpClient;
         _logger = logger;
-        _apiKey = configuration["BarcodeLookup:ApiKey"] ?? throw new InvalidOperationException("BarcodeLookup API key is not configured");
+        
+        var apiKey = configuration["BarcodeLookup:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey) || string.Equals(apiKey, "YOUR_API_KEY_HERE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("BarcodeLookup API key is not configured or is invalid. Please set a valid API key.");
+        }
+        _apiKey = apiKey;
     }
 
     public async Task<BarcodeLookupResponseDto> LookupBarcodeAsync(string barcode)
@@ -40,10 +46,23 @@ public class BarcodeLookupService : IBarcodeLookupService
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogWarning("Barcode lookup failed with status {StatusCode}: {Error}", response.StatusCode, errorContent);
                 
+                var errorMessage = response.StatusCode switch
+                {
+                    System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden 
+                        => "Invalid API key. Please check your configuration.",
+                    System.Net.HttpStatusCode.TooManyRequests 
+                        => "API rate limit exceeded. Please try again later.",
+                    System.Net.HttpStatusCode.NotFound 
+                        => "Product not found for this barcode.",
+                    System.Net.HttpStatusCode.BadRequest 
+                        => "Invalid barcode format.",
+                    _ => $"API request failed with status {response.StatusCode}"
+                };
+                
                 return new BarcodeLookupResponseDto
                 {
                     Success = false,
-                    ErrorMessage = $"API request failed with status {response.StatusCode}"
+                    ErrorMessage = errorMessage
                 };
             }
 
@@ -74,6 +93,15 @@ public class BarcodeLookupService : IBarcodeLookupService
                     Category = product.Category,
                     Barcode = barcode
                 }
+            };
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse API response for barcode: {Barcode}", barcode);
+            return new BarcodeLookupResponseDto
+            {
+                Success = false,
+                ErrorMessage = "Failed to parse API response. The service may be experiencing issues."
             };
         }
         catch (HttpRequestException ex)
