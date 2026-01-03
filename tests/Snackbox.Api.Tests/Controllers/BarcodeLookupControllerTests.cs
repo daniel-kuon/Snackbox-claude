@@ -105,7 +105,7 @@ public class BarcodeLookupControllerTests
     }
 }
 
-public class BarcodeLookupServiceTests
+public class BarcodeLookupServiceTests : IDisposable
 {
     private readonly Mock<HttpMessageHandler> _mockHttpHandler;
     private readonly HttpClient _httpClient;
@@ -125,6 +125,11 @@ public class BarcodeLookupServiceTests
             .Returns("test-api-key");
 
         _service = new BarcodeLookupService(_httpClient, _mockConfiguration.Object, _mockLogger.Object);
+    }
+
+    public void Dispose()
+    {
+        _httpClient?.Dispose();
     }
 
     [Fact]
