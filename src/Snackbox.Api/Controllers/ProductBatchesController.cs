@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.DTOs;
+using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Controllers;

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.DTOs;
+using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Controllers;
@@ -26,20 +27,9 @@ public class BarcodesController : ControllerBase
     {
         var barcodes = await _context.Barcodes
             .Include(b => b.User)
-            .Select(b => new BarcodeDto
-            {
-                Id = b.Id,
-                UserId = b.UserId,
-                Username = b.User.Username,
-                Code = b.Code,
-                Amount = b.Amount,
-                IsActive = b.IsActive,
-                IsLoginOnly = b.IsLoginOnly,
-                CreatedAt = b.CreatedAt
-            })
             .ToListAsync();
 
-        return Ok(barcodes);
+        return Ok(barcodes.ToDtoListWithUser());
     }
 
     [HttpGet("user/{userId}")]
@@ -48,20 +38,9 @@ public class BarcodesController : ControllerBase
         var barcodes = await _context.Barcodes
             .Include(b => b.User)
             .Where(b => b.UserId == userId)
-            .Select(b => new BarcodeDto
-            {
-                Id = b.Id,
-                UserId = b.UserId,
-                Username = b.User.Username,
-                Code = b.Code,
-                Amount = b.Amount,
-                IsActive = b.IsActive,
-                IsLoginOnly = b.IsLoginOnly,
-                CreatedAt = b.CreatedAt
-            })
             .ToListAsync();
 
-        return Ok(barcodes);
+        return Ok(barcodes.ToDtoListWithUser());
     }
 
     [HttpGet("{id}")]
@@ -76,19 +55,7 @@ public class BarcodesController : ControllerBase
             return NotFound(new { message = "Barcode not found" });
         }
 
-        var dto = new BarcodeDto
-        {
-            Id = barcode.Id,
-            UserId = barcode.UserId,
-            Username = barcode.User.Username,
-            Code = barcode.Code,
-            Amount = barcode.Amount,
-            IsActive = barcode.IsActive,
-            IsLoginOnly = barcode.IsLoginOnly,
-            CreatedAt = barcode.CreatedAt
-        };
-
-        return Ok(dto);
+        return Ok(barcode.ToDtoWithUser());
     }
 
     [HttpPost]
@@ -120,17 +87,8 @@ public class BarcodesController : ControllerBase
 
         _logger.LogInformation("Barcode created: {BarcodeId} - {Code} for user {UserId}", barcode.Id, barcode.Code, barcode.UserId);
 
-        var resultDto = new BarcodeDto
-        {
-            Id = barcode.Id,
-            UserId = barcode.UserId,
-            Username = user.Username,
-            Code = barcode.Code,
-            Amount = barcode.Amount,
-            IsActive = barcode.IsActive,
-            IsLoginOnly = barcode.IsLoginOnly,
-            CreatedAt = barcode.CreatedAt
-        };
+        barcode.User = user;
+        var resultDto = barcode.ToDtoWithUser();
 
         return CreatedAtAction(nameof(GetById), new { id = barcode.Id }, resultDto);
     }
@@ -161,19 +119,7 @@ public class BarcodesController : ControllerBase
 
         _logger.LogInformation("Barcode updated: {BarcodeId} - {Code}", barcode.Id, barcode.Code);
 
-        var resultDto = new BarcodeDto
-        {
-            Id = barcode.Id,
-            UserId = barcode.UserId,
-            Username = barcode.User.Username,
-            Code = barcode.Code,
-            Amount = barcode.Amount,
-            IsActive = barcode.IsActive,
-            IsLoginOnly = barcode.IsLoginOnly,
-            CreatedAt = barcode.CreatedAt
-        };
-
-        return Ok(resultDto);
+        return Ok(barcode.ToDtoWithUser());
     }
 
     [HttpDelete("{id}")]

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.DTOs;
+using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Controllers;
@@ -56,17 +57,8 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
-        var dto = new UserDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            IsAdmin = user.IsAdmin,
-            Balance = user.Payments.Sum(p => p.Amount) - user.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount),
-            CreatedAt = user.CreatedAt
-        };
-
-        return Ok(dto);
+        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount);
+        return Ok(user.ToDtoWithBalance(balance));
     }
 
     [HttpPost("register")]
@@ -132,29 +124,15 @@ public class UsersController : ControllerBase
         // In production, use proper password hashing (BCrypt, Argon2, etc.)
         var passwordHash = !string.IsNullOrWhiteSpace(dto.Password) ? BCrypt.Net.BCrypt.HashPassword(dto.Password) : null;
 
-        var user = new User
-        {
-            Username = dto.Username,
-            Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email,
-            PasswordHash = passwordHash,
-            IsAdmin = dto.IsAdmin,
-            CreatedAt = DateTime.UtcNow
-        };
+        var user = dto.ToEntity();
+        user.PasswordHash = passwordHash;
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("User created: {UserId} - {Username}", user.Id, user.Username);
 
-        var resultDto = new UserDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            IsAdmin = user.IsAdmin,
-            Balance = 0,
-            CreatedAt = user.CreatedAt
-        };
+        var resultDto = user.ToDtoWithBalance(0);
 
         return CreatedAtAction(nameof(GetById), new { id = user.Id }, resultDto);
     }
@@ -183,25 +161,14 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Email already exists" });
         }
 
-        user.Username = dto.Username;
-        user.Email = dto.Email;
-        user.IsAdmin = dto.IsAdmin;
+        user.UpdateFromDto(dto);
 
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("User updated: {UserId} - {Username}", user.Id, user.Username);
 
-        var resultDto = new UserDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            IsAdmin = user.IsAdmin,
-            Balance = user.Payments.Sum(p => p.Amount) - user.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount),
-            CreatedAt = user.CreatedAt
-        };
-
-        return Ok(resultDto);
+        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount);
+        return Ok(user.ToDtoWithBalance(balance));
     }
 
     [HttpDelete("{id}")]

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.DTOs;
+using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Controllers;
@@ -36,24 +37,7 @@ public class PurchasesController : ControllerBase
             .OrderByDescending(p => p.CompletedAt)
             .ToListAsync();
 
-        var dtos = purchases.Select(p => new PurchaseDto
-        {
-            Id = p.Id,
-            UserId = p.UserId,
-            Username = p.User.Username,
-            TotalAmount = p.Scans.Sum(s => s.Amount),
-            CreatedAt = p.CreatedAt,
-            CompletedAt = p.CompletedAt,
-            Items = p.Scans.Select(s => new PurchaseItemDto
-            {
-                Id = s.Id,
-                ProductName = s.Barcode.Code,
-                Amount = s.Amount,
-                ScannedAt = s.ScannedAt
-            }).ToList()
-        }).ToList();
-
-        return Ok(dtos);
+        return Ok(purchases.ToDtoList());
     }
 
     [HttpGet("my-purchases/current")]
@@ -73,24 +57,7 @@ public class PurchasesController : ControllerBase
             return Ok(null);
         }
 
-        var dto = new PurchaseDto
-        {
-            Id = purchase.Id,
-            UserId = purchase.UserId,
-            Username = purchase.User.Username,
-            TotalAmount = purchase.Scans.Sum(s => s.Amount),
-            CreatedAt = purchase.CreatedAt,
-            CompletedAt = purchase.CompletedAt,
-            Items = purchase.Scans.Select(s => new PurchaseItemDto
-            {
-                Id = s.Id,
-                ProductName = s.Barcode.Code,
-                Amount = s.Amount,
-                ScannedAt = s.ScannedAt
-            }).ToList()
-        };
-
-        return Ok(dto);
+        return Ok(purchase.ToDto());
     }
 
     [HttpGet]
@@ -105,24 +72,7 @@ public class PurchasesController : ControllerBase
             .OrderByDescending(p => p.CompletedAt)
             .ToListAsync();
 
-        var dtos = purchases.Select(p => new PurchaseDto
-        {
-            Id = p.Id,
-            UserId = p.UserId,
-            Username = p.User.Username,
-            TotalAmount = p.Scans.Sum(s => s.Amount),
-            CreatedAt = p.CreatedAt,
-            CompletedAt = p.CompletedAt,
-            Items = p.Scans.Select(s => new PurchaseItemDto
-            {
-                Id = s.Id,
-                ProductName = s.Barcode.Code,
-                Amount = s.Amount,
-                ScannedAt = s.ScannedAt
-            }).ToList()
-        }).ToList();
-
-        return Ok(dtos);
+        return Ok(purchases.ToDtoList());
     }
 
     private int? GetCurrentUserId()
