@@ -69,7 +69,6 @@
                     <tr>
                         <th>Product</th>
                         <th>Barcode</th>
-                        <th>Price</th>
                         <th>In Storage</th>
                         <th>On Shelf</th>
                         <th>Total</th>
@@ -86,7 +85,6 @@
                         <tr class="@stockClass" @onclick="() => NavigateToProduct(product.ProductId)" style="cursor: pointer;">
                             <td>@product.ProductName</td>
                             <td><code>@product.ProductBarcode</code></td>
-                            <td>€@product.Price.ToString("F2")</td>
                             <td>@product.TotalInStorage</td>
                             <td>@product.TotalOnShelf</td>
                             <td>

@@ -30,7 +30,8 @@
                 <label>Action Type</label>
                 <select class="form-control" @bind="selectedActionType">
                     <option value="AddedToStorage">Add to Storage</option>
-                    <option value="MovedToShelf">Add Directly to Shelf</option>
+                    <option value="AddedDirectlyToShelf">Add Directly to Shelf</option>
+                    <option value="MovedToShelf">Move Stock to Shelf</option>
                 </select>
             </div>
 
@@ -89,7 +90,8 @@
                                 <td>
                                     <select class="form-control form-control-sm" @bind="item.ActionType">
                                         <option value="AddedToStorage">Add to Storage</option>
-                                        <option value="MovedToShelf">Add to Shelf</option>
+                                        <option value="AddedDirectlyToShelf">Add Directly to Shelf</option>
+                                        <option value="MovedToShelf">Move Stock to Shelf</option>
                                     </select>
                                 </td>
                                 <td>
@@ -98,18 +100,26 @@
                                 </td>
                                 <td>
                                     <div class="date-selector">
-                                        @if (item.ExistingDates.Any())
+                                        @if (item.ActionType == "MovedToShelf")
                                         {
-                                            <select class="form-control form-control-sm" @bind="item.SelectedDateOption">
-                                                <option value="new">New Date...</option>
-                                                @foreach (var date in item.ExistingDates)
-                                                {
-                                                    <option value="@date.ToString("yyyy-MM-dd")">@date.ToString("yyyy-MM-dd")</option>
-                                                }
-                                            </select>
+                                            <!-- For moving stock, show dropdown of existing batches -->
+                                            @if (item.ExistingDates.Any())
+                                            {
+                                                <select class="form-control form-control-sm" @bind="item.SelectedDateOption">
+                                                    @foreach (var date in item.ExistingDates)
+                                                    {
+                                                        <option value="@date.ToString("yyyy-MM-dd")">@date.ToString("yyyy-MM-dd")</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">No stock in storage</span>
+                                            }
                                         }
-                                        @if (!item.ExistingDates.Any() || item.SelectedDateOption == "new")
+                                        else
                                         {
+                                            <!-- For adding new stock, show date picker -->
                                             <input type="date" class="form-control form-control-sm"
                                                    @bind="item.BestBeforeDate" />
                                         }
@@ -424,6 +434,14 @@
                 return;
             }
 
+            // Find the barcode quantity from the product's barcodes
+            int barcodeQuantity = defaultQuantity;
+            var scannedBarcode = product.Barcodes?.FirstOrDefault(b => b.Barcode == barcode);
+            if (scannedBarcode != null)
+            {
+                barcodeQuantity = scannedBarcode.Quantity;
+            }
+
             // Get existing best-before dates for this product
             var existingDates = new List<DateTime>();
             try
@@ -431,7 +449,19 @@
                 var stock = await Http.GetFromJsonAsync<ProductStockDto>($"api/products/{product.Id}/stock");
                 if (stock != null)
                 {
-                    existingDates = stock.Batches.Select(b => b.BestBeforeDate).Distinct().OrderBy(d => d).ToList();
+                    // For move actions, only show batches that have stock in storage
+                    if (selectedActionType == "MovedToShelf")
+                    {
+                        existingDates = stock.Batches
+                            .Where(b => b.QuantityInStorage > 0)
+                            .Select(b => b.BestBeforeDate)
+                            .OrderBy(d => d)
+                            .ToList();
+                    }
+                    else
+                    {
+                        existingDates = stock.Batches.Select(b => b.BestBeforeDate).Distinct().OrderBy(d => d).ToList();
+                    }
                 }
             }
             catch
@@ -443,9 +473,9 @@
                        {
                            ProductId = product.Id,
                            ProductName = product.Name,
-                           ProductBarcode = product.Barcode,
+                           ProductBarcode = barcode, // Use the actual scanned barcode
                            ActionType = selectedActionType,
-                           Quantity = defaultQuantity,
+                           Quantity = barcodeQuantity, // Use the barcode's quantity
                            BestBeforeDate = DateTime.Today.AddMonths(6),
                            ExistingDates = existingDates,
                            SelectedDateOption = existingDates.Any() ? existingDates.First().ToString("yyyy-MM-dd") : "new"
@@ -487,7 +517,21 @@
 
         try
         {
-            var actions = scannedItems.Select(item => new { productBarcode = item.ProductBarcode, bestBeforeDate = item.GetEffectiveBestBeforeDate(), quantity = item.Quantity, type = item.ActionType }).ToList();
+            var actions = new List<object>();
+
+            foreach (var item in scannedItems)
+            {
+                // Convert "AddedDirectlyToShelf" to "AddedToShelf" for the backend
+                var actionType = item.ActionType == "AddedDirectlyToShelf" ? "AddedToShelf" : item.ActionType;
+
+                actions.Add(new
+                {
+                    productBarcode = item.ProductBarcode,
+                    bestBeforeDate = item.GetEffectiveBestBeforeDate(),
+                    quantity = item.Quantity,
+                    type = actionType
+                });
+            }
 
             var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", new { actions });
 

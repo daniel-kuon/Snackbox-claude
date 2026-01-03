@@ -1,5 +1,6 @@
 @page "/admin/products/{ProductId:int}"
 @using Snackbox.Api.DTOs
+@using Snackbox.Api.Models
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -27,9 +28,27 @@
         <div class="page-header">
             <div>
                 <h2>@productStock.ProductName</h2>
-                <p class="text-muted"><code>@productStock.ProductBarcode</code> - €@productStock.Price.ToString("F2")</p>
             </div>
             <button class="btn btn-secondary" @onclick="NavigateBack">Back to Products</button>
+        </div>
+
+        <div class="barcodes-section">
+            <h3>Barcodes</h3>
+            <div class="barcodes-list">
+                @foreach (var barcode in productStock.Barcodes)
+                {
+                    <div class="barcode-item">
+                        <code class="barcode-code">@barcode.Barcode</code>
+                        <span class="barcode-quantity">Qty: @barcode.Quantity</span>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveBarcode(barcode.Id)">
+                            <span class="icon">🗑️</span>
+                        </button>
+                    </div>
+                }
+                <button class="btn btn-sm btn-outline-primary" @onclick="ShowAddBarcodeModal">
+                    <span class="icon">+</span> Add Barcode
+                </button>
+            </div>
         </div>
 
         <div class="stock-summary">
@@ -47,12 +66,87 @@
             </div>
         </div>
 
-        @if (!string.IsNullOrEmpty(productStock.Description))
-        {
-            <div class="description-card">
-                <strong>Description:</strong> @productStock.Description
+        <div class="quick-actions-section">
+            <h3>Quick Actions</h3>
+            <div class="quick-actions-grid">
+                <!-- Add to Storage -->
+                <div class="action-card">
+                    <h4>Add to Storage</h4>
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" class="form-control" @bind="addToStorageQuantity" min="1" />
+                    </div>
+                    <div class="form-group">
+                        <label>Best Before Date</label>
+                        <input type="date" class="form-control" @bind="addToStorageBestBefore" />
+                    </div>
+                    <button class="btn btn-primary" @onclick="ExecuteAddToStorage" disabled="@isProcessing">
+                        @if (isProcessing && currentAction == "addToStorage")
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        Add to Storage
+                    </button>
+                </div>
+
+                <!-- Add to Shelf -->
+                <div class="action-card">
+                    <h4>Add to Shelf</h4>
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" class="form-control" @bind="addToShelfQuantity" min="1" />
+                    </div>
+                    <div class="form-group">
+                        <label>Best Before Date</label>
+                        <input type="date" class="form-control" @bind="addToShelfBestBefore" />
+                    </div>
+                    <button class="btn btn-success" @onclick="ExecuteAddToShelf" disabled="@isProcessing">
+                        @if (isProcessing && currentAction == "addToShelf")
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        Add to Shelf
+                    </button>
+                </div>
+
+                <!-- Move from Storage to Shelf -->
+                <div class="action-card">
+                    <h4>Move Stock to Shelf</h4>
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" class="form-control" @bind="moveToShelfQuantity" min="1" />
+                    </div>
+                    <div class="form-group">
+                        <label>Best Before Date</label>
+                        <select class="form-control" @bind="moveToShelfBatchId">
+                            <option value="0">Select batch...</option>
+                            @foreach (var batch in productStock.Batches.Where(b => b.QuantityInStorage > 0).OrderBy(b => b.BestBeforeDate))
+                            {
+                                <option value="@batch.BatchId">
+                                    @batch.BestBeforeDate.ToString("yyyy-MM-dd") (Available: @batch.QuantityInStorage)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <button class="btn btn-info" @onclick="ExecuteMoveToShelf" disabled="@isProcessing">
+                        @if (isProcessing && currentAction == "moveToShelf")
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        Move to Shelf
+                    </button>
+                </div>
             </div>
-        }
+
+            @if (actionSuccess != null)
+            {
+                <div class="alert alert-success mt-3">@actionSuccess</div>
+            }
+            @if (actionError != null)
+            {
+                <div class="alert alert-danger mt-3">@actionError</div>
+            }
+        </div>
 
         <div class="tabs">
             <button class="tab-button @(activeTab == "batches" ? "active" : "")" @onclick='() => activeTab = "batches"'>
@@ -210,6 +304,44 @@
     </div>
 }
 
+@if (showAddBarcodeModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Barcode</h3>
+                <button class="btn-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (modalError != null)
+                {
+                    <div class="alert alert-danger">@modalError</div>
+                }
+                <div class="form-group">
+                    <label>Barcode</label>
+                    <input type="text" class="form-control" @bind="newBarcodeCode" placeholder="Enter barcode..." />
+                </div>
+                <div class="form-group">
+                    <label>Quantity per Unit</label>
+                    <input type="number" class="form-control" @bind="newBarcodeQuantity" min="1" />
+                    <small class="text-muted">How many units this barcode represents (e.g., 12 for a box)</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveNewBarcode" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    Add Barcode
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .page-header {
         display: flex;
@@ -245,12 +377,108 @@
         color: #007bff;
     }
 
+    .barcodes-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+
+    .barcodes-section h3 {
+        margin-top: 0;
+        margin-bottom: 1rem;
+    }
+
+    .barcodes-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .barcode-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+
+    .barcode-item.inactive {
+        opacity: 0.6;
+        border-style: dashed;
+    }
+
+    .barcode-code {
+        font-weight: 600;
+        background: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 3px;
+    }
+
+    .barcode-quantity {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .badge-inactive {
+        background-color: #6c757d;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.75rem;
+    }
+
     .description-card {
         background: white;
         padding: 1rem;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         margin-bottom: 2rem;
+    }
+
+    .quick-actions-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+
+    .quick-actions-section h3 {
+        margin-bottom: 1.5rem;
+        color: #495057;
+    }
+
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .action-card {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+
+    .action-card h4 {
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        color: #495057;
+    }
+
+    .btn-info {
+        background-color: #17a2b8;
+        color: white;
+    }
+
+    .mt-3 {
+        margin-top: 1rem;
     }
 
     .tabs {
@@ -528,11 +756,28 @@
     private string activeTab = "batches";
 
     private bool showMoveModal = false;
+    private bool showAddBarcodeModal = false;
     private BatchStockInfo? selectedBatch;
     private bool moveToShelf = true;
     private int moveQuantity = 1;
     private string? modalError;
     private bool isSaving = false;
+
+    // Barcode management
+    private string newBarcodeCode = string.Empty;
+    private int newBarcodeQuantity = 1;
+
+    // Quick actions properties
+    private int addToStorageQuantity = 1;
+    private DateTime addToStorageBestBefore = DateTime.Today.AddMonths(6);
+    private int addToShelfQuantity = 1;
+    private DateTime addToShelfBestBefore = DateTime.Today.AddMonths(6);
+    private int moveToShelfQuantity = 1;
+    private int moveToShelfBatchId = 0;
+    private bool isProcessing = false;
+    private string? currentAction = null;
+    private string? actionSuccess = null;
+    private string? actionError = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -641,34 +886,303 @@
     private void CloseModal()
     {
         showMoveModal = false;
+        showAddBarcodeModal = false;
         selectedBatch = null;
         moveQuantity = 1;
         modalError = null;
+        newBarcodeCode = string.Empty;
+        newBarcodeQuantity = 1;
     }
 
-    private string FormatActionType(string type) => type switch
+    private void ShowAddBarcodeModal()
     {
-        "AddedToStorage" => "Added to Storage",
-        "MovedToShelf" => "Moved to Shelf",
-        "MovedFromShelf" => "Moved from Shelf",
-        "RemovedFromStorage" => "Removed from Storage",
-        "RemovedFromShelf" => "Removed from Shelf",
-        _ => type
+        newBarcodeCode = string.Empty;
+        newBarcodeQuantity = 1;
+        modalError = null;
+        showAddBarcodeModal = true;
+    }
+
+
+    private async Task RemoveBarcode(int barcodeId)
+    {
+            isSaving = true;
+            modalError = null;
+
+            try
+            {
+                var response = await Http.DeleteAsync($"api/products/{ProductId}/barcodes/{barcodeId}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadProductStock();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    modalError = $"Failed to remove barcode: {error}";
+                }
+            }
+            catch (Exception ex)
+            {
+                modalError = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                isSaving = false;
+            }
+    }
+
+    private async Task SaveNewBarcode()
+    {
+        if (string.IsNullOrWhiteSpace(newBarcodeCode) || newBarcodeQuantity <= 0 || productStock == null)
+        {
+            modalError = "Please enter a valid barcode and quantity.";
+            return;
+        }
+
+        isSaving = true;
+        modalError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"api/products/{ProductId}/barcodes", new
+            {
+                barcode = newBarcodeCode,
+                quantity = newBarcodeQuantity
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadProductStock();
+                CloseModal();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                modalError = $"Failed to add barcode: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ExecuteAddToStorage()
+    {
+        if (addToStorageQuantity <= 0 || productStock == null) return;
+
+        isProcessing = true;
+        currentAction = "addToStorage";
+        actionSuccess = null;
+        actionError = null;
+
+        try
+        {
+            // Find or create batch
+            var batch = productStock.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == addToStorageBestBefore.Date);
+            int batchId;
+
+            if (batch == null)
+            {
+                // Create new batch first
+                var createBatchResponse = await Http.PostAsJsonAsync("api/productbatches", new
+                {
+                    productId = ProductId,
+                    bestBeforeDate = addToStorageBestBefore.Date,
+                    initialQuantity = 0
+                });
+
+                if (!createBatchResponse.IsSuccessStatusCode)
+                {
+                    actionError = "Failed to create batch. Please try again.";
+                    return;
+                }
+
+                var createdBatch = await createBatchResponse.Content.ReadFromJsonAsync<ProductBatchDto>();
+                batchId = createdBatch!.Id;
+            }
+            else
+            {
+                batchId = batch.BatchId;
+            }
+
+            // Add to storage
+            var response = await Http.PostAsJsonAsync($"api/productbatches/{batchId}/add-to-storage", new
+            {
+                quantity = addToStorageQuantity
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                actionSuccess = $"Successfully added {addToStorageQuantity} items to storage";
+                addToStorageQuantity = 1;
+                await LoadProductStock();
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                actionError = error?.Message ?? "Failed to add to storage. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            actionError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            currentAction = null;
+        }
+    }
+
+    private async Task ExecuteAddToShelf()
+    {
+        if (addToShelfQuantity <= 0 || productStock == null) return;
+
+        isProcessing = true;
+        currentAction = "addToShelf";
+        actionSuccess = null;
+        actionError = null;
+
+        try
+        {
+            // Find or create batch
+            var batch = productStock.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == addToShelfBestBefore.Date);
+            int batchId;
+
+            if (batch == null)
+            {
+                // Create new batch first
+                var createBatchResponse = await Http.PostAsJsonAsync("api/productbatches", new
+                {
+                    productId = ProductId,
+                    bestBeforeDate = addToShelfBestBefore.Date,
+                    initialQuantity = 0
+                });
+
+                if (!createBatchResponse.IsSuccessStatusCode)
+                {
+                    actionError = "Failed to create batch. Please try again.";
+                    return;
+                }
+
+                var createdBatch = await createBatchResponse.Content.ReadFromJsonAsync<ProductBatchDto>();
+                batchId = createdBatch!.Id;
+            }
+            else
+            {
+                batchId = batch.BatchId;
+            }
+
+            // Add to shelf
+            var response = await Http.PostAsJsonAsync($"api/productbatches/{batchId}/add-to-shelf", new
+            {
+                quantity = addToShelfQuantity
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                actionSuccess = $"Successfully added {addToShelfQuantity} items to shelf";
+                addToShelfQuantity = 1;
+                await LoadProductStock();
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                actionError = error?.Message ?? "Failed to add to shelf. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            actionError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            currentAction = null;
+        }
+    }
+
+    private async Task ExecuteMoveToShelf()
+    {
+        if (moveToShelfQuantity <= 0 || moveToShelfBatchId == 0 || productStock == null) return;
+
+        isProcessing = true;
+        currentAction = "moveToShelf";
+        actionSuccess = null;
+        actionError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"api/productbatches/{moveToShelfBatchId}/move-to-shelf", new
+            {
+                quantity = moveToShelfQuantity
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                actionSuccess = $"Successfully moved {moveToShelfQuantity} items to shelf";
+                moveToShelfQuantity = 1;
+                moveToShelfBatchId = 0;
+                await LoadProductStock();
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                actionError = error?.Message ?? "Failed to move to shelf. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            actionError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            currentAction = null;
+        }
+    }
+
+    private string FormatActionType(ShelvingActionType type) => type switch
+    {
+        ShelvingActionType.AddedToStorage => "Added to Storage",
+        ShelvingActionType.MovedToShelf => "Moved to Shelf",
+        ShelvingActionType.MovedFromShelf => "Moved from Shelf",
+        ShelvingActionType.RemovedFromStorage => "Removed from Storage",
+        ShelvingActionType.RemovedFromShelf => "Removed from Shelf",
+        _ => type.ToString()
     };
 
-    private string GetActionBadgeClass(string type) => type switch
-    {
-        "AddedToStorage" => "success",
-        "MovedToShelf" => "info",
-        "MovedFromShelf" => "warning",
-        "RemovedFromStorage" => "danger",
-        "RemovedFromShelf" => "danger",
-        _ => "secondary"
-    };
+    private string GetActionBadgeClass(ShelvingActionType type) => type switch
+                                                                   {
+                                                                       ShelvingActionType.AddedToStorage => "success",
+                                                                       ShelvingActionType.MovedToShelf => "info",
+                                                                       ShelvingActionType.MovedFromShelf => "warning",
+                                                                       ShelvingActionType.RemovedFromStorage => "danger",
+                                                                       ShelvingActionType.RemovedFromShelf => "danger",
+                                                                       _ => "secondary"
+                                                                   };
 
+
+    private class ProductBatchDto
+    {
+        public int Id { get; set; }
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public DateTime BestBeforeDate { get; set; }
+        public int QuantityInStorage { get; set; }
+        public int QuantityOnShelf { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
 
     private class ErrorResponse
     {
         public string? Message { get; set; }
     }
+
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snackbox.Api.Data;
@@ -11,9 +12,11 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260103163752_AddProductBarcodeTable")]
+    partial class AddProductBarcodeTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -329,6 +332,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<int>("ProductId")
                         .HasColumnType("integer")
                         .HasColumnName("product_id");
@@ -352,6 +359,7 @@ namespace Snackbox.Api.Migrations
                             Id = 1,
                             Barcode = "1234567890123",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
                             ProductId = 1,
                             Quantity = 1
                         },
@@ -360,6 +368,7 @@ namespace Snackbox.Api.Migrations
                             Id = 2,
                             Barcode = "1234567890123-BOX",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
                             ProductId = 1,
                             Quantity = 12
                         },
@@ -368,6 +377,7 @@ namespace Snackbox.Api.Migrations
                             Id = 3,
                             Barcode = "1234567890124",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
                             ProductId = 2,
                             Quantity = 1
                         },
@@ -376,6 +386,7 @@ namespace Snackbox.Api.Migrations
                             Id = 4,
                             Barcode = "1234567890124-PACK",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
                             ProductId = 2,
                             Quantity = 5
                         },
@@ -384,6 +395,7 @@ namespace Snackbox.Api.Migrations
                             Id = 5,
                             Barcode = "1234567890125",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
                             ProductId = 3,
                             Quantity = 1
                         },
@@ -392,6 +404,7 @@ namespace Snackbox.Api.Migrations
                             Id = 6,
                             Barcode = "1234567890126",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
                             ProductId = 4,
                             Quantity = 1
                         });
@@ -545,7 +558,7 @@ namespace Snackbox.Api.Migrations
                             ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
                             ProductBatchId = 1,
                             Quantity = 20,
-                            Type = 2
+                            Type = 1
                         },
                         new
                         {
@@ -561,7 +574,7 @@ namespace Snackbox.Api.Migrations
                             ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
                             ProductBatchId = 2,
                             Quantity = 15,
-                            Type = 2
+                            Type = 1
                         },
                         new
                         {
@@ -577,7 +590,7 @@ namespace Snackbox.Api.Migrations
                             ActionAt = new DateTime(2024, 1, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             ProductBatchId = 3,
                             Quantity = 25,
-                            Type = 2
+                            Type = 1
                         },
                         new
                         {
@@ -593,7 +606,7 @@ namespace Snackbox.Api.Migrations
                             ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
                             ProductBatchId = 4,
                             Quantity = 18,
-                            Type = 2
+                            Type = 1
                         });
                 });
 

@@ -39,7 +39,7 @@ public class ProductBatchesController : ControllerBase
                     .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.RemovedFromStorage)
                     .Sum(sa => sa.Quantity),
                 QuantityOnShelf = pb.ShelvingActions
-                    .Where(sa => sa.Type == ShelvingActionType.MovedToShelf)
+                    .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.AddedToShelf)
                     .Sum(sa => sa.Quantity) - pb.ShelvingActions
                     .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
                     .Sum(sa => sa.Quantity),
@@ -250,6 +250,63 @@ public class ProductBatchesController : ControllerBase
         _logger.LogInformation("Moved {Quantity} items from shelf to storage for batch {BatchId}", dto.Quantity, batch.Id);
 
         return Ok(new { message = $"Moved {dto.Quantity} items to storage" });
+    }
+
+    [HttpPost("{id}/add-to-storage")]
+    public async Task<ActionResult> AddToStorage(int id, [FromBody] MoveStockDto dto)
+    {
+        var batch = await _context.ProductBatches
+            .Include(pb => pb.ShelvingActions)
+            .FirstOrDefaultAsync(pb => pb.Id == id);
+
+        if (batch == null)
+        {
+            return NotFound(new { message = "Product batch not found" });
+        }
+
+        var shelvingAction = new ShelvingAction
+        {
+            ProductBatchId = batch.Id,
+            Quantity = dto.Quantity,
+            Type = ShelvingActionType.AddedToStorage,
+            ActionAt = DateTime.UtcNow
+        };
+
+        _context.ShelvingActions.Add(shelvingAction);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Added {Quantity} items to storage for batch {BatchId}", dto.Quantity, batch.Id);
+
+        return Ok(new { message = $"Added {dto.Quantity} items to storage" });
+    }
+
+    [HttpPost("{id}/add-to-shelf")]
+    public async Task<ActionResult> AddToShelf(int id, [FromBody] MoveStockDto dto)
+    {
+        var batch = await _context.ProductBatches
+            .Include(pb => pb.ShelvingActions)
+            .FirstOrDefaultAsync(pb => pb.Id == id);
+
+        if (batch == null)
+        {
+            return NotFound(new { message = "Product batch not found" });
+        }
+
+        // Add directly to shelf with a single action
+        var addToShelfAction = new ShelvingAction
+        {
+            ProductBatchId = batch.Id,
+            Quantity = dto.Quantity,
+            Type = ShelvingActionType.AddedToShelf,
+            ActionAt = DateTime.UtcNow
+        };
+
+        _context.ShelvingActions.Add(addToShelfAction);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Added {Quantity} items directly to shelf for batch {BatchId}", dto.Quantity, batch.Id);
+
+        return Ok(new { message = $"Added {dto.Quantity} items to shelf" });
     }
 
     [HttpDelete("{id}")]

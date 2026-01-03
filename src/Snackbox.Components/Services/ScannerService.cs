@@ -67,8 +67,6 @@ public class ScannerService : IScannerService
         if (string.IsNullOrWhiteSpace(barcodeCode))
             return;
 
-        try
-        {
             // Call the API - it handles everything (auth, purchase creation/update)
             var response = await _httpClient.PostAsJsonAsync("api/scanner/scan", new
             {
@@ -126,12 +124,6 @@ public class ScannerService : IScannerService
                 ResetTimeoutTimer();
                 OnPurchaseUpdated?.Invoke(CurrentSession);
             }
-        }
-        catch (Exception ex)
-        {
-            // Re-throw so the caller can handle the error
-            throw;
-        }
     }
 
     public async Task CompletePurchaseAsync()

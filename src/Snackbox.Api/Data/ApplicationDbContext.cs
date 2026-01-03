@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Barcode> Barcodes => Set<Barcode>();
     public DbSet<BarcodeScan> BarcodeScans => Set<BarcodeScan>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductBarcode> ProductBarcodes => Set<ProductBarcode>();
     public DbSet<ProductBatch> ProductBatches => Set<ProductBatch>();
     public DbSet<ShelvingAction> ShelvingActions => Set<ShelvingAction>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
@@ -57,9 +58,17 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<Product>(entity =>
         {
-            entity.HasIndex(e => e.Barcode).IsUnique();
             entity.Property(e => e.Name).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<ProductBarcode>(entity =>
+        {
+            entity.HasIndex(e => e.Barcode).IsUnique();
             entity.Property(e => e.Barcode).HasMaxLength(50);
+            entity.HasOne(pb => pb.Product)
+                .WithMany(p => p.Barcodes)
+                .HasForeignKey(pb => pb.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Payment>(entity =>
@@ -113,28 +122,76 @@ public class ApplicationDbContext : DbContext
             {
                 Id = 1,
                 Name = "Chips - Salt",
-                Barcode = "1234567890123",
                 CreatedAt = seedDate
             },
             new Product
             {
                 Id = 2,
                 Name = "Chocolate Bar",
-                Barcode = "1234567890124",
                 CreatedAt = seedDate
             },
             new Product
             {
                 Id = 3,
                 Name = "Energy Drink",
-                Barcode = "1234567890125",
                 CreatedAt = seedDate
             },
             new Product
             {
                 Id = 4,
                 Name = "Cookies",
+                CreatedAt = seedDate
+            }
+        );
+
+        // Seed product barcodes
+        modelBuilder.Entity<ProductBarcode>().HasData(
+            new ProductBarcode
+            {
+                Id = 1,
+                ProductId = 1,
+                Barcode = "1234567890123",
+                Quantity = 1,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 2,
+                ProductId = 1,
+                Barcode = "1234567890123-BOX",
+                Quantity = 12,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 3,
+                ProductId = 2,
+                Barcode = "1234567890124",
+                Quantity = 1,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 4,
+                ProductId = 2,
+                Barcode = "1234567890124-PACK",
+                Quantity = 5,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 5,
+                ProductId = 3,
+                Barcode = "1234567890125",
+                Quantity = 1,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 6,
+                ProductId = 4,
                 Barcode = "1234567890126",
+                Quantity = 1,
                 CreatedAt = seedDate
             }
         );
