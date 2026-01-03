@@ -104,6 +104,50 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
+    public async Task<LoginResult> LoginWithBarcodeAndPasswordAsync(string barcodeValue, string password)
+    {
+        try
+        {
+            var request = new { BarcodeValue = barcodeValue, Password = password };
+            var response = await _httpClient.PostAsJsonAsync("api/auth/login", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponse>();
+                if (loginResponse != null)
+                {
+                    // Store token and user info securely
+                    await _storageService.SetAsync(TokenKey, loginResponse.Token);
+                    await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
+
+                    return new LoginResult
+                    {
+                        Success = true,
+                        Token = loginResponse.Token,
+                        Username = loginResponse.Username,
+                        Email = loginResponse.Email,
+                        IsAdmin = loginResponse.IsAdmin,
+                        UserId = loginResponse.UserId
+                    };
+                }
+            }
+
+            return new LoginResult
+            {
+                Success = false,
+                ErrorMessage = "Invalid barcode or password"
+            };
+        }
+        catch (Exception ex)
+        {
+            return new LoginResult
+            {
+                Success = false,
+                ErrorMessage = $"Error during login: {ex.Message}"
+            };
+        }
+    }
+
     public async Task LogoutAsync()
     {
         _storageService.Remove(TokenKey);

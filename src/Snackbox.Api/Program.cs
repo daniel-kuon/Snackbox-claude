@@ -18,6 +18,10 @@ var connectionString = builder.Configuration.GetConnectionString("snackboxdb")
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+// Add health checks with database check
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString, name: "database", tags: ["db", "ready"]);
+
 // Register authentication service
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
@@ -94,6 +98,14 @@ app.UseHttpsRedirection();
 app.UseCors("AllowBlazorApp");
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Map health check endpoints
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
 app.MapControllers();
 
 app.Run();

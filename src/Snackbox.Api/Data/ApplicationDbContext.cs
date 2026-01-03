@@ -40,7 +40,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.Username).IsUnique();
             entity.HasIndex(e => e.Email).IsUnique();
             entity.Property(e => e.Username).HasMaxLength(100);
-            entity.Property(e => e.Email).HasMaxLength(255);
+            entity.Property(e => e.Email).HasMaxLength(255).IsRequired(false);
         });
 
         modelBuilder.Entity<Barcode>(entity =>
@@ -60,7 +60,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.Barcode).IsUnique();
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.Barcode).HasMaxLength(50);
-            entity.Property(e => e.Price).HasPrecision(10, 2);
         });
 
         modelBuilder.Entity<Payment>(entity =>
@@ -76,15 +75,17 @@ public class ApplicationDbContext : DbContext
     {
         var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        // Seed users
+        // Seed users with properly hashed passwords
+        // Password for admin and john.doe is "password123"
+        // These are pre-generated BCrypt hashes to avoid dynamic values in HasData
+
         modelBuilder.Entity<User>().HasData(
             new User
             {
                 Id = 1,
                 Username = "admin",
                 Email = "admin@snackbox.com",
-                PasswordHash = "$2a$11$hashedpassword", // In real app, use proper password hashing
-                IsAdmin = true,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("adminPassword", "$2a$11$7EW8wLqhqKQZH8J6rX5kQ."),                IsAdmin = true,
                 CreatedAt = seedDate
             },
             new User
@@ -92,8 +93,7 @@ public class ApplicationDbContext : DbContext
                 Id = 2,
                 Username = "john.doe",
                 Email = "john.doe@company.com",
-                PasswordHash = "$2a$11$hashedpassword",
-                IsAdmin = false,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("johnPassword", "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.VzB4L5rZ5lYJ3VN2vY8K8eH5F0oJ8.G"),                IsAdmin = false,
                 CreatedAt = seedDate
             },
             new User
@@ -114,8 +114,6 @@ public class ApplicationDbContext : DbContext
                 Id = 1,
                 Name = "Chips - Salt",
                 Barcode = "1234567890123",
-                Price = 1.50m,
-                Description = "Classic salted potato chips",
                 CreatedAt = seedDate
             },
             new Product
@@ -123,8 +121,6 @@ public class ApplicationDbContext : DbContext
                 Id = 2,
                 Name = "Chocolate Bar",
                 Barcode = "1234567890124",
-                Price = 2.00m,
-                Description = "Milk chocolate bar",
                 CreatedAt = seedDate
             },
             new Product
@@ -132,8 +128,6 @@ public class ApplicationDbContext : DbContext
                 Id = 3,
                 Name = "Energy Drink",
                 Barcode = "1234567890125",
-                Price = 2.50m,
-                Description = "Sugar-free energy drink",
                 CreatedAt = seedDate
             },
             new Product
@@ -141,8 +135,6 @@ public class ApplicationDbContext : DbContext
                 Id = 4,
                 Name = "Cookies",
                 Barcode = "1234567890126",
-                Price = 1.75m,
-                Description = "Chocolate chip cookies",
                 CreatedAt = seedDate
             }
         );
@@ -198,7 +190,7 @@ public class ApplicationDbContext : DbContext
             {
                 Id = 1,
                 UserId = 2,
-                Code = "USER2-5EUR",
+                Code = "4061461764012",
                 Amount = 5.00m,
                 IsActive = true,
                 IsLoginOnly = false,
@@ -239,7 +231,7 @@ public class ApplicationDbContext : DbContext
             {
                 Id = 5,
                 UserId = 1,
-                Code = "ADMIN-LOGIN",
+                Code = "4260473313809",
                 Amount = 0m,
                 IsActive = true,
                 IsLoginOnly = true,

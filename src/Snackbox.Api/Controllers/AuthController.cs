@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Snackbox.Api.DTOs;
 using Snackbox.Api.Services;
+using LoginRequest = Snackbox.Api.DTOs.LoginRequest;
 
 namespace Snackbox.Api.Controllers;
 
@@ -22,7 +24,21 @@ public class AuthController : ControllerBase
     {
         LoginResponse? response = null;
 
-        // Try password authentication first if username and password are provided
+        // Try barcode and password authentication if both are provided
+        if (!string.IsNullOrWhiteSpace(request.BarcodeValue) && !string.IsNullOrWhiteSpace(request.Password))
+        {
+            response = await _authenticationService.AuthenticateWithBarcodeAndPasswordAsync(request.BarcodeValue, request.Password);
+            if (response != null)
+            {
+                _logger.LogInformation("User {Username} logged in with barcode and password", response.Username);
+                return Ok(response);
+            }
+
+            _logger.LogWarning("Failed barcode and password login attempt");
+            return Unauthorized(new { message = "Invalid barcode or password" });
+        }
+
+        // Try password authentication if username and password are provided
         if (!string.IsNullOrWhiteSpace(request.Username) && !string.IsNullOrWhiteSpace(request.Password))
         {
             response = await _authenticationService.AuthenticateWithPasswordAsync(request.Username, request.Password);
@@ -58,15 +74,23 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Barcode, email, and password are required" });
         }
 
-        var success = await _authenticationService.SetPasswordAsync(request.BarcodeValue, request.Email, request.NewPassword);
-
-        if (!success)
+        try
         {
-            return BadRequest(new { message = "Invalid barcode, email doesn't match, or unable to set password" });
-        }
+            var success = await _authenticationService.SetPasswordAsync(request.BarcodeValue, request.Email, request.NewPassword);
 
-        _logger.LogInformation("Password set successfully for barcode");
-        return Ok(new { message = "Password set successfully" });
+            if (!success)
+            {
+                return BadRequest(new { message = "Invalid barcode, email doesn't match, or unable to set password" });
+            }
+
+            _logger.LogInformation("Password set successfully for barcode");
+            return Ok(new { message = "Password set successfully" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Attempt to overwrite existing password");
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("has-password/{username}")]

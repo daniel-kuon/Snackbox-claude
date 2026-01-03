@@ -1,4 +1,5 @@
 @page "/admin/batch-scan"
+@using Snackbox.Api.DTOs
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -17,10 +18,10 @@
         <div class="scan-controls">
             <div class="scan-input-group">
                 <label>Scan or Enter Barcode</label>
-                <input type="text" class="form-control form-control-lg" 
+                <input type="text" class="form-control form-control-lg"
                        @bind="currentBarcode" @bind:event="oninput"
                        @onkeyup="HandleBarcodeInput"
-                       placeholder="Scan barcode..." 
+                       placeholder="Scan barcode..."
                        autofocus
                        @ref="barcodeInputRef" />
             </div>
@@ -92,7 +93,7 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <input type="number" class="form-control form-control-sm quantity-input" 
+                                    <input type="number" class="form-control form-control-sm quantity-input"
                                            @bind="item.Quantity" min="1" />
                                 </td>
                                 <td>
@@ -109,7 +110,7 @@
                                         }
                                         @if (!item.ExistingDates.Any() || item.SelectedDateOption == "new")
                                         {
-                                            <input type="date" class="form-control form-control-sm" 
+                                            <input type="date" class="form-control form-control-sm"
                                                    @bind="item.BestBeforeDate" />
                                         }
                                     </div>
@@ -416,7 +417,7 @@
         try
         {
             var product = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{barcode}");
-            
+
             if (product == null)
             {
                 scanError = $"Product with barcode '{barcode}' not found.";
@@ -439,16 +440,16 @@
             }
 
             var item = new ScannedItem
-            {
-                ProductId = product.Id,
-                ProductName = product.Name,
-                ProductBarcode = product.Barcode,
-                ActionType = selectedActionType,
-                Quantity = defaultQuantity,
-                BestBeforeDate = DateTime.Today.AddMonths(6),
-                ExistingDates = existingDates,
-                SelectedDateOption = existingDates.Any() ? existingDates.First().ToString("yyyy-MM-dd") : "new"
-            };
+                       {
+                           ProductId = product.Id,
+                           ProductName = product.Name,
+                           ProductBarcode = product.Barcode,
+                           ActionType = selectedActionType,
+                           Quantity = defaultQuantity,
+                           BestBeforeDate = DateTime.Today.AddMonths(6),
+                           ExistingDates = existingDates,
+                           SelectedDateOption = existingDates.Any() ? existingDates.First().ToString("yyyy-MM-dd") : "new"
+                       };
 
             scannedItems.Add(item);
             processSuccess = null;
@@ -486,30 +487,16 @@
 
         try
         {
-            var actions = scannedItems.Select(item => new
-            {
-                productBarcode = item.ProductBarcode,
-                bestBeforeDate = item.GetEffectiveBestBeforeDate(),
-                quantity = item.Quantity,
-                type = item.ActionType
-            }).ToList();
+            var actions = scannedItems.Select(item => new { productBarcode = item.ProductBarcode, bestBeforeDate = item.GetEffectiveBestBeforeDate(), quantity = item.Quantity, type = item.ActionType }).ToList();
 
             var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", new { actions });
 
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<BatchResult>();
-                
-                if (result?.Errors?.Any() == true)
-                {
-                    processError = $"Some actions failed: {string.Join(", ", result.Errors)}";
-                    processSuccess = $"Successfully processed {result.Results?.Count ?? 0} items.";
-                }
-                else
-                {
+                var result = await response.Content.ReadFromJsonAsync<List<ShelvingActionDto>>();
+
                     processSuccess = $"Successfully processed {scannedItems.Count} items.";
                     scannedItems.Clear();
-                }
             }
             else
             {
@@ -549,41 +536,9 @@
             {
                 return BestBeforeDate;
             }
+
             return DateTime.Parse(SelectedDateOption);
         }
     }
 
-    private class ProductDto
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Barcode { get; set; } = string.Empty;
-        public decimal Price { get; set; }
-        public string? Description { get; set; }
-    }
-
-    private class ProductStockDto
-    {
-        public int ProductId { get; set; }
-        public string ProductName { get; set; } = string.Empty;
-        public string ProductBarcode { get; set; } = string.Empty;
-        public List<BatchStockInfo> Batches { get; set; } = new();
-    }
-
-    private class BatchStockInfo
-    {
-        public int BatchId { get; set; }
-        public DateTime BestBeforeDate { get; set; }
-    }
-
-    private class BatchResult
-    {
-        public List<object>? Results { get; set; }
-        public List<string>? Errors { get; set; }
-    }
-
-    private class ErrorResponse
-    {
-        public string? Message { get; set; }
-    }
 }

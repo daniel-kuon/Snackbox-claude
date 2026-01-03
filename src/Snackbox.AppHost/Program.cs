@@ -10,6 +10,7 @@ IResourceBuilder<ParameterResource>? postgresPassword =
 
 // Add PostgreSQL database
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
+                      .WithHostPort(59653)
     .WithDataVolume()
     .WithPgAdmin()
     .AddDatabase("snackboxdb");

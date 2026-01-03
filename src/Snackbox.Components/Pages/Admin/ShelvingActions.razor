@@ -1,4 +1,5 @@
 @page "/admin/shelving-actions"
+@using Snackbox.Api.DTOs
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -357,16 +358,4 @@
         _ => "secondary"
     };
 
-    private class ShelvingActionDto
-    {
-        public int Id { get; set; }
-        public int ProductBatchId { get; set; }
-        public int ProductId { get; set; }
-        public string ProductName { get; set; } = string.Empty;
-        public string ProductBarcode { get; set; } = string.Empty;
-        public DateTime BestBeforeDate { get; set; }
-        public int Quantity { get; set; }
-        public string Type { get; set; } = string.Empty;
-        public DateTime ActionAt { get; set; }
-    }
 }

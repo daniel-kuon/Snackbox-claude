@@ -1,9 +1,12 @@
 ﻿@using System.Reflection
+@using Snackbox.Web.Components.Layout
 
-<Router AppAssembly="@typeof(MauiProgram).Assembly"
-        AdditionalAssemblies="new[] { typeof(IStorageService).Assembly }">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1"  />
-    </Found>
-</Router>
+<ApiHealthCheck>
+    <Router AppAssembly="@typeof(MauiProgram).Assembly"
+            AdditionalAssemblies="new[] { typeof(IStorageService).Assembly }">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1"  />
+        </Found>
+    </Router>
+</ApiHealthCheck>

@@ -44,10 +44,11 @@ public class AuthenticationService : IAuthenticationService
         };
     }
 
-    public async Task<LoginResponse?> AuthenticateWithPasswordAsync(string username, string password)
+    public async Task<LoginResponse?> AuthenticateWithPasswordAsync(string emailOrUsername, string password)
     {
+        // Allow login with either email or username
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Username == username);
+            .FirstOrDefaultAsync(u => u.Username == emailOrUsername || u.Email == emailOrUsername);
 
         if (user == null || string.IsNullOrEmpty(user.PasswordHash))
         {
@@ -72,6 +73,36 @@ public class AuthenticationService : IAuthenticationService
         };
     }
 
+    public async Task<LoginResponse?> AuthenticateWithBarcodeAndPasswordAsync(string barcodeValue, string password)
+    {
+        // Find the barcode with the user
+        var barcode = await _context.Barcodes
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
+
+        if (barcode == null || barcode.User == null || string.IsNullOrEmpty(barcode.User.PasswordHash))
+        {
+            return null;
+        }
+
+        // Verify password with BCrypt
+        if (!BCrypt.Net.BCrypt.Verify(password, barcode.User.PasswordHash))
+        {
+            return null;
+        }
+
+        var token = GenerateJwtToken(barcode.User);
+
+        return new LoginResponse
+        {
+            Token = token,
+            Username = barcode.User.Username,
+            Email = barcode.User.Email,
+            IsAdmin = barcode.User.IsAdmin,
+            UserId = barcode.User.Id
+        };
+    }
+
     public async Task<bool> SetPasswordAsync(string barcodeValue, string email, string newPassword)
     {
         // Verify barcode exists and get associated user
@@ -88,6 +119,12 @@ public class AuthenticationService : IAuthenticationService
         if (!string.Equals(barcode.User.Email, email, StringComparison.OrdinalIgnoreCase))
         {
             return false;
+        }
+
+        // Check if user already has a password - prevent overwriting
+        if (!string.IsNullOrEmpty(barcode.User.PasswordHash))
+        {
+            throw new InvalidOperationException("User already has a password set. Cannot overwrite existing password.");
         }
 
         // Hash and set the password

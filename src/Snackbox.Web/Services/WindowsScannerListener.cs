@@ -4,7 +4,7 @@ using Timer = System.Timers.Timer;
 
 namespace Snackbox.Web.Services;
 
-public class WindowsScannerListener : IDisposable
+public class WindowsScannerListener : IDisposable, IScannerListener
 {
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYDOWN = 0x0100;
@@ -12,6 +12,8 @@ public class WindowsScannerListener : IDisposable
     private IntPtr _hookId = IntPtr.Zero;
     private readonly StringBuilder _buffer = new();
     private readonly Timer _resetTimer;
+    private string? _lastCode;
+    private DateTime? _lastCodeTime;
 
     public event Action<string>? CodeReceived;
 
@@ -68,12 +70,19 @@ public class WindowsScannerListener : IDisposable
                 if (!string.IsNullOrEmpty(code))
                 {
                     _resetTimer.Stop();
-                    
+
                     // Bring window to foreground
                     BringWindowToForeground();
-                    
+
                     // Invoke on UI thread if needed, or handle in component
-                    CodeReceived?.Invoke(code);
+                    // Ignore duplicate code within 500ms to prevent accidental scanning
+                    if (code != _lastCode || _lastCodeTime == null ||
+                                                (DateTime.Now - _lastCodeTime.Value).TotalMilliseconds > 500)
+                    {
+                        _lastCode = code;
+                        _lastCodeTime = DateTime.Now;
+                        CodeReceived?.Invoke(code);
+                    }
                 }
             }
             else if (IsDigit(key))

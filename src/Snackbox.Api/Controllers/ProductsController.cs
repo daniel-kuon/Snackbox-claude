@@ -33,9 +33,9 @@ public class ProductsController : ControllerBase
                 Id = p.Id,
                 Name = p.Name,
                 Barcode = p.Barcode,
-                Price = p.Price,
-                Description = p.Description,
-                CreatedAt = p.CreatedAt
+                CreatedAt = p.CreatedAt,
+                BestBeforeInStock = p.BestBeforeInStock,
+                BestBeforeOnShelf = p.BestBeforeOnShelf,
             })
             .ToListAsync();
 
@@ -57,9 +57,9 @@ public class ProductsController : ControllerBase
             Id = product.Id,
             Name = product.Name,
             Barcode = product.Barcode,
-            Price = product.Price,
-            Description = product.Description,
-            CreatedAt = product.CreatedAt
+            CreatedAt = product.CreatedAt,
+            BestBeforeInStock = product.BestBeforeInStock,
+            BestBeforeOnShelf = product.BestBeforeOnShelf,
         };
 
         return Ok(dto);
@@ -78,8 +78,6 @@ public class ProductsController : ControllerBase
         {
             Name = dto.Name,
             Barcode = dto.Barcode,
-            Price = dto.Price,
-            Description = dto.Description,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -93,9 +91,9 @@ public class ProductsController : ControllerBase
             Id = product.Id,
             Name = product.Name,
             Barcode = product.Barcode,
-            Price = product.Price,
-            Description = product.Description,
-            CreatedAt = product.CreatedAt
+            CreatedAt = product.CreatedAt,
+            BestBeforeInStock = product.BestBeforeInStock,
+            BestBeforeOnShelf = product.BestBeforeOnShelf,
         };
 
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, resultDto);
@@ -119,8 +117,6 @@ public class ProductsController : ControllerBase
 
         product.Name = dto.Name;
         product.Barcode = dto.Barcode;
-        product.Price = dto.Price;
-        product.Description = dto.Description;
 
         await _context.SaveChangesAsync();
 
@@ -131,9 +127,9 @@ public class ProductsController : ControllerBase
             Id = product.Id,
             Name = product.Name,
             Barcode = product.Barcode,
-            Price = product.Price,
-            Description = product.Description,
-            CreatedAt = product.CreatedAt
+            CreatedAt = product.CreatedAt,
+            BestBeforeInStock = product.BestBeforeInStock,
+            BestBeforeOnShelf = product.BestBeforeOnShelf,
         };
 
         return Ok(resultDto);
@@ -180,9 +176,9 @@ public class ProductsController : ControllerBase
             Id = product.Id,
             Name = product.Name,
             Barcode = product.Barcode,
-            Price = product.Price,
-            Description = product.Description,
-            CreatedAt = product.CreatedAt
+            CreatedAt = product.CreatedAt,
+            BestBeforeInStock = product.BestBeforeInStock,
+            BestBeforeOnShelf = product.BestBeforeOnShelf,
         };
 
         return Ok(dto);
@@ -214,8 +210,6 @@ public class ProductsController : ControllerBase
             ProductId = product.Id,
             ProductName = product.Name,
             ProductBarcode = product.Barcode,
-            Price = product.Price,
-            Description = product.Description,
             TotalInStorage = batches.Sum(b => b.QuantityInStorage),
             TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
             Batches = batches
@@ -247,8 +241,6 @@ public class ProductsController : ControllerBase
                 ProductId = product.Id,
                 ProductName = product.Name,
                 ProductBarcode = product.Barcode,
-                Price = product.Price,
-                Description = product.Description,
                 TotalInStorage = batches.Sum(b => b.QuantityInStorage),
                 TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
                 Batches = batches

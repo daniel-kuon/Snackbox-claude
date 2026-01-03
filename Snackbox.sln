@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snackbox.BlazorServer", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snackbox.Components", "src\Snackbox.Components\Snackbox.Components.csproj", "{2BFAF02B-6E6D-4BDF-BC7B-E6BAB7AEC02C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snackbox.Api.Dtos", "src\Snackbox.Api.Dtos\Snackbox.Api.Dtos.csproj", "{8E99FF46-AB57-473D-AE80-5867675A35B6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +49,10 @@ Global
 		{2BFAF02B-6E6D-4BDF-BC7B-E6BAB7AEC02C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2BFAF02B-6E6D-4BDF-BC7B-E6BAB7AEC02C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2BFAF02B-6E6D-4BDF-BC7B-E6BAB7AEC02C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E99FF46-AB57-473D-AE80-5867675A35B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E99FF46-AB57-473D-AE80-5867675A35B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E99FF46-AB57-473D-AE80-5867675A35B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E99FF46-AB57-473D-AE80-5867675A35B6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -58,5 +64,6 @@ Global
 		{32ACEE75-0E9B-4C23-9DAE-9CB2712B5199} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{32A92619-77D6-46AF-B013-1945B63480B9} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{2BFAF02B-6E6D-4BDF-BC7B-E6BAB7AEC02C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{8E99FF46-AB57-473D-AE80-5867675A35B6} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

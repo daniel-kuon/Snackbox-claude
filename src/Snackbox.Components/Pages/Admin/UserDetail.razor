@@ -1,4 +1,5 @@
 @page "/admin/users/{UserId:int}"
+@using Snackbox.Api.DTOs
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -41,20 +42,7 @@
             <div class="summary-card">
                 <div class="summary-label">Role</div>
                 <div class="summary-value">
-                    <span class="badge badge-@(user.Role.ToLower())">@user.Role</span>
-                </div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">Status</div>
-                <div class="summary-value">
-                    @if (user.IsActive)
-                    {
-                        <span class="badge badge-success">Active</span>
-                    }
-                    else
-                    {
-                        <span class="badge badge-secondary">Inactive</span>
-                    }
+                    <span class="badge">@(user.IsAdmin ? "Admin" : "User")</span>
                 </div>
             </div>
         </div>
@@ -88,11 +76,7 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">Role:</span>
-                        <span class="info-value">@user.Role</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Active:</span>
-                        <span class="info-value">@(user.IsActive ? "Yes" : "No")</span>
+                        <span class="info-value">@user.IsAdmin ? "Admin" : "User"</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Balance:</span>
@@ -162,21 +146,15 @@
                         <thead>
                             <tr>
                                 <th>Date</th>
-                                <th>Product</th>
-                                <th>Quantity</th>
-                                <th>Price</th>
                                 <th>Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var purchase in purchases.OrderByDescending(p => p.PurchasedAt))
+                            @foreach (var purchase in purchases.OrderByDescending(p => p.CompletedAt))
                             {
                                 <tr>
-                                    <td>@purchase.PurchasedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                                    <td>@purchase.ProductName</td>
-                                    <td>@purchase.Quantity</td>
-                                    <td>€@purchase.PricePerUnit.ToString("F2")</td>
-                                    <td class="text-danger">€@purchase.TotalPrice.ToString("F2")</td>
+                                    <td>@purchase.CompletedAt?.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="text-danger">€@purchase.TotalAmount.ToString("C")</td>
                                 </tr>
                             }
                         </tbody>
@@ -891,45 +869,6 @@
         paymentForm = new();
         barcodeForm = new();
         modalError = null;
-    }
-
-    private class UserDto
-    {
-        public int Id { get; set; }
-        public string Username { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Role { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        public decimal Balance { get; set; }
-    }
-
-    private class PaymentDto
-    {
-        public int Id { get; set; }
-        public int UserId { get; set; }
-        public decimal Amount { get; set; }
-        public DateTime PaidAt { get; set; }
-        public string? Notes { get; set; }
-    }
-
-    private class PurchaseDto
-    {
-        public int Id { get; set; }
-        public string ProductName { get; set; } = string.Empty;
-        public int Quantity { get; set; }
-        public decimal PricePerUnit { get; set; }
-        public decimal TotalPrice { get; set; }
-        public DateTime PurchasedAt { get; set; }
-    }
-
-    private class BarcodeDto
-    {
-        public int Id { get; set; }
-        public string Code { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
-        public bool IsActive { get; set; }
-        public bool IsLoginOnly { get; set; }
-        public DateTime CreatedAt { get; set; }
     }
 
     private class PaymentFormModel

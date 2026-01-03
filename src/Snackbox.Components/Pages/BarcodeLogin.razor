@@ -1,35 +1,35 @@
-@page "/login"
+@page "/barcode-login"
 @using System.ComponentModel.DataAnnotations
 @using Snackbox.Components.Services
+@using Microsoft.AspNetCore.Components
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
 
-<PageTitle>Login - Snackbox</PageTitle>
+<PageTitle>Barcode Login - Snackbox</PageTitle>
 
 <div class="login-container">
     <div class="login-card">
         <h2>Snackbox Login</h2>
-        <p class="login-subtitle">Enter your email and password</p>
+        <p class="login-subtitle">Enter your password</p>
 
         @if (!string.IsNullOrEmpty(errorMessage))
         {
             <div class="alert alert-danger" role="alert">@errorMessage</div>
         }
 
-        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" FormName="login">
+        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" FormName="barcodeLogin">
             <DataAnnotationsValidator />
 
             <div class="form-group">
-                <label for="email">Email Address</label>
+                <label for="barcode">Barcode</label>
                 <InputText
-                    id="email"
-                    type="email"
-                    @bind-Value="loginModel.Email"
+                    id="barcode"
+                    @bind-Value="loginModel.BarcodeValue"
                     class="form-control"
-                    placeholder="Enter your email"
-                    autofocus
+                    placeholder="Your barcode"
+                    readonly
                     disabled="@isLoading" />
-                <ValidationMessage For="@(() => loginModel.Email)" />
+                <ValidationMessage For="@(() => loginModel.BarcodeValue)" />
             </div>
 
             <div class="form-group">
@@ -40,6 +40,7 @@
                     @bind-Value="loginModel.Password"
                     class="form-control"
                     placeholder="Enter your password"
+                    autofocus
                     disabled="@isLoading" />
                 <ValidationMessage For="@(() => loginModel.Password)" />
             </div>
@@ -59,7 +60,7 @@
 
         <div class="login-info">
             <small class="text-muted">
-                Don't have an account? <a href="/register" class="register-link">Register here</a>
+                Don't have a password? <a href="/register?barcode=@Uri.EscapeDataString(loginModel.BarcodeValue)" class="register-link">Register here</a>
             </small>
         </div>
     </div>
@@ -118,6 +119,11 @@
         outline: none;
         border-color: #007bff;
         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .form-control:read-only {
+        background-color: #e9ecef;
+        cursor: not-allowed;
     }
 
     .btn {
@@ -211,7 +217,23 @@
     private string? errorMessage;
     private bool isLoading;
 
-    private LoginModel loginModel = new();
+    private BarcodeLoginModel loginModel = new();
+
+    [SupplyParameterFromQuery(Name = "barcode")]
+    public string? BarcodeFromQuery { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(BarcodeFromQuery))
+        {
+            loginModel.BarcodeValue = BarcodeFromQuery;
+        }
+        else
+        {
+            // No barcode provided, redirect to home
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+    }
 
     private async Task HandleLogin()
     {
@@ -220,8 +242,9 @@
 
         try
         {
-            var result = await AuthService.LoginWithPasswordAsync(
-                loginModel.Email,
+            // Authenticate with barcode and password in a single request
+            var result = await AuthService.LoginWithBarcodeAndPasswordAsync(
+                loginModel.BarcodeValue,
                 loginModel.Password);
 
             if (result.Success)
@@ -230,7 +253,7 @@
             }
             else
             {
-                errorMessage = "Invalid email or password. Please try again.";
+                errorMessage = result.ErrorMessage ?? "Invalid barcode or password. Please try again.";
             }
         }
         catch (Exception ex)
@@ -243,11 +266,10 @@
         }
     }
 
-    private class LoginModel
+    private class BarcodeLoginModel
     {
-        [Required(ErrorMessage = "Email is required")]
-        [EmailAddress(ErrorMessage = "Invalid email address")]
-        public string Email { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Barcode is required")]
+        public string BarcodeValue { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Password is required")]
         public string Password { get; set; } = string.Empty;

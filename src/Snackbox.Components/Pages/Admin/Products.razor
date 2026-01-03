@@ -1,4 +1,5 @@
 @page "/admin/products"
+@using Snackbox.Api.DTOs
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -14,7 +15,7 @@
 
     <!-- Search and Filter -->
     <div class="search-bar">
-        <input type="text" class="form-control search-input" placeholder="Search products..." 
+        <input type="text" class="form-control search-input" placeholder="Search products..."
                @bind="searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
         <select class="form-control sort-select" @bind="sortBy" @bind:after="SortProducts">
             <option value="name">Sort by Name</option>
@@ -47,9 +48,8 @@
                     <tr>
                         <th>Name</th>
                         <th>Barcode</th>
-                        <th>Price</th>
-                        <th>Description</th>
-                        <th>Created</th>
+                        <th>Best before in Stock</th>
+                        <th>Best before on Shelf</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -59,8 +59,8 @@
                         <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;">
                             <td>@product.Name</td>
                             <td><code>@product.Barcode</code></td>
-                            <td>€@product.Price.ToString("F2")</td>
-                            <td>@(product.Description ?? "-")</td>
+                            <td>@(product.BestBeforeInStock?.ToString("yyyy-MM-dd") ?? "-")</td>
+                            <td>@(product.BestBeforeOnShelf?.ToString("yyyy-MM-dd") ?? "-")</td>
                             <td>@product.CreatedAt.ToString("yyyy-MM-dd")</td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => NavigateToProductDetail(product.Id)">
@@ -115,17 +115,6 @@
                         <label>Barcode</label>
                         <InputText @bind-Value="productForm.Barcode" class="form-control" />
                         <ValidationMessage For="@(() => productForm.Barcode)" />
-                    </div>
-
-                    <div class="form-group">
-                        <label>Price (€)</label>
-                        <InputNumber @bind-Value="productForm.Price" class="form-control" step="0.01" />
-                        <ValidationMessage For="@(() => productForm.Price)" />
-                    </div>
-
-                    <div class="form-group">
-                        <label>Description (optional)</label>
-                        <InputTextArea @bind-Value="productForm.Description" class="form-control" rows="3" />
                     </div>
 
                     <div class="modal-footer">
@@ -447,8 +436,7 @@
         filteredProducts = products
             .Where(p => string.IsNullOrEmpty(searchTerm) ||
                         p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        p.Barcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        (p.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                        p.Barcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         SortProducts();
@@ -462,7 +450,6 @@
         {
             "name" => filteredProducts.OrderBy(p => p.Name).ToList(),
             "barcode" => filteredProducts.OrderBy(p => p.Barcode).ToList(),
-            "price" => filteredProducts.OrderBy(p => p.Price).ToList(),
             "created" => filteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
             _ => filteredProducts
         };
@@ -488,8 +475,6 @@
         {
             Name = product.Name,
             Barcode = product.Barcode,
-            Price = product.Price,
-            Description = product.Description
         };
         modalError = null;
         showCreateEditModal = true;
@@ -517,8 +502,6 @@
                 {
                     name = productForm.Name,
                     barcode = productForm.Barcode,
-                    price = productForm.Price,
-                    description = productForm.Description
                 });
             }
             else
@@ -527,8 +510,6 @@
                 {
                     name = productForm.Name,
                     barcode = productForm.Barcode,
-                    price = productForm.Price,
-                    description = productForm.Description
                 });
             }
 
@@ -595,16 +576,6 @@
         modalError = null;
     }
 
-    private class ProductDto
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Barcode { get; set; } = string.Empty;
-        public decimal Price { get; set; }
-        public string? Description { get; set; }
-        public DateTime CreatedAt { get; set; }
-    }
-
     private class ProductFormModel
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Product name is required")]
@@ -612,16 +583,5 @@
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Barcode is required")]
         public string Barcode { get; set; } = string.Empty;
-
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.Range(0.01, 10000, ErrorMessage = "Price must be between 0.01 and 10000")]
-        public decimal Price { get; set; }
-
-        public string? Description { get; set; }
-    }
-
-    private class ErrorResponse
-    {
-        public string? Message { get; set; }
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snackbox.Api.Data;
@@ -11,9 +12,11 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260102151228_InitialCreate2")]
+    partial class InitialCreate2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -581,7 +584,7 @@ namespace Snackbox.Api.Migrations
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "admin@snackbox.com",
                             IsAdmin = true,
-                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.gBAGZERO3WEhOw84rLKyWNOe90gtIZi",
+                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.VzB4L5rZ5lYJ3VN2vY8K8eH5F0oJ8.G",
                             Username = "admin"
                         },
                         new
@@ -590,7 +593,7 @@ namespace Snackbox.Api.Migrations
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "john.doe@company.com",
                             IsAdmin = false,
-                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.nhwgnkeU3Z3ua5zEq5X5I6iMvqFFYkO",
+                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.VzB4L5rZ5lYJ3VN2vY8K8eH5F0oJ8.G",
                             Username = "john.doe"
                         },
                         new

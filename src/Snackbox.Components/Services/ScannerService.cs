@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
+using Snackbox.Api.DTOs;
 using Snackbox.Components.Models;
 
 namespace Snackbox.Components.Services;
@@ -41,7 +42,7 @@ public class ScannerService : IScannerService
             if (!response.IsSuccessStatusCode)
                 return new ScanResult { IsSuccess = false, ErrorMessage = "API request failed" };
 
-            var result = await response.Content.ReadFromJsonAsync<ScanBarcodeResponseDto>();
+            var result = await response.Content.ReadFromJsonAsync<ScanBarcodeResponse>();
 
             if (result == null)
                 return new ScanResult { IsSuccess = false, ErrorMessage = "Invalid response" };
@@ -49,10 +50,10 @@ public class ScannerService : IScannerService
             if (!result.Success)
                 return new ScanResult { IsSuccess = false, ErrorMessage = result.ErrorMessage };
 
-            return new ScanResult 
-            { 
-                IsSuccess = true, 
-                IsAdmin = result.IsAdmin 
+            return new ScanResult
+            {
+                IsSuccess = true,
+                IsAdmin = result.IsAdmin
             };
         }
         catch (Exception ex)
@@ -77,7 +78,7 @@ public class ScannerService : IScannerService
             if (!response.IsSuccessStatusCode)
                 throw new Exception("API request failed");
 
-            var result = await response.Content.ReadFromJsonAsync<ScanBarcodeResponseDto>();
+            var result = await response.Content.ReadFromJsonAsync<ScanBarcodeResponse>();
 
             if (result == null)
                 throw new Exception("Invalid response from server");
@@ -172,37 +173,5 @@ public class ScannerService : IScannerService
             _timeoutTimer.Dispose();
             _timeoutTimer = null;
         }
-    }
-
-    // DTO classes matching API response
-    private class ScanBarcodeResponseDto
-    {
-        public bool Success { get; set; }
-        public string? ErrorMessage { get; set; }
-        public int UserId { get; set; }
-        public string Username { get; set; } = string.Empty;
-        public bool IsAdmin { get; set; }
-        public int PurchaseId { get; set; }
-        public List<ScannedBarcodeDto> ScannedBarcodes { get; set; } = new();
-        public decimal TotalAmount { get; set; }
-        public decimal Balance { get; set; }
-        public decimal LastPaymentAmount { get; set; }
-        public DateTime? LastPaymentDate { get; set; }
-        public List<RecentPurchaseDto> RecentPurchases { get; set; } = new();
-    }
-
-    private class ScannedBarcodeDto
-    {
-        public string BarcodeCode { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
-        public DateTime ScannedAt { get; set; }
-    }
-
-    private class RecentPurchaseDto
-    {
-        public int PurchaseId { get; set; }
-        public decimal TotalAmount { get; set; }
-        public DateTime CompletedAt { get; set; }
-        public int ItemCount { get; set; }
     }
 }
