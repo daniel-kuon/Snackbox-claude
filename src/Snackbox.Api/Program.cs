@@ -29,6 +29,11 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 
+// Register invoice parser services
+builder.Services.AddScoped<IInvoiceParserService, SonderpostenInvoiceParser>();
+builder.Services.AddScoped<IInvoiceParserService, SelgrosInvoiceParser>();
+builder.Services.AddScoped<InvoiceParserFactory>();
+
 // Register barcode lookup service
 builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()
     .ConfigureHttpClient(client =>

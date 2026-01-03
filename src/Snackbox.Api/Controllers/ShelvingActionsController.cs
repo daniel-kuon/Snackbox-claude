@@ -55,7 +55,8 @@ public class ShelvingActionsController : ControllerBase
                 BestBeforeDate = sa.ProductBatch.BestBeforeDate,
                 Quantity = sa.Quantity,
                 Type = sa.Type,
-                ActionAt = sa.ActionAt
+                ActionAt = sa.ActionAt,
+                InvoiceItemId = sa.InvoiceItemId
             })
             .ToListAsync();
 
@@ -86,7 +87,8 @@ public class ShelvingActionsController : ControllerBase
             BestBeforeDate = action.ProductBatch.BestBeforeDate,
             Quantity = action.Quantity,
             Type = action.Type,
-            ActionAt = action.ActionAt
+            ActionAt = action.ActionAt,
+            InvoiceItemId = action.InvoiceItemId
         };
 
         return Ok(dto);
@@ -160,7 +162,8 @@ public class ShelvingActionsController : ControllerBase
                     ProductBatchId = batch.Id,
                     Quantity = action.Quantity,
                     Type = action.Type,
-                    ActionAt = DateTime.UtcNow
+                    ActionAt = DateTime.UtcNow,
+                    InvoiceItemId = action.InvoiceItemId
                 };
 
                 _context.ShelvingActions.Add(shelvingAction);
@@ -176,7 +179,8 @@ public class ShelvingActionsController : ControllerBase
                     BestBeforeDate = batch.BestBeforeDate,
                     Quantity = shelvingAction.Quantity,
                     Type = shelvingAction.Type,
-                    ActionAt = shelvingAction.ActionAt
+                    ActionAt = shelvingAction.ActionAt,
+                    InvoiceItemId = shelvingAction.InvoiceItemId
                 });
 
                 _logger.LogInformation("Shelving action created: {ActionType} {Quantity} of {ProductName} (Batch {BatchId})",
@@ -253,7 +257,8 @@ public class ShelvingActionsController : ControllerBase
             ProductBatchId = batch.Id,
             Quantity = dto.Quantity,
             Type = dto.Type,
-            ActionAt = DateTime.UtcNow
+            ActionAt = DateTime.UtcNow,
+            InvoiceItemId = dto.InvoiceItemId
         };
 
         _context.ShelvingActions.Add(shelvingAction);
@@ -272,7 +277,8 @@ public class ShelvingActionsController : ControllerBase
             BestBeforeDate = batch.BestBeforeDate,
             Quantity = shelvingAction.Quantity,
             Type = shelvingAction.Type,
-            ActionAt = shelvingAction.ActionAt
+            ActionAt = shelvingAction.ActionAt,
+            InvoiceItemId = shelvingAction.InvoiceItemId
         };
 
         return CreatedAtAction(nameof(GetById), new { id = shelvingAction.Id }, result);

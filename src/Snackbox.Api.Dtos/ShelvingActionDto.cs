@@ -11,6 +11,7 @@ public class ShelvingActionDto
     public int Quantity { get; set; }
     public required ShelvingActionType Type { get; set; }
     public DateTime ActionAt { get; set; }
+    public int? InvoiceItemId { get; set; }
 }
 
 public class CreateShelvingActionDto
@@ -19,6 +20,7 @@ public class CreateShelvingActionDto
     public DateTime BestBeforeDate { get; set; }
     public int Quantity { get; set; }
     public ShelvingActionType Type { get; set; }
+    public int? InvoiceItemId { get; set; }
 }
 
 public class BatchShelvingRequest
