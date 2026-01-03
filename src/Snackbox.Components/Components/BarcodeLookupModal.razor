@@ -627,10 +627,10 @@
 
             similarProducts = matches.OrderByDescending(m => m.MatchScore).Take(5).ToList();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            // Log error but don't break the flow
-            Console.WriteLine($"Error finding similar products: {ex.Message}");
+            // Silently fail - fuzzy search is a nice-to-have feature
+            // The user can still create the product even if similarity search fails
             similarProducts = null;
         }
     }
@@ -741,7 +741,7 @@
             "title" => title,
             "manufacturer" => BuildCompositeProductName(lookupResult.Manufacturer, title),
             "brand" => BuildCompositeProductName(lookupResult.Brand, title),
-            "custom" => customName ?? string.Empty,
+            "custom" => customName,
             _ => title
         };
     }
