@@ -1,5 +1,5 @@
 @page "/admin/stock"
-@using Snackbox.Api.DTOs
+@using Snackbox.Api.Dtos
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -16,14 +16,14 @@
     <!-- Search and Filter -->
     <div class="search-bar">
         <input type="text" class="form-control search-input" placeholder="Search products..."
-               @bind="searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
-        <select class="form-control sort-select" @bind="sortBy" @bind:after="SortProducts">
+               @bind="_searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
+        <select class="form-control sort-select" @bind="_sortBy" @bind:after="SortProducts">
             <option value="name">Sort by Name</option>
             <option value="storage">Sort by Storage Qty</option>
             <option value="shelf">Sort by Shelf Qty</option>
             <option value="total">Sort by Total Stock</option>
         </select>
-        <select class="form-control filter-select" @bind="stockFilter" @bind:after="FilterProducts">
+        <select class="form-control filter-select" @bind="_stockFilter" @bind:after="FilterProducts">
             <option value="all">All Products</option>
             <option value="inStock">In Stock Only</option>
             <option value="lowStock">Low Stock (&lt; 10)</option>
@@ -31,7 +31,7 @@
         </select>
     </div>
 
-    @if (isLoading)
+    @if (_isLoading)
     {
         <div class="loading-container">
             <div class="spinner-border" role="status">
@@ -40,26 +40,26 @@
             <p>Loading stock data...</p>
         </div>
     }
-    else if (errorMessage != null)
+    else if (_errorMessage != null)
     {
         <div class="alert alert-danger" role="alert">
-            @errorMessage
+            @_errorMessage
         </div>
     }
-    else if (filteredProducts != null && filteredProducts.Any())
+    else if (_filteredProducts != null && _filteredProducts.Any())
     {
         <div class="stock-summary-bar">
             <div class="summary-item">
                 <span class="summary-label">Total Products:</span>
-                <span class="summary-value">@filteredProducts.Count</span>
+                <span class="summary-value">@_filteredProducts.Count</span>
             </div>
             <div class="summary-item">
                 <span class="summary-label">Total in Storage:</span>
-                <span class="summary-value">@filteredProducts.Sum(p => p.TotalInStorage)</span>
+                <span class="summary-value">@_filteredProducts.Sum(p => p.TotalInStorage)</span>
             </div>
             <div class="summary-item">
                 <span class="summary-label">Total on Shelf:</span>
-                <span class="summary-value">@filteredProducts.Sum(p => p.TotalOnShelf)</span>
+                <span class="summary-value">@_filteredProducts.Sum(p => p.TotalOnShelf)</span>
             </div>
         </div>
 
@@ -77,7 +77,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var product in filteredProducts)
+                    @foreach (var product in _filteredProducts)
                     {
                         var total = product.TotalInStorage + product.TotalOnShelf;
                         var stockClass = total == 0 ? "out-of-stock" : total < 10 ? "low-stock" : "";
@@ -299,13 +299,13 @@
 </style>
 
 @code {
-    private List<ProductStockDto>? products;
-    private List<ProductStockDto>? filteredProducts;
-    private bool isLoading = true;
-    private string? errorMessage;
-    private string searchTerm = "";
-    private string sortBy = "name";
-    private string stockFilter = "all";
+    private List<ProductStockDto>? _products;
+    private List<ProductStockDto>? _filteredProducts;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private string _searchTerm = "";
+    private string _sortBy = "name";
+    private string _stockFilter = "all";
 
     protected override async Task OnInitializedAsync()
     {
@@ -314,33 +314,33 @@
 
     private async Task LoadStock()
     {
-        isLoading = true;
-        errorMessage = null;
+        _isLoading = true;
+        _errorMessage = null;
 
         try
         {
-            products = await Http.GetFromJsonAsync<List<ProductStockDto>>("api/products/stock");
+            _products = await Http.GetFromJsonAsync<List<ProductStockDto>>("api/products/stock");
             FilterProducts();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load stock data: {ex.Message}";
+            _errorMessage = $"Failed to load stock data: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
     private void FilterProducts()
     {
-        if (products == null) return;
+        if (_products == null) return;
 
-        filteredProducts = products
-            .Where(p => string.IsNullOrEmpty(searchTerm) ||
-                        p.ProductName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        p.ProductBarcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
-            .Where(p => stockFilter switch
+        _filteredProducts = _products
+            .Where(p => string.IsNullOrEmpty(_searchTerm) ||
+                        p.ProductName.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        p.ProductBarcode.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+            .Where(p => _stockFilter switch
             {
                 "inStock" => p.TotalInStorage + p.TotalOnShelf > 0,
                 "lowStock" => p.TotalInStorage + p.TotalOnShelf > 0 && p.TotalInStorage + p.TotalOnShelf < 10,
@@ -354,15 +354,15 @@
 
     private void SortProducts()
     {
-        if (filteredProducts == null) return;
+        if (_filteredProducts == null) return;
 
-        filteredProducts = sortBy switch
+        _filteredProducts = _sortBy switch
         {
-            "name" => filteredProducts.OrderBy(p => p.ProductName).ToList(),
-            "storage" => filteredProducts.OrderByDescending(p => p.TotalInStorage).ToList(),
-            "shelf" => filteredProducts.OrderByDescending(p => p.TotalOnShelf).ToList(),
-            "total" => filteredProducts.OrderByDescending(p => p.TotalInStorage + p.TotalOnShelf).ToList(),
-            _ => filteredProducts
+            "name" => _filteredProducts.OrderBy(p => p.ProductName).ToList(),
+            "storage" => _filteredProducts.OrderByDescending(p => p.TotalInStorage).ToList(),
+            "shelf" => _filteredProducts.OrderByDescending(p => p.TotalOnShelf).ToList(),
+            "total" => _filteredProducts.OrderByDescending(p => p.TotalInStorage + p.TotalOnShelf).ToList(),
+            _ => _filteredProducts
         };
     }
 

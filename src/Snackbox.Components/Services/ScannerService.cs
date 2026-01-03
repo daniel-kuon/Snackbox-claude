@@ -1,15 +1,15 @@
 ﻿using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Components.Models;
+using Timer = System.Timers.Timer;
 
 namespace Snackbox.Components.Services;
 
 public class ScannerService : IScannerService
 {
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
-    private System.Timers.Timer? _timeoutTimer;
+    private Timer? _timeoutTimer;
 
     public event Action<PurchaseSession>? OnPurchaseStarted;
     public event Action<PurchaseSession>? OnPurchaseUpdated;
@@ -23,14 +23,13 @@ public class ScannerService : IScannerService
     public ScannerService(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
-        TimeoutSeconds = configuration.GetValue<int>("Scanner:TimeoutSeconds", 60);
+        TimeoutSeconds = configuration.GetValue("Scanner:TimeoutSeconds", 60);
     }
 
-    public async Task<ScanResult?> ScanBarcodeAsync(string barcodeCode)
+    public async Task<ScanResult> ScanBarcodeAsync(string barcodeCode)
     {
         if (string.IsNullOrWhiteSpace(barcodeCode))
-            return null;
+            return new ScanResult { IsSuccess = false, ErrorMessage = "Empty barcode" };
 
         try
         {
@@ -126,16 +125,7 @@ public class ScannerService : IScannerService
             }
     }
 
-    public async Task CompletePurchaseAsync()
-    {
-        // Purchase is auto-completed on the server when timeout expires and user scans again
-        // This method just cleans up the local UI state when timeout occurs
-        StopTimeoutTimer();
-        OnPurchaseCompleted?.Invoke();
-        CurrentSession = null;
-    }
-
-    public void ResetSession()
+    private void ResetSession()
     {
         // Reset the local session state (called when timeout expires)
         StopTimeoutTimer();
@@ -145,7 +135,7 @@ public class ScannerService : IScannerService
 
     private void StartTimeoutTimer()
     {
-        _timeoutTimer = new System.Timers.Timer(TimeoutSeconds * 1000);
+        _timeoutTimer = new Timer(TimeoutSeconds * 1000);
         _timeoutTimer.Elapsed += (_, _) => ResetSession();
         _timeoutTimer.AutoReset = false;
         _timeoutTimer.Start();

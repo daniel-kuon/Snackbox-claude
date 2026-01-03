@@ -1,4 +1,4 @@
-﻿namespace Snackbox.Api.Models;
+﻿namespace Snackbox.Api.Dtos;
 
 public enum ShelvingActionType
 {

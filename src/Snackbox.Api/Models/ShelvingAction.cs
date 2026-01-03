@@ -1,3 +1,5 @@
+using Snackbox.Api.Dtos;
+
 namespace Snackbox.Api.Models;
 
 public class ShelvingAction
