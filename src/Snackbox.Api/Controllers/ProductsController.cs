@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 using Snackbox.Api.Services;
@@ -53,12 +53,6 @@ public class ProductsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto dto)
     {
-        // Check if barcode already exists
-        if (await _context.ProductBarcodes.AnyAsync(pb => pb.Barcode == dto.Barcode))
-        {
-            return BadRequest(new { message = "A product with this barcode already exists" });
-        }
-
         var product = new Product
         {
             Name = dto.Name,
@@ -66,18 +60,6 @@ public class ProductsController : ControllerBase
         };
 
         _context.Products.Add(product);
-        await _context.SaveChangesAsync();
-
-        // Add the initial barcode
-        var productBarcode = new ProductBarcode
-        {
-            ProductId = product.Id,
-            Barcode = dto.Barcode,
-            Quantity = dto.BarcodeQuantity,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.ProductBarcodes.Add(productBarcode);
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Product created: {ProductId} - {ProductName}", product.Id, product.Name);

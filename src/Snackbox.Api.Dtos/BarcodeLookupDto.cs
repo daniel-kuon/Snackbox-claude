@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Snackbox.Api.DTOs;
+namespace Snackbox.Api.Dtos;
 
 public class BarcodeLookupResponseDto
 {
@@ -29,19 +29,19 @@ public class BarcodeLookupApiProduct
 {
     [JsonPropertyName("barcode_number")]
     public string? BarcodeNumber { get; set; }
-    
+
     [JsonPropertyName("title")]
     public string? Title { get; set; }
-    
+
     [JsonPropertyName("manufacturer")]
     public string? Manufacturer { get; set; }
-    
+
     [JsonPropertyName("brand")]
     public string? Brand { get; set; }
-    
+
     [JsonPropertyName("description")]
     public string? Description { get; set; }
-    
+
     [JsonPropertyName("category")]
     public string? Category { get; set; }
 }

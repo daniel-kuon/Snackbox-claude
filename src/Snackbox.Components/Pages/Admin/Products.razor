@@ -1,6 +1,6 @@
 @page "/admin/products"
-@using Snackbox.Api.DTOs
-@using Snackbox.Api.Models
+@using System.ComponentModel.DataAnnotations
+@using Snackbox.Api.Dtos
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -22,24 +22,24 @@
     <!-- Search and Filter -->
     <div class="search-bar">
         <input type="text" class="form-control search-input" placeholder="Search products..."
-               @bind="searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
-        <select class="form-control sort-select" @bind="sortBy" @bind:after="SortProducts">
+               @bind="_searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
+        <select class="form-control sort-select" @bind="_sortBy" @bind:after="SortProducts">
             <option value="name">Sort by Name</option>
             <option value="price">Sort by Price</option>
             <option value="created">Sort by Created Date</option>
         </select>
-        <button class="btn @(batchMode ? "btn-primary" : "btn-outline-primary")" @onclick="ToggleBatchMode">
-            @(batchMode ? "Exit Batch Mode" : "Batch Scan Mode")
+        <button class="btn @(_batchMode ? "btn-primary" : "btn-outline-primary")" @onclick="ToggleBatchMode">
+            @(_batchMode ? "Exit Batch Mode" : "Batch Scan Mode")
         </button>
     </div>
 
-    @if (batchMode)
+    @if (_batchMode)
     {
         <div class="batch-mode-section">
             <div class="batch-controls">
                 <div class="control-group">
                     <label>Action Type</label>
-                    <select class="form-control" @bind="batchActionType">
+                    <select class="form-control" @bind="_batchActionType">
                         <option value="AddedToStorage">Add to Storage</option>
                         <option value="AddedToShelf">Add Directly to Shelf</option>
                         <option value="MovedToShelf">Move Stock to Shelf</option>
@@ -47,35 +47,35 @@
                 </div>
                 <div class="control-group">
                     <label>Scan Barcode</label>
-                    <input type="text" class="form-control" @bind="batchBarcode" @bind:event="oninput"
+                    <input type="text" class="form-control" @bind="_batchBarcode" @bind:event="oninput"
                            @onkeyup="HandleBatchBarcodeInput" placeholder="Scan or enter barcode..." autofocus />
                 </div>
             </div>
 
-            @if (batchScannedItems.Any())
+            @if (_batchScannedItems.Any())
             {
                 <div class="batch-items">
                     <div class="batch-header">
-                        <h4>Scanned Items (@batchScannedItems.Count)</h4>
+                        <h4>Scanned Items (@_batchScannedItems.Count)</h4>
                         <div class="batch-actions">
                             <button class="btn btn-outline-secondary btn-sm" @onclick="ClearBatchItems">Clear All</button>
-                            <button class="btn btn-primary btn-sm" @onclick="ProcessBatchItems" disabled="@isBatchProcessing">
-                                @if (isBatchProcessing)
+                            <button class="btn btn-primary btn-sm" @onclick="ProcessBatchItems" disabled="@_isBatchProcessing">
+                                @if (_isBatchProcessing)
                                 {
                                     <span class="spinner-border spinner-border-sm"></span>
                                 }
-                                Process (@batchScannedItems.Count)
+                                Process (@_batchScannedItems.Count)
                             </button>
                         </div>
                     </div>
 
-                    @if (batchError != null)
+                    @if (_batchError != null)
                     {
-                        <div class="alert alert-danger">@batchError</div>
+                        <div class="alert alert-danger">@_batchError</div>
                     }
-                    @if (batchSuccess != null)
+                    @if (_batchSuccess != null)
                     {
-                        <div class="alert alert-success">@batchSuccess</div>
+                        <div class="alert alert-success">@_batchSuccess</div>
                     }
 
                     <table class="table table-sm">
@@ -89,7 +89,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var item in batchScannedItems)
+                            @foreach (var item in _batchScannedItems)
                             {
                                 <tr>
                                     <td>@item.ProductName</td>
@@ -130,7 +130,7 @@
         </div>
     }
 
-    @if (isLoading)
+    @if (_isLoading)
     {
         <div class="loading-container">
             <div class="spinner-border" role="status">
@@ -139,13 +139,13 @@
             <p>Loading products...</p>
         </div>
     }
-    else if (errorMessage != null)
+    else if (_errorMessage != null)
     {
         <div class="alert alert-danger" role="alert">
-            @errorMessage
+            @_errorMessage
         </div>
     }
-    else if (filteredProducts != null && filteredProducts.Any())
+    else if (_filteredProducts != null && _filteredProducts.Any())
     {
         <div class="table-container">
             <table class="table table-hover">
@@ -158,7 +158,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var product in filteredProducts)
+                    @foreach (var product in _filteredProducts)
                     {
                         <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;">
                             <td>@product.Name</td>
@@ -187,39 +187,33 @@
     }
 </div>
 
-@if (showCreateEditModal)
+@if (_showCreateEditModal)
 {
     <div class="modal-backdrop" @onclick="CloseModal"></div>
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>@(editingProduct == null ? "Create Product" : "Edit Product")</h3>
+                <h3>@(_editingProduct == null ? "Create Product" : "Edit Product")</h3>
                 <button class="btn-close" @onclick="CloseModal">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
-                <EditForm Model="@productForm" OnValidSubmit="@SaveProduct">
+                <EditForm Model="@_productForm" OnValidSubmit="@SaveProduct">
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
                         <label>Product Name</label>
-                        <InputText @bind-Value="productForm.Name" class="form-control" />
-                        <ValidationMessage For="@(() => productForm.Name)" />
-                    </div>
-
-                    <div class="form-group">
-                        <label>Barcode</label>
-                        <InputText @bind-Value="productForm.Barcode" class="form-control" />
-                        <ValidationMessage For="@(() => productForm.Barcode)" />
+                        <InputText @bind-Value="_productForm.Name" class="form-control" />
+                        <ValidationMessage For="@(() => _productForm.Name)" />
                     </div>
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                            @if (isSaving)
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
@@ -232,7 +226,7 @@
     </div>
 }
 
-@if (showDeleteModal)
+@if (_showDeleteModal)
 {
     <div class="modal-backdrop" @onclick="CloseModal"></div>
     <div class="modal-dialog">
@@ -242,17 +236,17 @@
                 <button class="btn-close" @onclick="CloseModal">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
-                <p>Are you sure you want to delete the product "<strong>@productToDelete?.Name</strong>"?</p>
+                <p>Are you sure you want to delete the product "<strong>@_productToDelete?.Name</strong>"?</p>
                 <p class="text-muted">This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
-                <button type="button" class="btn btn-danger" @onclick="DeleteProduct" disabled="@isSaving">
-                    @if (isSaving)
+                <button type="button" class="btn btn-danger" @onclick="DeleteProduct" disabled="@_isSaving">
+                    @if (_isSaving)
                     {
                         <span class="spinner-border spinner-border-sm"></span>
                     }
@@ -263,7 +257,7 @@
     </div>
 }
 
-<BarcodeLookupModal IsVisible="@showBarcodeLookupModal"
+<BarcodeLookupModal IsVisible="@_showBarcodeLookupModal"
                     OnClose="@CloseBarcodeLookup"
                     OnProductCreated="@OnProductCreatedFromLookup" />
 
@@ -549,21 +543,21 @@
 </style>
 
 @code {
-    private List<ProductDto>? products;
-    private List<ProductDto>? filteredProducts;
-    private bool isLoading = true;
-    private string? errorMessage;
-    private string searchTerm = "";
-    private string sortBy = "name";
+    private List<ProductDto>? _products;
+    private List<ProductDto>? _filteredProducts;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private string _searchTerm = "";
+    private string _sortBy = "name";
 
-    private bool showCreateEditModal = false;
-    private bool showDeleteModal = false;
-    private bool showBarcodeLookupModal = false;
-    private ProductDto? editingProduct = null;
-    private ProductDto? productToDelete = null;
-    private ProductFormModel productForm = new();
-    private string? modalError;
-    private bool isSaving = false;
+    private bool _showCreateEditModal;
+    private bool _showDeleteModal;
+    private bool _showBarcodeLookupModal;
+    private ProductDto? _editingProduct;
+    private ProductDto? _productToDelete;
+    private ProductFormModel _productForm = new();
+    private string? _modalError;
+    private bool _isSaving;
 
     protected override async Task OnInitializedAsync()
     {
@@ -572,31 +566,31 @@
 
     private async Task LoadProducts()
     {
-        isLoading = true;
-        errorMessage = null;
+        _isLoading = true;
+        _errorMessage = null;
 
         try
         {
-            products = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
+            _products = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
             FilterProducts();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load products: {ex.Message}";
+            _errorMessage = $"Failed to load products: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
     private void FilterProducts()
     {
-        if (products == null) return;
+        if (_products == null) return;
 
-        filteredProducts = products
-            .Where(p => string.IsNullOrEmpty(searchTerm) ||
-                        p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        _filteredProducts = _products
+            .Where(p => string.IsNullOrEmpty(_searchTerm) ||
+                        p.Name.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         SortProducts();
@@ -604,13 +598,13 @@
 
     private void SortProducts()
     {
-        if (filteredProducts == null) return;
+        if (_filteredProducts == null) return;
 
-        filteredProducts = sortBy switch
+        _filteredProducts = _sortBy switch
         {
-            "name" => filteredProducts.OrderBy(p => p.Name).ToList(),
-            "created" => filteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
-            _ => filteredProducts
+            "name" => _filteredProducts.OrderBy(p => p.Name).ToList(),
+            "created" => _filteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
+            _ => _filteredProducts
         };
     }
 
@@ -621,53 +615,51 @@
 
     private void ShowCreateProduct()
     {
-        editingProduct = null;
-        productForm = new ProductFormModel();
-        modalError = null;
-        showCreateEditModal = true;
+        _editingProduct = null;
+        _productForm = new ProductFormModel();
+        _modalError = null;
+        _showCreateEditModal = true;
     }
 
     private void ShowEditProduct(ProductDto product)
     {
-        editingProduct = product;
-        productForm = new ProductFormModel
+        _editingProduct = product;
+        _productForm = new ProductFormModel
         {
             Name = product.Name,
         };
-        modalError = null;
-        showCreateEditModal = true;
+        _modalError = null;
+        _showCreateEditModal = true;
     }
 
     private void ConfirmDelete(ProductDto product)
     {
-        productToDelete = product;
-        modalError = null;
-        showDeleteModal = true;
+        _productToDelete = product;
+        _modalError = null;
+        _showDeleteModal = true;
     }
 
     private async Task SaveProduct()
     {
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
             HttpResponseMessage response;
 
-            if (editingProduct == null)
+            if (_editingProduct == null)
             {
                 response = await Http.PostAsJsonAsync("api/products", new
                 {
-                    name = productForm.Name,
-                    barcode = productForm.Barcode,
+                    name = _productForm.Name,
                 });
             }
             else
             {
-                response = await Http.PutAsJsonAsync($"api/products/{editingProduct.Id}", new
+                response = await Http.PutAsJsonAsync($"api/products/{_editingProduct.Id}", new
                 {
-                    name = productForm.Name,
-                    barcode = productForm.Barcode,
+                    name = _productForm.Name,
                 });
             }
 
@@ -679,29 +671,29 @@
             else
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                modalError = error?.Message ?? "Failed to save product. Please try again.";
+                _modalError = error?.Message ?? "Failed to save product. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private async Task DeleteProduct()
     {
-        if (productToDelete == null) return;
+        if (_productToDelete == null) return;
 
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
-            var response = await Http.DeleteAsync($"api/products/{productToDelete.Id}");
+            var response = await Http.DeleteAsync($"api/products/{_productToDelete.Id}");
 
             if (response.IsSuccessStatusCode)
             {
@@ -711,46 +703,46 @@
             else
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                modalError = error?.Message ?? "Failed to delete product. Please try again.";
+                _modalError = error?.Message ?? "Failed to delete product. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private void CloseModal()
     {
-        showCreateEditModal = false;
-        showDeleteModal = false;
-        editingProduct = null;
-        productToDelete = null;
-        productForm = new();
-        modalError = null;
+        _showCreateEditModal = false;
+        _showDeleteModal = false;
+        _editingProduct = null;
+        _productToDelete = null;
+        _productForm = new();
+        _modalError = null;
     }
 
     // Batch mode state
-    private bool batchMode = false;
-    private string batchActionType = "AddedToStorage";
-    private string batchBarcode = string.Empty;
-    private List<BatchScannedItem> batchScannedItems = new();
-    private bool isBatchProcessing = false;
-    private string? batchError;
-    private string? batchSuccess;
+    private bool _batchMode;
+    private string _batchActionType = "AddedToStorage";
+    private string _batchBarcode = string.Empty;
+    private List<BatchScannedItem> _batchScannedItems = new();
+    private bool _isBatchProcessing;
+    private string? _batchError;
+    private string? _batchSuccess;
 
     private void ShowBarcodeLookup()
     {
-        showBarcodeLookupModal = true;
+        _showBarcodeLookupModal = true;
     }
 
     private void CloseBarcodeLookup()
     {
-        showBarcodeLookupModal = false;
+        _showBarcodeLookupModal = false;
     }
 
     private async Task OnProductCreatedFromLookup()
@@ -760,8 +752,8 @@
 
     private void ToggleBatchMode()
     {
-        batchMode = !batchMode;
-        if (!batchMode)
+        _batchMode = !_batchMode;
+        if (!_batchMode)
         {
             ClearBatchItems();
         }
@@ -769,17 +761,17 @@
 
     private async Task HandleBatchBarcodeInput(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(batchBarcode))
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_batchBarcode))
         {
-            await LookupAndAddBatchProduct(batchBarcode.Trim());
-            batchBarcode = string.Empty;
+            await LookupAndAddBatchProduct(_batchBarcode.Trim());
+            _batchBarcode = string.Empty;
         }
     }
 
     private async Task LookupAndAddBatchProduct(string barcode)
     {
-        batchError = null;
-        batchSuccess = null;
+        _batchError = null;
+        _batchSuccess = null;
 
         try
         {
@@ -787,13 +779,13 @@
             var product = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{barcode}");
             if (product == null)
             {
-                batchError = $"Product with barcode '{barcode}' not found.";
+                _batchError = $"Product with barcode '{barcode}' not found.";
                 return;
             }
 
             // Get barcode quantity
             int barcodeQuantity = 1;
-            var scannedBarcode = product.Barcodes?.FirstOrDefault(b => b.Barcode == barcode);
+            var scannedBarcode = product.Barcodes.FirstOrDefault(b => b.Barcode == barcode);
             if (scannedBarcode != null)
             {
                 barcodeQuantity = scannedBarcode.Quantity;
@@ -808,12 +800,12 @@
                 ProductName = product.Name,
                 Barcode = barcode,
                 Quantity = barcodeQuantity,
-                ActionType = batchActionType,
+                ActionType = _batchActionType,
                 BestBeforeDate = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
             };
 
             // For MovedToShelf, populate available dates with storage stock
-            if (batchActionType == "MovedToShelf" && stock != null)
+            if (_batchActionType == "MovedToShelf" && stock != null)
             {
                 item.AvailableDates = stock.Batches
                     .Where(b => b.QuantityInStorage > 0)
@@ -827,43 +819,43 @@
                 }
             }
 
-            batchScannedItems.Add(item);
+            _batchScannedItems.Add(item);
         }
         catch (HttpRequestException)
         {
-            batchError = $"Product with barcode '{barcode}' not found.";
+            _batchError = $"Product with barcode '{barcode}' not found.";
         }
         catch (Exception ex)
         {
-            batchError = $"Error looking up product: {ex.Message}";
+            _batchError = $"Error looking up product: {ex.Message}";
         }
     }
 
     private void RemoveBatchItem(BatchScannedItem item)
     {
-        batchScannedItems.Remove(item);
+        _batchScannedItems.Remove(item);
     }
 
     private void ClearBatchItems()
     {
-        batchScannedItems.Clear();
-        batchError = null;
-        batchSuccess = null;
+        _batchScannedItems.Clear();
+        _batchError = null;
+        _batchSuccess = null;
     }
 
     private async Task ProcessBatchItems()
     {
-        if (!batchScannedItems.Any()) return;
+        if (!_batchScannedItems.Any()) return;
 
-        isBatchProcessing = true;
-        batchError = null;
-        batchSuccess = null;
+        _isBatchProcessing = true;
+        _batchError = null;
+        _batchSuccess = null;
 
         try
         {
             var actions = new List<object>();
 
-            foreach (var item in batchScannedItems)
+            foreach (var item in _batchScannedItems)
             {
                 // Determine the best before date to use
                 string bestBeforeDate;
@@ -880,7 +872,7 @@
                 {
                     productBarcode = item.Barcode,
                     quantity = item.Quantity,
-                    bestBeforeDate = bestBeforeDate,
+                    bestBeforeDate,
                     type = item.ActionType
                 });
             }
@@ -889,23 +881,23 @@
 
             if (response.IsSuccessStatusCode)
             {
-                batchSuccess = $"Successfully processed {batchScannedItems.Count} items.";
-                batchScannedItems.Clear();
+                _batchSuccess = $"Successfully processed {_batchScannedItems.Count} items.";
+                _batchScannedItems.Clear();
                 await LoadProducts(); // Refresh product list
             }
             else
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                batchError = error?.Message ?? "Failed to process batch items.";
+                _batchError = error?.Message ?? "Failed to process batch items.";
             }
         }
         catch (Exception ex)
         {
-            batchError = $"Error processing batch: {ex.Message}";
+            _batchError = $"Error processing batch: {ex.Message}";
         }
         finally
         {
-            isBatchProcessing = false;
+            _isBatchProcessing = false;
         }
     }
 
@@ -923,11 +915,8 @@
 
     private class ProductFormModel
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Product name is required")]
+        [Required(ErrorMessage = "Product name is required")]
         public string Name { get; set; } = string.Empty;
-
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Barcode is required")]
-        public string Barcode { get; set; } = string.Empty;
     }
 
     private class ErrorResponse

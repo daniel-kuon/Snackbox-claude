@@ -1,6 +1,6 @@
 ﻿namespace Snackbox.Web;
 
-public partial class App : Application
+public partial class App
 {
 	public App()
 	{

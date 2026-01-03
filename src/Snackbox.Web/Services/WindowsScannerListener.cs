@@ -1,13 +1,15 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using Snackbox.Components.Services;
 using Timer = System.Timers.Timer;
 
 namespace Snackbox.Web.Services;
 
 public class WindowsScannerListener : IDisposable, IScannerListener
 {
-    private const int WH_KEYBOARD_LL = 13;
-    private const int WM_KEYDOWN = 0x0100;
+    private const int WhKeyboardLl = 13;
+    private const int WmKeydown = 0x0100;
     private readonly LowLevelKeyboardProc _proc;
     private IntPtr _hookId = IntPtr.Zero;
     private readonly StringBuilder _buffer = new();
@@ -39,16 +41,16 @@ public class WindowsScannerListener : IDisposable, IScannerListener
 
     private IntPtr SetHook(LowLevelKeyboardProc proc)
     {
-        using var curProcess = System.Diagnostics.Process.GetCurrentProcess();
+        using var curProcess = Process.GetCurrentProcess();
         using var curModule = curProcess.MainModule;
-        return SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
+        return SetWindowsHookEx(WhKeyboardLl, proc, GetModuleHandle(curModule!.ModuleName), 0);
     }
 
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= 0 && wParam == (IntPtr)WM_KEYDOWN)
+        if (nCode >= 0 && wParam == WmKeydown)
         {
             int vkCode = Marshal.ReadInt32(lParam);
             var key = (VirtualKeys)vkCode;
@@ -114,14 +116,14 @@ public class WindowsScannerListener : IDisposable, IScannerListener
             if (handle == IntPtr.Zero)
             {
                 // Get the main window handle of current process
-                var process = System.Diagnostics.Process.GetCurrentProcess();
+                var process = Process.GetCurrentProcess();
                 handle = process.MainWindowHandle;
             }
 
             if (handle != IntPtr.Zero)
             {
                 // Restore window if minimized
-                ShowWindow(handle, SW_RESTORE);
+                ShowWindow(handle, SwRestore);
                 // Bring to foreground
                 SetForegroundWindow(handle);
                 // Flash window to get attention
@@ -141,7 +143,7 @@ public class WindowsScannerListener : IDisposable, IScannerListener
     }
 
     #region Win32 API
-    private const int SW_RESTORE = 9;
+    private const int SwRestore = 9;
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);

@@ -1,7 +1,6 @@
 ﻿using System.Net.Http.Headers;
-using Snackbox.Components.Services;
 
-namespace Snackbox.Web.Services;
+namespace Snackbox.Components.Services;
 
 public class AuthenticationHeaderHandler : DelegatingHandler
 {

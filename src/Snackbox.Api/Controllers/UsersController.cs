@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 
@@ -69,11 +69,6 @@ public class UsersController : ControllerBase
         var barcode = await _context.Barcodes
             .Include(b => b.User)
             .FirstOrDefaultAsync(b => b.Code == dto.BarcodeValue);
-
-        if (barcode != null && barcode.User != null)
-        {
-            return BadRequest(new { message = "This barcode is already registered to a user" });
-        }
 
         if (barcode == null)
         {

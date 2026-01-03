@@ -1,11 +1,9 @@
-﻿@using System.Reflection
-@using Snackbox.Web.Components.Layout
-
+﻿@using Snackbox.Web.Components.Layout
 <ApiHealthCheck>
     <Router AppAssembly="@typeof(MauiProgram).Assembly"
             AdditionalAssemblies="new[] { typeof(IStorageService).Assembly }">
         <Found Context="routeData">
-            <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
             <FocusOnNavigate RouteData="@routeData" Selector="h1"  />
         </Found>
     </Router>

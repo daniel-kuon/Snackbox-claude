@@ -1,8 +1,7 @@
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Services;
-using LoginRequest = Snackbox.Api.DTOs.LoginRequest;
+using LoginRequest = Snackbox.Api.Dtos.LoginRequest;
 
 namespace Snackbox.Api.Controllers;
 
@@ -22,7 +21,7 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
-        LoginResponse? response = null;
+        LoginResponse? response;
 
         // Try barcode and password authentication if both are provided
         if (!string.IsNullOrWhiteSpace(request.BarcodeValue) && !string.IsNullOrWhiteSpace(request.Password))

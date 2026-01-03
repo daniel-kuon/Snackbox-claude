@@ -1,7 +1,5 @@
 @page "/barcode-login"
 @using System.ComponentModel.DataAnnotations
-@using Snackbox.Components.Services
-@using Microsoft.AspNetCore.Components
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
 
@@ -12,24 +10,24 @@
         <h2>Snackbox Login</h2>
         <p class="login-subtitle">Enter your password</p>
 
-        @if (!string.IsNullOrEmpty(errorMessage))
+        @if (!string.IsNullOrEmpty(_errorMessage))
         {
-            <div class="alert alert-danger" role="alert">@errorMessage</div>
+            <div class="alert alert-danger" role="alert">@_errorMessage</div>
         }
 
-        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" FormName="barcodeLogin">
+        <EditForm Model="@_loginModel" OnValidSubmit="@HandleLogin" FormName="barcodeLogin">
             <DataAnnotationsValidator />
 
             <div class="form-group">
                 <label for="barcode">Barcode</label>
                 <InputText
                     id="barcode"
-                    @bind-Value="loginModel.BarcodeValue"
+                    @bind-Value="_loginModel.BarcodeValue"
                     class="form-control"
                     placeholder="Your barcode"
                     readonly
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => loginModel.BarcodeValue)" />
+                    disabled="@_isLoading" />
+                <ValidationMessage For="@(() => _loginModel.BarcodeValue)" />
             </div>
 
             <div class="form-group">
@@ -37,16 +35,16 @@
                 <InputText
                     id="password"
                     type="password"
-                    @bind-Value="loginModel.Password"
+                    @bind-Value="_loginModel.Password"
                     class="form-control"
                     placeholder="Enter your password"
                     autofocus
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => loginModel.Password)" />
+                    disabled="@_isLoading" />
+                <ValidationMessage For="@(() => _loginModel.Password)" />
             </div>
 
-            <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@isLoading">
-                @if (isLoading)
+            <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@_isLoading">
+                @if (_isLoading)
                 {
                     <span class="spinner-border spinner-border-sm"></span>
                     <span> Logging in...</span>
@@ -60,7 +58,7 @@
 
         <div class="login-info">
             <small class="text-muted">
-                Don't have a password? <a href="/register?barcode=@Uri.EscapeDataString(loginModel.BarcodeValue)" class="register-link">Register here</a>
+                Don't have a password? <a href="/register?barcode=@Uri.EscapeDataString(_loginModel.BarcodeValue)" class="register-link">Register here</a>
             </small>
         </div>
     </div>
@@ -214,10 +212,10 @@
 </style>
 
 @code {
-    private string? errorMessage;
-    private bool isLoading;
+    private string? _errorMessage;
+    private bool _isLoading;
 
-    private BarcodeLoginModel loginModel = new();
+    private BarcodeLoginModel _loginModel = new();
 
     [SupplyParameterFromQuery(Name = "barcode")]
     public string? BarcodeFromQuery { get; set; }
@@ -226,7 +224,7 @@
     {
         if (!string.IsNullOrEmpty(BarcodeFromQuery))
         {
-            loginModel.BarcodeValue = BarcodeFromQuery;
+            _loginModel.BarcodeValue = BarcodeFromQuery;
         }
         else
         {
@@ -237,15 +235,15 @@
 
     private async Task HandleLogin()
     {
-        errorMessage = null;
-        isLoading = true;
+        _errorMessage = null;
+        _isLoading = true;
 
         try
         {
             // Authenticate with barcode and password in a single request
             var result = await AuthService.LoginWithBarcodeAndPasswordAsync(
-                loginModel.BarcodeValue,
-                loginModel.Password);
+                _loginModel.BarcodeValue,
+                _loginModel.Password);
 
             if (result.Success)
             {
@@ -253,16 +251,16 @@
             }
             else
             {
-                errorMessage = result.ErrorMessage ?? "Invalid barcode or password. Please try again.";
+                _errorMessage = result.ErrorMessage ?? "Invalid barcode or password. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred: {ex.Message}";
+            _errorMessage = $"An error occurred: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
