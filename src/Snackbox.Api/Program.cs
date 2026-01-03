@@ -28,6 +28,13 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 
+// Register barcode lookup service
+builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()
+    .ConfigureHttpClient(client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(30);
+    });
+
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"] ?? "YourVerySecretKeyThatIsAtLeast32CharactersLong!";

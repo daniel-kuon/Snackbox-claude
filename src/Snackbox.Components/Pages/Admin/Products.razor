@@ -9,9 +9,14 @@
 <div class="container-fluid">
     <div class="page-header">
         <h2>Product Management</h2>
-        <button class="btn btn-primary" @onclick="ShowCreateProduct">
-            <span class="icon">+</span> Add Product
-        </button>
+        <div class="header-buttons">
+            <button class="btn btn-secondary" @onclick="ShowBarcodeLookup">
+                <i class="bi bi-search icon" aria-hidden="true"></i> Lookup Barcode
+            </button>
+            <button class="btn btn-primary" @onclick="ShowCreateProduct">
+                <span class="icon">+</span> Add Product
+            </button>
+        </div>
     </div>
 
     <!-- Search and Filter -->
@@ -258,12 +263,21 @@
     </div>
 }
 
+<BarcodeLookupModal IsVisible="@showBarcodeLookupModal"
+                    OnClose="@CloseBarcodeLookup"
+                    OnProductCreated="@OnProductCreatedFromLookup" />
+
 <style>
     .page-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 2rem;
+    }
+
+    .header-buttons {
+        display: flex;
+        gap: 0.5rem;
     }
 
     .search-bar {
@@ -544,6 +558,7 @@
 
     private bool showCreateEditModal = false;
     private bool showDeleteModal = false;
+    private bool showBarcodeLookupModal = false;
     private ProductDto? editingProduct = null;
     private ProductDto? productToDelete = null;
     private ProductFormModel productForm = new();
@@ -727,6 +742,21 @@
     private bool isBatchProcessing = false;
     private string? batchError;
     private string? batchSuccess;
+
+    private void ShowBarcodeLookup()
+    {
+        showBarcodeLookupModal = true;
+    }
+
+    private void CloseBarcodeLookup()
+    {
+        showBarcodeLookupModal = false;
+    }
+
+    private async Task OnProductCreatedFromLookup()
+    {
+        await LoadProducts();
+    }
 
     private void ToggleBatchMode()
     {
