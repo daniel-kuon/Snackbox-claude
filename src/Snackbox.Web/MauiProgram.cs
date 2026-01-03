@@ -15,20 +15,17 @@ public static class MauiProgram
         builder.Services.AddMauiBlazorWebView();
 
         builder.Services.AddSingleton<WindowsScannerListener>()
-               .AddSingleton<IScannerListener>(p => p.GetRequiredService<WindowsScannerListener>())
-               .AddSingleton<AppStateService>();
+               .AddSingleton<IScannerListener>(p => p.GetRequiredService<WindowsScannerListener>());
 
         // Register storage service (MAUI secure storage)
-        builder.Services.AddSingleton<IStorageService>(sp => new MauiStorageService(SecureStorage.Default));
+        builder.Services.AddSingleton<IStorageService>(_ => new MauiStorageService(SecureStorage.Default));
 
         // Register delegating handler for authentication
         builder.Services.AddTransient<AuthenticationHeaderHandler>();
 
         // Register HttpClient for API calls
         string clientBaseAddress = builder.Configuration["API_HTTPS"] ??
-                                   builder.Configuration["API_HTTP"] ??
-                                   "http://localhost:5057" ??
-                                   throw new InvalidOperationException("API URL is not configured.");
+                                   builder.Configuration["API_HTTP"] ?? "http://localhost:5057";
 
         // Add default HttpClient with BaseAddress for all other components (admin pages, etc.)
         builder.Services.AddHttpClient("DefaultClient", client => { client.BaseAddress = new Uri(clientBaseAddress); })

@@ -1,6 +1,5 @@
 @page "/login"
 @using System.ComponentModel.DataAnnotations
-@using Snackbox.Components.Services
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
 
@@ -11,12 +10,12 @@
         <h2>Snackbox Login</h2>
         <p class="login-subtitle">Enter your email and password</p>
 
-        @if (!string.IsNullOrEmpty(errorMessage))
+        @if (!string.IsNullOrEmpty(_errorMessage))
         {
-            <div class="alert alert-danger" role="alert">@errorMessage</div>
+            <div class="alert alert-danger" role="alert">@_errorMessage</div>
         }
 
-        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" FormName="login">
+        <EditForm Model="@_loginModel" OnValidSubmit="@HandleLogin" FormName="login">
             <DataAnnotationsValidator />
 
             <div class="form-group">
@@ -24,12 +23,12 @@
                 <InputText
                     id="email"
                     type="email"
-                    @bind-Value="loginModel.Email"
+                    @bind-Value="_loginModel.Email"
                     class="form-control"
                     placeholder="Enter your email"
                     autofocus
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => loginModel.Email)" />
+                    disabled="@_isLoading" />
+                <ValidationMessage For="@(() => _loginModel.Email)" />
             </div>
 
             <div class="form-group">
@@ -37,15 +36,15 @@
                 <InputText
                     id="password"
                     type="password"
-                    @bind-Value="loginModel.Password"
+                    @bind-Value="_loginModel.Password"
                     class="form-control"
                     placeholder="Enter your password"
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => loginModel.Password)" />
+                    disabled="@_isLoading" />
+                <ValidationMessage For="@(() => _loginModel.Password)" />
             </div>
 
-            <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@isLoading">
-                @if (isLoading)
+            <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@_isLoading">
+                @if (_isLoading)
                 {
                     <span class="spinner-border spinner-border-sm"></span>
                     <span> Logging in...</span>
@@ -208,21 +207,21 @@
 </style>
 
 @code {
-    private string? errorMessage;
-    private bool isLoading;
+    private string? _errorMessage;
+    private bool _isLoading;
 
-    private LoginModel loginModel = new();
+    private LoginModel _loginModel = new();
 
     private async Task HandleLogin()
     {
-        errorMessage = null;
-        isLoading = true;
+        _errorMessage = null;
+        _isLoading = true;
 
         try
         {
             var result = await AuthService.LoginWithPasswordAsync(
-                loginModel.Email,
-                loginModel.Password);
+                _loginModel.Email,
+                _loginModel.Password);
 
             if (result.Success)
             {
@@ -230,16 +229,16 @@
             }
             else
             {
-                errorMessage = "Invalid email or password. Please try again.";
+                _errorMessage = "Invalid email or password. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred: {ex.Message}";
+            _errorMessage = $"An error occurred: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 

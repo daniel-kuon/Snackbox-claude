@@ -1,6 +1,5 @@
 @page "/admin/shelving-actions"
-@using Snackbox.Api.DTOs
-@using Snackbox.Api.Models
+@using Snackbox.Api.Dtos
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -18,7 +17,7 @@
     <div class="filter-bar">
         <div class="filter-group">
             <label>Filter by Action Type</label>
-            <select class="form-control" @bind="filterActionType" @bind:after="LoadActions">
+            <select class="form-control" @bind="_filterActionType" @bind:after="LoadActions">
                 <option value="">All Actions</option>
                 <option value="AddedToStorage">Added to Storage</option>
                 <option value="MovedToShelf">Moved to Shelf</option>
@@ -30,11 +29,11 @@
         <div class="filter-group">
             <label>Search Product</label>
             <input type="text" class="form-control" placeholder="Search by name or barcode..."
-                   @bind="searchTerm" @bind:event="oninput" @onkeyup="FilterActions" />
+                   @bind="_searchTerm" @bind:event="oninput" @onkeyup="FilterActions" />
         </div>
         <div class="filter-group">
             <label>Show</label>
-            <select class="form-control" @bind="pageSize" @bind:after="LoadActions">
+            <select class="form-control" @bind="_pageSize" @bind:after="LoadActions">
                 <option value="25">25 items</option>
                 <option value="50">50 items</option>
                 <option value="100">100 items</option>
@@ -43,7 +42,7 @@
         </div>
     </div>
 
-    @if (isLoading)
+    @if (_isLoading)
     {
         <div class="loading-container">
             <div class="spinner-border" role="status">
@@ -52,13 +51,13 @@
             <p>Loading shelving actions...</p>
         </div>
     }
-    else if (errorMessage != null)
+    else if (_errorMessage != null)
     {
         <div class="alert alert-danger" role="alert">
-            @errorMessage
+            @_errorMessage
         </div>
     }
-    else if (filteredActions != null && filteredActions.Any())
+    else if (_filteredActions != null && _filteredActions.Any())
     {
         <div class="table-container">
             <table class="table table-hover">
@@ -74,7 +73,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var action in filteredActions)
+                    @foreach (var action in _filteredActions)
                     {
                         <tr>
                             <td>@action.ActionAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
@@ -283,13 +282,13 @@
 </style>
 
 @code {
-    private List<ShelvingActionDto>? allActions;
-    private List<ShelvingActionDto>? filteredActions;
-    private bool isLoading = true;
-    private string? errorMessage;
-    private string filterActionType = "";
-    private string searchTerm = "";
-    private int pageSize = 50;
+    private List<ShelvingActionDto>? _allActions;
+    private List<ShelvingActionDto>? _filteredActions;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private string _filterActionType = "";
+    private string _searchTerm = "";
+    private int _pageSize = 50;
 
     protected override async Task OnInitializedAsync()
     {
@@ -298,34 +297,34 @@
 
     private async Task LoadActions()
     {
-        isLoading = true;
-        errorMessage = null;
+        _isLoading = true;
+        _errorMessage = null;
 
         try
         {
-            var url = $"api/shelvingactions?limit={pageSize}";
-            allActions = await Http.GetFromJsonAsync<List<ShelvingActionDto>>(url);
+            var url = $"api/shelvingactions?limit={_pageSize}";
+            _allActions = await Http.GetFromJsonAsync<List<ShelvingActionDto>>(url);
             FilterActions();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load shelving actions: {ex.Message}";
+            _errorMessage = $"Failed to load shelving actions: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
     private void FilterActions()
     {
-        if (allActions == null) return;
+        if (_allActions == null) return;
 
-        filteredActions = allActions
-            .Where(a => string.IsNullOrEmpty(filterActionType) || a.Type.ToString() == filterActionType)
-            .Where(a => string.IsNullOrEmpty(searchTerm) ||
-                        a.ProductName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        a.ProductBarcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        _filteredActions = _allActions
+            .Where(a => string.IsNullOrEmpty(_filterActionType) || a.Type.ToString() == _filterActionType)
+            .Where(a => string.IsNullOrEmpty(_searchTerm) ||
+                        a.ProductName.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        a.ProductBarcode.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 

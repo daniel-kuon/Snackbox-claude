@@ -1,8 +1,8 @@
 using Snackbox.ApiClient;
 using Snackbox.BlazorServer.Components;
 using Snackbox.BlazorServer.Services;
+using Snackbox.Components.Pages;
 using Snackbox.Components.Services;
-using Snackbox.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,7 +60,7 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-   .AddAdditionalAssemblies(typeof(Snackbox.Components.Pages.Login).Assembly)
+   .AddAdditionalAssemblies(typeof(Login).Assembly)
    .AddInteractiveServerRenderMode();
 
 app.Run();

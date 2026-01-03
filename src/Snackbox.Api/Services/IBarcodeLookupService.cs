@@ -1,4 +1,4 @@
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 
 namespace Snackbox.Api.Services;
 

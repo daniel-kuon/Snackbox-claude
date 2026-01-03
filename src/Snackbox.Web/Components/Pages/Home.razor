@@ -1,14 +1,13 @@
 @page "/scan"
 @layout EmptyLayout
-@using Snackbox.Web.Services
-@using Snackbox.Components.Services
-@using Snackbox.Components.Models
-@using Snackbox.Components.Components
-@using Snackbox.Web.Components.Layout
-@inject AppStateService AppState
 @inject WindowsScannerListener ScannerListener
 @inject IScannerService ScannerService
 @inject NavigationManager Navigation
+@using System.Timers
+@using Snackbox.Components.Components
+@using Snackbox.Components.Models
+@using Snackbox.Web.Components.Layout
+@using Snackbox.Web.Services
 @implements IDisposable
 
 <PageTitle>Snackbox Scanner</PageTitle>
@@ -478,9 +477,9 @@
 
 @code {
     private int _remainingSeconds;
-    private System.Timers.Timer? _countdownTimer;
+    private Timer? _countdownTimer;
     private string? _errorMessage;
-    private System.Timers.Timer? _errorTimer;
+    private Timer? _errorTimer;
 
     protected override void OnInitialized()
     {
@@ -505,7 +504,7 @@
             // First check if this is an admin scan
             var scanResult = await ScannerService.ScanBarcodeAsync(code);
 
-            if (scanResult != null && scanResult.IsSuccess && scanResult.IsAdmin)
+            if (scanResult is { IsSuccess: true, IsAdmin: true })
             {
                 // Admin code detected - redirect to barcode login page with barcode pre-filled
                 await InvokeAsync(() =>
@@ -518,15 +517,13 @@
             // Process the barcode through the service for regular users
             await ScannerService.ProcessBarcodeAsync(code);
         }
-        catch (Exception ex)
-        {
-            ShowError($"Barcode not recognized");
+        catch {
+            ShowError("Barcode not recognized");
         }
     }
 
     private void HandlePurchaseStarted(PurchaseSession session)
     {
-
         _remainingSeconds = ScannerService.TimeoutSeconds;
         StartCountdownTimer();
         InvokeAsync(StateHasChanged);
@@ -552,7 +549,7 @@
 
     private void StartCountdownTimer()
     {
-        _countdownTimer = new System.Timers.Timer(1000);
+        _countdownTimer = new Timer(1000);
         _countdownTimer.Elapsed += (_, _) =>
         {
             _remainingSeconds--;
@@ -590,7 +587,7 @@
 
         // Auto-hide error after 5 seconds
         _errorTimer?.Dispose();
-        _errorTimer = new System.Timers.Timer(5000);
+        _errorTimer = new Timer(5000);
         _errorTimer.Elapsed += (_, _) =>
         {
             _errorMessage = null;

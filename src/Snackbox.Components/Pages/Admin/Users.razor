@@ -1,7 +1,7 @@
 @page "/admin/users"
-@using Snackbox.Api.DTOs
+@using System.ComponentModel.DataAnnotations
 @using Snackbox.ApiClient
-@using Snackbox.Components.Services
+@using Snackbox.Api.Dtos
 @using Refit
 @inject IUsersApi UsersApi
 @inject NavigationManager Navigation
@@ -16,7 +16,7 @@
         </button>
     </div>
 
-    @if (isLoading)
+    @if (_isLoading)
     {
         <div class="loading-container">
             <div class="spinner-border" role="status">
@@ -25,13 +25,13 @@
             <p>Loading users...</p>
         </div>
     }
-    else if (errorMessage != null)
+    else if (_errorMessage != null)
     {
         <div class="alert alert-danger" role="alert">
-            @errorMessage
+            @_errorMessage
         </div>
     }
-    else if (users != null && users.Any())
+    else if (_users != null && _users.Any())
     {
         <div class="table-container">
             <table class="table table-hover">
@@ -44,7 +44,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var user in users)
+                    @foreach (var user in _users)
                     {
                         <tr @onclick="() => NavigateToUserDetail(user.Id)" style="cursor: pointer;">
                             <td>@user.Username</td>
@@ -75,46 +75,46 @@
     }
 </div>
 
-@if (showCreateEditModal)
+@if (_showCreateEditModal)
 {
     <div class="modal-backdrop" @onclick="CloseModal"></div>
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>@(editingUserId == null ? "Create User" : "Edit User")</h3>
+                <h3>@(_editingUserId == null ? "Create User" : "Edit User")</h3>
                 <button class="btn-close" @onclick="CloseModal">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
-                <EditForm Model="@userForm" OnValidSubmit="@SaveUser">
+                <EditForm Model="@_userForm" OnValidSubmit="@SaveUser">
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
                         <label>Username</label>
-                        <InputText @bind-Value="userForm.Username" class="form-control" />
-                        <ValidationMessage For="@(() => userForm.Username)" />
+                        <InputText @bind-Value="_userForm.Username" class="form-control" />
+                        <ValidationMessage For="@(() => _userForm.Username)" />
                     </div>
 
                     <div class="form-group">
                         <label>Email</label>
-                        <InputText @bind-Value="userForm.Email" class="form-control" type="email" />
-                        <ValidationMessage For="@(() => userForm.Email)" />
+                        <InputText @bind-Value="_userForm.Email" class="form-control" type="email" />
+                        <ValidationMessage For="@(() => _userForm.Email)" />
                     </div>
 
                     <div class="form-group">
                         <label>Role</label>
-                        <InputSelect @bind-Value="userForm.Role" class="form-control">
+                        <InputSelect @bind-Value="_userForm.Role" class="form-control">
                             <option value="User">User</option>
                             <option value="Admin">Admin</option>
                         </InputSelect>
-                        <ValidationMessage For="@(() => userForm.Role)" />
+                        <ValidationMessage For="@(() => _userForm.Role)" />
                     </div>
 
                     <div class="form-check">
-                        <InputCheckbox @bind-Value="userForm.IsActive" class="form-check-input" id="isActiveCheck" />
+                        <InputCheckbox @bind-Value="_userForm.IsActive" class="form-check-input" id="isActiveCheck" />
                         <label class="form-check-label" for="isActiveCheck">
                             Active
                         </label>
@@ -122,8 +122,8 @@
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                            @if (isSaving)
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
@@ -370,14 +370,14 @@
 </style>
 
 @code {
-    private List<UserDto>? users;
-    private bool isLoading = true;
-    private string? errorMessage;
-    private bool showCreateEditModal = false;
-    private int? editingUserId = null;
-    private UserFormModel userForm = new();
-    private string? modalError;
-    private bool isSaving = false;
+    private List<UserDto>? _users;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private bool _showCreateEditModal;
+    private int? _editingUserId;
+    private UserFormModel _userForm = new();
+    private string? _modalError;
+    private bool _isSaving;
 
     protected override async Task OnInitializedAsync()
     {
@@ -386,8 +386,8 @@
 
     private async Task LoadUsers()
     {
-        isLoading = true;
-        errorMessage = null;
+        _isLoading = true;
+        _errorMessage = null;
 
         try
         {
@@ -400,11 +400,11 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load users: {ex.Message}";
+            _errorMessage = $"Failed to load users: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
@@ -415,26 +415,26 @@
 
     private void ShowCreateUser()
     {
-        editingUserId = null;
-        userForm = new UserFormModel { IsActive = true, Role = "User" };
-        modalError = null;
-        showCreateEditModal = true;
+        _editingUserId = null;
+        _userForm = new UserFormModel { IsActive = true, Role = "User" };
+        _modalError = null;
+        _showCreateEditModal = true;
     }
 
     private async Task ShowEditUser(int userId)
     {
-        editingUserId = userId;
-        modalError = null;
+        _editingUserId = userId;
+        _modalError = null;
 
         try
         {
             var user = await UsersApi.GetByIdAsync(userId);
-            userForm = new UserFormModel
+            _userForm = new UserFormModel
             {
                 Username = user.Username,
                 Email = user.Email,
             };
-            showCreateEditModal = true;
+            _showCreateEditModal = true;
         }
         catch (ApiException ex)
         {
@@ -442,18 +442,18 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load user: {ex.Message}";
+            _errorMessage = $"Failed to load user: {ex.Message}";
         }
     }
 
     private async Task SaveUser()
     {
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
-            if (editingUserId == null)
+            if (_editingUserId == null)
             {
                 // Create new user
                 var createDto = new CreateUserDto
@@ -486,32 +486,31 @@
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private void CloseModal()
     {
-        showCreateEditModal = false;
-        editingUserId = null;
-        userForm = new();
-        modalError = null;
+        _showCreateEditModal = false;
+        _editingUserId = null;
+        _userForm = new();
+        _modalError = null;
     }
 
     private class UserFormModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
+        [Required]
         public string Username { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.EmailAddress]
-        public string Email { get; set; } = string.Empty;
+        [EmailAddress]
+        public string? Email { get; set; }
 
-        [System.ComponentModel.DataAnnotations.Required]
+        [Required]
         public string Role { get; set; } = "User";
 
         public bool IsActive { get; set; } = true;

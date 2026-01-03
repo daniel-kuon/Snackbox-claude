@@ -1,6 +1,4 @@
-﻿@using Microsoft.JSInterop
-@using QRCoder
-@inject IJSRuntime JS
+﻿@using QRCoder
 
 <div class="qr-code-container">
     @if (!string.IsNullOrEmpty(_qrCodeDataUrl))
@@ -20,10 +18,10 @@
 
     protected override void OnParametersSet()
     {
-        GenerateQRCode();
+        GenerateQrCode();
     }
 
-    private void GenerateQRCode()
+    private void GenerateQrCode()
     {
         if (string.IsNullOrEmpty(PayPalUrl))
         {

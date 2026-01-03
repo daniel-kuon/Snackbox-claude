@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
@@ -11,12 +11,10 @@ namespace Snackbox.Api.Controllers;
 public class BarcodeLookupController : ControllerBase
 {
     private readonly IBarcodeLookupService _barcodeLookupService;
-    private readonly ILogger<BarcodeLookupController> _logger;
 
-    public BarcodeLookupController(IBarcodeLookupService barcodeLookupService, ILogger<BarcodeLookupController> logger)
+    public BarcodeLookupController(IBarcodeLookupService barcodeLookupService)
     {
         _barcodeLookupService = barcodeLookupService;
-        _logger = logger;
     }
 
     [HttpGet("{barcode}")]

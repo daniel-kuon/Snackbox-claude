@@ -1,5 +1,6 @@
 @page "/admin/batch-scan"
-@using Snackbox.Api.DTOs
+@using System.Net
+@using Snackbox.Api.Dtos
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -19,16 +20,15 @@
             <div class="scan-input-group">
                 <label>Scan or Enter Barcode</label>
                 <input type="text" class="form-control form-control-lg"
-                       @bind="currentBarcode" @bind:event="oninput"
+                       @bind="_currentBarcode" @bind:event="oninput"
                        @onkeyup="HandleBarcodeInput"
                        placeholder="Scan barcode..."
-                       autofocus
-                       @ref="barcodeInputRef" />
+                       autofocus/>
             </div>
 
             <div class="action-type-group">
                 <label>Action Type</label>
-                <select class="form-control" @bind="selectedActionType">
+                <select class="form-control" @bind="_selectedActionType">
                     <option value="AddedToStorage">Add to Storage</option>
                     <option value="AddedDirectlyToShelf">Add Directly to Shelf</option>
                     <option value="MovedToShelf">Move Stock to Shelf</option>
@@ -37,36 +37,36 @@
 
             <div class="quantity-group">
                 <label>Default Quantity</label>
-                <input type="number" class="form-control" @bind="defaultQuantity" min="1" />
+                <input type="number" class="form-control" @bind="_defaultQuantity" min="1" />
             </div>
         </div>
     </div>
 
-    @if (scannedItems.Any())
+    @if (_scannedItems.Any())
     {
         <div class="scanned-items-section">
             <div class="section-header">
-                <h3>Scanned Items (@scannedItems.Count)</h3>
+                <h3>Scanned Items (@_scannedItems.Count)</h3>
                 <div class="section-actions">
                     <button class="btn btn-outline-secondary" @onclick="ClearAll">Clear All</button>
-                    <button class="btn btn-primary" @onclick="ProcessBatch" disabled="@isProcessing">
-                        @if (isProcessing)
+                    <button class="btn btn-primary" @onclick="ProcessBatch" disabled="@_isProcessing">
+                        @if (_isProcessing)
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
-                        Process Batch (@scannedItems.Count items)
+                        Process Batch (@_scannedItems.Count items)
                     </button>
                 </div>
             </div>
 
-            @if (processError != null)
+            @if (_processError != null)
             {
-                <div class="alert alert-danger">@processError</div>
+                <div class="alert alert-danger">@_processError</div>
             }
 
-            @if (processSuccess != null)
+            @if (_processSuccess != null)
             {
-                <div class="alert alert-success">@processSuccess</div>
+                <div class="alert alert-success">@_processSuccess</div>
             }
 
             <div class="table-container">
@@ -82,7 +82,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in scannedItems)
+                        @foreach (var item in _scannedItems)
                         {
                             <tr>
                                 <td>@item.ProductName</td>
@@ -146,12 +146,12 @@
         </div>
     }
 
-    @if (scanError != null)
+    @if (_scanError != null)
     {
         <div class="scan-error">
             <div class="alert alert-warning">
-                @scanError
-                <button class="btn btn-sm btn-outline-secondary" @onclick="() => scanError = null">Dismiss</button>
+                @_scanError
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => _scanError = null">Dismiss</button>
             </div>
         </div>
     }
@@ -401,28 +401,27 @@
 </style>
 
 @code {
-    private ElementReference barcodeInputRef;
-    private string currentBarcode = "";
-    private string selectedActionType = "AddedToStorage";
-    private int defaultQuantity = 1;
-    private readonly List<ScannedItem> scannedItems = new();
-    private string? scanError;
-    private string? processError;
-    private string? processSuccess;
-    private bool isProcessing = false;
+    private string _currentBarcode = "";
+    private string _selectedActionType = "AddedToStorage";
+    private int _defaultQuantity = 1;
+    private readonly List<ScannedItem> _scannedItems = new();
+    private string? _scanError;
+    private string? _processError;
+    private string? _processSuccess;
+    private bool _isProcessing;
 
     private async Task HandleBarcodeInput(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(currentBarcode))
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_currentBarcode))
         {
-            await LookupAndAddProduct(currentBarcode.Trim());
-            currentBarcode = "";
+            await LookupAndAddProduct(_currentBarcode.Trim());
+            _currentBarcode = "";
         }
     }
 
     private async Task LookupAndAddProduct(string barcode)
     {
-        scanError = null;
+        _scanError = null;
 
         try
         {
@@ -430,13 +429,13 @@
 
             if (product == null)
             {
-                scanError = $"Product with barcode '{barcode}' not found.";
+                _scanError = $"Product with barcode '{barcode}' not found.";
                 return;
             }
 
             // Find the barcode quantity from the product's barcodes
-            int barcodeQuantity = defaultQuantity;
-            var scannedBarcode = product.Barcodes?.FirstOrDefault(b => b.Barcode == barcode);
+            int barcodeQuantity = _defaultQuantity;
+            var scannedBarcode = product.Barcodes.FirstOrDefault(b => b.Barcode == barcode);
             if (scannedBarcode != null)
             {
                 barcodeQuantity = scannedBarcode.Quantity;
@@ -450,7 +449,7 @@
                 if (stock != null)
                 {
                     // For move actions, only show batches that have stock in storage
-                    if (selectedActionType == "MovedToShelf")
+                    if (_selectedActionType == "MovedToShelf")
                     {
                         existingDates = stock.Batches
                             .Where(b => b.QuantityInStorage > 0)
@@ -474,52 +473,52 @@
                            ProductId = product.Id,
                            ProductName = product.Name,
                            ProductBarcode = barcode, // Use the actual scanned barcode
-                           ActionType = selectedActionType,
+                           ActionType = _selectedActionType,
                            Quantity = barcodeQuantity, // Use the barcode's quantity
                            BestBeforeDate = DateTime.Today.AddMonths(6),
                            ExistingDates = existingDates,
                            SelectedDateOption = existingDates.Any() ? existingDates.First().ToString("yyyy-MM-dd") : "new"
                        };
 
-            scannedItems.Add(item);
-            processSuccess = null;
-            processError = null;
+            _scannedItems.Add(item);
+            _processSuccess = null;
+            _processError = null;
         }
-        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            scanError = $"Product with barcode '{barcode}' not found.";
+            _scanError = $"Product with barcode '{barcode}' not found.";
         }
         catch (Exception ex)
         {
-            scanError = $"Error looking up product: {ex.Message}";
+            _scanError = $"Error looking up product: {ex.Message}";
         }
     }
 
     private void RemoveItem(ScannedItem item)
     {
-        scannedItems.Remove(item);
+        _scannedItems.Remove(item);
     }
 
     private void ClearAll()
     {
-        scannedItems.Clear();
-        processError = null;
-        processSuccess = null;
+        _scannedItems.Clear();
+        _processError = null;
+        _processSuccess = null;
     }
 
     private async Task ProcessBatch()
     {
-        if (!scannedItems.Any()) return;
+        if (!_scannedItems.Any()) return;
 
-        isProcessing = true;
-        processError = null;
-        processSuccess = null;
+        _isProcessing = true;
+        _processError = null;
+        _processSuccess = null;
 
         try
         {
             var actions = new List<object>();
 
-            foreach (var item in scannedItems)
+            foreach (var item in _scannedItems)
             {
                 // Convert "AddedDirectlyToShelf" to "AddedToShelf" for the backend
                 var actionType = item.ActionType == "AddedDirectlyToShelf" ? "AddedToShelf" : item.ActionType;
@@ -539,35 +538,35 @@
             {
                 var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
 
-                if (result?.Errors?.Any() == true)
+                if (result?.Errors.Any() == true)
                 {
-                    processError = $"Some actions failed: {string.Join(", ", result.Errors)}";
-                    if (result.Results?.Any() == true)
+                    _processError = $"Some actions failed: {string.Join(", ", result.Errors)}";
+                    if (result.Results.Any())
                     {
-                        processSuccess = $"Successfully processed {result.Results.Count} items.";
+                        _processSuccess = $"Successfully processed {result.Results.Count} items.";
                     }
                 }
                 else
                 {
-                    processSuccess = $"Successfully processed {scannedItems.Count} items.";
-                    scannedItems.Clear();
+                    _processSuccess = $"Successfully processed {_scannedItems.Count} items.";
+                    _scannedItems.Clear();
                 }
             }
             else
             {
                 var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
-                processError = result?.Errors?.Any() == true
+                _processError = result?.Errors.Any() == true
                     ? string.Join(", ", result.Errors)
                     : "Failed to process batch. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            processError = $"Error processing batch: {ex.Message}";
+            _processError = $"Error processing batch: {ex.Message}";
         }
         finally
         {
-            isProcessing = false;
+            _isProcessing = false;
         }
     }
 

@@ -4,7 +4,8 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Snackbox.Api.Data;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
+using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Services;
 
@@ -80,7 +81,7 @@ public class AuthenticationService : IAuthenticationService
             .Include(b => b.User)
             .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
 
-        if (barcode == null || barcode.User == null || string.IsNullOrEmpty(barcode.User.PasswordHash))
+        if (barcode == null || string.IsNullOrEmpty(barcode.User.PasswordHash))
         {
             return null;
         }
@@ -142,7 +143,7 @@ public class AuthenticationService : IAuthenticationService
         return user != null && !string.IsNullOrEmpty(user.PasswordHash);
     }
 
-    private string GenerateJwtToken(Models.User user)
+    private string GenerateJwtToken(User user)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
         var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
@@ -153,13 +154,18 @@ public class AuthenticationService : IAuthenticationService
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.Role, user.IsAdmin ? "Admin" : "User")
         };
+
+        // Only add email claim if email is provided
+        if (!string.IsNullOrEmpty(user.Email))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+        }
 
         var token = new JwtSecurityToken(
             issuer: issuer,
