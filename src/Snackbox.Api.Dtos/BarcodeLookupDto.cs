@@ -19,13 +19,13 @@ public class BarcodeLookupProductDto
     public string Barcode { get; set; } = string.Empty;
 }
 
-// Internal DTO for API response from barcodelookup.com
-internal class BarcodeLookupApiResponse
+// DTO for API response from barcodelookup.com
+public class BarcodeLookupApiResponse
 {
     public List<BarcodeLookupApiProduct>? Products { get; set; }
 }
 
-internal class BarcodeLookupApiProduct
+public class BarcodeLookupApiProduct
 {
     [JsonPropertyName("barcode_number")]
     public string? BarcodeNumber { get; set; }
