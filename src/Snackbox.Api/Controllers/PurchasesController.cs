@@ -125,6 +125,38 @@ public class PurchasesController : ControllerBase
         return Ok(dtos);
     }
 
+    [HttpGet("user/{userId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetByUserId(int userId)
+    {
+        var purchases = await _context.Purchases
+            .Include(p => p.User)
+            .Include(p => p.Scans)
+                .ThenInclude(s => s.Barcode)
+            .Where(p => p.UserId == userId && p.CompletedAt != null)
+            .OrderByDescending(p => p.CompletedAt)
+            .ToListAsync();
+
+        var dtos = purchases.Select(p => new PurchaseDto
+        {
+            Id = p.Id,
+            UserId = p.UserId,
+            Username = p.User.Username,
+            TotalAmount = p.Scans.Sum(s => s.Amount),
+            CreatedAt = p.CreatedAt,
+            CompletedAt = p.CompletedAt,
+            Items = p.Scans.Select(s => new PurchaseItemDto
+            {
+                Id = s.Id,
+                ProductName = s.Barcode.Code,
+                Amount = s.Amount,
+                ScannedAt = s.ScannedAt
+            }).ToList()
+        }).ToList();
+
+        return Ok(dtos);
+    }
+
     private int? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

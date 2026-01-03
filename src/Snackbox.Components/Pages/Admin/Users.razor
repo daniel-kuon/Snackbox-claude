@@ -38,7 +38,6 @@
                         <th>Username</th>
                         <th>Email</th>
                         <th>Balance</th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -49,14 +48,6 @@
                             <td>@user.Email</td>
                             <td class="@(user.Balance < 0 ? "text-danger" : "text-success")">
                                 €@user.Balance.ToString("F2")
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => NavigateToUserDetail(user.Id)">
-                                    View Details
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary" @onclick:stopPropagation="true" @onclick="() => ShowEditUser(user.Id)">
-                                    Edit
-                                </button>
                             </td>
                         </tr>
                     }
@@ -412,30 +403,6 @@
         userForm = new UserFormModel { IsActive = true, Role = "User" };
         modalError = null;
         showCreateEditModal = true;
-    }
-
-    private async Task ShowEditUser(int userId)
-    {
-        editingUserId = userId;
-        modalError = null;
-
-        try
-        {
-            var user = await Http.GetFromJsonAsync<UserDto>($"api/users/{userId}");
-            if (user != null)
-            {
-                userForm = new UserFormModel
-                {
-                    Username = user.Username,
-                    Email = user.Email,
-                };
-                showCreateEditModal = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load user: {ex.Message}";
-        }
     }
 
     private async Task SaveUser()

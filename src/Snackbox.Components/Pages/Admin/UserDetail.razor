@@ -66,22 +66,78 @@
             @if (activeTab == "info")
             {
                 <div class="info-section">
-                    <div class="info-row">
-                        <span class="info-label">Username:</span>
-                        <span class="info-value">@user.Username</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Email:</span>
-                        <span class="info-value">@user.Email</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Role:</span>
-                        <span class="info-value">@user.IsAdmin ? "Admin" : "User"</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Balance:</span>
-                        <span class="info-value @(user.Balance < 0 ? "text-danger" : "text-success")">€@user.Balance.ToString("F2")</span>
-                    </div>
+                    @if (!isEditingUserInfo)
+                    {
+                        <div class="section-header">
+                            <h3>User Information</h3>
+                            <button class="btn btn-primary btn-sm" @onclick="StartEditUserInfo">Edit</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Username:</span>
+                            <span class="info-value">@user.Username</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">@user.Email</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Role:</span>
+                            <span class="info-value">@(user.IsAdmin ? "Admin" : "User")</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Balance:</span>
+                            <span class="info-value @(user.Balance < 0 ? "text-danger" : "text-success")">€@user.Balance.ToString("F2")</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="section-header">
+                            <h3>Edit User Information</h3>
+                        </div>
+                        @if (editError != null)
+                        {
+                            <div class="alert alert-danger">@editError</div>
+                        }
+                        <EditForm Model="@userEditForm" OnValidSubmit="@SaveUserInfo">
+                            <DataAnnotationsValidator />
+                            
+                            <div class="form-group">
+                                <label>Username</label>
+                                <InputText @bind-Value="userEditForm.Username" class="form-control" />
+                                <ValidationMessage For="@(() => userEditForm.Username)" />
+                            </div>
+
+                            <div class="form-group">
+                                <label>Email</label>
+                                <InputText @bind-Value="userEditForm.Email" class="form-control" type="email" />
+                                <ValidationMessage For="@(() => userEditForm.Email)" />
+                            </div>
+
+                            <div class="form-group">
+                                <label>Role</label>
+                                <InputSelect @bind-Value="userEditForm.Role" class="form-control">
+                                    <option value="User">User</option>
+                                    <option value="Admin">Admin</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="info-row">
+                                <span class="info-label">Balance:</span>
+                                <span class="info-value @(user.Balance < 0 ? "text-danger" : "text-success")">€@user.Balance.ToString("F2")</span>
+                            </div>
+
+                            <div class="button-group">
+                                <button type="button" class="btn btn-secondary" @onclick="CancelEditUserInfo">Cancel</button>
+                                <button type="submit" class="btn btn-primary" disabled="@isSavingUserInfo">
+                                    @if (isSavingUserInfo)
+                                    {
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    }
+                                    Save
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
                 </div>
             }
             else if (activeTab == "payments")
@@ -445,6 +501,13 @@
         margin: 0;
     }
 
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+
     .table {
         width: 100%;
         border-collapse: collapse;
@@ -689,8 +752,12 @@
     private string activeTab = "info";
     private bool showPaymentModal = false;
     private bool showBarcodeModal = false;
+    private bool isEditingUserInfo = false;
+    private bool isSavingUserInfo = false;
+    private string? editError = null;
     private PaymentFormModel paymentForm = new();
     private BarcodeFormModel barcodeForm = new();
+    private UserEditFormModel userEditForm = new();
     private string? modalError;
     private bool isSaving = false;
 
@@ -871,6 +938,63 @@
         modalError = null;
     }
 
+    private void StartEditUserInfo()
+    {
+        if (user == null) return;
+        
+        userEditForm = new UserEditFormModel
+        {
+            Username = user.Username,
+            Email = user.Email ?? string.Empty,
+            Role = user.IsAdmin ? "Admin" : "User"
+        };
+        editError = null;
+        isEditingUserInfo = true;
+    }
+
+    private void CancelEditUserInfo()
+    {
+        isEditingUserInfo = false;
+        userEditForm = new();
+        editError = null;
+    }
+
+    private async Task SaveUserInfo()
+    {
+        if (user == null) return;
+
+        isSavingUserInfo = true;
+        editError = null;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/users/{UserId}", new
+            {
+                username = userEditForm.Username,
+                email = userEditForm.Email,
+                isAdmin = userEditForm.Role == "Admin"
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUserData();
+                isEditingUserInfo = false;
+            }
+            else
+            {
+                editError = "Failed to update user information. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            editError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSavingUserInfo = false;
+        }
+    }
+
     private class PaymentFormModel
     {
         [System.ComponentModel.DataAnnotations.Required]
@@ -890,5 +1014,18 @@
 
         public bool IsActive { get; set; } = true;
         public bool IsLoginOnly { get; set; }
+    }
+
+    private class UserEditFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Username { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Role { get; set; } = "User";
     }
 }
