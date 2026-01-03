@@ -41,9 +41,12 @@ public class PurchasesController : ControllerBase
             Id = p.Id,
             UserId = p.UserId,
             Username = p.User.Username,
-            TotalAmount = p.Scans.Sum(s => s.Amount),
+            TotalAmount = p.ManualAmount ?? p.Scans.Sum(s => s.Amount),
             CreatedAt = p.CreatedAt,
             CompletedAt = p.CompletedAt,
+            Type = p.Type.ToString(),
+            ReferencePurchaseId = p.ReferencePurchaseId,
+            ManualAmount = p.ManualAmount,
             Items = p.Scans.Select(s => new PurchaseItemDto
             {
                 Id = s.Id,
@@ -78,9 +81,12 @@ public class PurchasesController : ControllerBase
             Id = purchase.Id,
             UserId = purchase.UserId,
             Username = purchase.User.Username,
-            TotalAmount = purchase.Scans.Sum(s => s.Amount),
+            TotalAmount = purchase.ManualAmount ?? purchase.Scans.Sum(s => s.Amount),
             CreatedAt = purchase.CreatedAt,
             CompletedAt = purchase.CompletedAt,
+            Type = purchase.Type.ToString(),
+            ReferencePurchaseId = purchase.ReferencePurchaseId,
+            ManualAmount = purchase.ManualAmount,
             Items = purchase.Scans.Select(s => new PurchaseItemDto
             {
                 Id = s.Id,
@@ -110,9 +116,12 @@ public class PurchasesController : ControllerBase
             Id = p.Id,
             UserId = p.UserId,
             Username = p.User.Username,
-            TotalAmount = p.Scans.Sum(s => s.Amount),
+            TotalAmount = p.ManualAmount ?? p.Scans.Sum(s => s.Amount),
             CreatedAt = p.CreatedAt,
             CompletedAt = p.CompletedAt,
+            Type = p.Type.ToString(),
+            ReferencePurchaseId = p.ReferencePurchaseId,
+            ManualAmount = p.ManualAmount,
             Items = p.Scans.Select(s => new PurchaseItemDto
             {
                 Id = s.Id,
@@ -142,9 +151,12 @@ public class PurchasesController : ControllerBase
             Id = p.Id,
             UserId = p.UserId,
             Username = p.User.Username,
-            TotalAmount = p.Scans.Sum(s => s.Amount),
+            TotalAmount = p.ManualAmount ?? p.Scans.Sum(s => s.Amount),
             CreatedAt = p.CreatedAt,
             CompletedAt = p.CompletedAt,
+            Type = p.Type.ToString(),
+            ReferencePurchaseId = p.ReferencePurchaseId,
+            ManualAmount = p.ManualAmount,
             Items = p.Scans.Select(s => new PurchaseItemDto
             {
                 Id = s.Id,
@@ -155,6 +167,108 @@ public class PurchasesController : ControllerBase
         }).ToList();
 
         return Ok(dtos);
+    }
+
+    [HttpPost("manual")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<PurchaseDto>> CreateManual([FromBody] CreateManualPurchaseDto dto)
+    {
+        var user = await _context.Users.FindAsync(dto.UserId);
+        if (user == null)
+        {
+            return BadRequest(new { message = "User not found" });
+        }
+
+        if (dto.Amount <= 0)
+        {
+            return BadRequest(new { message = "Amount must be greater than zero" });
+        }
+
+        var createdAt = dto.CreatedAt ?? DateTime.UtcNow;
+        var purchase = new Purchase
+        {
+            UserId = dto.UserId,
+            CreatedAt = createdAt,
+            CompletedAt = createdAt,
+            Type = PurchaseType.Manual,
+            ManualAmount = dto.Amount
+        };
+
+        _context.Purchases.Add(purchase);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Manual purchase created: {PurchaseId} for user {UserId} - Amount: {Amount}",
+            purchase.Id, purchase.UserId, purchase.ManualAmount);
+
+        var resultDto = new PurchaseDto
+        {
+            Id = purchase.Id,
+            UserId = purchase.UserId,
+            Username = user.Username,
+            TotalAmount = purchase.ManualAmount.Value,
+            CreatedAt = purchase.CreatedAt,
+            CompletedAt = purchase.CompletedAt,
+            Type = purchase.Type.ToString(),
+            ReferencePurchaseId = purchase.ReferencePurchaseId,
+            ManualAmount = purchase.ManualAmount,
+            Items = new List<PurchaseItemDto>()
+        };
+
+        return CreatedAtAction(nameof(GetByUserId), new { userId = purchase.UserId }, resultDto);
+    }
+
+    [HttpPost("correction")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<PurchaseDto>> CreateCorrection([FromBody] CreatePurchaseCorrectionDto dto)
+    {
+        var user = await _context.Users.FindAsync(dto.UserId);
+        if (user == null)
+        {
+            return BadRequest(new { message = "User not found" });
+        }
+
+        var referencePurchase = await _context.Purchases.FindAsync(dto.ReferencePurchaseId);
+        if (referencePurchase == null)
+        {
+            return BadRequest(new { message = "Reference purchase not found" });
+        }
+
+        if (referencePurchase.UserId != dto.UserId)
+        {
+            return BadRequest(new { message = "Reference purchase must belong to the same user" });
+        }
+
+        var purchase = new Purchase
+        {
+            UserId = dto.UserId,
+            CreatedAt = DateTime.UtcNow,
+            CompletedAt = DateTime.UtcNow,
+            Type = PurchaseType.Correction,
+            ReferencePurchaseId = dto.ReferencePurchaseId,
+            ManualAmount = dto.Amount
+        };
+
+        _context.Purchases.Add(purchase);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Purchase correction created: {PurchaseId} for user {UserId} - Amount: {Amount}, Reference: {ReferencePurchaseId}",
+            purchase.Id, purchase.UserId, purchase.ManualAmount, purchase.ReferencePurchaseId);
+
+        var resultDto = new PurchaseDto
+        {
+            Id = purchase.Id,
+            UserId = purchase.UserId,
+            Username = user.Username,
+            TotalAmount = purchase.ManualAmount.Value,
+            CreatedAt = purchase.CreatedAt,
+            CompletedAt = purchase.CompletedAt,
+            Type = purchase.Type.ToString(),
+            ReferencePurchaseId = purchase.ReferencePurchaseId,
+            ManualAmount = purchase.ManualAmount,
+            Items = new List<PurchaseItemDto>()
+        };
+
+        return CreatedAtAction(nameof(GetByUserId), new { userId = purchase.UserId }, resultDto);
     }
 
     private int? GetCurrentUserId()
