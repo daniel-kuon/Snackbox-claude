@@ -2,7 +2,14 @@
 
 @if (IsVisible)
 {
-    <div class="modal-backdrop" @onclick="Cancel"></div>
+    @if (!isProductFound)
+    {
+        <div class="modal-backdrop" @onclick="Cancel"></div>
+    }
+    else
+    {
+        <div class="modal-backdrop"></div>
+    }
     <div class="modal-dialog barcode-lookup-modal">
         <div class="modal-content">
             <div class="modal-header">
