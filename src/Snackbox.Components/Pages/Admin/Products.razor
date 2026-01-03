@@ -875,11 +875,17 @@
                     bestBeforeDate = item.BestBeforeDate;
                 }
 
+                if (!DateTime.TryParse(bestBeforeDate, out var parsedDate))
+                {
+                    batchError = $"Invalid date format for product '{item.Barcode}': {bestBeforeDate}";
+                    return;
+                }
+
                 actions.Add(new CreateShelvingActionDto
                 {
                     ProductBarcode = item.Barcode,
                     Quantity = item.Quantity,
-                    BestBeforeDate = DateTime.Parse(bestBeforeDate),
+                    BestBeforeDate = parsedDate,
                     Type = Enum.Parse<ShelvingActionType>(item.ActionType)
                 });
             }
