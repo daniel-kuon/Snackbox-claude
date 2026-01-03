@@ -28,6 +28,13 @@ public class BatchShelvingRequest
     public List<CreateShelvingActionDto> Actions { get; set; } = new();
 }
 
+public class BatchShelvingResponse
+{
+    public List<ShelvingActionDto> Results { get; set; } = new();
+    public List<string> Errors { get; set; } = new();
+    public bool Success => !Errors.Any();
+}
+
 public class ProductStockDto
 {
     public int ProductId { get; set; }

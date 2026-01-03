@@ -93,10 +93,9 @@ public class ShelvingActionsController : ControllerBase
     }
 
     [HttpPost("batch")]
-    public async Task<ActionResult<List<ShelvingActionDto>>> CreateBatch([FromBody] BatchShelvingRequest request)
+    public async Task<ActionResult<BatchShelvingResponse>> CreateBatch([FromBody] BatchShelvingRequest request)
     {
-        var results = new List<ShelvingActionDto>();
-        var errors = new List<string>();
+        var response = new BatchShelvingResponse();
 
         foreach (var action in request.Actions)
         {
@@ -111,7 +110,7 @@ public class ShelvingActionsController : ControllerBase
 
                 if (productBarcode == null)
                 {
-                    errors.Add($"Product with barcode '{action.ProductBarcode}' not found");
+                    response.Errors.Add($"Product with barcode '{action.ProductBarcode}' not found");
                     continue;
                 }
 
@@ -140,7 +139,7 @@ public class ShelvingActionsController : ControllerBase
 
                     if (action.Quantity > storageQty)
                     {
-                        errors.Add($"Not enough stock in storage for product '{action.ProductBarcode}'. Available: {storageQty}");
+                        response.Errors.Add($"Not enough stock in storage for product '{action.ProductBarcode}'. Available: {storageQty}");
                         continue;
                     }
                 }
@@ -150,7 +149,7 @@ public class ShelvingActionsController : ControllerBase
 
                     if (action.Quantity > shelfQty)
                     {
-                        errors.Add($"Not enough stock on shelf for product '{action.ProductBarcode}'. Available: {shelfQty}");
+                        response.Errors.Add($"Not enough stock on shelf for product '{action.ProductBarcode}'. Available: {shelfQty}");
                         continue;
                     }
                 }
@@ -167,7 +166,7 @@ public class ShelvingActionsController : ControllerBase
                 _context.ShelvingActions.Add(shelvingAction);
                 await _context.SaveChangesAsync();
 
-                results.Add(new ShelvingActionDto
+                response.Results.Add(new ShelvingActionDto
                 {
                     Id = shelvingAction.Id,
                     ProductBatchId = batch.Id,
@@ -185,21 +184,16 @@ public class ShelvingActionsController : ControllerBase
             }
             catch (Exception ex)
             {
-                errors.Add($"Error processing product '{action.ProductBarcode}': {ex.Message}");
+                response.Errors.Add($"Error processing product '{action.ProductBarcode}': {ex.Message}");
             }
         }
 
-        if (errors.Any() && !results.Any())
+        if (response.Errors.Any() && !response.Results.Any())
         {
-            return BadRequest(new { message = "All actions failed", errors });
+            return BadRequest(response);
         }
 
-        if (errors.Any())
-        {
-            return Ok(new { results, errors, message = "Some actions completed with errors" });
-        }
-
-        return Ok(results);
+        return Ok(response);
     }
 
     [HttpPost]
