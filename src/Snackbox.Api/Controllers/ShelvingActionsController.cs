@@ -51,10 +51,10 @@ public class ShelvingActionsController : ControllerBase
                 ProductBatchId = sa.ProductBatchId,
                 ProductId = sa.ProductBatch.ProductId,
                 ProductName = sa.ProductBatch.Product.Name,
-                ProductBarcode = sa.ProductBatch.Product.Barcode,
+                ProductBarcode = sa.ProductBatch.Product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
                 BestBeforeDate = sa.ProductBatch.BestBeforeDate,
                 Quantity = sa.Quantity,
-                Type = sa.Type.ToString(),
+                Type = sa.Type,
                 ActionAt = sa.ActionAt
             })
             .ToListAsync();
@@ -68,6 +68,7 @@ public class ShelvingActionsController : ControllerBase
         var action = await _context.ShelvingActions
             .Include(sa => sa.ProductBatch)
             .ThenInclude(pb => pb.Product)
+            .ThenInclude(p => p.Barcodes)
             .FirstOrDefaultAsync(sa => sa.Id == id);
 
         if (action == null)
@@ -81,10 +82,10 @@ public class ShelvingActionsController : ControllerBase
             ProductBatchId = action.ProductBatchId,
             ProductId = action.ProductBatch.ProductId,
             ProductName = action.ProductBatch.Product.Name,
-            ProductBarcode = action.ProductBatch.Product.Barcode,
+            ProductBarcode = action.ProductBatch.Product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
             BestBeforeDate = action.ProductBatch.BestBeforeDate,
             Quantity = action.Quantity,
-            Type = action.Type.ToString(),
+            Type = action.Type,
             ActionAt = action.ActionAt
         };
 
@@ -101,28 +102,24 @@ public class ShelvingActionsController : ControllerBase
         {
             try
             {
-                // Find product by barcode
-                var product = await _context.Products
-                    .Include(p => p.Batches)
+                // Find product by barcode through ProductBarcodes table
+                var productBarcode = await _context.ProductBarcodes
+                    .Include(pb => pb.Product)
+                    .ThenInclude(p => p.Batches)
                     .ThenInclude(b => b.ShelvingActions)
-                    .FirstOrDefaultAsync(p => p.Barcode == action.ProductBarcode);
+                    .FirstOrDefaultAsync(pb => pb.Barcode == action.ProductBarcode);
 
-                if (product == null)
+                if (productBarcode == null)
                 {
                     errors.Add($"Product with barcode '{action.ProductBarcode}' not found");
                     continue;
                 }
 
-                // Parse the action type
-                if (!Enum.TryParse<ShelvingActionType>(action.Type, out var actionType))
-                {
-                    errors.Add($"Invalid action type '{action.Type}' for product '{action.ProductBarcode}'");
-                    continue;
-                }
+                var product = productBarcode.Product;
 
                 // Find or create batch for the given best-before date
                 var batch = product.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == action.BestBeforeDate.Date);
-                
+
                 if (batch == null)
                 {
                     // Create new batch if not exists
@@ -137,7 +134,7 @@ public class ShelvingActionsController : ControllerBase
                 }
 
                 // Validate stock availability for certain action types
-                if (actionType == ShelvingActionType.MovedToShelf)
+                if (action.Type == ShelvingActionType.MovedToShelf)
                 {
                     var storageQty = _stockCalculation.CalculateStorageQuantity(batch.ShelvingActions);
 
@@ -147,7 +144,7 @@ public class ShelvingActionsController : ControllerBase
                         continue;
                     }
                 }
-                else if (actionType == ShelvingActionType.MovedFromShelf || actionType == ShelvingActionType.RemovedFromShelf)
+                else if (action.Type == ShelvingActionType.MovedFromShelf || action.Type == ShelvingActionType.RemovedFromShelf)
                 {
                     var shelfQty = _stockCalculation.CalculateShelfQuantity(batch.ShelvingActions);
 
@@ -163,7 +160,7 @@ public class ShelvingActionsController : ControllerBase
                 {
                     ProductBatchId = batch.Id,
                     Quantity = action.Quantity,
-                    Type = actionType,
+                    Type = action.Type,
                     ActionAt = DateTime.UtcNow
                 };
 
@@ -176,15 +173,15 @@ public class ShelvingActionsController : ControllerBase
                     ProductBatchId = batch.Id,
                     ProductId = product.Id,
                     ProductName = product.Name,
-                    ProductBarcode = product.Barcode,
+                    ProductBarcode = action.ProductBarcode, // Use the scanned barcode
                     BestBeforeDate = batch.BestBeforeDate,
                     Quantity = shelvingAction.Quantity,
-                    Type = shelvingAction.Type.ToString(),
+                    Type = shelvingAction.Type,
                     ActionAt = shelvingAction.ActionAt
                 });
 
                 _logger.LogInformation("Shelving action created: {ActionType} {Quantity} of {ProductName} (Batch {BatchId})",
-                    actionType, action.Quantity, product.Name, batch.Id);
+                    action.Type, action.Quantity, product.Name, batch.Id);
             }
             catch (Exception ex)
             {
@@ -208,22 +205,19 @@ public class ShelvingActionsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ShelvingActionDto>> Create([FromBody] CreateShelvingActionDto dto)
     {
-        // Find product by barcode
-        var product = await _context.Products
-            .Include(p => p.Batches)
+        // Find product by barcode through ProductBarcodes table
+        var productBarcode = await _context.ProductBarcodes
+            .Include(pb => pb.Product)
+            .ThenInclude(p => p.Batches)
             .ThenInclude(b => b.ShelvingActions)
-            .FirstOrDefaultAsync(p => p.Barcode == dto.ProductBarcode);
+            .FirstOrDefaultAsync(pb => pb.Barcode == dto.ProductBarcode);
 
-        if (product == null)
+        if (productBarcode == null)
         {
             return NotFound(new { message = "Product not found" });
         }
 
-        // Parse the action type
-        if (!Enum.TryParse<ShelvingActionType>(dto.Type, out var actionType))
-        {
-            return BadRequest(new { message = "Invalid action type" });
-        }
+        var product = productBarcode.Product;
 
         // Find or create batch for the given best-before date
         var batch = product.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == dto.BestBeforeDate.Date);
@@ -241,7 +235,7 @@ public class ShelvingActionsController : ControllerBase
         }
 
         // Validate stock availability
-        if (actionType == ShelvingActionType.MovedToShelf)
+        if (dto.Type == ShelvingActionType.MovedToShelf)
         {
             var storageQty = _stockCalculation.CalculateStorageQuantity(batch.ShelvingActions);
 
@@ -250,7 +244,7 @@ public class ShelvingActionsController : ControllerBase
                 return BadRequest(new { message = $"Not enough stock in storage. Available: {storageQty}" });
             }
         }
-        else if (actionType == ShelvingActionType.MovedFromShelf || actionType == ShelvingActionType.RemovedFromShelf)
+        else if (dto.Type == ShelvingActionType.MovedFromShelf || dto.Type == ShelvingActionType.RemovedFromShelf)
         {
             var shelfQty = _stockCalculation.CalculateShelfQuantity(batch.ShelvingActions);
 
@@ -264,7 +258,7 @@ public class ShelvingActionsController : ControllerBase
         {
             ProductBatchId = batch.Id,
             Quantity = dto.Quantity,
-            Type = actionType,
+            Type = dto.Type,
             ActionAt = DateTime.UtcNow
         };
 
@@ -272,7 +266,7 @@ public class ShelvingActionsController : ControllerBase
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Shelving action created: {ActionType} {Quantity} of {ProductName} (Batch {BatchId})",
-            actionType, dto.Quantity, product.Name, batch.Id);
+            dto.Type, dto.Quantity, product.Name, batch.Id);
 
         var result = new ShelvingActionDto
         {
@@ -280,10 +274,10 @@ public class ShelvingActionsController : ControllerBase
             ProductBatchId = batch.Id,
             ProductId = product.Id,
             ProductName = product.Name,
-            ProductBarcode = product.Barcode,
+            ProductBarcode = dto.ProductBarcode, // Use the scanned barcode
             BestBeforeDate = batch.BestBeforeDate,
             Quantity = shelvingAction.Quantity,
-            Type = shelvingAction.Type.ToString(),
+            Type = shelvingAction.Type,
             ActionAt = shelvingAction.ActionAt
         };
 

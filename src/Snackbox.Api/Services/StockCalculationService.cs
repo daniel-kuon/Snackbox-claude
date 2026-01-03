@@ -26,7 +26,7 @@ public class StockCalculationService : IStockCalculationService
     {
         var actions = shelvingActions.ToList();
         var addedToShelf = actions
-            .Where(sa => sa.Type == ShelvingActionType.MovedToShelf)
+            .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.AddedToShelf)
             .Sum(sa => sa.Quantity);
         var removedFromShelf = actions
             .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
