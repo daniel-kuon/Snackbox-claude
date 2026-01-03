@@ -1,0 +1,203 @@
+@using System.Net.Http
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@if (!_isHealthy)
+{
+    <div class="health-check-overlay">
+        <div class="health-check-spinner">
+            <div class="spinner"></div>
+            <h2>Starting Snackbox...</h2>
+            <p class="status-message">@_statusMessage</p>
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="error-message">
+                    <p>@_errorMessage</p>
+                    <button class="retry-button" @onclick="CheckHealth">Retry</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    @ChildContent
+}
+
+<style>
+    .health-check-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    }
+
+    .health-check-spinner {
+        text-align: center;
+        color: white;
+    }
+
+    .spinner {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 2rem;
+        border: 8px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .health-check-spinner h2 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .status-message {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0.5rem;
+    }
+
+    .error-message {
+        margin-top: 2rem;
+        padding: 1rem 2rem;
+        background: rgba(220, 53, 69, 0.9);
+        border-radius: 8px;
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .error-message p {
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+    }
+
+    .retry-button {
+        padding: 0.75rem 2rem;
+        background: white;
+        color: #dc3545;
+        border: none;
+        border-radius: 4px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+
+    .retry-button:hover {
+        background: #f8f9fa;
+        transform: translateY(-1px);
+    }
+</style>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private bool _isHealthy = false;
+    private string _statusMessage = "Connecting to server...";
+    private string? _errorMessage;
+    private System.Timers.Timer? _healthCheckTimer;
+    private int _retryCount = 0;
+    private const int MaxRetries = 60; // 60 seconds with 1 second interval
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckHealth();
+
+        if (!_isHealthy)
+        {
+            StartHealthCheckTimer();
+        }
+    }
+
+    private async Task CheckHealth()
+    {
+        _errorMessage = null;
+        _retryCount++;
+
+        if (_retryCount <= 5)
+        {
+            _statusMessage = "Connecting to server...";
+        }
+        else if (_retryCount <= 15)
+        {
+            _statusMessage = "Waiting for database...";
+        }
+        else if (_retryCount <= 30)
+        {
+            _statusMessage = "Starting services...";
+        }
+        else
+        {
+            _statusMessage = "This is taking longer than expected...";
+        }
+
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var response = await Http.GetAsync("/health/ready");
+
+            if (response.IsSuccessStatusCode)
+            {
+                _isHealthy = true;
+                _statusMessage = "Ready!";
+                StopHealthCheckTimer();
+                await InvokeAsync(StateHasChanged);
+            }
+            else if (_retryCount >= MaxRetries)
+            {
+                _errorMessage = "Unable to connect to the server. Please check if the API is running.";
+                StopHealthCheckTimer();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (_retryCount >= MaxRetries)
+            {
+                _errorMessage = $"Connection failed: {ex.Message}";
+                StopHealthCheckTimer();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private void StartHealthCheckTimer()
+    {
+        _healthCheckTimer = new System.Timers.Timer(1000); // Check every second
+        _healthCheckTimer.Elapsed += async (sender, e) =>
+        {
+            await CheckHealth();
+        };
+        _healthCheckTimer.Start();
+    }
+
+    private void StopHealthCheckTimer()
+    {
+        if (_healthCheckTimer != null)
+        {
+            _healthCheckTimer.Stop();
+            _healthCheckTimer.Dispose();
+            _healthCheckTimer = null;
+        }
+    }
+
+    public void Dispose()
+    {
+        StopHealthCheckTimer();
+    }
+}

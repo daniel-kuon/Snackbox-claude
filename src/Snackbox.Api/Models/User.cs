@@ -4,7 +4,7 @@ public class User
 {
     public int Id { get; set; }
     public required string Username { get; set; }
-    public required string Email { get; set; }
+    public string? Email { get; set; } // Optional - user may not provide email
     public string? PasswordHash { get; set; } // Optional - if null, user can only login with barcode
     public bool IsAdmin { get; set; }
     public DateTime CreatedAt { get; set; }

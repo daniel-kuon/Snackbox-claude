@@ -1,4 +1,6 @@
 @page "/admin/products"
+@using Snackbox.Api.DTOs
+@using Snackbox.Api.Models
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -19,15 +21,114 @@
 
     <!-- Search and Filter -->
     <div class="search-bar">
-        <input type="text" class="form-control search-input" placeholder="Search products..." 
+        <input type="text" class="form-control search-input" placeholder="Search products..."
                @bind="searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
         <select class="form-control sort-select" @bind="sortBy" @bind:after="SortProducts">
             <option value="name">Sort by Name</option>
-            <option value="barcode">Sort by Barcode</option>
             <option value="price">Sort by Price</option>
             <option value="created">Sort by Created Date</option>
         </select>
+        <button class="btn @(batchMode ? "btn-primary" : "btn-outline-primary")" @onclick="ToggleBatchMode">
+            @(batchMode ? "Exit Batch Mode" : "Batch Scan Mode")
+        </button>
     </div>
+
+    @if (batchMode)
+    {
+        <div class="batch-mode-section">
+            <div class="batch-controls">
+                <div class="control-group">
+                    <label>Action Type</label>
+                    <select class="form-control" @bind="batchActionType">
+                        <option value="AddedToStorage">Add to Storage</option>
+                        <option value="AddedToShelf">Add Directly to Shelf</option>
+                        <option value="MovedToShelf">Move Stock to Shelf</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Scan Barcode</label>
+                    <input type="text" class="form-control" @bind="batchBarcode" @bind:event="oninput"
+                           @onkeyup="HandleBatchBarcodeInput" placeholder="Scan or enter barcode..." autofocus />
+                </div>
+            </div>
+
+            @if (batchScannedItems.Any())
+            {
+                <div class="batch-items">
+                    <div class="batch-header">
+                        <h4>Scanned Items (@batchScannedItems.Count)</h4>
+                        <div class="batch-actions">
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="ClearBatchItems">Clear All</button>
+                            <button class="btn btn-primary btn-sm" @onclick="ProcessBatchItems" disabled="@isBatchProcessing">
+                                @if (isBatchProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                }
+                                Process (@batchScannedItems.Count)
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (batchError != null)
+                    {
+                        <div class="alert alert-danger">@batchError</div>
+                    }
+                    @if (batchSuccess != null)
+                    {
+                        <div class="alert alert-success">@batchSuccess</div>
+                    }
+
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Barcode</th>
+                                <th>Quantity</th>
+                                <th>Best Before</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in batchScannedItems)
+                            {
+                                <tr>
+                                    <td>@item.ProductName</td>
+                                    <td><code>@item.Barcode</code></td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" style="width: 80px;"
+                                               @bind="item.Quantity" min="1" />
+                                    </td>
+                                    <td>
+                                        @if (item.ActionType == "MovedToShelf" && item.AvailableDates.Any())
+                                        {
+                                            <select class="form-control form-control-sm" @bind="item.SelectedDate">
+                                                @foreach (var date in item.AvailableDates)
+                                                {
+                                                    <option value="@date.ToString("yyyy-MM-dd")">@date.ToString("yyyy-MM-dd")</option>
+                                                }
+                                            </select>
+                                        }
+                                        else if (item.ActionType == "MovedToShelf")
+                                        {
+                                            <span class="text-muted">No stock</span>
+                                        }
+                                        else
+                                        {
+                                            <input type="date" class="form-control form-control-sm" value="@item.BestBeforeDate"
+                                                   @onchange="@(e => item.BestBeforeDate = e.Value?.ToString() ?? "")" />
+                                        }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveBatchItem(item)">Remove</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
 
     @if (isLoading)
     {
@@ -51,10 +152,8 @@
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Barcode</th>
-                        <th>Price</th>
-                        <th>Description</th>
-                        <th>Created</th>
+                        <th>Best before in Stock</th>
+                        <th>Best before on Shelf</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -63,14 +162,9 @@
                     {
                         <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;">
                             <td>@product.Name</td>
-                            <td><code>@product.Barcode</code></td>
-                            <td>€@product.Price.ToString("F2")</td>
-                            <td>@(product.Description ?? "-")</td>
-                            <td>@product.CreatedAt.ToString("yyyy-MM-dd")</td>
+                            <td>@(product.BestBeforeInStock?.ToString("yyyy-MM-dd") ?? "-")</td>
+                            <td>@(product.BestBeforeOnShelf?.ToString("yyyy-MM-dd") ?? "-")</td>
                             <td>
-                                <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => NavigateToProductDetail(product.Id)">
-                                    View
-                                </button>
                                 <button class="btn btn-sm btn-outline-secondary" @onclick:stopPropagation="true" @onclick="() => ShowEditProduct(product)">
                                     Edit
                                 </button>
@@ -122,17 +216,6 @@
                         <ValidationMessage For="@(() => productForm.Barcode)" />
                     </div>
 
-                    <div class="form-group">
-                        <label>Price (€)</label>
-                        <InputNumber @bind-Value="productForm.Price" class="form-control" step="0.01" />
-                        <ValidationMessage For="@(() => productForm.Price)" />
-                    </div>
-
-                    <div class="form-group">
-                        <label>Description (optional)</label>
-                        <InputTextArea @bind-Value="productForm.Description" class="form-control" rows="3" />
-                    </div>
-
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
                         <button type="submit" class="btn btn-primary" disabled="@isSaving">
@@ -180,8 +263,8 @@
     </div>
 }
 
-<BarcodeLookupModal IsVisible="@showBarcodeLookupModal" 
-                    OnClose="@CloseBarcodeLookup" 
+<BarcodeLookupModal IsVisible="@showBarcodeLookupModal"
+                    OnClose="@CloseBarcodeLookup"
                     OnProductCreated="@OnProductCreatedFromLookup" />
 
 <style>
@@ -411,6 +494,58 @@
     .text-muted {
         color: #6c757d;
     }
+
+    .batch-mode-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .batch-controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .control-group {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .control-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .batch-items {
+        margin-top: 1.5rem;
+    }
+
+    .batch-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .batch-header h4 {
+        margin: 0;
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
 </style>
 
 @code {
@@ -461,9 +596,7 @@
 
         filteredProducts = products
             .Where(p => string.IsNullOrEmpty(searchTerm) ||
-                        p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        p.Barcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        (p.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                        p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         SortProducts();
@@ -476,8 +609,6 @@
         filteredProducts = sortBy switch
         {
             "name" => filteredProducts.OrderBy(p => p.Name).ToList(),
-            "barcode" => filteredProducts.OrderBy(p => p.Barcode).ToList(),
-            "price" => filteredProducts.OrderBy(p => p.Price).ToList(),
             "created" => filteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
             _ => filteredProducts
         };
@@ -502,9 +633,6 @@
         productForm = new ProductFormModel
         {
             Name = product.Name,
-            Barcode = product.Barcode,
-            Price = product.Price,
-            Description = product.Description
         };
         modalError = null;
         showCreateEditModal = true;
@@ -532,8 +660,6 @@
                 {
                     name = productForm.Name,
                     barcode = productForm.Barcode,
-                    price = productForm.Price,
-                    description = productForm.Description
                 });
             }
             else
@@ -542,8 +668,6 @@
                 {
                     name = productForm.Name,
                     barcode = productForm.Barcode,
-                    price = productForm.Price,
-                    description = productForm.Description
                 });
             }
 
@@ -610,6 +734,15 @@
         modalError = null;
     }
 
+    // Batch mode state
+    private bool batchMode = false;
+    private string batchActionType = "AddedToStorage";
+    private string batchBarcode = string.Empty;
+    private List<BatchScannedItem> batchScannedItems = new();
+    private bool isBatchProcessing = false;
+    private string? batchError;
+    private string? batchSuccess;
+
     private void ShowBarcodeLookup()
     {
         showBarcodeLookupModal = true;
@@ -625,14 +758,167 @@
         await LoadProducts();
     }
 
-    private class ProductDto
+    private void ToggleBatchMode()
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
+        batchMode = !batchMode;
+        if (!batchMode)
+        {
+            ClearBatchItems();
+        }
+    }
+
+    private async Task HandleBatchBarcodeInput(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(batchBarcode))
+        {
+            await LookupAndAddBatchProduct(batchBarcode.Trim());
+            batchBarcode = string.Empty;
+        }
+    }
+
+    private async Task LookupAndAddBatchProduct(string barcode)
+    {
+        batchError = null;
+        batchSuccess = null;
+
+        try
+        {
+            // Get product by barcode
+            var product = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{barcode}");
+            if (product == null)
+            {
+                batchError = $"Product with barcode '{barcode}' not found.";
+                return;
+            }
+
+            // Get barcode quantity
+            int barcodeQuantity = 1;
+            var scannedBarcode = product.Barcodes?.FirstOrDefault(b => b.Barcode == barcode);
+            if (scannedBarcode != null)
+            {
+                barcodeQuantity = scannedBarcode.Quantity;
+            }
+
+            // Get stock information
+            var stock = await Http.GetFromJsonAsync<ProductStockDto>($"api/products/{product.Id}/stock");
+
+            var item = new BatchScannedItem
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                Barcode = barcode,
+                Quantity = barcodeQuantity,
+                ActionType = batchActionType,
+                BestBeforeDate = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
+            };
+
+            // For MovedToShelf, populate available dates with storage stock
+            if (batchActionType == "MovedToShelf" && stock != null)
+            {
+                item.AvailableDates = stock.Batches
+                    .Where(b => b.QuantityInStorage > 0)
+                    .Select(b => b.BestBeforeDate)
+                    .OrderBy(d => d)
+                    .ToList();
+
+                if (item.AvailableDates.Any())
+                {
+                    item.SelectedDate = item.AvailableDates.First().ToString("yyyy-MM-dd");
+                }
+            }
+
+            batchScannedItems.Add(item);
+        }
+        catch (HttpRequestException)
+        {
+            batchError = $"Product with barcode '{barcode}' not found.";
+        }
+        catch (Exception ex)
+        {
+            batchError = $"Error looking up product: {ex.Message}";
+        }
+    }
+
+    private void RemoveBatchItem(BatchScannedItem item)
+    {
+        batchScannedItems.Remove(item);
+    }
+
+    private void ClearBatchItems()
+    {
+        batchScannedItems.Clear();
+        batchError = null;
+        batchSuccess = null;
+    }
+
+    private async Task ProcessBatchItems()
+    {
+        if (!batchScannedItems.Any()) return;
+
+        isBatchProcessing = true;
+        batchError = null;
+        batchSuccess = null;
+
+        try
+        {
+            var actions = new List<object>();
+
+            foreach (var item in batchScannedItems)
+            {
+                // Determine the best before date to use
+                string bestBeforeDate;
+                if (item.ActionType == "MovedToShelf")
+                {
+                    bestBeforeDate = item.SelectedDate ?? item.BestBeforeDate;
+                }
+                else
+                {
+                    bestBeforeDate = item.BestBeforeDate;
+                }
+
+                actions.Add(new
+                {
+                    productBarcode = item.Barcode,
+                    quantity = item.Quantity,
+                    bestBeforeDate = bestBeforeDate,
+                    type = item.ActionType
+                });
+            }
+
+            var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", new { actions });
+
+            if (response.IsSuccessStatusCode)
+            {
+                batchSuccess = $"Successfully processed {batchScannedItems.Count} items.";
+                batchScannedItems.Clear();
+                await LoadProducts(); // Refresh product list
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                batchError = error?.Message ?? "Failed to process batch items.";
+            }
+        }
+        catch (Exception ex)
+        {
+            batchError = $"Error processing batch: {ex.Message}";
+        }
+        finally
+        {
+            isBatchProcessing = false;
+        }
+    }
+
+    private class BatchScannedItem
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
         public string Barcode { get; set; } = string.Empty;
-        public decimal Price { get; set; }
-        public string? Description { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public int Quantity { get; set; }
+        public string ActionType { get; set; } = string.Empty;
+        public string BestBeforeDate { get; set; } = string.Empty;
+        public string? SelectedDate { get; set; }
+        public List<DateTime> AvailableDates { get; set; } = new();
     }
 
     private class ProductFormModel
@@ -642,16 +928,10 @@
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Barcode is required")]
         public string Barcode { get; set; } = string.Empty;
-
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.Range(0.01, 10000, ErrorMessage = "Price must be between 0.01 and 10000")]
-        public decimal Price { get; set; }
-
-        public string? Description { get; set; }
     }
 
     private class ErrorResponse
     {
-        public string? Message { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

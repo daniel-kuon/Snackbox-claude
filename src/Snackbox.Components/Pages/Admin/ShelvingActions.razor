@@ -1,4 +1,6 @@
 @page "/admin/shelving-actions"
+@using Snackbox.Api.DTOs
+@using Snackbox.Api.Models
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -320,7 +322,7 @@
         if (allActions == null) return;
 
         filteredActions = allActions
-            .Where(a => string.IsNullOrEmpty(filterActionType) || a.Type == filterActionType)
+            .Where(a => string.IsNullOrEmpty(filterActionType) || a.Type.ToString() == filterActionType)
             .Where(a => string.IsNullOrEmpty(searchTerm) ||
                         a.ProductName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                         a.ProductBarcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
@@ -337,36 +339,24 @@
         Navigation.NavigateTo("/admin/batch-scan");
     }
 
-    private string FormatActionType(string type) => type switch
+    private string FormatActionType(ShelvingActionType type) => type switch
     {
-        "AddedToStorage" => "Added to Storage",
-        "MovedToShelf" => "Moved to Shelf",
-        "MovedFromShelf" => "Moved from Shelf",
-        "RemovedFromStorage" => "Removed from Storage",
-        "RemovedFromShelf" => "Removed from Shelf",
-        _ => type
+        ShelvingActionType.AddedToStorage    => "Added to Storage",
+        ShelvingActionType.MovedToShelf  => "Moved to Shelf",
+        ShelvingActionType.MovedFromShelf    => "Moved from Shelf",
+        ShelvingActionType.RemovedFromStorage    => "Removed from Storage",
+        ShelvingActionType.RemovedFromShelf  => "Removed from Shelf",
+        _ => type.ToString()
     };
 
-    private string GetActionBadgeClass(string type) => type switch
-    {
-        "AddedToStorage" => "success",
-        "MovedToShelf" => "info",
-        "MovedFromShelf" => "warning",
-        "RemovedFromStorage" => "danger",
-        "RemovedFromShelf" => "danger",
-        _ => "secondary"
-    };
+    private string GetActionBadgeClass(ShelvingActionType type) => type switch
+                                                                   {
+                                                                       ShelvingActionType.AddedToStorage => "success",
+                                                                       ShelvingActionType.MovedToShelf => "info",
+                                                                       ShelvingActionType.MovedFromShelf => "warning",
+                                                                       ShelvingActionType.RemovedFromStorage => "danger",
+                                                                       ShelvingActionType.RemovedFromShelf => "danger",
+                                                                       _ => "secondary"
+                                                                   };
 
-    private class ShelvingActionDto
-    {
-        public int Id { get; set; }
-        public int ProductBatchId { get; set; }
-        public int ProductId { get; set; }
-        public string ProductName { get; set; } = string.Empty;
-        public string ProductBarcode { get; set; } = string.Empty;
-        public DateTime BestBeforeDate { get; set; }
-        public int Quantity { get; set; }
-        public string Type { get; set; } = string.Empty;
-        public DateTime ActionAt { get; set; }
-    }
 }

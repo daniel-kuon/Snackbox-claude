@@ -1,3 +1,5 @@
+using Snackbox.Api.Models;
+
 namespace Snackbox.Api.DTOs;
 
 public class ShelvingActionDto
@@ -9,7 +11,7 @@ public class ShelvingActionDto
     public string ProductBarcode { get; set; } = string.Empty;
     public DateTime BestBeforeDate { get; set; }
     public int Quantity { get; set; }
-    public string Type { get; set; } = string.Empty;
+    public required ShelvingActionType Type { get; set; }
     public DateTime ActionAt { get; set; }
 }
 
@@ -18,7 +20,7 @@ public class CreateShelvingActionDto
     public string ProductBarcode { get; set; } = string.Empty;
     public DateTime BestBeforeDate { get; set; }
     public int Quantity { get; set; }
-    public string Type { get; set; } = string.Empty;
+    public ShelvingActionType Type { get; set; }
 }
 
 public class BatchShelvingRequest
@@ -31,8 +33,7 @@ public class ProductStockDto
     public int ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string ProductBarcode { get; set; } = string.Empty;
-    public decimal Price { get; set; }
-    public string? Description { get; set; }
+    public List<ProductBarcodeDto> Barcodes { get; set; } = new();
     public int TotalInStorage { get; set; }
     public int TotalOnShelf { get; set; }
     public List<BatchStockInfo> Batches { get; set; } = new();

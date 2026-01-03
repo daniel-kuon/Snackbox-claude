@@ -4,31 +4,16 @@
 @implements IDisposable
 
 <div class="page">
-    @if (AppState.ShowNavbar)
-    {
         <div class="sidebar">
             <NavMenu />
         </div>
-    }
 
-    <main class="@(AppState.ShowNavbar ? "" : "fullscreen")">
+    <main>
         <article class="content px-4">
             @Body
         </article>
     </main>
 </div>
-
-<style>
-    main.fullscreen {
-        width: 100%;
-        padding: 0;
-    }
-
-    main.fullscreen .content {
-        padding: 0 !important;
-        max-width: 100%;
-    }
-</style>
 
 @code {
     protected override void OnInitialized()

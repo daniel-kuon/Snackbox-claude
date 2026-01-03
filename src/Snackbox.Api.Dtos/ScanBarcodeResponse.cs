@@ -19,6 +19,9 @@ public class ScanBarcodeResponse
     public decimal Balance { get; set; } // Total spent - total paid (negative = owes money)
     public decimal LastPaymentAmount { get; set; }
     public DateTime? LastPaymentDate { get; set; }
+    
+    // Recent purchases
+    public List<RecentPurchaseDto> RecentPurchases { get; set; } = new();
 }
 
 public class ScannedBarcodeDto
@@ -26,4 +29,12 @@ public class ScannedBarcodeDto
     public string BarcodeCode { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public DateTime ScannedAt { get; set; }
+}
+
+public class RecentPurchaseDto
+{
+    public int PurchaseId { get; set; }
+    public decimal TotalAmount { get; set; }
+    public DateTime CompletedAt { get; set; }
+    public int ItemCount { get; set; }
 }

@@ -69,6 +69,53 @@ public class UsersController : ControllerBase
         return Ok(dto);
     }
 
+    [HttpPost("register")]
+    [AllowAnonymous]
+    public async Task<ActionResult> Register([FromBody] RegisterUserDto dto)
+    {
+        // Check if barcode exists
+        var barcode = await _context.Barcodes
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(b => b.Code == dto.BarcodeValue);
+
+        if (barcode != null && barcode.User != null)
+        {
+            return BadRequest(new { message = "This barcode is already registered to a user" });
+        }
+
+        if (barcode == null)
+        {
+            return BadRequest(new { message = "Invalid barcode. This barcode does not exist in the system." });
+        }
+
+        // Check if email is already used (if provided)
+        if (!string.IsNullOrWhiteSpace(dto.Email) && await _context.Users.AnyAsync(u => u.Email == dto.Email))
+        {
+            return BadRequest(new { message = "Email already exists" });
+        }
+
+        // Create user
+        var user = new User
+        {
+            Username = dto.Name,
+            Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email,
+            PasswordHash = string.IsNullOrWhiteSpace(dto.Password) ? null : BCrypt.Net.BCrypt.HashPassword(dto.Password),
+            IsAdmin = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Associate barcode with user
+        barcode.UserId = user.Id;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("User registered: {UserId} - {Username} via barcode {BarcodeId}", user.Id, user.Username, barcode.Id);
+
+        return Ok(new { message = "Registration successful", userId = user.Id });
+    }
+
     [HttpPost]
     public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserDto dto)
     {
@@ -77,18 +124,18 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Username already exists" });
         }
 
-        if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+        if (!string.IsNullOrWhiteSpace(dto.Email) && await _context.Users.AnyAsync(u => u.Email == dto.Email))
         {
             return BadRequest(new { message = "Email already exists" });
         }
 
         // In production, use proper password hashing (BCrypt, Argon2, etc.)
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+        var passwordHash = !string.IsNullOrWhiteSpace(dto.Password) ? BCrypt.Net.BCrypt.HashPassword(dto.Password) : null;
 
         var user = new User
         {
             Username = dto.Username,
-            Email = dto.Email,
+            Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email,
             PasswordHash = passwordHash,
             IsAdmin = dto.IsAdmin,
             CreatedAt = DateTime.UtcNow
