@@ -1,5 +1,5 @@
 using Riok.Mapperly.Abstractions;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Mappers;
@@ -25,7 +25,7 @@ public static partial class PurchaseMapper
     public static PurchaseItemDto ToItemDtoWithProductName(this BarcodeScan source)
     {
         var dto = source.ToItemDto();
-        dto.ProductName = source.Barcode?.Code;
+        dto.ProductName = source.Barcode.Code;
         return dto;
     }
 
@@ -46,7 +46,7 @@ public static partial class PurchaseMapper
         {
             Id = source.Id,
             UserId = source.UserId,
-            Username = source.User?.Username,
+            Username = source.User.Username,
             TotalAmount = source.Scans.Sum(s => s.Amount),
             CreatedAt = source.CreatedAt,
             CompletedAt = source.CompletedAt,

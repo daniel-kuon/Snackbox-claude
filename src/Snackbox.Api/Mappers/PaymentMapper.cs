@@ -1,5 +1,5 @@
 using Riok.Mapperly.Abstractions;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Mappers;
@@ -21,7 +21,7 @@ public static partial class PaymentMapper
     public static PaymentDto ToDtoWithUser(this Payment source)
     {
         var dto = source.ToDto();
-        dto.Username = source.User?.Username;
+        dto.Username = source.User.Username;
         return dto;
     }
 

@@ -1,5 +1,5 @@
 using Riok.Mapperly.Abstractions;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Mappers;

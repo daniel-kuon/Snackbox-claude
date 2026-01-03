@@ -1,5 +1,5 @@
 using Riok.Mapperly.Abstractions;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Mappers;
@@ -22,7 +22,7 @@ public static partial class BarcodeMapper
     public static BarcodeDto ToDtoWithUser(this Barcode source)
     {
         var dto = source.ToDto();
-        dto.Username = source.User?.Username;
+        dto.Username = source.User.Username;
         return dto;
     }
 

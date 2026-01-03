@@ -64,7 +64,6 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Product created: {ProductId} - {ProductName}", product.Id, product.Name);
 
-        product.Barcodes.Add(productBarcode);
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, product.ToDto());
     }
 

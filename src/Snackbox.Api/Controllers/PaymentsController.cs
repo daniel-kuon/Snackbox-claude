@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Mappers;
-using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Controllers;
 

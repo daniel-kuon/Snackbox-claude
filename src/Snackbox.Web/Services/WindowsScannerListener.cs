@@ -6,7 +6,7 @@ using Timer = System.Timers.Timer;
 
 namespace Snackbox.Web.Services;
 
-public class WindowsScannerListener : IDisposable, IScannerListener
+public partial class WindowsScannerListener : IDisposable, IScannerListener
 {
     private const int WhKeyboardLl = 13;
     private const int WmKeydown = 0x0100;
@@ -176,8 +176,10 @@ public class WindowsScannerListener : IDisposable, IScannerListener
     private enum VirtualKeys
     {
         Return = 0x0D,
+        // ReSharper disable UnusedMember.Local
         Number0 = 0x30, Number1, Number2, Number3, Number4, Number5, Number6, Number7, Number8, Number9 = 0x39,
         Numpad0 = 0x60, Numpad1, Numpad2, Numpad3, Numpad4, Numpad5, Numpad6, Numpad7, Numpad8, Numpad9 = 0x69
+        // ReSharper restore UnusedMember.Local
     }
     #endregion
 }
