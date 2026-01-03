@@ -230,7 +230,9 @@
                                             <span class="badge badge-secondary">Normal</span>
                                         }
                                     </td>
-                                    <td class="text-danger">€@purchase.TotalAmount.ToString("F2")</td>
+                                    <td class="@(purchase.TotalAmount >= 0 ? "text-danger" : "text-success")">
+                                        @(purchase.TotalAmount >= 0 ? "€" : "-€")@Math.Abs(purchase.TotalAmount).ToString("F2")
+                                    </td>
                                     <td>
                                         @if (purchase.ReferencePurchaseId.HasValue)
                                         {
@@ -1090,7 +1092,7 @@
     {
         manualPurchaseForm = new ManualPurchaseFormModel 
         { 
-            CreatedAt = DateTime.Now 
+            CreatedAt = DateTime.UtcNow 
         };
         modalError = null;
         showManualPurchaseModal = true;
@@ -1280,7 +1282,7 @@
         public decimal Amount { get; set; }
 
         [System.ComponentModel.DataAnnotations.Required]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
     private class CorrectionFormModel
