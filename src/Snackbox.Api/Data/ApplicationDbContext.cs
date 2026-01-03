@@ -20,6 +20,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<ShelvingAction> ShelvingActions => Set<ShelvingAction>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,6 +77,34 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<Invoice>(entity =>
+        {
+            entity.Property(e => e.InvoiceNumber).HasMaxLength(100);
+            entity.Property(e => e.Supplier).HasMaxLength(200);
+            entity.Property(e => e.TotalAmount).HasPrecision(10, 2);
+            entity.Property(e => e.AdditionalCosts).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<InvoiceItem>(entity =>
+        {
+            entity.Property(e => e.ProductName).HasMaxLength(500);
+            entity.Property(e => e.ArticleNumber).HasMaxLength(100);
+            entity.Property(e => e.UnitPrice).HasPrecision(10, 2);
+            entity.Property(e => e.TotalPrice).HasPrecision(10, 2);
+            entity.HasOne(ii => ii.Invoice)
+                .WithMany(i => i.Items)
+                .HasForeignKey(ii => ii.InvoiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ShelvingAction>(entity =>
+        {
+            entity.HasOne(sa => sa.InvoiceItem)
+                .WithMany(ii => ii.ShelvingActions)
+                .HasForeignKey(sa => sa.InvoiceItemId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Seed data
