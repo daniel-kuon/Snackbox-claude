@@ -31,4 +31,13 @@ public interface IProductBatchesApi
     
     [Post("/api/productbatches/{id}/move-from-shelf")]
     Task<ProductBatchDto> MoveFromShelfAsync(int id, [Body] MoveStockDto dto);
+    
+    [Post("/api/productbatches/{id}/move-to-storage")]
+    Task<ProductBatchDto> MoveToStorageAsync(int id, [Body] MoveStockDto dto);
+    
+    [Post("/api/productbatches/{id}/add-to-storage")]
+    Task<ProductBatchDto> AddToStorageAsync(int id, [Body] MoveStockDto dto);
+    
+    [Post("/api/productbatches/{id}/add-to-shelf")]
+    Task<ProductBatchDto> AddToShelfAsync(int id, [Body] MoveStockDto dto);
 }

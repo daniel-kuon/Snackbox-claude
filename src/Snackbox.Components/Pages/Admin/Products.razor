@@ -1,7 +1,10 @@
 @page "/admin/products"
 @using Snackbox.Api.DTOs
 @using Snackbox.Api.Models
-@inject HttpClient Http
+@using Snackbox.ApiClient
+@using Refit
+@inject IProductsApi ProductsApi
+@inject IShelvingActionsApi ShelvingActionsApi
 @inject NavigationManager Navigation
 
 <PageTitle>Product Management - Snackbox Admin</PageTitle>
@@ -577,8 +580,13 @@
 
         try
         {
-            products = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
+            var result = await ProductsApi.GetAllAsync();
+            products = result.ToList();
             FilterProducts();
+        }
+        catch (ApiException ex)
+        {
+            errorMessage = $"Failed to load products: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -652,35 +660,31 @@
 
         try
         {
-            HttpResponseMessage response;
-
             if (editingProduct == null)
             {
-                response = await Http.PostAsJsonAsync("api/products", new
+                var createDto = new CreateProductDto
                 {
-                    name = productForm.Name,
-                    barcode = productForm.Barcode,
-                });
+                    Name = productForm.Name,
+                    Barcode = productForm.Barcode
+                };
+                await ProductsApi.CreateAsync(createDto);
             }
             else
             {
-                response = await Http.PutAsJsonAsync($"api/products/{editingProduct.Id}", new
+                var updateDto = new UpdateProductDto
                 {
-                    name = productForm.Name,
-                    barcode = productForm.Barcode,
-                });
+                    Name = productForm.Name,
+                    Barcode = productForm.Barcode
+                };
+                await ProductsApi.UpdateAsync(editingProduct.Id, updateDto);
             }
 
-            if (response.IsSuccessStatusCode)
-            {
-                CloseModal();
-                await LoadProducts();
-            }
-            else
-            {
-                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                modalError = error?.Message ?? "Failed to save product. Please try again.";
-            }
+            CloseModal();
+            await LoadProducts();
+        }
+        catch (ApiException ex)
+        {
+            modalError = ex.Content ?? "Failed to save product. Please try again.";
         }
         catch (Exception ex)
         {
@@ -701,18 +705,13 @@
 
         try
         {
-            var response = await Http.DeleteAsync($"api/products/{productToDelete.Id}");
-
-            if (response.IsSuccessStatusCode)
-            {
-                CloseModal();
-                await LoadProducts();
-            }
-            else
-            {
-                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                modalError = error?.Message ?? "Failed to delete product. Please try again.";
-            }
+            await ProductsApi.DeleteAsync(productToDelete.Id);
+            CloseModal();
+            await LoadProducts();
+        }
+        catch (ApiException ex)
+        {
+            modalError = ex.Content ?? "Failed to delete product. Please try again.";
         }
         catch (Exception ex)
         {
@@ -784,7 +783,7 @@
         try
         {
             // Get product by barcode
-            var product = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{barcode}");
+            var product = await ProductsApi.GetByBarcodeAsync(barcode);
             if (product == null)
             {
                 batchError = $"Product with barcode '{barcode}' not found.";
@@ -800,7 +799,7 @@
             }
 
             // Get stock information
-            var stock = await Http.GetFromJsonAsync<ProductStockDto>($"api/products/{product.Id}/stock");
+            var stock = await ProductsApi.GetProductStockAsync(product.Id);
 
             var item = new BatchScannedItem
             {
@@ -829,7 +828,7 @@
 
             batchScannedItems.Add(item);
         }
-        catch (HttpRequestException)
+        catch (ApiException)
         {
             batchError = $"Product with barcode '{barcode}' not found.";
         }
@@ -861,7 +860,7 @@
 
         try
         {
-            var actions = new List<object>();
+            var actions = new List<CreateShelvingActionDto>();
 
             foreach (var item in batchScannedItems)
             {
@@ -876,18 +875,19 @@
                     bestBeforeDate = item.BestBeforeDate;
                 }
 
-                actions.Add(new
+                actions.Add(new CreateShelvingActionDto
                 {
-                    productBarcode = item.Barcode,
-                    quantity = item.Quantity,
-                    bestBeforeDate = bestBeforeDate,
-                    type = item.ActionType
+                    ProductBarcode = item.Barcode,
+                    Quantity = item.Quantity,
+                    BestBeforeDate = DateTime.Parse(bestBeforeDate),
+                    Type = Enum.Parse<ShelvingActionType>(item.ActionType)
                 });
             }
 
-            var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", new { actions });
+            var request = new BatchShelvingRequest { Actions = actions };
+            var result = await ShelvingActionsApi.CreateBatchAsync(request);
 
-            if (response.IsSuccessStatusCode)
+            if (result.Success)
             {
                 batchSuccess = $"Successfully processed {batchScannedItems.Count} items.";
                 batchScannedItems.Clear();
@@ -895,9 +895,12 @@
             }
             else
             {
-                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                batchError = error?.Message ?? "Failed to process batch items.";
+                batchError = string.Join(", ", result.Errors);
             }
+        }
+        catch (ApiException ex)
+        {
+            batchError = ex.Content ?? "Failed to process batch items.";
         }
         catch (Exception ex)
         {
