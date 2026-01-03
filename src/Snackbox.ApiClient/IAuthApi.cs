@@ -1,5 +1,5 @@
 using Refit;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 
 namespace Snackbox.ApiClient;
 
@@ -10,10 +10,10 @@ public interface IAuthApi
 {
     [Post("/api/auth/login")]
     Task<LoginResponse> LoginAsync([Body] LoginRequest request);
-    
+
     [Post("/api/auth/set-password")]
     Task SetPasswordAsync([Body] SetPasswordRequest request);
-    
+
     [Get("/api/auth/has-password/{username}")]
     Task<HasPasswordResponse> HasPasswordAsync(string username);
 }

@@ -1,5 +1,5 @@
 using Refit;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 
 namespace Snackbox.ApiClient;
 

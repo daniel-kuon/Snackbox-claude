@@ -322,12 +322,12 @@
         try
         {
             var result = await ProductsApi.GetAllProductStockAsync();
-            products = result.ToList();
+            _products = result.ToList();
             FilterProducts();
         }
         catch (ApiException ex)
         {
-            errorMessage = $"Failed to load stock data: {ex.Message}";
+            _errorMessage = $"Failed to load stock data: {ex.Message}";
         }
         catch (Exception ex)
         {

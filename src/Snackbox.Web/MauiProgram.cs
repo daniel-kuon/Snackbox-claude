@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Snackbox.ApiClient;
 using Snackbox.Components.Services;
 using Snackbox.Web.Services;
 
@@ -34,6 +35,14 @@ public static class MauiProgram
         // Also add a default unnamed HttpClient
         builder.Services.AddHttpClient("", client => { client.BaseAddress = new Uri(clientBaseAddress); })
                .AddHttpMessageHandler<AuthenticationHeaderHandler>();
+
+        // Register all Snackbox API clients with authentication
+        builder.Services.AddSnackboxApiClientWithAuth<AuthenticationHeaderHandler>(clientBaseAddress);
+
+        builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
+        {
+            client.BaseAddress = new Uri(clientBaseAddress);
+        });
 
         // For components that still use AddScoped<HttpClient>
         builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient(""));

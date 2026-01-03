@@ -120,23 +120,7 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        var currentPrimaryBarcode = product.Barcodes.OrderBy(b => b.Id).FirstOrDefault();
-
-        // Check if new barcode conflicts with another product
-        if (currentPrimaryBarcode != null &&
-            dto.Barcode != currentPrimaryBarcode.Barcode &&
-            await _context.ProductBarcodes.AnyAsync(pb => pb.Barcode == dto.Barcode))
-        {
-            return BadRequest(new { message = "A product with this barcode already exists" });
-        }
-
         product.Name = dto.Name;
-
-        // Update the primary barcode if it changed
-        if (currentPrimaryBarcode != null && currentPrimaryBarcode.Barcode != dto.Barcode)
-        {
-            currentPrimaryBarcode.Barcode = dto.Barcode;
-        }
 
         await _context.SaveChangesAsync();
 

@@ -580,7 +580,7 @@
         }
         catch (ApiException ex)
         {
-            errorMessage = $"Failed to load products: {ex.Message}";
+            _errorMessage = $"Failed to load products: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -658,8 +658,7 @@
             {
                 var createDto = new CreateProductDto
                 {
-                    Name = productForm.Name,
-                    Barcode = productForm.Barcode
+                    Name = _productForm.Name,
                 };
                 await ProductsApi.CreateAsync(createDto);
             }
@@ -667,10 +666,9 @@
             {
                 var updateDto = new UpdateProductDto
                 {
-                    Name = productForm.Name,
-                    Barcode = productForm.Barcode
+                    Name = _productForm.Name,
                 };
-                await ProductsApi.UpdateAsync(editingProduct.Id, updateDto);
+                await ProductsApi.UpdateAsync(_editingProduct.Id, updateDto);
             }
 
             CloseModal();
@@ -678,7 +676,7 @@
         }
         catch (ApiException ex)
         {
-            modalError = ex.Content ?? "Failed to save product. Please try again.";
+            _modalError = ex.Content ?? "Failed to save product. Please try again.";
         }
         catch (Exception ex)
         {
@@ -699,13 +697,13 @@
 
         try
         {
-            await ProductsApi.DeleteAsync(productToDelete.Id);
+            await ProductsApi.DeleteAsync(_productToDelete.Id);
             CloseModal();
             await LoadProducts();
         }
         catch (ApiException ex)
         {
-            modalError = ex.Content ?? "Failed to delete product. Please try again.";
+            _modalError = ex.Content ?? "Failed to delete product. Please try again.";
         }
         catch (Exception ex)
         {
@@ -806,7 +804,7 @@
             };
 
             // For MovedToShelf, populate available dates with storage stock
-            if (_batchActionType == "MovedToShelf" && stock != null)
+            if (_batchActionType == "MovedToShelf")
             {
                 item.AvailableDates = stock.Batches
                     .Where(b => b.QuantityInStorage > 0)
@@ -871,7 +869,7 @@
 
                 if (!DateTime.TryParse(bestBeforeDate, out var parsedDate))
                 {
-                    batchError = $"Invalid date format for product '{item.Barcode}': {bestBeforeDate}";
+                    _batchError = $"Invalid date format for product '{item.Barcode}': {bestBeforeDate}";
                     return;
                 }
 
@@ -895,12 +893,12 @@
             }
             else
             {
-                batchError = string.Join(", ", result.Errors);
+                _batchError = string.Join(", ", result.Errors);
             }
         }
         catch (ApiException ex)
         {
-            batchError = ex.Content ?? "Failed to process batch items.";
+            _batchError = ex.Content ?? "Failed to process batch items.";
         }
         catch (Exception ex)
         {
@@ -928,10 +926,5 @@
     {
         [Required(ErrorMessage = "Product name is required")]
         public string Name { get; set; } = string.Empty;
-    }
-
-    private class ErrorResponse
-    {
-        public string Message { get; set; } = string.Empty;
     }
 }

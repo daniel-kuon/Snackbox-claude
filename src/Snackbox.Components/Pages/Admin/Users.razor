@@ -392,11 +392,11 @@
         try
         {
             var result = await UsersApi.GetAllAsync();
-            users = result.ToList();
+            _users = result.ToList();
         }
         catch (ApiException ex)
         {
-            errorMessage = $"Failed to load users: {ex.Message}";
+            _errorMessage = $"Failed to load users: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -438,7 +438,7 @@
         }
         catch (ApiException ex)
         {
-            errorMessage = $"Failed to load user: {ex.Message}";
+            _errorMessage = $"Failed to load user: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -458,9 +458,9 @@
                 // Create new user
                 var createDto = new CreateUserDto
                 {
-                    Username = userForm.Username,
-                    Email = userForm.Email,
-                    IsAdmin = userForm.Role == "Admin"
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    IsAdmin = _userForm.Role == "Admin"
                 };
                 await UsersApi.CreateAsync(createDto);
                 CloseModal();
@@ -471,18 +471,18 @@
                 // Update existing user
                 var updateDto = new UpdateUserDto
                 {
-                    Username = userForm.Username,
-                    Email = userForm.Email,
-                    IsAdmin = userForm.Role == "Admin"
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    IsAdmin = _userForm.Role == "Admin"
                 };
-                await UsersApi.UpdateAsync(editingUserId.Value, updateDto);
+                await UsersApi.UpdateAsync(_editingUserId.Value, updateDto);
                 CloseModal();
                 await LoadUsers();
             }
         }
         catch (ApiException ex)
         {
-            modalError = ex.Content ?? "Failed to save user. Please try again.";
+            _modalError = ex.Content ?? "Failed to save user. Please try again.";
         }
         catch (Exception ex)
         {

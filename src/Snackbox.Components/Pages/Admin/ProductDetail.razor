@@ -1,11 +1,9 @@
 @page "/admin/products/{ProductId:int}"
 @using Snackbox.Api.Dtos
-@using Snackbox.Api.Models
 @using Snackbox.ApiClient
 @using Refit
 @inject IProductsApi ProductsApi
 @inject IShelvingActionsApi ShelvingActionsApi
-@inject IProductBatchesApi ProductBatchesApi
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
