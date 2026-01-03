@@ -1,25 +1,18 @@
-using Microsoft.AspNetCore.Components;
 using Snackbox.Components.Services;
 
 namespace Snackbox.Web.Services;
 
-public class ScanNavigationService : IDisposable
+public partial class ScanNavigationService : IDisposable
 {
     private readonly WindowsScannerListener _scannerListener;
     private readonly IScannerService _scannerService;
-    private readonly AppStateService _appState;
-    private readonly NavigationManager _navigation;
 
     public ScanNavigationService(
         WindowsScannerListener scannerListener,
-        IScannerService scannerService,
-        AppStateService appState,
-        NavigationManager navigation)
+        IScannerService scannerService)
     {
         _scannerListener = scannerListener;
         _scannerService = scannerService;
-        _appState = appState;
-        _navigation = navigation;
 
         _scannerListener.CodeReceived += HandleCodeScanned;
     }

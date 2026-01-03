@@ -1,8 +1,10 @@
+@using System.Text.RegularExpressions
+@using Snackbox.Api.Dtos
 @inject HttpClient Http
 
 @if (IsVisible)
 {
-    @if (!isProductFound)
+    @if (!_isProductFound)
     {
         <div class="modal-backdrop" @onclick="Cancel"></div>
     }
@@ -17,28 +19,28 @@
                 <button class="btn-close" @onclick="Cancel">&times;</button>
             </div>
             <div class="modal-body">
-                @if (errorMessage != null)
+                @if (_errorMessage != null)
                 {
-                    <div class="alert alert-danger">@errorMessage</div>
+                    <div class="alert alert-danger">@_errorMessage</div>
                 }
 
-                @if (!isProductFound)
+                @if (!_isProductFound)
                 {
                     <!-- Barcode Search Section -->
                     <div class="form-group">
                         <label>Barcode</label>
                         <div class="input-with-button">
-                            <input type="text" 
-                                   @bind="barcodeInput" 
+                            <input type="text"
+                                   @bind="_barcodeInput"
                                    @bind:event="oninput"
                                    @onkeypress="HandleKeyPress"
-                                   class="form-control" 
+                                   class="form-control"
                                    placeholder="Enter barcode number"
-                                   disabled="@isSearching" />
-                            <button class="btn btn-primary" 
-                                    @onclick="SearchBarcode" 
-                                    disabled="@(isSearching || string.IsNullOrWhiteSpace(barcodeInput) || !IsBarcodeValid())">
-                                @if (isSearching)
+                                   disabled="@_isSearching" />
+                            <button class="btn btn-primary"
+                                    @onclick="SearchBarcode"
+                                    disabled="@(_isSearching || string.IsNullOrWhiteSpace(_barcodeInput) || !IsBarcodeValid())">
+                                @if (_isSearching)
                                 {
                                     <span class="spinner-border spinner-border-sm"></span>
                                 }
@@ -55,67 +57,59 @@
                     <!-- Product Information Display -->
                     <div class="product-info-section">
                         <h4>Product Information</h4>
-                        
+
                         <div class="info-field">
                             <label>Title:</label>
-                            <span>@lookupResult?.Title</span>
+                            <span>@_lookupResult?.Title</span>
                         </div>
-                        
-                        @if (!string.IsNullOrWhiteSpace(lookupResult?.Manufacturer))
+
+                        @if (!string.IsNullOrWhiteSpace(_lookupResult?.Manufacturer))
                         {
                             <div class="info-field">
                                 <label>Manufacturer:</label>
-                                <span>@lookupResult.Manufacturer</span>
-                            </div>
-                        }
-                        
-                        @if (!string.IsNullOrWhiteSpace(lookupResult?.Brand))
-                        {
-                            <div class="info-field">
-                                <label>Brand:</label>
-                                <span>@lookupResult.Brand</span>
+                                <span>@_lookupResult.Manufacturer</span>
                             </div>
                         }
 
-                        @if (!string.IsNullOrWhiteSpace(lookupResult?.Category))
+                        @if (!string.IsNullOrWhiteSpace(_lookupResult?.Brand))
+                        {
+                            <div class="info-field">
+                                <label>Brand:</label>
+                                <span>@_lookupResult.Brand</span>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_lookupResult?.Category))
                         {
                             <div class="info-field">
                                 <label>Category:</label>
-                                <span>@lookupResult.Category</span>
+                                <span>@_lookupResult.Category</span>
                             </div>
                         }
                     </div>
 
                     <!-- Barcode Duplicate Check -->
-                    @if (!string.IsNullOrWhiteSpace(existingProductWithBarcode))
+                    @if (!string.IsNullOrWhiteSpace(_existingProductWithBarcode))
                     {
                         <div class="alert alert-warning">
-                            <strong>⚠ Warning:</strong> A product with this barcode already exists: <strong>@existingProductWithBarcode</strong>
+                            <strong>⚠ Warning:</strong> A product with this barcode already exists: <strong>@_existingProductWithBarcode</strong>
                             <br/>Creating a new product will result in a duplicate barcode error.
                         </div>
                     }
 
                     <!-- Similar Products Section -->
-                    @if (similarProducts != null && similarProducts.Any())
+                    @if (_similarProducts != null && _similarProducts.Any())
                     {
                         <div class="similar-products-section">
                             <h4>⚠ Potential Matches Found</h4>
                             <p class="text-muted">The following existing products may be similar. Consider using one of these instead of creating a duplicate:</p>
-                            
+
                             <div class="similar-products-list">
-                                @foreach (var similar in similarProducts)
+                                @foreach (var similar in _similarProducts)
                                 {
                                     <div class="similar-product-item">
                                         <div class="similar-product-info">
                                             <strong>@similar.Name</strong>
-                                            <div class="similar-product-details">
-                                                <span class="badge">@similar.Barcode</span>
-                                                <span>€@similar.Price.ToString("F2")</span>
-                                                @if (!string.IsNullOrWhiteSpace(similar.Description))
-                                                {
-                                                    <span class="text-muted">@similar.Description</span>
-                                                }
-                                            </div>
                                         </div>
                                         <div class="match-score">@similar.MatchScore% match</div>
                                     </div>
@@ -127,49 +121,49 @@
                     <!-- Product Name Selection -->
                     <div class="form-group">
                         <label>Product Name</label>
-                        
+
                         <div class="radio-group">
                             <label class="radio-option">
-                                <input type="radio" name="nameOption" value="title" 
-                                       @onchange='() => SelectNameOption("title")' 
-                                       checked="@(selectedNameOption == "title")" />
-                                <span>@lookupResult?.Title</span>
+                                <input type="radio" name="nameOption" value="title"
+                                       @onchange='() => SelectNameOption("title")'
+                                       checked="@(_selectedNameOption == "title")" />
+                                <span>@_lookupResult?.Title</span>
                             </label>
 
-                            @if (!string.IsNullOrWhiteSpace(lookupResult?.Manufacturer))
+                            @if (!string.IsNullOrWhiteSpace(_lookupResult?.Manufacturer))
                             {
                                 <label class="radio-option">
-                                    <input type="radio" name="nameOption" value="manufacturer" 
-                                           @onchange='() => SelectNameOption("manufacturer")' 
-                                           checked="@(selectedNameOption == "manufacturer")" />
-                                    <span>@lookupResult.Manufacturer - @lookupResult.Title</span>
+                                    <input type="radio" name="nameOption" value="manufacturer"
+                                           @onchange='() => SelectNameOption("manufacturer")'
+                                           checked="@(_selectedNameOption == "manufacturer")" />
+                                    <span>@_lookupResult.Manufacturer - @_lookupResult.Title</span>
                                 </label>
                             }
 
-                            @if (!string.IsNullOrWhiteSpace(lookupResult?.Brand))
+                            @if (!string.IsNullOrWhiteSpace(_lookupResult?.Brand))
                             {
                                 <label class="radio-option">
-                                    <input type="radio" name="nameOption" value="brand" 
-                                           @onchange='() => SelectNameOption("brand")' 
-                                           checked="@(selectedNameOption == "brand")" />
-                                    <span>@lookupResult.Brand - @lookupResult.Title</span>
+                                    <input type="radio" name="nameOption" value="brand"
+                                           @onchange='() => SelectNameOption("brand")'
+                                           checked="@(_selectedNameOption == "brand")" />
+                                    <span>@_lookupResult.Brand - @_lookupResult.Title</span>
                                 </label>
                             }
 
                             <label class="radio-option">
-                                <input type="radio" name="nameOption" value="custom" 
-                                       @onchange='() => SelectNameOption("custom")' 
-                                       checked="@(selectedNameOption == "custom")" />
+                                <input type="radio" name="nameOption" value="custom"
+                                       @onchange='() => SelectNameOption("custom")'
+                                       checked="@(_selectedNameOption == "custom")" />
                                 <span>Custom Name</span>
                             </label>
                         </div>
 
-                        @if (selectedNameOption == "custom")
+                        @if (_selectedNameOption == "custom")
                         {
-                            <input type="text" 
-                                   @bind="customName" 
+                            <input type="text"
+                                   @bind="_customName"
                                    @bind:event="oninput"
-                                   class="form-control mt-2" 
+                                   class="form-control mt-2"
                                    placeholder="Enter custom product name" />
                         }
                     </div>
@@ -177,11 +171,11 @@
                     <!-- Price Field -->
                     <div class="form-group">
                         <label>Price (€)</label>
-                        <input type="number" 
-                               @bind="productPrice" 
+                        <input type="number"
+                               @bind="_productPrice"
                                @bind:event="oninput"
-                               class="form-control" 
-                               step="0.01" 
+                               class="form-control"
+                               step="0.01"
                                min="0"
                                placeholder="0.00" />
                     </div>
@@ -189,25 +183,25 @@
                     <!-- Description Field -->
                     <div class="form-group">
                         <label>Description (optional)</label>
-                        <textarea @bind="productDescription" 
+                        <textarea @bind="_productDescription"
                                   @bind:event="oninput"
-                                  class="form-control" 
-                                  rows="3" 
+                                  class="form-control"
+                                  rows="3"
                                   placeholder="Enter product description"></textarea>
                     </div>
                 }
             </div>
-            
+
             <div class="modal-footer">
-                @if (isProductFound)
+                @if (_isProductFound)
                 {
                     <button type="button" class="btn btn-secondary" @onclick="ResetSearch">Back to Search</button>
                 }
                 <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
-                @if (isProductFound)
+                @if (_isProductFound)
                 {
-                    <button type="button" class="btn btn-primary" @onclick="SaveProduct" disabled="@(isSaving || !IsFormValid())">
-                        @if (isSaving)
+                    <button type="button" class="btn btn-primary" @onclick="SaveProduct" disabled="@(_isSaving || !IsFormValid())">
+                        @if (_isSaving)
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
@@ -512,66 +506,66 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnProductCreated { get; set; }
 
-    private string barcodeInput = "";
-    private bool isSearching = false;
-    private bool isProductFound = false;
-    private bool isSaving = false;
-    private string? errorMessage;
-    
-    private BarcodeLookupProductDto? lookupResult;
-    private string selectedNameOption = "title";
-    private string customName = "";
-    private decimal productPrice = 0;
-    private string? productDescription;
-    private string? existingProductWithBarcode;
-    private List<SimilarProductDto>? similarProducts;
+    private string _barcodeInput = "";
+    private bool _isSearching;
+    private bool _isProductFound;
+    private bool _isSaving;
+    private string? _errorMessage;
+
+    private BarcodeLookupProductDto? _lookupResult;
+    private string _selectedNameOption = "title";
+    private string _customName = "";
+    private decimal _productPrice;
+    private string? _productDescription;
+    private string? _existingProductWithBarcode;
+    private List<SimilarProductDto>? _similarProducts;
 
     private bool IsBarcodeValid()
     {
-        if (string.IsNullOrWhiteSpace(barcodeInput))
+        if (string.IsNullOrWhiteSpace(_barcodeInput))
             return false;
-        
+
         // UPC, EAN, ISBN barcodes are typically 8-14 digits
-        return System.Text.RegularExpressions.Regex.IsMatch(barcodeInput.Trim(), @"^[0-9]{8,14}$");
+        return Regex.IsMatch(_barcodeInput.Trim(), @"^[0-9]{8,14}$");
     }
 
     private async Task SearchBarcode()
     {
-        if (string.IsNullOrWhiteSpace(barcodeInput))
+        if (string.IsNullOrWhiteSpace(_barcodeInput))
             return;
 
-        isSearching = true;
-        errorMessage = null;
+        _isSearching = true;
+        _errorMessage = null;
 
         try
         {
-            var response = await Http.GetFromJsonAsync<BarcodeLookupResponseDto>($"api/barcodelookup/{Uri.EscapeDataString(barcodeInput.Trim())}");
+            var response = await Http.GetFromJsonAsync<BarcodeLookupResponseDto>($"api/barcodelookup/{Uri.EscapeDataString(_barcodeInput.Trim())}");
 
             if (response?.Success == true && response.Product != null)
             {
-                lookupResult = response.Product;
-                isProductFound = true;
-                productDescription = response.Product.Description;
-                selectedNameOption = "title";
-                
+                _lookupResult = response.Product;
+                _isProductFound = true;
+                _productDescription = response.Product.Description;
+                _selectedNameOption = "title";
+
                 // Check for existing product with same barcode
-                await CheckForDuplicateBarcode(lookupResult.Barcode);
-                
+                await CheckForDuplicateBarcode(_lookupResult.Barcode);
+
                 // Find similar products using fuzzy matching
-                await FindSimilarProducts(lookupResult.Title, lookupResult.Manufacturer, lookupResult.Brand);
+                await FindSimilarProducts(_lookupResult.Title, _lookupResult.Manufacturer, _lookupResult.Brand);
             }
             else
             {
-                errorMessage = response?.ErrorMessage ?? "Product not found";
+                _errorMessage = response?.ErrorMessage ?? "Product not found";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error searching barcode: {ex.Message}";
+            _errorMessage = $"Error searching barcode: {ex.Message}";
         }
         finally
         {
-            isSearching = false;
+            _isSearching = false;
         }
     }
 
@@ -582,17 +576,17 @@
             var existingProduct = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{Uri.EscapeDataString(barcode)}");
             if (existingProduct != null)
             {
-                existingProductWithBarcode = existingProduct.Name;
+                _existingProductWithBarcode = existingProduct.Name;
             }
             else
             {
-                existingProductWithBarcode = null;
+                _existingProductWithBarcode = null;
             }
         }
         catch
         {
             // Product not found, which is good
-            existingProductWithBarcode = null;
+            _existingProductWithBarcode = null;
         }
     }
 
@@ -603,12 +597,12 @@
             var allProducts = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
             if (allProducts == null || !allProducts.Any())
             {
-                similarProducts = null;
+                _similarProducts = null;
                 return;
             }
 
             var matches = new List<SimilarProductDto>();
-            
+
             foreach (var product in allProducts)
             {
                 var matchScore = CalculateSimilarityScore(product.Name, title, manufacturer, brand);
@@ -617,21 +611,18 @@
                     matches.Add(new SimilarProductDto
                     {
                         Name = product.Name,
-                        Barcode = product.Barcode,
-                        Price = product.Price,
-                        Description = product.Description,
                         MatchScore = matchScore
                     });
                 }
             }
 
-            similarProducts = matches.OrderByDescending(m => m.MatchScore).Take(5).ToList();
+            _similarProducts = matches.OrderByDescending(m => m.MatchScore).Take(5).ToList();
         }
         catch (Exception)
         {
             // Silently fail - fuzzy search is a nice-to-have feature
             // The user can still create the product even if similarity search fails
-            similarProducts = null;
+            _similarProducts = null;
         }
     }
 
@@ -649,28 +640,28 @@
         foreach (var term in searchTerms)
         {
             var termLower = term.ToLowerInvariant();
-            
+
             // Exact match
             if (existingLower == termLower)
                 return 100;
-            
+
             // Contains check
             if (existingLower.Contains(termLower))
                 maxScore = Math.Max(maxScore, 90);
             else if (termLower.Contains(existingLower))
                 maxScore = Math.Max(maxScore, 85);
-            
+
             // Word matching
             var existingWords = existingLower.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
             var termWords = termLower.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-            
+
             var commonWords = existingWords.Intersect(termWords).Count();
             if (commonWords > 0)
             {
                 var wordScore = (int)((double)commonWords / Math.Max(existingWords.Length, termWords.Length) * 80);
                 maxScore = Math.Max(maxScore, wordScore);
             }
-            
+
             // Levenshtein distance for similar spellings
             var distance = LevenshteinDistance(existingLower, termLower);
             var maxLength = Math.Max(existingLower.Length, termLower.Length);
@@ -687,7 +678,7 @@
     private int LevenshteinDistance(string source, string target)
     {
         if (string.IsNullOrEmpty(source))
-            return target?.Length ?? 0;
+            return target.Length;
         if (string.IsNullOrEmpty(target))
             return source.Length;
 
@@ -714,7 +705,7 @@
 
     private void SelectNameOption(string option)
     {
-        selectedNameOption = option;
+        _selectedNameOption = option;
     }
 
     private static string BuildCompositeProductName(string? prefix, string title)
@@ -732,25 +723,23 @@
 
     private string GetSelectedProductName()
     {
-        if (lookupResult == null) return "";
+        if (_lookupResult == null) return "";
 
-        var title = lookupResult.Title ?? string.Empty;
-
-        return selectedNameOption switch
-        {
-            "title" => title,
-            "manufacturer" => BuildCompositeProductName(lookupResult.Manufacturer, title),
-            "brand" => BuildCompositeProductName(lookupResult.Brand, title),
-            "custom" => customName,
-            _ => title
-        };
+        return _selectedNameOption switch
+               {
+                   "title" => _lookupResult.Title,
+                   "manufacturer" => BuildCompositeProductName(_lookupResult.Manufacturer, _lookupResult.Title),
+                   "brand" => BuildCompositeProductName(_lookupResult.Brand, _lookupResult.Title),
+                   "custom" => _customName,
+                   _ => _lookupResult.Title
+               };
     }
 
     private bool IsFormValid()
     {
-        if (lookupResult == null) return false;
-        if (productPrice <= 0) return false;
-        
+        if (_lookupResult == null) return false;
+        if (_productPrice <= 0) return false;
+
         var productName = GetSelectedProductName();
         if (string.IsNullOrWhiteSpace(productName)) return false;
 
@@ -761,19 +750,19 @@
     {
         if (!IsFormValid()) return;
 
-        isSaving = true;
-        errorMessage = null;
+        _isSaving = true;
+        _errorMessage = null;
 
         try
         {
             var productName = GetSelectedProductName();
-            
+
             var response = await Http.PostAsJsonAsync("api/products", new
             {
                 name = productName,
-                barcode = lookupResult!.Barcode,
-                price = productPrice,
-                description = productDescription
+                barcode = _lookupResult!.Barcode,
+                price = _productPrice,
+                description = _productDescription
             });
 
             if (response.IsSuccessStatusCode)
@@ -785,22 +774,22 @@
             else
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                errorMessage = error?.Message ?? "Failed to create product. Please try again.";
+                _errorMessage = error?.Message ?? "Failed to create product. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error creating product: {ex.Message}";
+            _errorMessage = $"Error creating product: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private async Task HandleKeyPress(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(barcodeInput) && !isSearching)
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_barcodeInput) && !_isSearching)
         {
             await SearchBarcode();
         }
@@ -808,20 +797,20 @@
 
     private void ResetSearch()
     {
-        isProductFound = false;
-        lookupResult = null;
-        selectedNameOption = "title";
-        customName = "";
-        productPrice = 0;
-        productDescription = null;
-        errorMessage = null;
-        existingProductWithBarcode = null;
-        similarProducts = null;
+        _isProductFound = false;
+        _lookupResult = null;
+        _selectedNameOption = "title";
+        _customName = "";
+        _productPrice = 0;
+        _productDescription = null;
+        _errorMessage = null;
+        _existingProductWithBarcode = null;
+        _similarProducts = null;
     }
 
     private void ResetAll()
     {
-        barcodeInput = "";
+        _barcodeInput = "";
         ResetSearch();
     }
 
@@ -831,43 +820,9 @@
         await OnClose.InvokeAsync();
     }
 
-    private class BarcodeLookupResponseDto
-    {
-        public bool Success { get; set; }
-        public string? ErrorMessage { get; set; }
-        public BarcodeLookupProductDto? Product { get; set; }
-    }
-
-    private class BarcodeLookupProductDto
-    {
-        public required string Title { get; set; }
-        public string? Manufacturer { get; set; }
-        public string? Brand { get; set; }
-        public string? Description { get; set; }
-        public string? Category { get; set; }
-        public string Barcode { get; set; } = string.Empty;
-    }
-
-    private class ProductDto
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Barcode { get; set; } = string.Empty;
-        public decimal Price { get; set; }
-        public string? Description { get; set; }
-    }
-
     private class SimilarProductDto
     {
         public string Name { get; set; } = string.Empty;
-        public string Barcode { get; set; } = string.Empty;
-        public decimal Price { get; set; }
-        public string? Description { get; set; }
         public int MatchScore { get; set; }
-    }
-
-    private class ErrorResponse
-    {
-        public string? Message { get; set; }
     }
 }

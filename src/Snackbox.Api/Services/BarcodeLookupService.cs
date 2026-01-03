@@ -1,5 +1,6 @@
-using System.Net.Http.Json;
-using Snackbox.Api.DTOs;
+using System.Net;
+using System.Text.Json;
+using Snackbox.Api.Dtos;
 
 namespace Snackbox.Api.Services;
 
@@ -48,13 +49,13 @@ public class BarcodeLookupService : IBarcodeLookupService
                 
                 var errorMessage = response.StatusCode switch
                 {
-                    System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden 
+                    HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden 
                         => "Invalid API key. Please check your configuration.",
-                    System.Net.HttpStatusCode.TooManyRequests 
+                    HttpStatusCode.TooManyRequests 
                         => "API rate limit exceeded. Please try again later.",
-                    System.Net.HttpStatusCode.NotFound 
+                    HttpStatusCode.NotFound 
                         => "Product not found for this barcode.",
-                    System.Net.HttpStatusCode.BadRequest 
+                    HttpStatusCode.BadRequest 
                         => "Invalid barcode format.",
                     _ => $"API request failed with status {response.StatusCode}"
                 };
@@ -95,7 +96,7 @@ public class BarcodeLookupService : IBarcodeLookupService
                 }
             };
         }
-        catch (System.Text.Json.JsonException ex)
+        catch (JsonException ex)
         {
             _logger.LogError(ex, "Failed to parse API response for barcode: {Barcode}", barcode);
             return new BarcodeLookupResponseDto

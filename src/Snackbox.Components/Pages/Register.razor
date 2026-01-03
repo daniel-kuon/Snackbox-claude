@@ -1,10 +1,9 @@
 @page "/register"
-@using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Components
-@using Snackbox.Web.Services
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject IScannerListener ScannerListener
+@using System.ComponentModel.DataAnnotations
+@using System.Timers
 @implements IDisposable
 
 <PageTitle>Register - Snackbox</PageTitle>
@@ -20,39 +19,39 @@
             <p class="text-small">You can scan your personal barcode or enter it manually below.</p>
         </div>
 
-        @if (!string.IsNullOrEmpty(errorMessage))
+        @if (!string.IsNullOrEmpty(_errorMessage))
         {
-            <div class="alert alert-danger" role="alert">@errorMessage</div>
+            <div class="alert alert-danger" role="alert">@_errorMessage</div>
         }
-        @if (!string.IsNullOrEmpty(successMessage))
+        @if (!string.IsNullOrEmpty(_successMessage))
         {
-            <div class="alert alert-success" role="alert">@successMessage</div>
+            <div class="alert alert-success" role="alert">@_successMessage</div>
         }
 
-        <EditForm Model="@registerModel" OnValidSubmit="@HandleRegister" FormName="register">
+        <EditForm Model="@_registerModel" OnValidSubmit="@HandleRegister" FormName="register">
             <DataAnnotationsValidator />
 
             <div class="form-group">
                 <label for="barcode">Your Barcode *</label>
                 <InputText
                     id="barcode"
-                    @bind-Value="registerModel.BarcodeValue"
+                    @bind-Value="_registerModel.BarcodeValue"
                     class="form-control"
                     placeholder="Scan or enter your barcode"
                     autofocus
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => registerModel.BarcodeValue)" />
+                    disabled="@_isLoading" />
+                <ValidationMessage For="@(() => _registerModel.BarcodeValue)" />
             </div>
 
             <div class="form-group">
                 <label for="name">Your Name *</label>
                 <InputText
                     id="name"
-                    @bind-Value="registerModel.Name"
+                    @bind-Value="_registerModel.Name"
                     class="form-control"
                     placeholder="Enter your full name"
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => registerModel.Name)" />
+                    disabled="@_isLoading" />
+                <ValidationMessage For="@(() => _registerModel.Name)" />
             </div>
 
             <div class="form-group">
@@ -60,11 +59,11 @@
                 <InputText
                     id="email"
                     type="email"
-                    @bind-Value="registerModel.Email"
+                    @bind-Value="_registerModel.Email"
                     class="form-control"
                     placeholder="Enter your email (optional)"
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => registerModel.Email)" />
+                    disabled="@_isLoading" />
+                <ValidationMessage For="@(() => _registerModel.Email)" />
                 <small class="form-text">Email is optional but recommended for password login.</small>
             </div>
 
@@ -73,16 +72,16 @@
                 <InputText
                     id="password"
                     type="password"
-                    @bind-Value="registerModel.Password"
+                    @bind-Value="_registerModel.Password"
                     class="form-control"
                     placeholder="Create a password (optional)"
-                    disabled="@isLoading" />
-                <ValidationMessage For="@(() => registerModel.Password)" />
+                    disabled="@_isLoading" />
+                <ValidationMessage For="@(() => _registerModel.Password)" />
                 <small class="form-text">Create a password if you want to log in without your barcode.</small>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@isLoading">
-                @if (isLoading)
+            <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@_isLoading">
+                @if (_isLoading)
                 {
                     <span class="spinner-border spinner-border-sm"></span>
                     <span> Creating account...</span>
@@ -294,12 +293,12 @@
 </style>
 
 @code {
-    private string? errorMessage;
-    private string? successMessage;
-    private bool isLoading;
-    private System.Timers.Timer? _timeoutTimer;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private bool _isLoading;
+    private Timer? _timeoutTimer;
 
-    private RegisterModel registerModel = new();
+    private RegisterModel _registerModel = new();
 
     [SupplyParameterFromQuery(Name = "barcode")]
     public string? BarcodeFromQuery { get; set; }
@@ -308,7 +307,7 @@
     {
         if (!string.IsNullOrEmpty(BarcodeFromQuery))
         {
-            registerModel.BarcodeValue = BarcodeFromQuery;
+            _registerModel.BarcodeValue = BarcodeFromQuery;
         }
 
         // Listen for barcode scans
@@ -323,7 +322,7 @@
     {
         await InvokeAsync(() =>
         {
-            registerModel.BarcodeValue = code;
+            _registerModel.BarcodeValue = code;
             StateHasChanged();
             ResetTimeout();
         });
@@ -331,25 +330,25 @@
 
     private async Task HandleRegister()
     {
-        errorMessage = null;
-        successMessage = null;
-        isLoading = true;
+        _errorMessage = null;
+        _successMessage = null;
+        _isLoading = true;
 
         try
         {
             var requestBody = new
             {
-                BarcodeValue = registerModel.BarcodeValue,
-                Name = registerModel.Name,
-                Email = string.IsNullOrWhiteSpace(registerModel.Email) ? null : registerModel.Email,
-                Password = string.IsNullOrWhiteSpace(registerModel.Password) ? null : registerModel.Password
+                _registerModel.BarcodeValue,
+                _registerModel.Name,
+                Email = string.IsNullOrWhiteSpace(_registerModel.Email) ? null : _registerModel.Email,
+                Password = string.IsNullOrWhiteSpace(_registerModel.Password) ? null : _registerModel.Password
             };
 
             var response = await Http.PostAsJsonAsync("/api/users/register", requestBody);
 
             if (response.IsSuccessStatusCode)
             {
-                successMessage = "Account created successfully! Returning to scanner...";
+                _successMessage = "Account created successfully! Returning to scanner...";
                 await Task.Delay(3000);
                 Navigation.NavigateTo("/scan", forceLoad: true);
             }
@@ -358,32 +357,32 @@
                 var errorContent = await response.Content.ReadAsStringAsync();
                 if (errorContent.Contains("already registered"))
                 {
-                    errorMessage = "This barcode is already registered. Please use the login page.";
+                    _errorMessage = "This barcode is already registered. Please use the login page.";
                 }
                 else if (errorContent.Contains("does not exist"))
                 {
-                    errorMessage = "Invalid barcode. This barcode is not in the system. Please contact an administrator.";
+                    _errorMessage = "Invalid barcode. This barcode is not in the system. Please contact an administrator.";
                 }
                 else
                 {
-                    errorMessage = "Registration failed. Please try again.";
+                    _errorMessage = "Registration failed. Please try again.";
                 }
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred: {ex.Message}";
+            _errorMessage = $"An error occurred: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
     private void StartTimeout()
     {
-        _timeoutTimer = new System.Timers.Timer(60000); // 60 seconds
-        _timeoutTimer.Elapsed += (sender, e) =>
+        _timeoutTimer = new Timer(60000); // 60 seconds
+        _timeoutTimer.Elapsed += (_, _) =>
         {
             Navigation.NavigateTo("/scan", forceLoad: true);
         };

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Controllers;
@@ -12,7 +12,7 @@ public class ScannerController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
-    private const int DEFAULT_TIMEOUT_SECONDS = 60;
+    private const int DefaultTimeoutSeconds = 60;
 
     public ScannerController(ApplicationDbContext context, IConfiguration configuration)
     {
@@ -24,7 +24,7 @@ public class ScannerController : ControllerBase
     public async Task<ActionResult<ScanBarcodeResponse>> ScanBarcode([FromBody] ScanBarcodeRequest request)
     {
         // Get timeout from configuration
-        var timeoutSeconds = _configuration.GetValue<int>("Scanner:TimeoutSeconds", DEFAULT_TIMEOUT_SECONDS);
+        var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
         var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
 
         // Find the barcode

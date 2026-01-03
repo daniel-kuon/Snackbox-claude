@@ -4,7 +4,8 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Snackbox.Api.Data;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
+using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Services;
 
@@ -80,7 +81,7 @@ public class AuthenticationService : IAuthenticationService
             .Include(b => b.User)
             .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
 
-        if (barcode == null || barcode.User == null || string.IsNullOrEmpty(barcode.User.PasswordHash))
+        if (barcode == null || string.IsNullOrEmpty(barcode.User.PasswordHash))
         {
             return null;
         }
@@ -142,7 +143,7 @@ public class AuthenticationService : IAuthenticationService
         return user != null && !string.IsNullOrEmpty(user.PasswordHash);
     }
 
-    private string GenerateJwtToken(Models.User user)
+    private string GenerateJwtToken(User user)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
         var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");

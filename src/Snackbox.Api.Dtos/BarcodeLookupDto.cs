@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Snackbox.Api.DTOs;
+namespace Snackbox.Api.Dtos;
 
 public class BarcodeLookupResponseDto
 {

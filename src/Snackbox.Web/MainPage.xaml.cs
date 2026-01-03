@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Components.WebView;
+﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.WebView;
 
 namespace Snackbox.Web;
 
-public partial class MainPage : ContentPage
+public partial class MainPage
 {
 	private bool _isFirstLoad = true;
 
@@ -20,12 +21,12 @@ public partial class MainPage : ContentPage
 			e.UrlLoadingStrategy = UrlLoadingStrategy.OpenInWebView;
 
 			// Navigate to scan page after a short delay to ensure Blazor is initialized
-			Dispatcher.Dispatch(async () =>
+			Dispatcher.DispatchAsync(async () =>
 			{
 				await Task.Delay(100);
-				await blazorWebView.TryDispatchAsync(sp =>
+				await BlazorWebView.TryDispatchAsync(sp =>
 				{
-					var navigationManager = sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+					var navigationManager = sp.GetRequiredService<NavigationManager>();
 					navigationManager.NavigateTo("/scan", forceLoad: false);
 				});
 			});
