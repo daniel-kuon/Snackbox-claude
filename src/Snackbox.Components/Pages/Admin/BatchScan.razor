@@ -537,15 +537,28 @@
 
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<List<ShelvingActionDto>>();
+                var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
 
+                if (result?.Errors?.Any() == true)
+                {
+                    processError = $"Some actions failed: {string.Join(", ", result.Errors)}";
+                    if (result.Results?.Any() == true)
+                    {
+                        processSuccess = $"Successfully processed {result.Results.Count} items.";
+                    }
+                }
+                else
+                {
                     processSuccess = $"Successfully processed {scannedItems.Count} items.";
                     scannedItems.Clear();
+                }
             }
             else
             {
-                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                processError = error?.Message ?? "Failed to process batch. Please try again.";
+                var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
+                processError = result?.Errors?.Any() == true
+                    ? string.Join(", ", result.Errors)
+                    : "Failed to process batch. Please try again.";
             }
         }
         catch (Exception ex)
