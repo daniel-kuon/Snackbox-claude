@@ -405,7 +405,7 @@
     private string currentBarcode = "";
     private string selectedActionType = "AddedToStorage";
     private int defaultQuantity = 1;
-    private List<ScannedItem> scannedItems = new();
+    private readonly List<ScannedItem> scannedItems = new();
     private string? scanError;
     private string? processError;
     private string? processSuccess;
