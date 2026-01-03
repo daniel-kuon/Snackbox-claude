@@ -511,9 +511,8 @@
         [System.ComponentModel.DataAnnotations.Required]
         public string Username { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required]
         [System.ComponentModel.DataAnnotations.EmailAddress]
-        public string Email { get; set; } = string.Empty;
+        public string? Email { get; set; }
 
         [System.ComponentModel.DataAnnotations.Required]
         public string Role { get; set; } = "User";

@@ -20,12 +20,12 @@ public class BarcodeLookupProductDto
 }
 
 // Internal DTO for API response from barcodelookup.com
-internal class BarcodeLookupApiResponse
+public class BarcodeLookupApiResponse
 {
     public List<BarcodeLookupApiProduct>? Products { get; set; }
 }
 
-internal class BarcodeLookupApiProduct
+public class BarcodeLookupApiProduct
 {
     [JsonPropertyName("barcode_number")]
     public string? BarcodeNumber { get; set; }

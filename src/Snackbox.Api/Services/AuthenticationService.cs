@@ -153,13 +153,18 @@ public class AuthenticationService : IAuthenticationService
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.Role, user.IsAdmin ? "Admin" : "User")
         };
+
+        // Only add email claim if email is provided
+        if (!string.IsNullOrEmpty(user.Email))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+        }
 
         var token = new JwtSecurityToken(
             issuer: issuer,
