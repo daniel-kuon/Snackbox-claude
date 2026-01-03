@@ -72,7 +72,7 @@ namespace Snackbox.Api.Migrations
                         {
                             Id = 1,
                             Amount = 5.00m,
-                            Code = "USER2-5EUR",
+                            Code = "4061461764012",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             IsLoginOnly = false,
@@ -112,7 +112,7 @@ namespace Snackbox.Api.Migrations
                         {
                             Id = 5,
                             Amount = 0m,
-                            Code = "ADMIN-LOGIN",
+                            Code = "4260473313809",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             IsLoginOnly = true,
@@ -261,6 +261,64 @@ namespace Snackbox.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("BestBeforeInStock")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("best_before_in_stock");
+
+                    b.Property<DateTime?>("BestBeforeOnShelf")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("best_before_on_shelf");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("products");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Chips - Salt"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Chocolate Bar"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Energy Drink"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cookies"
+                        });
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.ProductBarcode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
                     b.Property<string>("Barcode")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -271,27 +329,22 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer")
+                        .HasColumnName("product_id");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("name");
-
-                    b.Property<decimal>("Price")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("price");
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Barcode")
                         .IsUnique();
 
-                    b.ToTable("products");
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("product_barcodes");
 
                     b.HasData(
                         new
@@ -299,36 +352,48 @@ namespace Snackbox.Api.Migrations
                             Id = 1,
                             Barcode = "1234567890123",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Classic salted potato chips",
-                            Name = "Chips - Salt",
-                            Price = 1.50m
+                            ProductId = 1,
+                            Quantity = 1
                         },
                         new
                         {
                             Id = 2,
-                            Barcode = "1234567890124",
+                            Barcode = "1234567890123-BOX",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Milk chocolate bar",
-                            Name = "Chocolate Bar",
-                            Price = 2.00m
+                            ProductId = 1,
+                            Quantity = 12
                         },
                         new
                         {
                             Id = 3,
-                            Barcode = "1234567890125",
+                            Barcode = "1234567890124",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Sugar-free energy drink",
-                            Name = "Energy Drink",
-                            Price = 2.50m
+                            ProductId = 2,
+                            Quantity = 1
                         },
                         new
                         {
                             Id = 4,
+                            Barcode = "1234567890124-PACK",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ProductId = 2,
+                            Quantity = 5
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Barcode = "1234567890125",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ProductId = 3,
+                            Quantity = 1
+                        },
+                        new
+                        {
+                            Id = 6,
                             Barcode = "1234567890126",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Chocolate chip cookies",
-                            Name = "Cookies",
-                            Price = 1.75m
+                            ProductId = 4,
+                            Quantity = 1
                         });
                 });
 
@@ -480,7 +545,7 @@ namespace Snackbox.Api.Migrations
                             ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
                             ProductBatchId = 1,
                             Quantity = 20,
-                            Type = 1
+                            Type = 2
                         },
                         new
                         {
@@ -496,7 +561,7 @@ namespace Snackbox.Api.Migrations
                             ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
                             ProductBatchId = 2,
                             Quantity = 15,
-                            Type = 1
+                            Type = 2
                         },
                         new
                         {
@@ -512,7 +577,7 @@ namespace Snackbox.Api.Migrations
                             ActionAt = new DateTime(2024, 1, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             ProductBatchId = 3,
                             Quantity = 25,
-                            Type = 1
+                            Type = 2
                         },
                         new
                         {
@@ -528,7 +593,7 @@ namespace Snackbox.Api.Migrations
                             ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
                             ProductBatchId = 4,
                             Quantity = 18,
-                            Type = 1
+                            Type = 2
                         });
                 });
 
@@ -546,7 +611,6 @@ namespace Snackbox.Api.Migrations
                         .HasColumnName("created_at");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
@@ -582,7 +646,7 @@ namespace Snackbox.Api.Migrations
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "admin@snackbox.com",
                             IsAdmin = true,
-                            PasswordHash = "$2a$11$hashedpassword",
+                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.gBAGZERO3WEhOw84rLKyWNOe90gtIZi",
                             Username = "admin"
                         },
                         new
@@ -591,7 +655,7 @@ namespace Snackbox.Api.Migrations
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "john.doe@company.com",
                             IsAdmin = false,
-                            PasswordHash = "$2a$11$hashedpassword",
+                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.nhwgnkeU3Z3ua5zEq5X5I6iMvqFFYkO",
                             Username = "john.doe"
                         },
                         new
@@ -645,6 +709,17 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.ProductBarcode", b =>
+                {
+                    b.HasOne("Snackbox.Api.Models.Product", "Product")
+                        .WithMany("Barcodes")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.ProductBatch", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.Product", "Product")
@@ -685,6 +760,8 @@ namespace Snackbox.Api.Migrations
 
             modelBuilder.Entity("Snackbox.Api.Models.Product", b =>
                 {
+                    b.Navigation("Barcodes");
+
                     b.Navigation("Batches");
                 });
 

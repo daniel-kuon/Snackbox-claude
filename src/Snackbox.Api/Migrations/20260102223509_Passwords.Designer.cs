@@ -12,8 +12,8 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251228163812_CreateInitialSchema")]
-    partial class CreateInitialSchema
+    [Migration("20260102223509_Passwords")]
+    partial class Passwords
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -75,7 +75,7 @@ namespace Snackbox.Api.Migrations
                         {
                             Id = 1,
                             Amount = 5.00m,
-                            Code = "USER2-5EUR",
+                            Code = "4061461764012",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             IsLoginOnly = false,
@@ -115,7 +115,7 @@ namespace Snackbox.Api.Migrations
                         {
                             Id = 5,
                             Amount = 0m,
-                            Code = "ADMIN-LOGIN",
+                            Code = "4260473313809",
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true,
                             IsLoginOnly = true,
@@ -549,7 +549,6 @@ namespace Snackbox.Api.Migrations
                         .HasColumnName("created_at");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
@@ -585,7 +584,7 @@ namespace Snackbox.Api.Migrations
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "admin@snackbox.com",
                             IsAdmin = true,
-                            PasswordHash = "$2a$11$hashedpassword",
+                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.gBAGZERO3WEhOw84rLKyWNOe90gtIZi",
                             Username = "admin"
                         },
                         new
@@ -594,7 +593,7 @@ namespace Snackbox.Api.Migrations
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "john.doe@company.com",
                             IsAdmin = false,
-                            PasswordHash = "$2a$11$hashedpassword",
+                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.nhwgnkeU3Z3ua5zEq5X5I6iMvqFFYkO",
                             Username = "john.doe"
                         },
                         new

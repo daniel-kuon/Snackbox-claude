@@ -9,6 +9,12 @@ public partial class App : Application
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		return new Window(new MainPage()) { Title = "Snackbox.Web" };
+		var window = new Window(new MainPage()) { Title = "Snackbox.Web" };
+
+		// Set initial window size
+		window.Width = 1280;
+		window.Height = 1024;
+
+		return window;
 	}
 }

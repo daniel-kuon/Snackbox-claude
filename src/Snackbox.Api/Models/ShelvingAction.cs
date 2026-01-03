@@ -11,12 +11,3 @@ public class ShelvingAction
     // Navigation properties
     public ProductBatch ProductBatch { get; set; } = null!;
 }
-
-public enum ShelvingActionType
-{
-    AddedToStorage,
-    MovedToShelf,
-    MovedFromShelf,
-    RemovedFromStorage,
-    RemovedFromShelf
-}

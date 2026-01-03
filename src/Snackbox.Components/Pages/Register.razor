@@ -1,0 +1,421 @@
+@page "/register"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components
+@using Snackbox.Web.Services
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IScannerListener ScannerListener
+@implements IDisposable
+
+<PageTitle>Register - Snackbox</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <h2>Create Account</h2>
+        <p class="login-subtitle">Setup your Snackbox account</p>
+
+        <div class="info-box">
+            <p><strong>👋 Welcome!</strong></p>
+            <p>Please scan <strong>any barcode that is assigned to you</strong> to create your account.</p>
+            <p class="text-small">You can scan your personal barcode or enter it manually below.</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" role="alert">@errorMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success" role="alert">@successMessage</div>
+        }
+
+        <EditForm Model="@registerModel" OnValidSubmit="@HandleRegister" FormName="register">
+            <DataAnnotationsValidator />
+
+            <div class="form-group">
+                <label for="barcode">Your Barcode *</label>
+                <InputText
+                    id="barcode"
+                    @bind-Value="registerModel.BarcodeValue"
+                    class="form-control"
+                    placeholder="Scan or enter your barcode"
+                    autofocus
+                    disabled="@isLoading" />
+                <ValidationMessage For="@(() => registerModel.BarcodeValue)" />
+            </div>
+
+            <div class="form-group">
+                <label for="name">Your Name *</label>
+                <InputText
+                    id="name"
+                    @bind-Value="registerModel.Name"
+                    class="form-control"
+                    placeholder="Enter your full name"
+                    disabled="@isLoading" />
+                <ValidationMessage For="@(() => registerModel.Name)" />
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address (Optional)</label>
+                <InputText
+                    id="email"
+                    type="email"
+                    @bind-Value="registerModel.Email"
+                    class="form-control"
+                    placeholder="Enter your email (optional)"
+                    disabled="@isLoading" />
+                <ValidationMessage For="@(() => registerModel.Email)" />
+                <small class="form-text">Email is optional but recommended for password login.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password (Optional)</label>
+                <InputText
+                    id="password"
+                    type="password"
+                    @bind-Value="registerModel.Password"
+                    class="form-control"
+                    placeholder="Create a password (optional)"
+                    disabled="@isLoading" />
+                <ValidationMessage For="@(() => registerModel.Password)" />
+                <small class="form-text">Create a password if you want to log in without your barcode.</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-block" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm"></span>
+                    <span> Creating account...</span>
+                }
+                else
+                {
+                    <span>Create Account</span>
+                }
+            </button>
+        </EditForm>
+
+        <div class="important-notice">
+            <p><strong>⚠️ Important:</strong> After creating your account, please <strong>scan your barcode again</strong> to start using Snackbox. Nothing has been added to your account yet.</p>
+        </div>
+
+        <div class="login-info">
+            <small class="text-muted">
+                Already have an account? <a href="/login" class="register-link">Login here</a>
+            </small>
+        </div>
+    </div>
+</div>
+
+<style>
+    .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 80vh;
+        padding: 20px;
+    }
+
+    .login-card {
+        max-width: 500px;
+        width: 100%;
+        padding: 2rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .login-card h2 {
+        text-align: center;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .login-subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-box {
+        background: #e7f3ff;
+        border-left: 4px solid #007bff;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-radius: 4px;
+    }
+
+    .info-box p {
+        margin: 0.5rem 0;
+        color: #004085;
+    }
+
+    .info-box .text-small {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+
+    .important-notice {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 1rem;
+        margin-top: 1.5rem;
+        border-radius: 4px;
+    }
+
+    .important-notice p {
+        margin: 0;
+        color: #856404;
+        font-size: 0.9rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 0.25rem;
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #0056b3;
+    }
+
+    .btn:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+
+    .btn-lg {
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+    }
+
+    .btn-block {
+        display: block;
+        width: 100%;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+
+    .login-info {
+        margin-top: 1.5rem;
+        text-align: center;
+    }
+
+    .register-link {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .register-link:hover {
+        text-decoration: underline;
+    }
+
+    .spinner-border {
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        animation: spinner-border 0.75s linear infinite;
+    }
+
+    .spinner-border-sm {
+        width: 0.875rem;
+        height: 0.875rem;
+        border-width: 0.15em;
+    }
+
+    @@keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+
+    .text-muted {
+        color: #6c757d;
+    }
+</style>
+
+@code {
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading;
+    private System.Timers.Timer? _timeoutTimer;
+
+    private RegisterModel registerModel = new();
+
+    [SupplyParameterFromQuery(Name = "barcode")]
+    public string? BarcodeFromQuery { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(BarcodeFromQuery))
+        {
+            registerModel.BarcodeValue = BarcodeFromQuery;
+        }
+
+        // Listen for barcode scans
+        ScannerListener.CodeReceived += HandleBarcodeScanned;
+        ScannerListener.Start();
+
+        // Start 60 second timeout
+        StartTimeout();
+    }
+
+    private async void HandleBarcodeScanned(string code)
+    {
+        await InvokeAsync(() =>
+        {
+            registerModel.BarcodeValue = code;
+            StateHasChanged();
+            ResetTimeout();
+        });
+    }
+
+    private async Task HandleRegister()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isLoading = true;
+
+        try
+        {
+            var requestBody = new
+            {
+                BarcodeValue = registerModel.BarcodeValue,
+                Name = registerModel.Name,
+                Email = string.IsNullOrWhiteSpace(registerModel.Email) ? null : registerModel.Email,
+                Password = string.IsNullOrWhiteSpace(registerModel.Password) ? null : registerModel.Password
+            };
+
+            var response = await Http.PostAsJsonAsync("/api/users/register", requestBody);
+
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = "Account created successfully! Returning to scanner...";
+                await Task.Delay(3000);
+                Navigation.NavigateTo("/scan", forceLoad: true);
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                if (errorContent.Contains("already registered"))
+                {
+                    errorMessage = "This barcode is already registered. Please use the login page.";
+                }
+                else if (errorContent.Contains("does not exist"))
+                {
+                    errorMessage = "Invalid barcode. This barcode is not in the system. Please contact an administrator.";
+                }
+                else
+                {
+                    errorMessage = "Registration failed. Please try again.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void StartTimeout()
+    {
+        _timeoutTimer = new System.Timers.Timer(60000); // 60 seconds
+        _timeoutTimer.Elapsed += (sender, e) =>
+        {
+            Navigation.NavigateTo("/scan", forceLoad: true);
+        };
+        _timeoutTimer.AutoReset = false;
+        _timeoutTimer.Start();
+    }
+
+    private void ResetTimeout()
+    {
+        _timeoutTimer?.Stop();
+        _timeoutTimer?.Dispose();
+        StartTimeout();
+    }
+
+    public void Dispose()
+    {
+        ScannerListener.CodeReceived -= HandleBarcodeScanned;
+        _timeoutTimer?.Dispose();
+    }
+
+    private class RegisterModel
+    {
+        [Required(ErrorMessage = "Barcode is required")]
+        public string BarcodeValue { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Name is required")]
+        public string Name { get; set; } = string.Empty;
+
+        [EmailAddress(ErrorMessage = "Invalid email address")]
+        public string? Email { get; set; }
+
+        [MinLength(6, ErrorMessage = "Password must be at least 6 characters")]
+        public string? Password { get; set; }
+    }
+}

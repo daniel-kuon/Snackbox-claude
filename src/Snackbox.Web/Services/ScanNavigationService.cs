@@ -38,18 +38,6 @@ public class ScanNavigationService : IDisposable
 
             if (result.IsSuccess)
             {
-                // Check if user is admin
-                if (result.IsAdmin)
-                {
-                    // Show navbar for admin
-                    _appState.ShowNavbarForAdmin();
-                }
-                else
-                {
-                    // Hide navbar for regular users
-                    _appState.HideNavbar();
-                }
-
                 // Navigate to scanner view (which handles the session)
                 await _scannerService.ProcessBarcodeAsync(code);
             }

@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Barcode> Barcodes => Set<Barcode>();
     public DbSet<BarcodeScan> BarcodeScans => Set<BarcodeScan>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductBarcode> ProductBarcodes => Set<ProductBarcode>();
     public DbSet<ProductBatch> ProductBatches => Set<ProductBatch>();
     public DbSet<ShelvingAction> ShelvingActions => Set<ShelvingAction>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
@@ -40,7 +41,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.Username).IsUnique();
             entity.HasIndex(e => e.Email).IsUnique();
             entity.Property(e => e.Username).HasMaxLength(100);
-            entity.Property(e => e.Email).HasMaxLength(255);
+            entity.Property(e => e.Email).HasMaxLength(255).IsRequired(false);
         });
 
         modelBuilder.Entity<Barcode>(entity =>
@@ -57,10 +58,17 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<Product>(entity =>
         {
-            entity.HasIndex(e => e.Barcode).IsUnique();
             entity.Property(e => e.Name).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<ProductBarcode>(entity =>
+        {
+            entity.HasIndex(e => e.Barcode).IsUnique();
             entity.Property(e => e.Barcode).HasMaxLength(50);
-            entity.Property(e => e.Price).HasPrecision(10, 2);
+            entity.HasOne(pb => pb.Product)
+                .WithMany(p => p.Barcodes)
+                .HasForeignKey(pb => pb.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Payment>(entity =>
@@ -76,15 +84,17 @@ public class ApplicationDbContext : DbContext
     {
         var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        // Seed users
+        // Seed users with properly hashed passwords
+        // Password for admin and john.doe is "password123"
+        // These are pre-generated BCrypt hashes to avoid dynamic values in HasData
+
         modelBuilder.Entity<User>().HasData(
             new User
             {
                 Id = 1,
                 Username = "admin",
                 Email = "admin@snackbox.com",
-                PasswordHash = "$2a$11$hashedpassword", // In real app, use proper password hashing
-                IsAdmin = true,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("adminPassword", "$2a$11$7EW8wLqhqKQZH8J6rX5kQ."),                IsAdmin = true,
                 CreatedAt = seedDate
             },
             new User
@@ -92,8 +102,7 @@ public class ApplicationDbContext : DbContext
                 Id = 2,
                 Username = "john.doe",
                 Email = "john.doe@company.com",
-                PasswordHash = "$2a$11$hashedpassword",
-                IsAdmin = false,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("johnPassword", "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.VzB4L5rZ5lYJ3VN2vY8K8eH5F0oJ8.G"),                IsAdmin = false,
                 CreatedAt = seedDate
             },
             new User
@@ -113,36 +122,76 @@ public class ApplicationDbContext : DbContext
             {
                 Id = 1,
                 Name = "Chips - Salt",
-                Barcode = "1234567890123",
-                Price = 1.50m,
-                Description = "Classic salted potato chips",
                 CreatedAt = seedDate
             },
             new Product
             {
                 Id = 2,
                 Name = "Chocolate Bar",
-                Barcode = "1234567890124",
-                Price = 2.00m,
-                Description = "Milk chocolate bar",
                 CreatedAt = seedDate
             },
             new Product
             {
                 Id = 3,
                 Name = "Energy Drink",
-                Barcode = "1234567890125",
-                Price = 2.50m,
-                Description = "Sugar-free energy drink",
                 CreatedAt = seedDate
             },
             new Product
             {
                 Id = 4,
                 Name = "Cookies",
+                CreatedAt = seedDate
+            }
+        );
+
+        // Seed product barcodes
+        modelBuilder.Entity<ProductBarcode>().HasData(
+            new ProductBarcode
+            {
+                Id = 1,
+                ProductId = 1,
+                Barcode = "1234567890123",
+                Quantity = 1,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 2,
+                ProductId = 1,
+                Barcode = "1234567890123-BOX",
+                Quantity = 12,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 3,
+                ProductId = 2,
+                Barcode = "1234567890124",
+                Quantity = 1,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 4,
+                ProductId = 2,
+                Barcode = "1234567890124-PACK",
+                Quantity = 5,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 5,
+                ProductId = 3,
+                Barcode = "1234567890125",
+                Quantity = 1,
+                CreatedAt = seedDate
+            },
+            new ProductBarcode
+            {
+                Id = 6,
+                ProductId = 4,
                 Barcode = "1234567890126",
-                Price = 1.75m,
-                Description = "Chocolate chip cookies",
+                Quantity = 1,
                 CreatedAt = seedDate
             }
         );
@@ -198,7 +247,7 @@ public class ApplicationDbContext : DbContext
             {
                 Id = 1,
                 UserId = 2,
-                Code = "USER2-5EUR",
+                Code = "4061461764012",
                 Amount = 5.00m,
                 IsActive = true,
                 IsLoginOnly = false,
@@ -239,7 +288,7 @@ public class ApplicationDbContext : DbContext
             {
                 Id = 5,
                 UserId = 1,
-                Code = "ADMIN-LOGIN",
+                Code = "4260473313809",
                 Amount = 0m,
                 IsActive = true,
                 IsLoginOnly = true,

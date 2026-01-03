@@ -1,8 +1,10 @@
 @page "/scan"
+@layout EmptyLayout
 @using Snackbox.Web.Services
 @using Snackbox.Components.Services
 @using Snackbox.Components.Models
 @using Snackbox.Components.Components
+@using Snackbox.Web.Components.Layout
 @inject AppStateService AppState
 @inject WindowsScannerListener ScannerListener
 @inject IScannerService ScannerService
@@ -49,11 +51,10 @@
                     @if (session.ScannedBarcodes.Any())
                     {
                         <div class="items-list">
-                            @foreach (var barcode in session.ScannedBarcodes)
+                            @foreach (var barcode in session.ScannedBarcodes.GroupBy(c => c.Amount))
                             {
                                 <div class="purchase-item">
-                                    <span class="item-name">@barcode.ScannedAt.ToString("HH:mm:ss")</span>
-                                    <span class="item-price">@barcode.Amount.ToString("C")</span>
+                                    <span class="item-price">@barcode.Count() x @barcode.Key.ToString("C")</span>
                                 </div>
                             }
                         </div>
@@ -125,8 +126,8 @@
                     <div class="qr-code-wrapper">
                         <QRCodeComponent PayPalUrl="@($"https://paypal.me/dkuon/{Math.Abs(session.OpenAmount):F2}")" Size="250" />
                     </div>
-                    <p class="qr-instruction" style="margin-top: 0;">Scan to pay @Math.Abs(session.OpenAmount).ToString("C") or go to https://paypal.me/dkuon/@(Math.Abs(session.OpenAmount).ToString("F2"))</p>
-                    <p>Payments will not instantly show up.</p>
+                    <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C") or go to https://paypal.me/dkuon/@(Math.Abs(session.OpenAmount).ToString("F2"))<br />
+                    Payments will not show up instantly.</p>
 
                     <!-- Scan instruction -->
                     <div class="scan-instruction-box">
@@ -483,8 +484,6 @@
 
     protected override void OnInitialized()
     {
-        // Ensure navbar is hidden on home page initially
-        AppState.HideNavbar();
 
         // Subscribe to scanner events
         ScannerListener.CodeReceived += HandleCodeScanned;
@@ -503,7 +502,20 @@
     {
         try
         {
-            // Process the barcode through the service
+            // First check if this is an admin scan
+            var scanResult = await ScannerService.ScanBarcodeAsync(code);
+
+            if (scanResult != null && scanResult.IsSuccess && scanResult.IsAdmin)
+            {
+                // Admin code detected - redirect to barcode login page with barcode pre-filled
+                await InvokeAsync(() =>
+                {
+                    Navigation.NavigateTo($"/barcode-login?barcode={Uri.EscapeDataString(code)}");
+                });
+                return;
+            }
+
+            // Process the barcode through the service for regular users
             await ScannerService.ProcessBarcodeAsync(code);
         }
         catch (Exception ex)
@@ -514,8 +526,6 @@
 
     private void HandlePurchaseStarted(PurchaseSession session)
     {
-        // Keep navbar hidden for all users on this screen
-        AppState.HideNavbar();
 
         _remainingSeconds = ScannerService.TimeoutSeconds;
         StartCountdownTimer();
@@ -531,14 +541,12 @@
     private void HandlePurchaseCompleted()
     {
         StopCountdownTimer();
-        AppState.HideNavbar();
         InvokeAsync(StateHasChanged);
     }
 
     private void HandlePurchaseTimeout()
     {
         StopCountdownTimer();
-        AppState.HideNavbar();
         InvokeAsync(StateHasChanged);
     }
 

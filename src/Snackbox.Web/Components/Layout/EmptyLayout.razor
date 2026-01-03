@@ -1,0 +1,21 @@
+﻿@inherits LayoutComponentBase
+@using Snackbox.Web.Services
+@inject AppStateService AppState
+@implements IDisposable
+
+<div class="page">
+            @Body
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        AppState.OnChange += StateHasChanged;
+
+    }
+
+    public void Dispose()
+    {
+        AppState.OnChange -= StateHasChanged;
+    }
+}
