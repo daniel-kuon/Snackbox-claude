@@ -1,9 +1,11 @@
 @page "/database-setup"
 @using Snackbox.ApiClient
 @using Microsoft.AspNetCore.Components.Forms
+@using Snackbox.Components.Services
 @inject IBackupApi BackupApi
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject SnackbarService Snackbar
 
 <PageTitle>Database Setup - Snackbox</PageTitle>
 
@@ -13,14 +15,6 @@
             <h2>⚠️ Database Setup Required</h2>
             <p>The Snackbox database is not available. Please choose one of the following options to set up the database.</p>
         </div>
-
-        @if (_statusMessage != null)
-        {
-            <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
-                @_statusMessage
-                <button type="button" class="btn-close" @onclick="ClearStatusMessage"></button>
-            </div>
-        }
 
         @if (_isProcessing)
         {
@@ -154,8 +148,6 @@
 @code {
     private bool _isProcessing = false;
     private string _processingMessage = "";
-    private string? _statusMessage;
-    private bool _isError;
 
     private async Task RestoreFromBackup(InputFileChangeEventArgs e)
     {
@@ -166,7 +158,6 @@
         {
             _isProcessing = true;
             _processingMessage = "Importing and restoring backup...";
-            ClearStatusMessage();
 
             // Import the backup first
             using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
@@ -183,17 +174,14 @@
             // Restore the backup
             await BackupApi.RestoreBackupAsync(backup.Id);
 
-            _statusMessage = "Database restored successfully! Redirecting to login...";
-            _isError = false;
-            StateHasChanged();
+            Snackbar.Success("Database restored successfully! Redirecting to login...");
 
             await Task.Delay(2000);
             Navigation.NavigateTo("/login", forceLoad: true);
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to restore backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to restore backup: {ex.Message}");
         }
         finally
         {
@@ -212,21 +200,17 @@
         {
             _isProcessing = true;
             _processingMessage = "Creating empty database...";
-            ClearStatusMessage();
 
             await BackupApi.CreateEmptyDatabaseAsync();
 
-            _statusMessage = "Empty database created successfully! Redirecting to registration...";
-            _isError = false;
-            StateHasChanged();
+            Snackbar.Success("Empty database created successfully! Redirecting to registration...");
 
             await Task.Delay(2000);
             Navigation.NavigateTo("/register", forceLoad: true);
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to create empty database: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to create empty database: {ex.Message}");
         }
         finally
         {
@@ -245,30 +229,21 @@
         {
             _isProcessing = true;
             _processingMessage = "Creating database with sample data...";
-            ClearStatusMessage();
 
             await BackupApi.CreateSeededDatabaseAsync();
 
-            _statusMessage = "Database created successfully! Redirecting to login...";
-            _isError = false;
-            StateHasChanged();
+            Snackbar.Success("Database created successfully! Redirecting to login...");
 
             await Task.Delay(2000);
             Navigation.NavigateTo("/login", forceLoad: true);
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to create seeded database: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to create seeded database: {ex.Message}");
         }
         finally
         {
             _isProcessing = false;
         }
-    }
-
-    private void ClearStatusMessage()
-    {
-        _statusMessage = null;
     }
 }

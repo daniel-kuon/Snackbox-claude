@@ -2,11 +2,11 @@
 @using Snackbox.ApiClient
 @using Snackbox.Api.Dtos
 @using Refit
-@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.Extensions.Logging
 @inject IBackupApi BackupApi
 @inject IJSRuntime JSRuntime
 @inject ILogger<Backups> Logger
+@inject SnackbarService Snackbar
 
 <PageTitle>Backup Management - Snackbox Admin</PageTitle>
 
@@ -24,14 +24,6 @@
         </div>
     </div>
 
-    @if (_statusMessage != null)
-    {
-        <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
-            @_statusMessage
-            <button type="button" class="btn-close" @onclick="ClearStatusMessage"></button>
-        </div>
-    }
-
     @if (!_toolsAvailable && !_checkingTools)
     {
         <div class="alert alert-warning" role="alert">
@@ -40,8 +32,8 @@
             <p><strong>Windows users:</strong> Run the installation script to automatically download and install the tools:</p>
             <pre class="bg-dark text-light p-2 rounded">.\scripts\Install-PostgresTools.ps1</pre>
             <p class="mb-0">
-                <strong>Other platforms:</strong> See the 
-                <a href="https://github.com/daniel-kuon/Snackbox-claude/blob/main/docs/BACKUP.md#prerequisites" target="_blank" class="alert-link">documentation</a> 
+                <strong>Other platforms:</strong> See the
+                <a href="https://github.com/daniel-kuon/Snackbox-claude/blob/main/docs/BACKUP.md#prerequisites" target="_blank" class="alert-link">documentation</a>
                 for installation instructions.
             </p>
         </div>
@@ -110,8 +102,6 @@
     private List<BackupMetadataDto> _backups = new();
     private bool _isLoading = true;
     private bool _isCreatingBackup = false;
-    private string? _statusMessage;
-    private bool _isError;
     private bool _toolsAvailable = true;
     private bool _checkingTools = true;
 
@@ -128,7 +118,7 @@
             _checkingTools = true;
             var result = await BackupApi.CheckPostgresToolsAsync();
             _toolsAvailable = result.Available;
-            
+
             if (!_toolsAvailable)
             {
                 Logger.LogWarning("PostgreSQL tools are not available: {Message}", result.Message);
@@ -155,8 +145,7 @@
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to load backups: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to load backups: {ex.Message}");
         }
         finally
         {
@@ -169,18 +158,15 @@
         try
         {
             _isCreatingBackup = true;
-            ClearStatusMessage();
-            
+
             var backup = await BackupApi.CreateBackupAsync();
-            _statusMessage = $"Backup created successfully: {backup.FileName}";
-            _isError = false;
-            
+            Snackbar.Success($"Backup created successfully: {backup.FileName}");
+
             await LoadBackups();
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to create backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to create backup: {ex.Message}");
         }
         finally
         {
@@ -196,7 +182,6 @@
         try
         {
             _isLoading = true;
-            ClearStatusMessage();
 
             // Create stream from the file
             using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
@@ -206,16 +191,14 @@
 
             var streamPart = new StreamPart(memoryStream, file.Name, "application/octet-stream");
             var backup = await BackupApi.ImportBackupAsync(streamPart);
-            
-            _statusMessage = $"Backup imported successfully: {backup.FileName}";
-            _isError = false;
-            
+
+            Snackbar.Success($"Backup imported successfully: {backup.FileName}");
+
             await LoadBackups();
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to import backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to import backup: {ex.Message}");
         }
         finally
         {
@@ -227,51 +210,44 @@
     {
         try
         {
-            ClearStatusMessage();
-            
             var response = await BackupApi.DownloadBackupAsync(backupId);
             var content = await response.Content.ReadAsByteArrayAsync();
             var fileName = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"backup_{backupId}.sql";
-            
+
             // Use JavaScript to trigger download
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(content));
-            
-            _statusMessage = "Backup downloaded successfully";
-            _isError = false;
+
+            Snackbar.Success("Backup downloaded successfully");
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to download backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to download backup: {ex.Message}");
         }
     }
 
     private async Task RestoreBackup(string backupId)
     {
         var backup = _backups.FirstOrDefault(b => b.Id == backupId);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             $"Are you sure you want to restore backup '{backup?.FileName}'? This will replace all current data.");
-        
+
         if (!confirmed) return;
 
         try
         {
             _isLoading = true;
-            ClearStatusMessage();
-            
+
             await BackupApi.RestoreBackupAsync(backupId);
-            
-            _statusMessage = "Backup restored successfully. The application will reload.";
-            _isError = false;
-            
+
+            Snackbar.Success("Backup restored successfully. The application will reload.");
+
             // Reload the page after a short delay
             await Task.Delay(2000);
             await JSRuntime.InvokeVoidAsync("location.reload");
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to restore backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to restore backup: {ex.Message}");
         }
         finally
         {
@@ -282,32 +258,23 @@
     private async Task DeleteBackup(string backupId)
     {
         var backup = _backups.FirstOrDefault(b => b.Id == backupId);
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             $"Are you sure you want to delete backup '{backup?.FileName}'?");
-        
+
         if (!confirmed) return;
 
         try
         {
-            ClearStatusMessage();
-            
             await BackupApi.DeleteBackupAsync(backupId);
-            
-            _statusMessage = "Backup deleted successfully";
-            _isError = false;
-            
+
+            Snackbar.Success("Backup deleted successfully");
+
             await LoadBackups();
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to delete backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to delete backup: {ex.Message}");
         }
-    }
-
-    private void ClearStatusMessage()
-    {
-        _statusMessage = null;
     }
 
     private string GetBackupTypeBadgeClass(string type)
