@@ -1,6 +1,7 @@
 using Riok.Mapperly.Abstractions;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Mappers;
 
@@ -22,7 +23,7 @@ public static partial class ProductMapper
     /// Maps a Product entity to a ProductDto.
     /// Extension method is implemented manually to handle nested Barcodes mapping.
     /// </summary>
-    public static ProductDto ToDto(this Product source)
+    public static ProductDto ToDto(this Product source, IStockCalculationService? stockCalculation = null)
     {
         return new ProductDto
         {
@@ -31,6 +32,9 @@ public static partial class ProductMapper
             CreatedAt = source.CreatedAt,
             BestBeforeInStock = source.BestBeforeInStock,
             BestBeforeOnShelf = source.BestBeforeOnShelf,
+            AverageProductsShelvedPerWeek = stockCalculation != null 
+                ? stockCalculation.CalculateAverageProductsShelvedPerWeek(source.Batches)
+                : 0,
             Barcodes = source.Barcodes.ToDtoList()
         };
     }
@@ -38,8 +42,8 @@ public static partial class ProductMapper
     /// <summary>
     /// Maps a list of Product entities to a list of ProductDto.
     /// </summary>
-    public static List<ProductDto> ToDtoList(this IEnumerable<Product> source)
+    public static List<ProductDto> ToDtoList(this IEnumerable<Product> source, IStockCalculationService? stockCalculation = null)
     {
-        return source.Select(p => p.ToDto()).ToList();
+        return source.Select(p => p.ToDto(stockCalculation)).ToList();
     }
 }

@@ -1,6 +1,7 @@
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 using Xunit;
 
 namespace Snackbox.Api.Tests.Mappers;
@@ -118,5 +119,122 @@ public class ProductMapperTests
         Assert.Equal(2, dtos.Count);
         Assert.Equal("Product 1", dtos[0].Name);
         Assert.Equal("Product 2", dtos[1].Name);
+    }
+
+    [Fact]
+    public void ToDto_Product_WithoutStockCalculation_SetsAverageToZero()
+    {
+        // Arrange
+        var product = new Product
+        {
+            Id = 1,
+            Name = "Test Product",
+            CreatedAt = DateTime.UtcNow,
+            Barcodes = new List<ProductBarcode>(),
+            Batches = new List<ProductBatch>()
+        };
+
+        // Act
+        var dto = product.ToDto(null);
+
+        // Assert
+        Assert.Equal(0, dto.AverageProductsShelvedPerWeek);
+    }
+
+    [Fact]
+    public void ToDto_Product_WithStockCalculation_CalculatesAverage()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var product = new Product
+        {
+            Id = 1,
+            Name = "Test Product",
+            CreatedAt = now,
+            Barcodes = new List<ProductBarcode>(),
+            Batches = new List<ProductBatch>
+            {
+                new ProductBatch
+                {
+                    Id = 1,
+                    ProductId = 1,
+                    BestBeforeDate = now.AddMonths(6),
+                    CreatedAt = now,
+                    ShelvingActions = new List<ShelvingAction>
+                    {
+                        new ShelvingAction
+                        {
+                            Id = 1,
+                            ProductBatchId = 1,
+                            Quantity = 50,
+                            Type = ShelvingActionType.AddedToShelf,
+                            ActionAt = now
+                        }
+                    }
+                }
+            }
+        };
+        var stockCalculation = new StockCalculationService();
+
+        // Act
+        var dto = product.ToDto(stockCalculation);
+
+        // Assert
+        Assert.Equal(50, dto.AverageProductsShelvedPerWeek); // 50 items / 1 week (minimum)
+    }
+
+    [Fact]
+    public void ToDtoList_Products_WithStockCalculation_CalculatesAverageForAll()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var products = new List<Product>
+        {
+            new Product
+            {
+                Id = 1,
+                Name = "Product 1",
+                CreatedAt = now,
+                Barcodes = new List<ProductBarcode>(),
+                Batches = new List<ProductBatch>
+                {
+                    new ProductBatch
+                    {
+                        Id = 1,
+                        ProductId = 1,
+                        BestBeforeDate = now.AddMonths(6),
+                        CreatedAt = now,
+                        ShelvingActions = new List<ShelvingAction>
+                        {
+                            new ShelvingAction
+                            {
+                                Id = 1,
+                                ProductBatchId = 1,
+                                Quantity = 30,
+                                Type = ShelvingActionType.MovedToShelf,
+                                ActionAt = now
+                            }
+                        }
+                    }
+                }
+            },
+            new Product
+            {
+                Id = 2,
+                Name = "Product 2",
+                CreatedAt = now,
+                Barcodes = new List<ProductBarcode>(),
+                Batches = new List<ProductBatch>()
+            }
+        };
+        var stockCalculation = new StockCalculationService();
+
+        // Act
+        var dtos = products.ToDtoList(stockCalculation);
+
+        // Assert
+        Assert.Equal(2, dtos.Count);
+        Assert.Equal(30, dtos[0].AverageProductsShelvedPerWeek);
+        Assert.Equal(0, dtos[1].AverageProductsShelvedPerWeek);
     }
 }
