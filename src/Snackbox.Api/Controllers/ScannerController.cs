@@ -197,6 +197,8 @@ public class ScannerController : ControllerBase
             })
             .ToListAsync();
 
+        Console.WriteLine($"User {user.Id} - Found {newAchievements.Count} new achievements to show");
+
         // Mark achievements as shown
         if (newAchievements.Any())
         {
@@ -210,6 +212,7 @@ public class ScannerController : ControllerBase
                 ua.HasBeenShown = true;
             }
             await _context.SaveChangesAsync();
+            Console.WriteLine($"User {user.Id} - Marked {userAchievementsToUpdate.Count} achievements as shown");
         }
 
         // Build response
