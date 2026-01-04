@@ -606,8 +606,18 @@
     {
         try
         {
-            // First check if this is an admin scan
+            // First check if this is a login or admin barcode
             var scanResult = await ScannerService.ScanBarcodeAsync(code);
+
+            if (scanResult is { IsSuccess: true, IsLoginOnly: true })
+            {
+                // Login barcode detected - redirect to barcode login page with barcode pre-filled
+                await InvokeAsync(() =>
+                {
+                    Navigation.NavigateTo($"/barcode-login?barcode={Uri.EscapeDataString(code)}");
+                });
+                return;
+            }
 
             if (scanResult is { IsSuccess: true, IsAdmin: true })
             {

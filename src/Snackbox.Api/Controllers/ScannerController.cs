@@ -58,13 +58,14 @@ public class ScannerController : ControllerBase
         // Check if this is a login-only barcode
         if (barcode.IsLoginOnly)
         {
-            // Login-only barcodes cannot be used for purchases
+            // Login-only barcodes - return success with special flag for frontend to handle login redirect
             return Ok(new ScanBarcodeResponse
             {
-                Success = false,
-                ErrorMessage = "This barcode is for login only and cannot be used for purchases",
+                Success = true,
                 UserId = barcode.UserId,
-                Username = barcode.User.Username
+                Username = barcode.User.Username,
+                IsAdmin = barcode.User.IsAdmin,
+                IsLoginOnly = true  // Special flag indicating this is a login barcode
             });
         }
 

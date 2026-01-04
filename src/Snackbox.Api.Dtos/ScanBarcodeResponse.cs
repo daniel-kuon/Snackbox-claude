@@ -9,6 +9,7 @@ public class ScanBarcodeResponse
     public int UserId { get; set; }
     public required string Username { get; set; }
     public bool IsAdmin { get; set; }
+    public bool IsLoginOnly { get; set; } // True if this is a login-only barcode
 
     // Current purchase information
     public int PurchaseId { get; set; }
