@@ -20,6 +20,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<ShelvingAction> ShelvingActions => Set<ShelvingAction>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
+    public DbSet<CashRegister> CashRegister => Set<CashRegister>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,6 +77,20 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);
+            entity.HasOne(e => e.AdminUser)
+                .WithMany()
+                .HasForeignKey(e => e.AdminUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Withdrawal>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<CashRegister>(entity =>
+        {
+            entity.Property(e => e.CurrentBalance).HasPrecision(10, 2);
         });
 
         // Seed data
