@@ -30,32 +30,37 @@ public class AchievementService : IAchievementService
         if (purchase == null || purchase.CompletedAt == null)
             return earnedAchievements;
 
-        // Get existing user achievements
+        // Get existing user achievements with the full achievement data
         var existingAchievementCodes = await _context.UserAchievements
+            .Include(ua => ua.Achievement)
             .Where(ua => ua.UserId == userId)
             .Select(ua => ua.Achievement.Code)
             .ToListAsync();
+
+        // Load all achievements once to avoid multiple database queries
+        var allAchievements = await _context.Achievements.ToListAsync();
+        var achievementLookup = allAchievements.ToDictionary(a => a.Code);
 
         // Calculate purchase amount
         var purchaseAmount = purchase.Scans.Sum(s => s.Amount);
 
         // Check single purchase achievements
-        await CheckSinglePurchaseAchievements(userId, purchaseAmount, existingAchievementCodes, earnedAchievements);
+        await CheckSinglePurchaseAchievements(userId, purchaseAmount, existingAchievementCodes, earnedAchievements, achievementLookup);
 
         // Check daily purchase count achievements
-        await CheckDailyPurchaseAchievements(userId, purchase.CompletedAt.Value, existingAchievementCodes, earnedAchievements);
+        await CheckDailyPurchaseAchievements(userId, purchase.CompletedAt.Value, existingAchievementCodes, earnedAchievements, achievementLookup);
 
         // Check streak achievements
-        await CheckStreakAchievements(userId, purchase.CompletedAt.Value, existingAchievementCodes, earnedAchievements);
+        await CheckStreakAchievements(userId, purchase.CompletedAt.Value, existingAchievementCodes, earnedAchievements, achievementLookup);
 
         // Check comeback achievements
-        await CheckComebackAchievements(userId, purchase.CompletedAt.Value, existingAchievementCodes, earnedAchievements);
+        await CheckComebackAchievements(userId, purchase.CompletedAt.Value, existingAchievementCodes, earnedAchievements, achievementLookup);
 
         // Check high debt achievements
-        await CheckHighDebtAchievements(userId, existingAchievementCodes, earnedAchievements);
+        await CheckHighDebtAchievements(userId, existingAchievementCodes, earnedAchievements, achievementLookup);
 
         // Check total spent achievements
-        await CheckTotalSpentAchievements(userId, existingAchievementCodes, earnedAchievements);
+        await CheckTotalSpentAchievements(userId, existingAchievementCodes, earnedAchievements, achievementLookup);
 
         // Save all earned achievements
         if (earnedAchievements.Any())
@@ -75,26 +80,27 @@ public class AchievementService : IAchievementService
         return earnedAchievements;
     }
 
-    private async Task CheckSinglePurchaseAchievements(int userId, decimal purchaseAmount, List<string> existingCodes, List<Achievement> earned)
+    private Task CheckSinglePurchaseAchievements(int userId, decimal purchaseAmount, List<string> existingCodes, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
         if (purchaseAmount >= 15 && !existingCodes.Contains("BIG_SPENDER_15"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "BIG_SPENDER_15");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("BIG_SPENDER_15", out var achievement))
+                earned.Add(achievement);
         }
         else if (purchaseAmount >= 10 && !existingCodes.Contains("BIG_SPENDER_10"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "BIG_SPENDER_10");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("BIG_SPENDER_10", out var achievement))
+                earned.Add(achievement);
         }
         else if (purchaseAmount >= 5 && !existingCodes.Contains("BIG_SPENDER_5"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "BIG_SPENDER_5");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("BIG_SPENDER_5", out var achievement))
+                earned.Add(achievement);
         }
+        return Task.CompletedTask;
     }
 
-    private async Task CheckDailyPurchaseAchievements(int userId, DateTime completedAt, List<string> existingCodes, List<Achievement> earned)
+    private async Task CheckDailyPurchaseAchievements(int userId, DateTime completedAt, List<string> existingCodes, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
         var today = completedAt.Date;
         var tomorrow = today.AddDays(1);
@@ -105,17 +111,17 @@ public class AchievementService : IAchievementService
 
         if (todayPurchaseCount >= 10 && !existingCodes.Contains("DAILY_BUYER_10"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "DAILY_BUYER_10");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("DAILY_BUYER_10", out var achievement))
+                earned.Add(achievement);
         }
         else if (todayPurchaseCount >= 5 && !existingCodes.Contains("DAILY_BUYER_5"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "DAILY_BUYER_5");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("DAILY_BUYER_5", out var achievement))
+                earned.Add(achievement);
         }
     }
 
-    private async Task CheckStreakAchievements(int userId, DateTime completedAt, List<string> existingCodes, List<Achievement> earned)
+    private async Task CheckStreakAchievements(int userId, DateTime completedAt, List<string> existingCodes, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
         // Get all completed purchases, ordered by date
         var purchases = await _context.Purchases
@@ -146,13 +152,13 @@ public class AchievementService : IAchievementService
 
         if (dailyStreak >= 7 && !existingCodes.Contains("STREAK_DAILY_7"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "STREAK_DAILY_7");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("STREAK_DAILY_7", out var achievement))
+                earned.Add(achievement);
         }
         else if (dailyStreak >= 3 && !existingCodes.Contains("STREAK_DAILY_3"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "STREAK_DAILY_3");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("STREAK_DAILY_3", out var achievement))
+                earned.Add(achievement);
         }
 
         // Check weekly streak (at least one purchase per week for 4 weeks)
@@ -178,13 +184,13 @@ public class AchievementService : IAchievementService
 
             if (hasWeeklyStreak)
             {
-                var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "STREAK_WEEKLY_4");
-                if (achievement != null) earned.Add(achievement);
+                if (achievementLookup.TryGetValue("STREAK_WEEKLY_4", out var achievement))
+                    earned.Add(achievement);
             }
         }
     }
 
-    private async Task CheckComebackAchievements(int userId, DateTime completedAt, List<string> existingCodes, List<Achievement> earned)
+    private async Task CheckComebackAchievements(int userId, DateTime completedAt, List<string> existingCodes, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
         // Get the previous purchase before this one
         var previousPurchase = await _context.Purchases
@@ -199,22 +205,22 @@ public class AchievementService : IAchievementService
 
         if (daysSinceLastPurchase >= 90 && !existingCodes.Contains("COMEBACK_90"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "COMEBACK_90");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("COMEBACK_90", out var achievement))
+                earned.Add(achievement);
         }
         else if (daysSinceLastPurchase >= 60 && !existingCodes.Contains("COMEBACK_60"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "COMEBACK_60");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("COMEBACK_60", out var achievement))
+                earned.Add(achievement);
         }
         else if (daysSinceLastPurchase >= 30 && !existingCodes.Contains("COMEBACK_30"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "COMEBACK_30");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("COMEBACK_30", out var achievement))
+                earned.Add(achievement);
         }
     }
 
-    private async Task CheckHighDebtAchievements(int userId, List<string> existingCodes, List<Achievement> earned)
+    private async Task CheckHighDebtAchievements(int userId, List<string> existingCodes, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
         var totalSpent = await _context.BarcodeScans
             .Where(bs => bs.Purchase.UserId == userId)
@@ -228,22 +234,22 @@ public class AchievementService : IAchievementService
 
         if (debt >= 150 && !existingCodes.Contains("IN_DEBT_150"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "IN_DEBT_150");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("IN_DEBT_150", out var achievement))
+                earned.Add(achievement);
         }
         else if (debt >= 100 && !existingCodes.Contains("IN_DEBT_100"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "IN_DEBT_100");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("IN_DEBT_100", out var achievement))
+                earned.Add(achievement);
         }
         else if (debt >= 50 && !existingCodes.Contains("IN_DEBT_50"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "IN_DEBT_50");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("IN_DEBT_50", out var achievement))
+                earned.Add(achievement);
         }
     }
 
-    private async Task CheckTotalSpentAchievements(int userId, List<string> existingCodes, List<Achievement> earned)
+    private async Task CheckTotalSpentAchievements(int userId, List<string> existingCodes, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
         var totalSpent = await _context.BarcodeScans
             .Where(bs => bs.Purchase.UserId == userId)
@@ -251,18 +257,18 @@ public class AchievementService : IAchievementService
 
         if (totalSpent >= 200 && !existingCodes.Contains("TOTAL_SPENT_200"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "TOTAL_SPENT_200");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("TOTAL_SPENT_200", out var achievement))
+                earned.Add(achievement);
         }
         else if (totalSpent >= 150 && !existingCodes.Contains("TOTAL_SPENT_150"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "TOTAL_SPENT_150");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("TOTAL_SPENT_150", out var achievement))
+                earned.Add(achievement);
         }
         else if (totalSpent >= 100 && !existingCodes.Contains("TOTAL_SPENT_100"))
         {
-            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "TOTAL_SPENT_100");
-            if (achievement != null) earned.Add(achievement);
+            if (achievementLookup.TryGetValue("TOTAL_SPENT_100", out var achievement))
+                earned.Add(achievement);
         }
     }
 }
