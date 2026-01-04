@@ -28,8 +28,8 @@
                @bind="_searchTerm" @bind:event="oninput" @onkeyup="FilterProducts" />
         <select class="form-control sort-select" @bind="_sortBy" @bind:after="SortProducts">
             <option value="name">Sort by Name</option>
-            <option value="price">Sort by Price</option>
             <option value="created">Sort by Created Date</option>
+            <option value="average">Sort by Most Sold (Avg/Week)</option>
         </select>
         <button class="btn @(_batchMode ? "btn-primary" : "btn-outline-primary")" @onclick="ToggleBatchMode">
             @(_batchMode ? "Exit Batch Mode" : "Batch Scan Mode")
@@ -155,6 +155,7 @@
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Avg/Week</th>
                         <th>Best before in Stock</th>
                         <th>Best before on Shelf</th>
                         <th>Actions</th>
@@ -165,6 +166,7 @@
                     {
                         <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;">
                             <td>@product.Name</td>
+                            <td>@product.AverageProductsShelvedPerWeek.ToString("F1")</td>
                             <td>@(product.BestBeforeInStock?.ToString("yyyy-MM-dd") ?? "-")</td>
                             <td>@(product.BestBeforeOnShelf?.ToString("yyyy-MM-dd") ?? "-")</td>
                             <td>
@@ -612,6 +614,7 @@
         {
             "name" => _filteredProducts.OrderBy(p => p.Name).ToList(),
             "created" => _filteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
+            "average" => _filteredProducts.OrderByDescending(p => p.AverageProductsShelvedPerWeek).ToList(),
             _ => _filteredProducts
         };
     }

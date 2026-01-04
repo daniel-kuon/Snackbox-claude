@@ -7,6 +7,9 @@ public interface IStockCalculationService
 {
     int CalculateStorageQuantity(IEnumerable<ShelvingAction> shelvingActions);
     int CalculateShelfQuantity(IEnumerable<ShelvingAction> shelvingActions);
+    double CalculateAverageProductsShelvedPerWeek(IEnumerable<ProductBatch> batches);
+    DateTime? GetEarliestBestBeforeDateInStorage(IEnumerable<ProductBatch> batches);
+    DateTime? GetEarliestBestBeforeDateOnShelf(IEnumerable<ProductBatch> batches);
 }
 
 public class StockCalculationService : IStockCalculationService
@@ -33,5 +36,56 @@ public class StockCalculationService : IStockCalculationService
             .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf)
             .Sum(sa => sa.Quantity);
         return addedToShelf - removedFromShelf;
+    }
+
+    public double CalculateAverageProductsShelvedPerWeek(IEnumerable<ProductBatch> batches)
+    {
+        var allActions = batches.SelectMany(b => b.ShelvingActions).ToList();
+        
+        // Get actions that add items to shelf (MovedToShelf, AddedToShelf)
+        var shelfAdditions = allActions
+            .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.AddedToShelf)
+            .OrderBy(sa => sa.ActionAt)
+            .ToList();
+        
+        if (!shelfAdditions.Any())
+        {
+            return 0;
+        }
+        
+        // Calculate time span from first to last shelving action
+        var firstAction = shelfAdditions.First().ActionAt;
+        var lastAction = shelfAdditions.Last().ActionAt;
+        var timeSpan = lastAction - firstAction;
+        
+        // If all actions happened on the same day, consider it as 1 week minimum
+        var weeks = timeSpan.TotalDays < 7 ? 1 : timeSpan.TotalDays / 7.0;
+        
+        // Sum total quantity added to shelf
+        var totalQuantity = shelfAdditions.Sum(sa => sa.Quantity);
+        
+        return totalQuantity / weeks;
+    }
+
+    public DateTime? GetEarliestBestBeforeDateInStorage(IEnumerable<ProductBatch> batches)
+    {
+        var batchesWithStock = batches
+            .Where(b => CalculateStorageQuantity(b.ShelvingActions) > 0)
+            .ToList();
+        
+        return batchesWithStock.Any() 
+            ? batchesWithStock.Min(b => b.BestBeforeDate) 
+            : null;
+    }
+
+    public DateTime? GetEarliestBestBeforeDateOnShelf(IEnumerable<ProductBatch> batches)
+    {
+        var batchesWithStock = batches
+            .Where(b => CalculateShelfQuantity(b.ShelvingActions) > 0)
+            .ToList();
+        
+        return batchesWithStock.Any() 
+            ? batchesWithStock.Min(b => b.BestBeforeDate) 
+            : null;
     }
 }
