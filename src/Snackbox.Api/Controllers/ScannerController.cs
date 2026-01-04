@@ -118,12 +118,13 @@ public class ScannerController : ControllerBase
         // Add the barcode scan to the purchase
         var barcodeScan = new BarcodeScan
         {
-            Purchase = currentPurchase,
             BarcodeId = barcode.Id,
             Amount = barcode.Amount,
             ScannedAt = DateTime.UtcNow
         };
-        _context.BarcodeScans.Add(barcodeScan);
+        
+        // Add to the purchase's collection to let EF handle the relationship
+        currentPurchase.Scans.Add(barcodeScan);
 
         await _context.SaveChangesAsync();
 
