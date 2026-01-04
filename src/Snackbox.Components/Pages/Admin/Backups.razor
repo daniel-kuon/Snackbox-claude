@@ -3,8 +3,10 @@
 @using Snackbox.Api.Dtos
 @using Refit
 @using Microsoft.AspNetCore.Components.Forms
+@using Snackbox.Components.Services
 @inject IBackupApi BackupApi
 @inject IJSRuntime JSRuntime
+@inject SnackbarService Snackbar
 
 <PageTitle>Backup Management - Snackbox Admin</PageTitle>
 
@@ -21,14 +23,6 @@
             <InputFile id="importBackupFile" OnChange="ImportBackup" style="display: none;" accept=".sql" />
         </div>
     </div>
-
-    @if (_statusMessage != null)
-    {
-        <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
-            @_statusMessage
-            <button type="button" class="btn-close" @onclick="ClearStatusMessage"></button>
-        </div>
-    }
 
     @if (_isLoading)
     {
@@ -93,8 +87,6 @@
     private List<BackupMetadataDto> _backups = new();
     private bool _isLoading = true;
     private bool _isCreatingBackup = false;
-    private string? _statusMessage;
-    private bool _isError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,8 +103,7 @@
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to load backups: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to load backups: {ex.Message}");
         }
         finally
         {
@@ -125,18 +116,15 @@
         try
         {
             _isCreatingBackup = true;
-            ClearStatusMessage();
             
             var backup = await BackupApi.CreateBackupAsync();
-            _statusMessage = $"Backup created successfully: {backup.FileName}";
-            _isError = false;
+            Snackbar.Success($"Backup created successfully: {backup.FileName}");
             
             await LoadBackups();
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to create backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to create backup: {ex.Message}");
         }
         finally
         {
@@ -152,7 +140,6 @@
         try
         {
             _isLoading = true;
-            ClearStatusMessage();
 
             // Create stream from the file
             using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
@@ -163,15 +150,13 @@
             var streamPart = new StreamPart(memoryStream, file.Name, "application/octet-stream");
             var backup = await BackupApi.ImportBackupAsync(streamPart);
             
-            _statusMessage = $"Backup imported successfully: {backup.FileName}";
-            _isError = false;
+            Snackbar.Success($"Backup imported successfully: {backup.FileName}");
             
             await LoadBackups();
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to import backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to import backup: {ex.Message}");
         }
         finally
         {
@@ -183,8 +168,6 @@
     {
         try
         {
-            ClearStatusMessage();
-            
             var response = await BackupApi.DownloadBackupAsync(backupId);
             var content = await response.Content.ReadAsByteArrayAsync();
             var fileName = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"backup_{backupId}.sql";
@@ -192,13 +175,11 @@
             // Use JavaScript to trigger download
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(content));
             
-            _statusMessage = "Backup downloaded successfully";
-            _isError = false;
+            Snackbar.Success("Backup downloaded successfully");
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to download backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to download backup: {ex.Message}");
         }
     }
 
@@ -213,12 +194,10 @@
         try
         {
             _isLoading = true;
-            ClearStatusMessage();
             
             await BackupApi.RestoreBackupAsync(backupId);
             
-            _statusMessage = "Backup restored successfully. The application will reload.";
-            _isError = false;
+            Snackbar.Success("Backup restored successfully. The application will reload.");
             
             // Reload the page after a short delay
             await Task.Delay(2000);
@@ -226,8 +205,7 @@
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to restore backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to restore backup: {ex.Message}");
         }
         finally
         {
@@ -245,25 +223,16 @@
 
         try
         {
-            ClearStatusMessage();
-            
             await BackupApi.DeleteBackupAsync(backupId);
             
-            _statusMessage = "Backup deleted successfully";
-            _isError = false;
+            Snackbar.Success("Backup deleted successfully");
             
             await LoadBackups();
         }
         catch (Exception ex)
         {
-            _statusMessage = $"Failed to delete backup: {ex.Message}";
-            _isError = true;
+            Snackbar.Error($"Failed to delete backup: {ex.Message}");
         }
-    }
-
-    private void ClearStatusMessage()
-    {
-        _statusMessage = null;
     }
 
     private string GetBackupTypeBadgeClass(string type)
