@@ -27,8 +27,6 @@ public class CreateProductDto
 public class UpdateProductDto
 {
     public required string Name { get; set; }
-    public required string Barcode { get; set; }
-    public decimal Price { get; set; }
 }
 
 public class CreateProductBarcodeDto

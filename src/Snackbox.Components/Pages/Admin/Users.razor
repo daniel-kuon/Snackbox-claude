@@ -1,7 +1,9 @@
 @page "/admin/users"
 @using System.ComponentModel.DataAnnotations
+@using Snackbox.ApiClient
 @using Snackbox.Api.Dtos
-@inject HttpClient Http
+@using Refit
+@inject IUsersApi UsersApi
 @inject NavigationManager Navigation
 
 <PageTitle>User Management - Snackbox Admin</PageTitle>
@@ -389,7 +391,12 @@
 
         try
         {
-            _users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+            var result = await UsersApi.GetAllAsync();
+            _users = result.ToList();
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load users: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -421,16 +428,17 @@
 
         try
         {
-            var user = await Http.GetFromJsonAsync<UserDto>($"api/users/{userId}");
-            if (user != null)
+            var user = await UsersApi.GetByIdAsync(userId);
+            _userForm = new UserFormModel
             {
-                _userForm = new UserFormModel
-                {
-                    Username = user.Username,
-                    Email = user.Email,
-                };
-                _showCreateEditModal = true;
-            }
+                Username = user.Username,
+                Email = user.Email,
+            };
+            _showCreateEditModal = true;
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load user: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -448,45 +456,33 @@
             if (_editingUserId == null)
             {
                 // Create new user
-                var response = await Http.PostAsJsonAsync("api/users", new
+                var createDto = new CreateUserDto
                 {
-                    username = _userForm.Username,
-                    email = _userForm.Email,
-                    role = _userForm.Role,
-                    isActive = _userForm.IsActive
-                });
-
-                if (response.IsSuccessStatusCode)
-                {
-                    CloseModal();
-                    await LoadUsers();
-                }
-                else
-                {
-                    _modalError = "Failed to create user. Please try again.";
-                }
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    IsAdmin = _userForm.Role == "Admin"
+                };
+                await UsersApi.CreateAsync(createDto);
+                CloseModal();
+                await LoadUsers();
             }
             else
             {
                 // Update existing user
-                var response = await Http.PutAsJsonAsync($"api/users/{_editingUserId}", new
+                var updateDto = new UpdateUserDto
                 {
-                    username = _userForm.Username,
-                    email = _userForm.Email,
-                    role = _userForm.Role,
-                    isActive = _userForm.IsActive
-                });
-
-                if (response.IsSuccessStatusCode)
-                {
-                    CloseModal();
-                    await LoadUsers();
-                }
-                else
-                {
-                    _modalError = "Failed to update user. Please try again.";
-                }
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    IsAdmin = _userForm.Role == "Admin"
+                };
+                await UsersApi.UpdateAsync(_editingUserId.Value, updateDto);
+                CloseModal();
+                await LoadUsers();
             }
+        }
+        catch (ApiException ex)
+        {
+            _modalError = ex.Content ?? "Failed to save user. Please try again.";
         }
         catch (Exception ex)
         {
