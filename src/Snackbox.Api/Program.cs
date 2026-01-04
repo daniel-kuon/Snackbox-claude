@@ -48,6 +48,15 @@ builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()
         client.Timeout = TimeSpan.FromSeconds(30);
     });
 
+// Register backup service
+builder.Services.AddScoped<IBackupService, BackupService>();
+
+// Register email service
+builder.Services.AddScoped<IEmailService, EmailService>();
+
+// Register backup background service
+builder.Services.AddHostedService<BackupBackgroundService>();
+
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"] ?? "YourVerySecretKeyThatIsAtLeast32CharactersLong!";
