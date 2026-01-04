@@ -109,14 +109,15 @@ public class AchievementService : IAchievementService
             .Where(p => p.UserId == userId && p.CompletedAt >= today && p.CompletedAt < tomorrow)
             .CountAsync();
 
+        if (todayPurchaseCount >= 5 && !existingCodes.Contains("DAILY_BUYER_5"))
+        {
+            if (achievementLookup.TryGetValue("DAILY_BUYER_5", out var achievement))
+                earned.Add(achievement);
+        }
+
         if (todayPurchaseCount >= 10 && !existingCodes.Contains("DAILY_BUYER_10"))
         {
             if (achievementLookup.TryGetValue("DAILY_BUYER_10", out var achievement))
-                earned.Add(achievement);
-        }
-        else if (todayPurchaseCount >= 5 && !existingCodes.Contains("DAILY_BUYER_5"))
-        {
-            if (achievementLookup.TryGetValue("DAILY_BUYER_5", out var achievement))
                 earned.Add(achievement);
         }
     }
