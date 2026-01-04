@@ -1,4 +1,5 @@
 @using Snackbox.Components.Models
+@implements IDisposable
 
 <div class="achievement-overlay @(_isVisible ? "show" : "")">
     @if (_currentAchievement != null)
@@ -213,18 +214,18 @@
             // Auto-hide after 4 seconds
             _displayTimer?.Dispose();
             _displayTimer = new System.Timers.Timer(4000);
-            _displayTimer.Elapsed += (_, _) =>
+            _displayTimer.Elapsed += async (_, _) =>
             {
                 _isVisible = false;
-                InvokeAsync(StateHasChanged);
+                await InvokeAsync(StateHasChanged);
 
                 // Wait 0.5 seconds before showing next achievement
-                System.Threading.Thread.Sleep(500);
+                await Task.Delay(500);
                 _currentIndex++;
                 
                 if (_currentIndex < Achievements.Count)
                 {
-                    InvokeAsync(() =>
+                    await InvokeAsync(() =>
                     {
                         ShowNextAchievement();
                     });

@@ -79,18 +79,18 @@ public class AchievementService : IAchievementService
     {
         if (purchaseAmount >= 15 && !existingCodes.Contains("BIG_SPENDER_15"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "BIG_SPENDER_15");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "BIG_SPENDER_15");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (purchaseAmount >= 10 && !existingCodes.Contains("BIG_SPENDER_10"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "BIG_SPENDER_10");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "BIG_SPENDER_10");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (purchaseAmount >= 5 && !existingCodes.Contains("BIG_SPENDER_5"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "BIG_SPENDER_5");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "BIG_SPENDER_5");
+            if (achievement != null) earned.Add(achievement);
         }
     }
 
@@ -105,13 +105,13 @@ public class AchievementService : IAchievementService
 
         if (todayPurchaseCount >= 10 && !existingCodes.Contains("DAILY_BUYER_10"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "DAILY_BUYER_10");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "DAILY_BUYER_10");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (todayPurchaseCount >= 5 && !existingCodes.Contains("DAILY_BUYER_5"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "DAILY_BUYER_5");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "DAILY_BUYER_5");
+            if (achievement != null) earned.Add(achievement);
         }
     }
 
@@ -146,13 +146,13 @@ public class AchievementService : IAchievementService
 
         if (dailyStreak >= 7 && !existingCodes.Contains("STREAK_DAILY_7"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "STREAK_DAILY_7");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "STREAK_DAILY_7");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (dailyStreak >= 3 && !existingCodes.Contains("STREAK_DAILY_3"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "STREAK_DAILY_3");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "STREAK_DAILY_3");
+            if (achievement != null) earned.Add(achievement);
         }
 
         // Check weekly streak (at least one purchase per week for 4 weeks)
@@ -178,8 +178,8 @@ public class AchievementService : IAchievementService
 
             if (hasWeeklyStreak)
             {
-                var achievement = await _context.Achievements.FirstAsync(a => a.Code == "STREAK_WEEKLY_4");
-                earned.Add(achievement);
+                var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "STREAK_WEEKLY_4");
+                if (achievement != null) earned.Add(achievement);
             }
         }
     }
@@ -199,18 +199,18 @@ public class AchievementService : IAchievementService
 
         if (daysSinceLastPurchase >= 90 && !existingCodes.Contains("COMEBACK_90"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "COMEBACK_90");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "COMEBACK_90");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (daysSinceLastPurchase >= 60 && !existingCodes.Contains("COMEBACK_60"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "COMEBACK_60");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "COMEBACK_60");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (daysSinceLastPurchase >= 30 && !existingCodes.Contains("COMEBACK_30"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "COMEBACK_30");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "COMEBACK_30");
+            if (achievement != null) earned.Add(achievement);
         }
     }
 
@@ -228,18 +228,18 @@ public class AchievementService : IAchievementService
 
         if (debt >= 150 && !existingCodes.Contains("IN_DEBT_150"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "IN_DEBT_150");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "IN_DEBT_150");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (debt >= 100 && !existingCodes.Contains("IN_DEBT_100"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "IN_DEBT_100");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "IN_DEBT_100");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (debt >= 50 && !existingCodes.Contains("IN_DEBT_50"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "IN_DEBT_50");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "IN_DEBT_50");
+            if (achievement != null) earned.Add(achievement);
         }
     }
 
@@ -251,18 +251,18 @@ public class AchievementService : IAchievementService
 
         if (totalSpent >= 200 && !existingCodes.Contains("TOTAL_SPENT_200"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "TOTAL_SPENT_200");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "TOTAL_SPENT_200");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (totalSpent >= 150 && !existingCodes.Contains("TOTAL_SPENT_150"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "TOTAL_SPENT_150");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "TOTAL_SPENT_150");
+            if (achievement != null) earned.Add(achievement);
         }
         else if (totalSpent >= 100 && !existingCodes.Contains("TOTAL_SPENT_100"))
         {
-            var achievement = await _context.Achievements.FirstAsync(a => a.Code == "TOTAL_SPENT_100");
-            earned.Add(achievement);
+            var achievement = await _context.Achievements.FirstOrDefaultAsync(a => a.Code == "TOTAL_SPENT_100");
+            if (achievement != null) earned.Add(achievement);
         }
     }
 }
