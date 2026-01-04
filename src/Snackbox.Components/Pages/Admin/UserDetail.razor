@@ -345,6 +345,40 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Payment Type</label>
+                        <div class="form-check">
+                            <input type="radio" value="CashRegister" @onchange="@(() => _paymentForm.Type = \"CashRegister\")" checked="@(_paymentForm.Type == \"CashRegister\")" class="form-check-input" id="paymentTypeCash" name="paymentType" />
+                            <label class="form-check-label" for="paymentTypeCash">
+                                Cash Register
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" value="PayPal" @onchange="@(() => _paymentForm.Type = \"PayPal\")" checked="@(_paymentForm.Type == \"PayPal\")" class="form-check-input" id="paymentTypePayPal" name="paymentType" />
+                            <label class="form-check-label" for="paymentTypePayPal">
+                                PayPal to Admin
+                            </label>
+                        </div>
+                    </div>
+
+                    @if (_paymentForm.Type == "PayPal")
+                    {
+                        <div class="form-group">
+                            <label>Admin User</label>
+                            <InputSelect @bind-Value="_paymentForm.AdminUserId" class="form-control">
+                                <option value="">-- Select Admin --</option>
+                                @if (_adminUsers != null)
+                                {
+                                    @foreach (var admin in _adminUsers)
+                                    {
+                                        <option value="@admin.Id">@admin.Username</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => _paymentForm.AdminUserId)" />
+                        </div>
+                    }
+
+                    <div class="form-group">
                         <label>Notes (optional)</label>
                         <InputTextArea @bind-Value="_paymentForm.Notes" class="form-control" rows="3" />
                     </div>
@@ -890,6 +924,7 @@
     private List<PaymentDto>? _payments;
     private List<PurchaseDto>? _purchases;
     private List<BarcodeDto>? _barcodes;
+    private List<UserDto>? _adminUsers;
     private bool _isLoading = true;
     private string? _errorMessage;
     private string _activeTab = "info";
@@ -1008,11 +1043,46 @@
         Navigation.NavigateTo("/admin/users");
     }
 
-    private void ShowAddPayment()
+    private async Task ShowAddPayment()
     {
-        _paymentForm = new PaymentFormModel();
+        _paymentForm = new PaymentFormModel { Type = "CashRegister" };
         _modalError = null;
+        
+        // Load admin users if not already loaded
+        if (_adminUsers == null)
+        {
+            try
+            {
+                var allUsers = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+                _adminUsers = allUsers?.Where(u => u.IsAdmin).ToList();
+                
+                // Pre-select current user if they're an admin
+                var currentUserIdClaim = await GetCurrentUserId();
+                if (currentUserIdClaim.HasValue && _adminUsers?.Any(a => a.Id == currentUserIdClaim.Value) == true)
+                {
+                    _paymentForm.AdminUserId = currentUserIdClaim.Value;
+                }
+            }
+            catch
+            {
+                _adminUsers = new List<UserDto>();
+            }
+        }
+        
         _showPaymentModal = true;
+    }
+
+    private async Task<int?> GetCurrentUserId()
+    {
+        try
+        {
+            var authState = await Http.GetFromJsonAsync<dynamic>("api/auth/me");
+            return authState?.userId;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void ShowAddBarcode()
@@ -1033,7 +1103,9 @@
             {
                 userId = UserId,
                 amount = _paymentForm.Amount,
-                notes = _paymentForm.Notes
+                notes = _paymentForm.Notes,
+                type = _paymentForm.Type,
+                adminUserId = _paymentForm.AdminUserId
             });
 
             if (response.IsSuccessStatusCode)
@@ -1045,7 +1117,8 @@
             }
             else
             {
-                _modalError = "Failed to add payment. Please try again.";
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _modalError = $"Failed to add payment: {errorContent}";
             }
         }
         catch (Exception ex)
@@ -1053,6 +1126,10 @@
             _modalError = $"Error: {ex.Message}";
         }
         finally
+        {
+            _isSaving = false;
+        }
+    }
         {
             _isSaving = false;
         }
@@ -1268,6 +1345,11 @@
         public decimal Amount { get; set; }
 
         public string? Notes { get; set; }
+        
+        [Required]
+        public string Type { get; set; } = "CashRegister";
+        
+        public int? AdminUserId { get; set; }
     }
 
     private class BarcodeFormModel
