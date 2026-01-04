@@ -1020,7 +1020,7 @@
     private async Task SwitchTab(string tab)
     {
         _activeTab = tab;
-        
+
         // Load data for the new tab if not already loaded
         if (tab == "payments" && _payments == null)
         {
@@ -1130,7 +1130,7 @@
     {
         _paymentForm = new PaymentFormModel { Type = "CashRegister" };
         _modalError = null;
-        
+
         // Load admin users if not already loaded
         if (_adminUsers == null)
         {
@@ -1145,13 +1145,13 @@
                 _adminUsers = new List<UserDto>();
             }
         }
-        
+
         // Preselect first admin user for PayPal option (will be used if user switches to PayPal)
         if (_adminUsers != null && _adminUsers.Any())
         {
-            _paymentForm.AdminUserId = _adminUsers.First().Id.ToString();
+            _paymentForm.AdminUserId = _adminUsers.First().Id;
         }
-        
+
         _showPaymentModal = true;
     }
 
@@ -1427,9 +1427,9 @@
         public decimal Amount { get; set; }
 
         public string? Notes { get; set; }
-        
+
         public string Type { get; set; } = "CashRegister";
-        
+
         public int? AdminUserId { get; set; }
     }
 

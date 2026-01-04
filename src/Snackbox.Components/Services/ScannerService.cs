@@ -13,7 +13,9 @@ public class ScannerService : IScannerService
 
     public event Action<PurchaseSession>? OnPurchaseStarted;
     public event Action<PurchaseSession>? OnPurchaseUpdated;
+    #pragma warning disable CS0067
     public event Action? OnPurchaseCompleted;
+    #pragma warning restore CS0067
     public event Action? OnPurchaseTimeout;
 
     public PurchaseSession? CurrentSession { get; private set; }
