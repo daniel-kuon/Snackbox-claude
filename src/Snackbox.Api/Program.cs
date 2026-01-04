@@ -121,6 +121,15 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Add middleware to disable caching for all API responses
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+    context.Response.Headers["Pragma"] = "no-cache";
+    context.Response.Headers["Expires"] = "0";
+    await next();
+});
+
 app.UseHttpsRedirection();
 app.UseCors("AllowBlazorApp");
 app.UseAuthentication();

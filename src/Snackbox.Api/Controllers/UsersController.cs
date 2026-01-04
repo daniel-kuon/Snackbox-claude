@@ -29,13 +29,14 @@ public class UsersController : ControllerBase
             .Include(u => u.Purchases)
                 .ThenInclude(p => p.Scans)
             .Include(u => u.Payments)
+            .Include(u => u.Withdrawals)
             .Select(u => new UserDto
             {
                 Id = u.Id,
                 Username = u.Username,
                 Email = u.Email,
                 IsAdmin = u.IsAdmin,
-                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)),
+                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - u.Withdrawals.Sum(w => w.Amount),
                 CreatedAt = u.CreatedAt
             })
             .ToListAsync();
@@ -50,6 +51,7 @@ public class UsersController : ControllerBase
             .Include(u => u.Purchases)
                 .ThenInclude(p => p.Scans)
             .Include(u => u.Payments)
+            .Include(u => u.Withdrawals)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
@@ -57,7 +59,7 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
+        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
         return Ok(user.ToDtoWithBalance(balance));
     }
 
@@ -139,6 +141,7 @@ public class UsersController : ControllerBase
             .Include(u => u.Purchases)
                 .ThenInclude(p => p.Scans)
             .Include(u => u.Payments)
+            .Include(u => u.Withdrawals)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
@@ -162,7 +165,7 @@ public class UsersController : ControllerBase
 
         _logger.LogInformation("User updated: {UserId} - {Username}", user.Id, user.Username);
 
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
+        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
         return Ok(user.ToDtoWithBalance(balance));
     }
 

@@ -32,6 +32,7 @@ public class EmailController : ControllerBase
             .Include(u => u.Payments)
             .Include(u => u.Purchases)
                 .ThenInclude(p => p.Scans)
+            .Include(u => u.Withdrawals)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null)
@@ -48,7 +49,8 @@ public class EmailController : ControllerBase
         var totalPaid = user.Payments.Sum(p => p.Amount);
         var totalSpent = user.Purchases
             .Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
-        var balance = totalSpent - totalPaid;
+        var totalWithdrawn = user.Withdrawals.Sum(w => w.Amount);
+        var balance = totalSpent - totalPaid + totalWithdrawn;
 
         if (balance <= 0)
         {
@@ -85,6 +87,7 @@ public class EmailController : ControllerBase
             .Include(u => u.Payments)
             .Include(u => u.Purchases)
                 .ThenInclude(p => p.Scans)
+            .Include(u => u.Withdrawals)
             .Where(u => u.Email != null && u.Email != "")
             .ToListAsync();
 
@@ -95,6 +98,7 @@ public class EmailController : ControllerBase
                 Balance = u.Purchases
                     .Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount))
                     - u.Payments.Sum(p => p.Amount)
+                    + u.Withdrawals.Sum(w => w.Amount)
             })
             .Where(u => u.Balance >= minBalance)
             .ToList();
