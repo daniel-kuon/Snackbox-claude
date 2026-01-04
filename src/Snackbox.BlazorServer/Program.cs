@@ -1,3 +1,4 @@
+using Snackbox.ApiClient;
 using Snackbox.BlazorServer.Components;
 using Snackbox.BlazorServer.Services;
 using Snackbox.Components.Pages;
@@ -18,6 +19,9 @@ builder.Services.AddTransient<AuthenticationHeaderHandler>();
 // Register HttpClient for API calls
 var apiUrl = builder.Configuration["API_HTTPS"] ??
              builder.Configuration["API_HTTP"] ?? throw new InvalidOperationException("API URL is not configured.");
+
+// Register all Snackbox API clients with authentication
+builder.Services.AddSnackboxApiClientWithAuth<AuthenticationHeaderHandler>(apiUrl);
 
 builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
                                                                               {

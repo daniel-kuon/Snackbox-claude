@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Snackbox.Api.Data;
 using Snackbox.Api.Services;
 
@@ -11,7 +12,18 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Snackbox API",
+        Version = "v1",
+        Description = "Snackbox API for managing products, users, purchases, and payments"
+    });
+});
+
+// Add OpenAPI document generation for build-time client generation
+builder.Services.AddOpenApi("v1");
 
 // Configure PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("snackboxdb")
@@ -32,6 +44,9 @@ builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 // Register email service
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
+
+// Register product best before date service
+builder.Services.AddScoped<IProductBestBeforeDateService, ProductBestBeforeDateService>();
 
 // Register barcode lookup service
 builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()

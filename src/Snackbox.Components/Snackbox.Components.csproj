@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Snackbox.Api.Dtos\Snackbox.Api.Dtos.csproj" />
+    <ProjectReference Include="..\Snackbox.ApiClient\Snackbox.ApiClient.csproj" />
   </ItemGroup>
 
 </Project>

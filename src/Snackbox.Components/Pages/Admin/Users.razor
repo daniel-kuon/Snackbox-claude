@@ -1,7 +1,9 @@
 @page "/admin/users"
 @using System.ComponentModel.DataAnnotations
+@using Snackbox.ApiClient
 @using Snackbox.Api.Dtos
-@inject HttpClient Http
+@using Refit
+@inject IUsersApi UsersApi
 @inject NavigationManager Navigation
 
 <PageTitle>User Management - Snackbox Admin</PageTitle>
@@ -156,7 +158,7 @@
                 {
                     <div class="alert alert-danger">@_modalError</div>
                 }
-                
+
                 <div class="form-group">
                     <label>Filter users</label>
                     <input type="text" @bind="_userFilter" @bind:event="oninput" class="form-control" placeholder="Search by name..." />
@@ -172,8 +174,8 @@
                     @foreach (var user in GetFilteredUsersForEmail())
                     {
                         <div class="user-selection-item">
-                            <input type="checkbox" 
-                                   id="user-@user.Id" 
+                            <input type="checkbox"
+                                   id="user-@user.Id"
                                    checked="@_selectedUserIds.Contains(user.Id)"
                                    @onchange="@(e => ToggleUserSelection(user.Id, (bool)e.Value!))" />
                             <label for="user-@user.Id">
@@ -543,7 +545,12 @@
 
         try
         {
-            _users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+            var result = await UsersApi.GetAllAsync();
+            _users = result.ToList();
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load users: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -561,7 +568,7 @@
         _modalError = null;
         _userFilter = string.Empty;
         _selectedUserIds.Clear();
-        
+
         // Pre-select all users with balance >= 10
         if (_users != null)
         {
@@ -582,12 +589,12 @@
     private List<UserDto> GetFilteredUsersForEmail()
     {
         if (_users == null) return new List<UserDto>();
-        
+
         var eligible = _users.Where(u => u.Balance < -10 && !string.IsNullOrEmpty(u.Email));
-        
+
         if (string.IsNullOrWhiteSpace(_userFilter))
             return eligible.ToList();
-        
+
         return eligible.Where(u => u.Username.Contains(_userFilter, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
@@ -675,45 +682,33 @@
             if (_editingUserId == null)
             {
                 // Create new user
-                var response = await Http.PostAsJsonAsync("api/users", new
+                var createDto = new CreateUserDto
                 {
-                    username = _userForm.Username,
-                    email = _userForm.Email,
-                    role = _userForm.Role,
-                    isActive = _userForm.IsActive
-                });
-
-                if (response.IsSuccessStatusCode)
-                {
-                    CloseModal();
-                    await LoadUsers();
-                }
-                else
-                {
-                    _modalError = "Failed to create user. Please try again.";
-                }
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    IsAdmin = _userForm.Role == "Admin"
+                };
+                await UsersApi.CreateAsync(createDto);
+                CloseModal();
+                await LoadUsers();
             }
             else
             {
                 // Update existing user
-                var response = await Http.PutAsJsonAsync($"api/users/{_editingUserId}", new
+                var updateDto = new UpdateUserDto
                 {
-                    username = _userForm.Username,
-                    email = _userForm.Email,
-                    role = _userForm.Role,
-                    isActive = _userForm.IsActive
-                });
-
-                if (response.IsSuccessStatusCode)
-                {
-                    CloseModal();
-                    await LoadUsers();
-                }
-                else
-                {
-                    _modalError = "Failed to update user. Please try again.";
-                }
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    IsAdmin = _userForm.Role == "Admin"
+                };
+                await UsersApi.UpdateAsync(_editingUserId.Value, updateDto);
+                CloseModal();
+                await LoadUsers();
             }
+        }
+        catch (ApiException ex)
+        {
+            _modalError = ex.Content ?? "Failed to save user. Please try again.";
         }
         catch (Exception ex)
         {

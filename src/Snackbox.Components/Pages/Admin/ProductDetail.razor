@@ -1,5 +1,9 @@
 @page "/admin/products/{ProductId:int}"
 @using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject IProductsApi ProductsApi
+@inject IShelvingActionsApi ShelvingActionsApi
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -832,7 +836,11 @@
 
         try
         {
-            _productStock = await Http.GetFromJsonAsync<ProductStockDto>($"api/products/{ProductId}/stock");
+            _productStock = await ProductsApi.GetProductStockAsync(ProductId);
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load product: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -850,7 +858,12 @@
 
         try
         {
-            _shelvingActions = await Http.GetFromJsonAsync<List<ShelvingActionDto>>($"api/shelvingactions?productId={ProductId}");
+            var result = await ShelvingActionsApi.GetAllAsync(productId: ProductId);
+            _shelvingActions = result.ToList();
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load shelving actions: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -970,17 +983,12 @@
 
             try
             {
-                var response = await Http.DeleteAsync($"api/products/{ProductId}/barcodes/{barcodeId}");
-
-                if (response.IsSuccessStatusCode)
-                {
-                    await LoadProductStock();
-                }
-                else
-                {
-                    var error = await response.Content.ReadAsStringAsync();
-                    _modalError = $"Failed to remove barcode: {error}";
-                }
+                await ProductsApi.DeleteBarcodeAsync(ProductId, barcodeId);
+                await LoadProductStock();
+            }
+            catch (ApiException ex)
+            {
+                _modalError = $"Failed to remove barcode: {ex.Content ?? ex.Message}";
             }
             catch (Exception ex)
             {
@@ -1005,22 +1013,18 @@
 
         try
         {
-            var response = await Http.PostAsJsonAsync($"api/products/{ProductId}/barcodes", new
+            var dto = new CreateProductBarcodeDto
             {
-                barcode = _newBarcodeCode,
-                quantity = _newBarcodeQuantity
-            });
-
-            if (response.IsSuccessStatusCode)
-            {
-                await LoadProductStock();
-                CloseModal();
-            }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                _modalError = $"Failed to add barcode: {error}";
-            }
+                Barcode = _newBarcodeCode,
+                Quantity = _newBarcodeQuantity
+            };
+            await ProductsApi.AddBarcodeAsync(ProductId, dto);
+            await LoadProductStock();
+            CloseModal();
+        }
+        catch (ApiException ex)
+        {
+            _modalError = $"Failed to add barcode: {ex.Content ?? ex.Message}";
         }
         catch (Exception ex)
         {

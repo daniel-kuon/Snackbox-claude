@@ -1,6 +1,8 @@
 @page "/admin/stock"
 @using Snackbox.Api.Dtos
-@inject HttpClient Http
+@using Snackbox.ApiClient
+@using Refit
+@inject IProductsApi ProductsApi
 @inject NavigationManager Navigation
 
 <PageTitle>Stock Management - Snackbox Admin</PageTitle>
@@ -319,8 +321,13 @@
 
         try
         {
-            _products = await Http.GetFromJsonAsync<List<ProductStockDto>>("api/products/stock");
+            var result = await ProductsApi.GetAllProductStockAsync();
+            _products = result.ToList();
             FilterProducts();
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load stock data: {ex.Message}";
         }
         catch (Exception ex)
         {
