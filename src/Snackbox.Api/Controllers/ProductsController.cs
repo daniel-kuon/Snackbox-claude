@@ -124,10 +124,10 @@ public class ProductsController : ControllerBase
     {
         var productBarcode = await _context.ProductBarcodes
             .Include(pb => pb.Product)
-            .ThenInclude(p => p.Barcodes)
+                .ThenInclude(p => p.Barcodes)
             .Include(pb => pb.Product)
-            .ThenInclude(p => p.Batches)
-            .ThenInclude(b => b.ShelvingActions)
+                .ThenInclude(p => p.Batches)
+                .ThenInclude(b => b.ShelvingActions)
             .FirstOrDefaultAsync(pb => pb.Barcode == barcode);
 
         if (productBarcode == null)
