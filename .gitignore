@@ -318,3 +318,7 @@ FodyWeavers.xsd
 
 # Temporary files
 nul
+
+# Snackbox specific
+backups/
+
