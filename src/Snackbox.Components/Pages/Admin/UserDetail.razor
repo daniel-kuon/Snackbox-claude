@@ -49,16 +49,16 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-button @(_activeTab == "info" ? "active" : "")" @onclick='() => _activeTab = "info"'>
+            <button class="tab-button @(_activeTab == "info" ? "active" : "")" @onclick='() => SwitchTab("info")'>
                 User Information
             </button>
-            <button class="tab-button @(_activeTab == "payments" ? "active" : "")" @onclick='() => _activeTab = "payments"'>
+            <button class="tab-button @(_activeTab == "payments" ? "active" : "")" @onclick='() => SwitchTab("payments")'>
                 Payments
             </button>
-            <button class="tab-button @(_activeTab == "purchases" ? "active" : "")" @onclick='() => _activeTab = "purchases"'>
+            <button class="tab-button @(_activeTab == "purchases" ? "active" : "")" @onclick='() => SwitchTab("purchases")'>
                 Purchases
             </button>
-            <button class="tab-button @(_activeTab == "barcodes" ? "active" : "")" @onclick='() => _activeTab = "barcodes"'>
+            <button class="tab-button @(_activeTab == "barcodes" ? "active" : "")" @onclick='() => SwitchTab("barcodes")'>
                 Barcodes
             </button>
         </div>
@@ -924,6 +924,25 @@
             await LoadPurchases();
         }
         else if (_activeTab == "barcodes" && _barcodes == null)
+        {
+            await LoadBarcodes();
+        }
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        _activeTab = tab;
+        
+        // Load data for the new tab if not already loaded
+        if (tab == "payments" && _payments == null)
+        {
+            await LoadPayments();
+        }
+        else if (tab == "purchases" && _purchases == null)
+        {
+            await LoadPurchases();
+        }
+        else if (tab == "barcodes" && _barcodes == null)
         {
             await LoadBarcodes();
         }
