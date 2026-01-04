@@ -72,7 +72,7 @@
                         <div class="section-header">
                             <h3>User Information</h3>
                             <div class="button-group">
-                                @if (_user.Balance > 0 && !string.IsNullOrEmpty(_user.Email))
+                                @if (_user.Balance < 0 && !string.IsNullOrEmpty(_user.Email))
                                 {
                                     <button class="btn btn-warning btn-sm" @onclick="SendPaymentReminder" disabled="@_isSendingEmail">
                                         @if (_isSendingEmail)
@@ -1133,8 +1133,9 @@
                 var allUsers = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
                 _adminUsers = allUsers?.Where(u => u.IsAdmin).ToList();
             }
-            catch
+            catch (Exception)
             {
+                // Set to empty list but don't show error - admin dropdown will just be empty
                 _adminUsers = new List<UserDto>();
             }
         }
@@ -1300,6 +1301,13 @@
             if (_correctionForm.ReferencePurchaseId == 0)
             {
                 _modalError = "Please select a reference purchase.";
+                _isSaving = false;
+                return;
+            }
+
+            if (_correctionForm.Amount == 0)
+            {
+                _modalError = "Correction amount cannot be zero.";
                 _isSaving = false;
                 return;
             }

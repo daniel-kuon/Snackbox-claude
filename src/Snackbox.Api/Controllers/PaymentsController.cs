@@ -102,47 +102,66 @@ public class PaymentsController : ControllerBase
             }
         }
 
-        var payment = dto.ToEntity();
-        
-        // For PayPal payments, create a linked withdrawal for the admin
-        Withdrawal? withdrawal = null;
-        if (payment.Type == PaymentType.PayPal && adminUser != null)
+        // Use transaction to ensure atomicity
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            withdrawal = new Withdrawal
+            var payment = dto.ToEntity();
+            
+            // For PayPal payments, create a linked withdrawal for the admin
+            Withdrawal? withdrawal = null;
+            if (payment.Type == PaymentType.PayPal && adminUser != null)
             {
-                UserId = adminUser.Id,
-                Amount = payment.Amount,
-                WithdrawnAt = DateTime.UtcNow,
-                Notes = $"PayPal payment from {user.Username}"
-            };
-            _context.Withdrawals.Add(withdrawal);
-        }
+                withdrawal = new Withdrawal
+                {
+                    UserId = adminUser.Id,
+                    Amount = payment.Amount,
+                    WithdrawnAt = DateTime.UtcNow,
+                    Notes = $"PayPal payment from {user.Username}"
+                };
+                _context.Withdrawals.Add(withdrawal);
+            }
 
-        _context.Payments.Add(payment);
-        await _context.SaveChangesAsync();
-
-        // Link the payment and withdrawal
-        if (withdrawal != null)
-        {
-            payment.LinkedWithdrawalId = withdrawal.Id;
-            withdrawal.LinkedPaymentId = payment.Id;
+            _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
-        }
 
-        // Update cash register balance for cash register payments
-        if (payment.Type == PaymentType.CashRegister)
+            // Link the payment and withdrawal
+            if (withdrawal != null)
+            {
+                payment.LinkedWithdrawalId = withdrawal.Id;
+                withdrawal.LinkedPaymentId = payment.Id;
+            }
+
+            // Update cash register balance for cash register payments
+            if (payment.Type == PaymentType.CashRegister)
+            {
+                var cashRegister = await _context.CashRegister.FirstOrDefaultAsync();
+                if (cashRegister != null)
+                {
+                    cashRegister.CurrentBalance += payment.Amount;
+                    cashRegister.LastUpdatedAt = DateTime.UtcNow;
+                    cashRegister.LastUpdatedByUserId = user.Id;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            _logger.LogInformation("Payment created: {PaymentId} for user {UserId} - Amount: {Amount}, Type: {Type}",
+                payment.Id, payment.UserId, payment.Amount, payment.Type);
+
+            payment.User = user;
+            payment.AdminUser = adminUser;
+            var resultDto = payment.ToDtoWithUser();
+
+            return CreatedAtAction(nameof(GetByUserId), new { userId = payment.UserId }, resultDto);
+        }
+        catch (Exception ex)
         {
-            await UpdateCashRegister(payment.Amount, user.Id);
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to create payment for user {UserId}", dto.UserId);
+            throw;
         }
-
-        _logger.LogInformation("Payment created: {PaymentId} for user {UserId} - Amount: {Amount}, Type: {Type}",
-            payment.Id, payment.UserId, payment.Amount, payment.Type);
-
-        payment.User = user;
-        payment.AdminUser = adminUser;
-        var resultDto = payment.ToDtoWithUser();
-
-        return CreatedAtAction(nameof(GetByUserId), new { userId = payment.UserId }, resultDto);
     }
 
     private async Task UpdateCashRegister(decimal amount, int userId)
@@ -176,6 +195,12 @@ public class PaymentsController : ControllerBase
         if (payment == null)
         {
             return NotFound(new { message = "Payment not found" });
+        }
+
+        // Prevent deletion of payments linked to withdrawals
+        if (payment.LinkedWithdrawalId.HasValue)
+        {
+            return BadRequest(new { message = "Cannot delete a payment linked to a withdrawal. Delete the withdrawal first or unlink them." });
         }
 
         _context.Payments.Remove(payment);

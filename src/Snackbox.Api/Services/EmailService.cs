@@ -54,7 +54,7 @@ public class EmailService : IEmailService
             client.EnableSsl = _emailSettings.EnableSsl;
             client.Credentials = new NetworkCredential(_emailSettings.Username, _emailSettings.Password);
 
-            var mailMessage = new MailMessage
+            using var mailMessage = new MailMessage
             {
                 From = new MailAddress(_emailSettings.FromEmail, _emailSettings.FromName),
                 Subject = subject,

@@ -31,6 +31,7 @@ public class EmailController : ControllerBase
         var user = await _context.Users
             .Include(u => u.Payments)
             .Include(u => u.Purchases)
+                .ThenInclude(p => p.Scans)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null)
@@ -43,7 +44,7 @@ public class EmailController : ControllerBase
             return BadRequest(new { message = "User does not have an email address" });
         }
 
-        // Calculate balance
+        // Calculate balance (positive = user owes money)
         var totalPaid = user.Payments.Sum(p => p.Amount);
         var totalSpent = user.Purchases
             .Where(p => p.CompletedAt.HasValue)
@@ -52,7 +53,7 @@ public class EmailController : ControllerBase
 
         if (balance <= 0)
         {
-            return BadRequest(new { message = "User does not have an outstanding balance" });
+            return BadRequest(new { message = "User does not have an outstanding balance or has a credit" });
         }
 
         try
