@@ -16,11 +16,14 @@ public class PurchasesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<PurchasesController> _logger;
+    private readonly IConfiguration _configuration;
+    private const int DefaultTimeoutSeconds = 60;
 
-    public PurchasesController(ApplicationDbContext context, ILogger<PurchasesController> logger)
+    public PurchasesController(ApplicationDbContext context, ILogger<PurchasesController> logger, IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
+        _configuration = configuration;
     }
 
     [HttpGet("my-purchases")]
@@ -28,12 +31,15 @@ public class PurchasesController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
+        
+        var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
+        var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
 
         var purchases = await _context.Purchases
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .Where(p => p.UserId == userId.Value && p.CompletedAt != null)
+            .Where(p => p.UserId == userId.Value && p.CompletedAt < timeoutThreshold)
             .OrderByDescending(p => p.CompletedAt)
             .ToListAsync();
 
@@ -45,12 +51,15 @@ public class PurchasesController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
+        
+        var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
+        var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
 
         var purchase = await _context.Purchases
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .FirstOrDefaultAsync(p => p.UserId == userId.Value && p.CompletedAt == null);
+            .FirstOrDefaultAsync(p => p.UserId == userId.Value && p.CompletedAt >= timeoutThreshold);
 
         if (purchase == null)
         {
@@ -64,11 +73,14 @@ public class PurchasesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetAll()
     {
+        var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
+        var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
+        
         var purchases = await _context.Purchases
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .Where(p => p.CompletedAt != null)
+            .Where(p => p.CompletedAt < timeoutThreshold)
             .OrderByDescending(p => p.CompletedAt)
             .ToListAsync();
 
@@ -79,11 +91,14 @@ public class PurchasesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetByUserId(int userId)
     {
+        var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
+        var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
+        
         var purchases = await _context.Purchases
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .Where(p => p.UserId == userId && p.CompletedAt != null)
+            .Where(p => p.UserId == userId && p.CompletedAt < timeoutThreshold)
             .OrderByDescending(p => p.CompletedAt)
             .ToListAsync();
 
