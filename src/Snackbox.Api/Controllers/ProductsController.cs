@@ -68,7 +68,7 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Product created: {ProductId} - {ProductName}", product.Id, product.Name);
 
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product.ToDto(_stockCalculation));
+        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product.ToDto(null));
     }
 
     [HttpPut("{id}")]

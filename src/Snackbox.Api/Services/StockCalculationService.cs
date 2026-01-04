@@ -69,23 +69,31 @@ public class StockCalculationService : IStockCalculationService
 
     public DateTime? GetEarliestBestBeforeDateInStorage(IEnumerable<ProductBatch> batches)
     {
-        var batchesWithStock = batches
-            .Where(b => CalculateStorageQuantity(b.ShelvingActions) > 0)
+        var batchList = batches.ToList();
+        
+        // Pre-calculate stock quantities to avoid O(n²) complexity
+        var batchesWithStockQuantities = batchList
+            .Select(b => new { Batch = b, Quantity = CalculateStorageQuantity(b.ShelvingActions) })
+            .Where(x => x.Quantity > 0)
             .ToList();
         
-        return batchesWithStock.Any() 
-            ? batchesWithStock.Min(b => b.BestBeforeDate) 
+        return batchesWithStockQuantities.Any() 
+            ? batchesWithStockQuantities.Min(x => x.Batch.BestBeforeDate) 
             : null;
     }
 
     public DateTime? GetEarliestBestBeforeDateOnShelf(IEnumerable<ProductBatch> batches)
     {
-        var batchesWithStock = batches
-            .Where(b => CalculateShelfQuantity(b.ShelvingActions) > 0)
+        var batchList = batches.ToList();
+        
+        // Pre-calculate stock quantities to avoid O(n²) complexity
+        var batchesWithStockQuantities = batchList
+            .Select(b => new { Batch = b, Quantity = CalculateShelfQuantity(b.ShelvingActions) })
+            .Where(x => x.Quantity > 0)
             .ToList();
         
-        return batchesWithStock.Any() 
-            ? batchesWithStock.Min(b => b.BestBeforeDate) 
+        return batchesWithStockQuantities.Any() 
+            ? batchesWithStockQuantities.Min(x => x.Batch.BestBeforeDate) 
             : null;
     }
 }
