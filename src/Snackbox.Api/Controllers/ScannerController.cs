@@ -55,6 +55,19 @@ public class ScannerController : ControllerBase
             });
         }
 
+        // Check if this is a login-only barcode
+        if (barcode.IsLoginOnly)
+        {
+            // Login-only barcodes cannot be used for purchases
+            return Ok(new ScanBarcodeResponse
+            {
+                Success = false,
+                ErrorMessage = "This barcode is for login only and cannot be used for purchases",
+                UserId = barcode.UserId,
+                Username = barcode.User.Username
+            });
+        }
+
         var user = barcode.User;
 
         // Find the last incomplete purchase for this user

@@ -285,9 +285,32 @@
                 </p>
                 <div class="form-group">
                     <label>Quantity to move</label>
-                    <input type="number" class="form-control" @bind="_moveQuantity" min="1"
+                    <input type="number" class="form-control" @bind="_moveQuantity" @bind:event="oninput" min="0"
                            max="@(_moveToShelf ? _selectedBatch?.QuantityInStorage : _selectedBatch?.QuantityOnShelf)" />
                 </div>
+                <div class="quick-actions">
+                    <label>Quick adjust:</label>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-10)">-10</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-5)">-5</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-1)">-1</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(1)">+1</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(5)">+5</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(10)">+10</button>
+                    </div>
+                </div>
+                @if (GetBarcodeQuantities().Any())
+                {
+                    <div class="barcode-quantities mt-3">
+                        <label>Set to barcode quantity:</label>
+                        <div class="btn-group" role="group">
+                            @foreach (var qty in GetBarcodeQuantities())
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => _moveQuantity = qty">@qty</button>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
@@ -742,6 +765,25 @@
     .text-muted {
         color: #6c757d;
     }
+
+    .quick-actions,
+    .barcode-quantities {
+        margin-top: 1rem;
+    }
+
+    .quick-actions label,
+    .barcode-quantities label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
 </style>
 
 @code {
@@ -831,7 +873,8 @@
     {
         _selectedBatch = batch;
         _moveToShelf = true;
-        _moveQuantity = 1;
+        // Prefill with current storage quantity
+        _moveQuantity = batch.QuantityInStorage > 0 ? batch.QuantityInStorage : 1;
         _modalError = null;
         _showMoveModal = true;
     }
@@ -840,9 +883,27 @@
     {
         _selectedBatch = batch;
         _moveToShelf = false;
-        _moveQuantity = 1;
+        // Prefill with current shelf quantity
+        _moveQuantity = batch.QuantityOnShelf > 0 ? batch.QuantityOnShelf : 1;
         _modalError = null;
         _showMoveModal = true;
+    }
+
+    private void AdjustMoveQuantity(int delta)
+    {
+        var maxQuantity = _moveToShelf ? (_selectedBatch?.QuantityInStorage ?? 0) : (_selectedBatch?.QuantityOnShelf ?? 0);
+        _moveQuantity = Math.Max(0, Math.Min(_moveQuantity + delta, maxQuantity));
+    }
+
+    private IEnumerable<int> GetBarcodeQuantities()
+    {
+        if (_productStock?.Barcodes == null) return Enumerable.Empty<int>();
+        
+        return _productStock.Barcodes
+            .Select(b => b.Quantity)
+            .Where(q => q > 0)
+            .Distinct()
+            .OrderBy(q => q);
     }
 
     private async Task ExecuteMove()

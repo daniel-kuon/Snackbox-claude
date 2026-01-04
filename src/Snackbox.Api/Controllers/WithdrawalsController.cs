@@ -114,17 +114,7 @@ public class WithdrawalsController : ControllerBase
             return NotFound(new { message = "Withdrawal not found" });
         }
 
-        // Don't allow deleting withdrawals linked to PayPal payments
-        if (withdrawal.LinkedPaymentId.HasValue)
-        {
-            return BadRequest(new { message = "Cannot delete withdrawal linked to PayPal payment" });
-        }
-
-        _context.Withdrawals.Remove(withdrawal);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Withdrawal deleted: {WithdrawalId}", withdrawal.Id);
-
-        return NoContent();
+        // Withdrawals cannot be deleted - only corrections can be made
+        return BadRequest(new { message = "Withdrawals cannot be deleted. Please create a payment correction if needed." });
     }
 }

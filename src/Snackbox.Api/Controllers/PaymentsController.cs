@@ -190,24 +190,7 @@ public class PaymentsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult> Delete(int id)
     {
-        var payment = await _context.Payments.FindAsync(id);
-
-        if (payment == null)
-        {
-            return NotFound(new { message = "Payment not found" });
-        }
-
-        // Prevent deletion of payments linked to withdrawals
-        if (payment.LinkedWithdrawalId.HasValue)
-        {
-            return BadRequest(new { message = "Cannot delete a payment linked to a withdrawal. Delete the withdrawal first or unlink them." });
-        }
-
-        _context.Payments.Remove(payment);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Payment deleted: {PaymentId}", payment.Id);
-
-        return NoContent();
+        // Payments cannot be deleted - only corrections can be made
+        return BadRequest(new { message = "Payments cannot be deleted. Please create a correction instead." });
     }
 }

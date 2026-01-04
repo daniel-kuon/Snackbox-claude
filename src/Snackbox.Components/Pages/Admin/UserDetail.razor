@@ -230,6 +230,7 @@
                                 <th>Type</th>
                                 <th>Total</th>
                                 <th>Reference</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -267,6 +268,11 @@
                                         {
                                             <span>Ref: #@purchase.ReferencePurchaseId</span>
                                         }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-warning" @onclick="() => ShowCorrectionForPurchase(purchase.Id)">
+                                            Create Correction
+                                        </button>
                                     </td>
                                 </tr>
                             }
@@ -1255,6 +1261,16 @@
         _showCorrectionModal = true;
     }
 
+    private void ShowCorrectionForPurchase(int purchaseId)
+    {
+        _correctionForm = new CorrectionFormModel
+        {
+            ReferencePurchaseId = purchaseId
+        };
+        _modalError = null;
+        _showCorrectionModal = true;
+    }
+
     private async Task SaveManualPurchase()
     {
         _isSaving = true;
@@ -1439,7 +1455,7 @@
     private class ManualPurchaseFormModel
     {
         [Required]
-        [Range(0.01, 10000, ErrorMessage = "Amount must be between 0.01 and 10000")]
+        [Range(-10000, 10000, ErrorMessage = "Amount must be between -10000 and 10000")]
         public decimal Amount { get; set; }
 
         [Required]
