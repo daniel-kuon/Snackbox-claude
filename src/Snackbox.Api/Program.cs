@@ -98,17 +98,29 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Apply migrations and seed database
+// Check database availability and log status
 using (var scope = app.Services.CreateScope())
 {
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    
     try
     {
-        await dbContext.Database.MigrateAsync();
-    } catch
+        var canConnect = await dbContext.Database.CanConnectAsync();
+        if (canConnect)
+        {
+            logger.LogInformation("Database connection successful");
+            await dbContext.Database.MigrateAsync();
+            logger.LogInformation("Database migrations applied successfully");
+        }
+        else
+        {
+            logger.LogWarning("Database is not available. Please use /database-setup page to initialize the database.");
+        }
+    }
+    catch (Exception ex)
     {
-        await dbContext.Database.EnsureDeletedAsync();
-        await dbContext.Database.MigrateAsync();
+        logger.LogError(ex, "Database connection failed. Please use /database-setup page to initialize the database.");
     }
 }
 

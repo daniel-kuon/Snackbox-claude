@@ -1,0 +1,274 @@
+@page "/database-setup"
+@using Snackbox.ApiClient
+@using Microsoft.AspNetCore.Components.Forms
+@inject IBackupApi BackupApi
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Database Setup - Snackbox</PageTitle>
+
+<div class="database-setup-container">
+    <div class="setup-card">
+        <div class="setup-header">
+            <h2>⚠️ Database Setup Required</h2>
+            <p>The Snackbox database is not available. Please choose one of the following options to set up the database.</p>
+        </div>
+
+        @if (_statusMessage != null)
+        {
+            <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+                @_statusMessage
+                <button type="button" class="btn-close" @onclick="ClearStatusMessage"></button>
+            </div>
+        }
+
+        @if (_isProcessing)
+        {
+            <div class="loading-container">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Processing...</span>
+                </div>
+                <p>@_processingMessage</p>
+            </div>
+        }
+        else
+        {
+            <div class="setup-options">
+                <div class="option-card">
+                    <div class="option-icon">🔄</div>
+                    <h3>Restore from Backup</h3>
+                    <p>Restore your database from a previously saved backup file.</p>
+                    <label class="btn btn-primary w-100" for="restoreBackupFile">
+                        <span class="icon">📥</span> Select Backup File
+                    </label>
+                    <InputFile id="restoreBackupFile" OnChange="RestoreFromBackup" style="display: none;" accept=".sql" />
+                </div>
+
+                <div class="option-card">
+                    <div class="option-icon">📦</div>
+                    <h3>Create Empty Database</h3>
+                    <p>Create a fresh database with no data. You'll need to set up users and products manually.</p>
+                    <button class="btn btn-secondary w-100" @onclick="CreateEmptyDatabase">
+                        <span class="icon">➕</span> Create Empty
+                    </button>
+                </div>
+
+                <div class="option-card">
+                    <div class="option-icon">🌱</div>
+                    <h3>Create with Sample Data</h3>
+                    <p>Create a database with sample users, products, and transactions for testing.</p>
+                    <button class="btn btn-success w-100" @onclick="CreateSeededDatabase">
+                        <span class="icon">🚀</span> Create with Data
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .database-setup-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .setup-card {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        max-width: 900px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .setup-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .setup-header h2 {
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .setup-header p {
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .setup-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .option-card {
+        background: #f8f9fa;
+        border: 2px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .option-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        transform: translateY(-5px);
+    }
+
+    .option-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .option-card h3 {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+        color: #333;
+    }
+
+    .option-card p {
+        color: #666;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .loading-container p {
+        margin-top: 1rem;
+        color: #666;
+        font-size: 1.1rem;
+    }
+</style>
+
+@code {
+    private bool _isProcessing = false;
+    private string _processingMessage = "";
+    private string? _statusMessage;
+    private bool _isError;
+
+    private async Task RestoreFromBackup(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            _isProcessing = true;
+            _processingMessage = "Importing and restoring backup...";
+            ClearStatusMessage();
+
+            // Import the backup first
+            using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            var streamPart = new Refit.StreamPart(memoryStream, file.Name, "application/octet-stream");
+            var backup = await BackupApi.ImportBackupAsync(streamPart);
+
+            _processingMessage = "Restoring database...";
+            StateHasChanged();
+
+            // Restore the backup
+            await BackupApi.RestoreBackupAsync(backup.Id);
+
+            _statusMessage = "Database restored successfully! Redirecting to login...";
+            _isError = false;
+            StateHasChanged();
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to restore backup: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task CreateEmptyDatabase()
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            "Are you sure you want to create an empty database? You'll need to set up users and products manually.");
+
+        if (!confirmed) return;
+
+        try
+        {
+            _isProcessing = true;
+            _processingMessage = "Creating empty database...";
+            ClearStatusMessage();
+
+            await BackupApi.CreateEmptyDatabaseAsync();
+
+            _statusMessage = "Empty database created successfully! Redirecting to registration...";
+            _isError = false;
+            StateHasChanged();
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/register", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to create empty database: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task CreateSeededDatabase()
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            "Create a database with sample data? This is recommended for testing and initial setup.");
+
+        if (!confirmed) return;
+
+        try
+        {
+            _isProcessing = true;
+            _processingMessage = "Creating database with sample data...";
+            ClearStatusMessage();
+
+            await BackupApi.CreateSeededDatabaseAsync();
+
+            _statusMessage = "Database created successfully! Redirecting to login...";
+            _isError = false;
+            StateHasChanged();
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to create seeded database: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private void ClearStatusMessage()
+    {
+        _statusMessage = null;
+    }
+}
