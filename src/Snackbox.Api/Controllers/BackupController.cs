@@ -215,6 +215,25 @@ public class BackupController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Checks if PostgreSQL tools are available
+    /// </summary>
+    [HttpGet("tools/check")]
+    [AllowAnonymous]
+    public async Task<ActionResult> CheckPostgresTools()
+    {
+        try
+        {
+            var available = await _backupService.ArePostgresToolsAvailableAsync();
+            return Ok(new { available, message = available ? "PostgreSQL tools are available" : "PostgreSQL tools are not installed. Please run scripts/Install-PostgresTools.ps1" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check PostgreSQL tools");
+            return Ok(new { available = false, message = "Failed to check PostgreSQL tools" });
+        }
+    }
+
     private static BackupMetadataDto ToDto(BackupMetadata metadata)
     {
         return new BackupMetadataDto

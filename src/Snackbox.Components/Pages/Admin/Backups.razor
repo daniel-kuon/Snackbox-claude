@@ -3,8 +3,10 @@
 @using Snackbox.Api.Dtos
 @using Refit
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Logging
 @inject IBackupApi BackupApi
 @inject IJSRuntime JSRuntime
+@inject ILogger<Backups> Logger
 
 <PageTitle>Backup Management - Snackbox Admin</PageTitle>
 
@@ -27,6 +29,21 @@
         <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
             @_statusMessage
             <button type="button" class="btn-close" @onclick="ClearStatusMessage"></button>
+        </div>
+    }
+
+    @if (!_toolsAvailable && !_checkingTools)
+    {
+        <div class="alert alert-warning" role="alert">
+            <h5>⚠️ PostgreSQL Tools Not Available</h5>
+            <p>The backup functionality requires PostgreSQL client tools (pg_dump, psql) to be installed.</p>
+            <p><strong>Windows users:</strong> Run the installation script to automatically download and install the tools:</p>
+            <pre class="bg-dark text-light p-2 rounded">.\scripts\Install-PostgresTools.ps1</pre>
+            <p class="mb-0">
+                <strong>Other platforms:</strong> See the 
+                <a href="https://github.com/daniel-kuon/Snackbox-claude/blob/main/docs/BACKUP.md#prerequisites" target="_blank" class="alert-link">documentation</a> 
+                for installation instructions.
+            </p>
         </div>
     }
 
@@ -95,10 +112,37 @@
     private bool _isCreatingBackup = false;
     private string? _statusMessage;
     private bool _isError;
+    private bool _toolsAvailable = true;
+    private bool _checkingTools = true;
 
     protected override async Task OnInitializedAsync()
     {
+        await CheckToolsAvailability();
         await LoadBackups();
+    }
+
+    private async Task CheckToolsAvailability()
+    {
+        try
+        {
+            _checkingTools = true;
+            var result = await BackupApi.CheckPostgresToolsAsync();
+            _toolsAvailable = result.Available;
+            
+            if (!_toolsAvailable)
+            {
+                Logger.LogWarning("PostgreSQL tools are not available: {Message}", result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to check PostgreSQL tools availability");
+            _toolsAvailable = false;
+        }
+        finally
+        {
+            _checkingTools = false;
+        }
     }
 
     private async Task LoadBackups()

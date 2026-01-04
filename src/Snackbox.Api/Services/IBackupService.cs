@@ -66,4 +66,10 @@ public interface IBackupService
     /// Creates a database with seed data
     /// </summary>
     Task CreateSeededDatabaseAsync();
+
+    /// <summary>
+    /// Checks if PostgreSQL tools (pg_dump, psql) are available
+    /// </summary>
+    /// <returns>True if tools are available, false otherwise</returns>
+    Task<bool> ArePostgresToolsAvailableAsync();
 }

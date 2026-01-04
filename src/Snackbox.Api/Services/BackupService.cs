@@ -101,6 +101,11 @@ public class BackupService : IBackupService
             _logger.LogInformation("Backup created successfully: {FileName} ({Size} bytes)", fileName, fileInfo.Length);
             return metadata;
         }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            _logger.LogError(ex, "pg_dump tool not found. Please install PostgreSQL client tools or run the setup script (scripts/Install-PostgresTools.ps1)");
+            throw new InvalidOperationException("PostgreSQL tools are not installed. Please install pg_dump or run the setup script.", ex);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create backup");
@@ -182,6 +187,11 @@ public class BackupService : IBackupService
             }
 
             _logger.LogInformation("Backup restored successfully: {BackupId}", backupId);
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            _logger.LogError(ex, "psql tool not found. Please install PostgreSQL client tools or run the setup script (scripts/Install-PostgresTools.ps1)");
+            throw new InvalidOperationException("PostgreSQL tools are not installed. Please install psql or run the setup script.", ex);
         }
         catch (Exception ex)
         {
@@ -458,5 +468,65 @@ public class BackupService : IBackupService
         public required string Username { get; set; }
         public required string Password { get; set; }
         public required string Database { get; set; }
+    }
+
+    public async Task<bool> ArePostgresToolsAvailableAsync()
+    {
+        try
+        {
+            // Check for pg_dump
+            var pgDumpCheck = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "pg_dump",
+                    ArgumentList = { "--version" },
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            pgDumpCheck.Start();
+            await pgDumpCheck.WaitForExitAsync();
+
+            if (pgDumpCheck.ExitCode != 0)
+            {
+                _logger.LogWarning("pg_dump is not available");
+                return false;
+            }
+
+            // Check for psql
+            var psqlCheck = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "psql",
+                    ArgumentList = { "--version" },
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            psqlCheck.Start();
+            await psqlCheck.WaitForExitAsync();
+
+            if (psqlCheck.ExitCode != 0)
+            {
+                _logger.LogWarning("psql is not available");
+                return false;
+            }
+
+            _logger.LogInformation("PostgreSQL tools are available");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PostgreSQL tools are not available. Please install PostgreSQL client tools or run the setup script.");
+            return false;
+        }
     }
 }
