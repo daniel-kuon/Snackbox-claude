@@ -38,7 +38,6 @@ public class PurchasesController : ControllerBase
             .ToListAsync();
 
         return Ok(purchases.ToDtoList());
-        TotalAmount = p.ManualAmount ?? p.Scans.Sum(s => s.Amount),
     }
 
     [HttpGet("my-purchases/current")]
