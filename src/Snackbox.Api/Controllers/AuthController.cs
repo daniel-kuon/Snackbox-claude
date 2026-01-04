@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Services;
-using LoginRequest = Snackbox.Api.Dtos.LoginRequest;
 
 namespace Snackbox.Api.Controllers;
 

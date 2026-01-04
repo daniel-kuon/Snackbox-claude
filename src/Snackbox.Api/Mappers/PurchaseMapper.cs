@@ -47,7 +47,7 @@ public static partial class PurchaseMapper
             Id = source.Id,
             UserId = source.UserId,
             Username = source.User.Username,
-            TotalAmount = source.Scans.Sum(s => s.Amount),
+            TotalAmount = source.ManualAmount ?? source.Scans.Sum(s => s.Amount),
             CreatedAt = source.CreatedAt,
             CompletedAt = source.CompletedAt,
             Items = source.Scans.ToItemDtoList()

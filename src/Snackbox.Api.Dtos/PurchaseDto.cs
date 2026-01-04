@@ -8,6 +8,9 @@ public class PurchaseDto
     public decimal TotalAmount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public string Type { get; set; } = "Normal"; // Normal, Manual, Correction
+    public int? ReferencePurchaseId { get; set; }
+    public decimal? ManualAmount { get; set; }
     public List<PurchaseItemDto> Items { get; set; } = new();
 }
 
@@ -27,4 +30,18 @@ public class StartPurchaseDto
 public class AddToPurchaseDto
 {
     public required string ProductBarcode { get; set; }
+}
+
+public class CreateManualPurchaseDto
+{
+    public int UserId { get; set; }
+    public decimal Amount { get; set; }
+    public DateTime? CreatedAt { get; set; }
+}
+
+public class CreatePurchaseCorrectionDto
+{
+    public int UserId { get; set; }
+    public int ReferencePurchaseId { get; set; }
+    public decimal Amount { get; set; }
 }
