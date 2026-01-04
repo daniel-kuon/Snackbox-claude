@@ -31,15 +31,12 @@ public class PurchasesController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
-        
-        var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
-        var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
 
         var purchases = await _context.Purchases
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .Where(p => p.UserId == userId.Value && p.CompletedAt < timeoutThreshold)
+            .Where(p => p.UserId == userId.Value)
             .OrderByDescending(p => p.CompletedAt)
             .ToListAsync();
 
@@ -73,14 +70,10 @@ public class PurchasesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetAll()
     {
-        var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
-        var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
-        
         var purchases = await _context.Purchases
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .Where(p => p.CompletedAt < timeoutThreshold)
             .OrderByDescending(p => p.CompletedAt)
             .ToListAsync();
 
@@ -91,14 +84,11 @@ public class PurchasesController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetByUserId(int userId)
     {
-        var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
-        var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
-        
         var purchases = await _context.Purchases
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .Where(p => p.UserId == userId && p.CompletedAt < timeoutThreshold)
+            .Where(p => p.UserId == userId)
             .OrderByDescending(p => p.CompletedAt)
             .ToListAsync();
 

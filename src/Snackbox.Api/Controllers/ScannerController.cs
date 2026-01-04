@@ -176,10 +176,9 @@ public class ScannerController : ControllerBase
             .FirstOrDefaultAsync();
 
         // Get last 3 completed purchases (excluding the current one)
-        // Purchases are considered "completed" if their CompletedAt is older than the timeout threshold
         var recentPurchases = await _context.Purchases
             .Include(p => p.Scans)
-            .Where(p => p.UserId == user.Id && p.CompletedAt < timeoutThreshold && p.Id != currentPurchase.Id)
+            .Where(p => p.UserId == user.Id && p.Id != currentPurchase.Id)
             .OrderByDescending(p => p.CompletedAt)
             .Take(3)
             .Select(p => new RecentPurchaseDto
