@@ -83,6 +83,11 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<Purchase>(entity =>
+        {
+            entity.Property(e => e.ManualAmount).HasPrecision(10, 2);
+        });
+
         modelBuilder.Entity<Withdrawal>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);

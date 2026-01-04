@@ -35,7 +35,7 @@ public class UsersController : ControllerBase
                 Username = u.Username,
                 Email = u.Email,
                 IsAdmin = u.IsAdmin,
-                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount),
+                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)),
                 CreatedAt = u.CreatedAt
             })
             .ToListAsync();
@@ -57,7 +57,7 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount);
+        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
         return Ok(user.ToDtoWithBalance(balance));
     }
 
@@ -162,7 +162,7 @@ public class UsersController : ControllerBase
 
         _logger.LogInformation("User updated: {UserId} - {Username}", user.Id, user.Username);
 
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.SelectMany(p => p.Scans).Sum(s => s.Amount);
+        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
         return Ok(user.ToDtoWithBalance(balance));
     }
 

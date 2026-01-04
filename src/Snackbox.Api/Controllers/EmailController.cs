@@ -47,7 +47,6 @@ public class EmailController : ControllerBase
         // Calculate balance (positive = user owes money)
         var totalPaid = user.Payments.Sum(p => p.Amount);
         var totalSpent = user.Purchases
-            .Where(p => p.CompletedAt.HasValue)
             .Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
         var balance = totalSpent - totalPaid;
 
@@ -94,7 +93,6 @@ public class EmailController : ControllerBase
             {
                 User = u,
                 Balance = u.Purchases
-                    .Where(p => p.CompletedAt.HasValue)
                     .Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount))
                     - u.Payments.Sum(p => p.Amount)
             })
