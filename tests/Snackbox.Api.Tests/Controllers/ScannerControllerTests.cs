@@ -5,6 +5,7 @@ using Snackbox.Api.Controllers;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 using Xunit;
 
 namespace Snackbox.Api.Tests.Controllers;
@@ -33,7 +34,10 @@ public class ScannerControllerTests : IDisposable
             .AddInMemoryCollection(inMemorySettings!)
             .Build();
 
-        _controller = new ScannerController(_context, _configuration);
+        // Create achievement service for controller
+        var achievementService = new AchievementService(_context);
+
+        _controller = new ScannerController(_context, _configuration, achievementService);
 
         // Seed test data
         SeedTestData();
