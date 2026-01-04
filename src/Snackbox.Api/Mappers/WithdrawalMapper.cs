@@ -32,19 +32,4 @@ public static partial class WithdrawalMapper
     {
         return source.Select(w => w.ToDtoWithUser()).ToList();
     }
-
-    /// <summary>
-    /// Maps a CreateWithdrawalDto to a Withdrawal entity.
-    /// WithdrawnAt is set to current UTC time.
-    /// </summary>
-    public static Withdrawal ToEntity(this CreateWithdrawalDto source)
-    {
-        return new Withdrawal
-        {
-            UserId = source.UserId,
-            Amount = source.Amount,
-            Notes = source.Notes,
-            WithdrawnAt = DateTime.UtcNow
-        };
-    }
 }

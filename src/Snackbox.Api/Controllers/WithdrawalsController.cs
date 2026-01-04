@@ -49,7 +49,14 @@ public class WithdrawalsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<WithdrawalDto>> Create([FromBody] CreateWithdrawalDto dto)
     {
-        var user = await _context.Users.FindAsync(dto.UserId);
+        // Get current user ID from claims
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
+        {
+            return Unauthorized(new { message = "User not authenticated" });
+        }
+
+        var user = await _context.Users.FindAsync(userId);
         if (user == null)
         {
             return BadRequest(new { message = "User not found" });
@@ -72,7 +79,13 @@ public class WithdrawalsController : ControllerBase
             return BadRequest(new { message = "Insufficient cash in register" });
         }
 
-        var withdrawal = dto.ToEntity();
+        var withdrawal = new Withdrawal
+        {
+            UserId = userId,
+            Amount = dto.Amount,
+            Notes = dto.Notes,
+            WithdrawnAt = DateTime.UtcNow
+        };
         _context.Withdrawals.Add(withdrawal);
 
         // Update cash register balance
