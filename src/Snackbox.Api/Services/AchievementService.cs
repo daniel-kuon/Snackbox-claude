@@ -82,21 +82,24 @@ public class AchievementService : IAchievementService
 
     private Task CheckSinglePurchaseAchievements(int userId, decimal purchaseAmount, List<string> existingCodes, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
+        if (purchaseAmount >= 5 && !existingCodes.Contains("BIG_SPENDER_5"))
+        {
+            if (achievementLookup.TryGetValue("BIG_SPENDER_5", out var achievement))
+                earned.Add(achievement);
+        }
+
+        if (purchaseAmount >= 10 && !existingCodes.Contains("BIG_SPENDER_10"))
+        {
+            if (achievementLookup.TryGetValue("BIG_SPENDER_10", out var achievement))
+                earned.Add(achievement);
+        }
+
         if (purchaseAmount >= 15 && !existingCodes.Contains("BIG_SPENDER_15"))
         {
             if (achievementLookup.TryGetValue("BIG_SPENDER_15", out var achievement))
                 earned.Add(achievement);
         }
-        else if (purchaseAmount >= 10 && !existingCodes.Contains("BIG_SPENDER_10"))
-        {
-            if (achievementLookup.TryGetValue("BIG_SPENDER_10", out var achievement))
-                earned.Add(achievement);
-        }
-        else if (purchaseAmount >= 5 && !existingCodes.Contains("BIG_SPENDER_5"))
-        {
-            if (achievementLookup.TryGetValue("BIG_SPENDER_5", out var achievement))
-                earned.Add(achievement);
-        }
+
         return Task.CompletedTask;
     }
 
@@ -168,16 +171,13 @@ public class AchievementService : IAchievementService
         {
             var fourWeeksAgo = completedAt.Date.AddDays(-28);
             var weeklyPurchases = purchases
-                .Where(p => p.CompletedAt.HasValue
-                            && p.CompletedAt.Value.Date >= fourWeeksAgo
-                            && p.CompletedAt.Value.Date <= completedAt.Date)
-                .Select(p => p.CompletedAt!.Value.Date)
+                .Where(p => p >= fourWeeksAgo && p <= completedAt.Date)
                 .ToList();
 
             bool hasWeeklyStreak = true;
             for (int week = 0; week < 4; week++)
             {
-                var weekStart = fourWeeksAgo.AddDays(week * 7);
+                var weekStart = fourWeeksAgo.AddDays((double)(week * 7));
                 var weekEnd = weekStart.AddDays(7);
                 if (!weeklyPurchases.Any(d => d >= weekStart && d < weekEnd))
                 {
@@ -207,19 +207,21 @@ public class AchievementService : IAchievementService
 
         var daysSinceLastPurchase = (completedAt - previousPurchase.CompletedAt.Value).TotalDays;
 
-        if (daysSinceLastPurchase >= 90 && !existingCodes.Contains("COMEBACK_90"))
+        if (daysSinceLastPurchase >= 30 && !existingCodes.Contains("COMEBACK_30"))
         {
-            if (achievementLookup.TryGetValue("COMEBACK_90", out var achievement))
+            if (achievementLookup.TryGetValue("COMEBACK_30", out var achievement))
                 earned.Add(achievement);
         }
-        else if (daysSinceLastPurchase >= 60 && !existingCodes.Contains("COMEBACK_60"))
+
+        if (daysSinceLastPurchase >= 60 && !existingCodes.Contains("COMEBACK_60"))
         {
             if (achievementLookup.TryGetValue("COMEBACK_60", out var achievement))
                 earned.Add(achievement);
         }
-        else if (daysSinceLastPurchase >= 30 && !existingCodes.Contains("COMEBACK_30"))
+
+        if (daysSinceLastPurchase >= 90 && !existingCodes.Contains("COMEBACK_90"))
         {
-            if (achievementLookup.TryGetValue("COMEBACK_30", out var achievement))
+            if (achievementLookup.TryGetValue("COMEBACK_90", out var achievement))
                 earned.Add(achievement);
         }
     }
@@ -236,19 +238,21 @@ public class AchievementService : IAchievementService
 
         var debt = totalSpent - totalPaid;
 
-        if (debt >= 150 && !existingCodes.Contains("IN_DEBT_150"))
+        if (debt >= 50 && !existingCodes.Contains("IN_DEBT_50"))
         {
-            if (achievementLookup.TryGetValue("IN_DEBT_150", out var achievement))
+            if (achievementLookup.TryGetValue("IN_DEBT_50", out var achievement))
                 earned.Add(achievement);
         }
-        else if (debt >= 100 && !existingCodes.Contains("IN_DEBT_100"))
+
+        if (debt >= 100 && !existingCodes.Contains("IN_DEBT_100"))
         {
             if (achievementLookup.TryGetValue("IN_DEBT_100", out var achievement))
                 earned.Add(achievement);
         }
-        else if (debt >= 50 && !existingCodes.Contains("IN_DEBT_50"))
+
+        if (debt >= 150 && !existingCodes.Contains("IN_DEBT_150"))
         {
-            if (achievementLookup.TryGetValue("IN_DEBT_50", out var achievement))
+            if (achievementLookup.TryGetValue("IN_DEBT_150", out var achievement))
                 earned.Add(achievement);
         }
     }
@@ -259,19 +263,21 @@ public class AchievementService : IAchievementService
             .Where(bs => bs.Purchase.UserId == userId)
             .SumAsync(bs => bs.Amount);
 
-        if (totalSpent >= 200 && !existingCodes.Contains("TOTAL_SPENT_200"))
+        if (totalSpent >= 100 && !existingCodes.Contains("TOTAL_SPENT_100"))
         {
-            if (achievementLookup.TryGetValue("TOTAL_SPENT_200", out var achievement))
+            if (achievementLookup.TryGetValue("TOTAL_SPENT_100", out var achievement))
                 earned.Add(achievement);
         }
-        else if (totalSpent >= 150 && !existingCodes.Contains("TOTAL_SPENT_150"))
+
+        if (totalSpent >= 150 && !existingCodes.Contains("TOTAL_SPENT_150"))
         {
             if (achievementLookup.TryGetValue("TOTAL_SPENT_150", out var achievement))
                 earned.Add(achievement);
         }
-        else if (totalSpent >= 100 && !existingCodes.Contains("TOTAL_SPENT_100"))
+
+        if (totalSpent >= 200 && !existingCodes.Contains("TOTAL_SPENT_200"))
         {
-            if (achievementLookup.TryGetValue("TOTAL_SPENT_100", out var achievement))
+            if (achievementLookup.TryGetValue("TOTAL_SPENT_200", out var achievement))
                 earned.Add(achievement);
         }
     }

@@ -82,7 +82,7 @@ public class AchievementServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CheckAndAwardAchievements_SinglePurchase10Euros_AwardsBigSpender10()
+    public async Task CheckAndAwardAchievements_SinglePurchase10Euros_AwardsBothTiers()
     {
         // Arrange
         var purchase = new Purchase
@@ -102,9 +102,10 @@ public class AchievementServiceTests : IDisposable
         // Act
         var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
 
-        // Assert
-        Assert.Single(achievements);
-        Assert.Equal("BIG_SPENDER_10", achievements[0].Code);
+        // Assert - should award both BIG_SPENDER_5 and BIG_SPENDER_10
+        Assert.Equal(2, achievements.Count);
+        Assert.Contains(achievements, a => a.Code == "BIG_SPENDER_5");
+        Assert.Contains(achievements, a => a.Code == "BIG_SPENDER_10");
     }
 
     [Fact]
@@ -140,6 +141,34 @@ public class AchievementServiceTests : IDisposable
 
         // Assert
         Assert.Empty(achievements); // Should not award again
+    }
+
+    [Fact]
+    public async Task CheckAndAwardAchievements_SinglePurchase15Euros_AwardsAllThreeTiers()
+    {
+        // Arrange
+        var purchase = new Purchase
+        {
+            Id = 1,
+            UserId = 1,
+            CreatedAt = DateTime.UtcNow,
+            CompletedAt = DateTime.UtcNow,
+            Scans = new List<BarcodeScan>
+            {
+                new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 15.00m, ScannedAt = DateTime.UtcNow }
+            }
+        };
+        _context.Purchases.Add(purchase);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
+
+        // Assert - should award all three achievements
+        Assert.Equal(3, achievements.Count);
+        Assert.Contains(achievements, a => a.Code == "BIG_SPENDER_5");
+        Assert.Contains(achievements, a => a.Code == "BIG_SPENDER_10");
+        Assert.Contains(achievements, a => a.Code == "BIG_SPENDER_15");
     }
 
     [Fact]

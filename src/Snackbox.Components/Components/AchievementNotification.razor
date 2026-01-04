@@ -192,15 +192,33 @@
     private bool _isVisible;
     private int _currentIndex;
     private System.Timers.Timer? _displayTimer;
+    private int _lastAchievementsCount;
+    private bool _isDisposed;
 
     protected override void OnParametersSet()
     {
-        // When new achievements are provided, start displaying them
-        if (Achievements.Any() && !_isVisible)
+        if (Achievements.Any())
         {
-            _currentIndex = 0;
-            ShowNextAchievement();
+            if (!_isVisible)
+            {
+                // Start displaying achievements when becoming visible
+                _currentIndex = 0;
+                ShowNextAchievement();
+            }
+            else if (Achievements.Count != _lastAchievementsCount)
+            {
+                // New achievements detected while already displaying:
+                // reset index and clear existing timer so we don't skip any.
+                _displayTimer?.Stop();
+                _displayTimer?.Dispose();
+                _displayTimer = null;
+
+                _currentIndex = 0;
+                ShowNextAchievement();
+            }
         }
+
+        _lastAchievementsCount = Achievements.Count;
     }
 
     private void ShowNextAchievement()
@@ -216,11 +234,20 @@
             _displayTimer = new System.Timers.Timer(4000);
             _displayTimer.Elapsed += async (_, _) =>
             {
+                // Check if disposed before proceeding
+                if (_isDisposed)
+                    return;
+
                 _isVisible = false;
                 await InvokeAsync(StateHasChanged);
 
                 // Wait 0.5 seconds before showing next achievement
                 await Task.Delay(500);
+                
+                // Check again after delay
+                if (_isDisposed)
+                    return;
+
                 _currentIndex++;
                 
                 if (_currentIndex < Achievements.Count)
@@ -238,6 +265,7 @@
 
     public void Dispose()
     {
+        _isDisposed = true;
         _displayTimer?.Dispose();
     }
 }

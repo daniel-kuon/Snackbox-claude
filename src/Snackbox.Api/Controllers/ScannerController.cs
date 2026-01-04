@@ -95,7 +95,7 @@ public class ScannerController : ControllerBase
                     await _context.SaveChangesAsync();
                     
                     // Check for achievements earned from the completed purchase
-                    var earnedAchievements = await _achievementService.CheckAndAwardAchievementsAsync(user.Id, lastPurchase.Id);
+                    await _achievementService.CheckAndAwardAchievementsAsync(user.Id, lastPurchase.Id);
                 }
                 else
                 {
