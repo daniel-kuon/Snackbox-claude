@@ -166,10 +166,12 @@ public class AchievementService : IAchievementService
         if (!existingCodes.Contains("STREAK_WEEKLY_4"))
         {
             var fourWeeksAgo = completedAt.Date.AddDays(-28);
-            var weeklyPurchases = await _context.Purchases
-                .Where(p => p.UserId == userId && p.CompletedAt >= fourWeeksAgo && p.CompletedAt <= completedAt)
+            var weeklyPurchases = purchases
+                .Where(p => p.CompletedAt.HasValue
+                            && p.CompletedAt.Value.Date >= fourWeeksAgo
+                            && p.CompletedAt.Value.Date <= completedAt.Date)
                 .Select(p => p.CompletedAt!.Value.Date)
-                .ToListAsync();
+                .ToList();
 
             bool hasWeeklyStreak = true;
             for (int week = 0; week < 4; week++)
