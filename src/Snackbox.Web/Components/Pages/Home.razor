@@ -12,6 +12,14 @@
 
 <PageTitle>Snackbox Scanner</PageTitle>
 
+<!-- Achievement Notification Overlay -->
+@if (ScannerService.CurrentSession?.NewAchievements.Any() == true)
+{
+    <AchievementNotification 
+        Achievements="@ScannerService.CurrentSession.NewAchievements" 
+        CurrentScanInfo="@GetCurrentScanInfo()" />
+}
+
 <div class="scanner-container">
     @if (_errorMessage != null)
     {
@@ -596,6 +604,21 @@
         };
         _errorTimer.AutoReset = false;
         _errorTimer.Start();
+    }
+
+    private string GetCurrentScanInfo()
+    {
+        if (ScannerService.CurrentSession == null)
+            return string.Empty;
+
+        var session = ScannerService.CurrentSession;
+        if (session.ScannedBarcodes.Any())
+        {
+            var lastScan = session.ScannedBarcodes.Last();
+            return $"{lastScan.Amount:C}";
+        }
+
+        return $"Total: {session.TotalAmount:C}";
     }
 
     public void Dispose()

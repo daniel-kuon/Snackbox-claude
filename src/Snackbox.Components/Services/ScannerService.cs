@@ -107,6 +107,16 @@ public class ScannerService : IScannerService
                     TotalAmount = rp.TotalAmount,
                     CompletedAt = rp.CompletedAt,
                     ItemCount = rp.ItemCount
+                }).ToList(),
+                NewAchievements = result.NewAchievements.Select(a => new Achievement
+                {
+                    Id = a.Id,
+                    Code = a.Code,
+                    Name = a.Name,
+                    Description = a.Description,
+                    Category = a.Category,
+                    ImageUrl = a.ImageUrl,
+                    EarnedAt = a.EarnedAt
                 }).ToList()
             };
 

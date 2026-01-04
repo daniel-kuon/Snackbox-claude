@@ -1,0 +1,242 @@
+@using Snackbox.Components.Models
+
+<div class="achievement-overlay @(_isVisible ? "show" : "")">
+    @if (_currentAchievement != null)
+    {
+        <div class="achievement-card">
+            <div class="achievement-header">
+                <h2 class="achievement-title">🎉 Achievement Unlocked! 🎉</h2>
+            </div>
+            
+            <div class="achievement-content">
+                <!-- Achievement icon/gif -->
+                <div class="achievement-icon">
+                    @if (!string.IsNullOrEmpty(_currentAchievement.ImageUrl))
+                    {
+                        <img src="@_currentAchievement.ImageUrl" alt="Achievement" class="achievement-image" />
+                    }
+                    else
+                    {
+                        <!-- Default celebration GIF/animation -->
+                        <div class="achievement-emoji">🏆</div>
+                    }
+                </div>
+
+                <!-- Achievement details -->
+                <div class="achievement-details">
+                    <h3 class="achievement-name">@_currentAchievement.Name</h3>
+                    <p class="achievement-description">@_currentAchievement.Description</p>
+                </div>
+
+                <!-- Current scan info (always visible) -->
+                @if (!string.IsNullOrEmpty(CurrentScanInfo))
+                {
+                    <div class="current-scan-info">
+                        <span class="scan-label">Current scan:</span>
+                        <span class="scan-value">@CurrentScanInfo</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .achievement-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .achievement-overlay.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .achievement-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 2rem;
+        max-width: 600px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    @@keyframes slideIn {
+        from {
+            transform: scale(0.5) translateY(-100px);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .achievement-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .achievement-title {
+        color: white;
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        animation: pulse 1s ease-in-out infinite;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+    }
+
+    .achievement-content {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+    }
+
+    .achievement-icon {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .achievement-image {
+        max-width: 200px;
+        max-height: 200px;
+        border-radius: 10px;
+        animation: bounce 1s ease-in-out infinite;
+    }
+
+    .achievement-emoji {
+        font-size: 8rem;
+        animation: bounce 1s ease-in-out infinite;
+    }
+
+    @@keyframes bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-20px);
+        }
+    }
+
+    .achievement-details {
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .achievement-name {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #333;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .achievement-description {
+        font-size: 1.2rem;
+        color: #666;
+        margin: 0;
+    }
+
+    .current-scan-info {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid #667eea;
+    }
+
+    .scan-label {
+        font-weight: 600;
+        color: #333;
+        margin-right: 0.5rem;
+    }
+
+    .scan-value {
+        font-weight: 700;
+        color: #667eea;
+        font-size: 1.1rem;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public List<Achievement> Achievements { get; set; } = new();
+
+    [Parameter]
+    public string CurrentScanInfo { get; set; } = string.Empty;
+
+    private Achievement? _currentAchievement;
+    private bool _isVisible;
+    private int _currentIndex;
+    private System.Timers.Timer? _displayTimer;
+
+    protected override void OnParametersSet()
+    {
+        // When new achievements are provided, start displaying them
+        if (Achievements.Any() && !_isVisible)
+        {
+            _currentIndex = 0;
+            ShowNextAchievement();
+        }
+    }
+
+    private void ShowNextAchievement()
+    {
+        if (_currentIndex < Achievements.Count)
+        {
+            _currentAchievement = Achievements[_currentIndex];
+            _isVisible = true;
+            StateHasChanged();
+
+            // Auto-hide after 4 seconds
+            _displayTimer?.Dispose();
+            _displayTimer = new System.Timers.Timer(4000);
+            _displayTimer.Elapsed += (_, _) =>
+            {
+                _isVisible = false;
+                InvokeAsync(StateHasChanged);
+
+                // Wait 0.5 seconds before showing next achievement
+                System.Threading.Thread.Sleep(500);
+                _currentIndex++;
+                
+                if (_currentIndex < Achievements.Count)
+                {
+                    InvokeAsync(() =>
+                    {
+                        ShowNextAchievement();
+                    });
+                }
+            };
+            _displayTimer.AutoReset = false;
+            _displayTimer.Start();
+        }
+    }
+
+    public void Dispose()
+    {
+        _displayTimer?.Dispose();
+    }
+}
