@@ -13,6 +13,7 @@ public static partial class PaymentMapper
     /// </summary>
     [MapperIgnoreSource(nameof(Payment.User))]
     [MapperIgnoreSource(nameof(Payment.AdminUser))]
+    [MapperIgnoreSource(nameof(Payment.LinkedDeposit))]
     [MapperIgnoreTarget(nameof(PaymentDto.Username))]
     [MapperIgnoreTarget(nameof(PaymentDto.AdminUsername))]
     [MapProperty(nameof(Payment.Type), nameof(PaymentDto.Type), Use = nameof(MapPaymentTypeToString))]

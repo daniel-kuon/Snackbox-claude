@@ -12,6 +12,7 @@ public class PaymentDto
     public int? AdminUserId { get; set; }
     public string? AdminUsername { get; set; }
     public int? LinkedWithdrawalId { get; set; }
+    public int? LinkedDepositId { get; set; }
 }
 
 public class CreatePaymentDto

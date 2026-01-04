@@ -122,6 +122,19 @@ public class PaymentsController : ControllerBase
                 _context.Withdrawals.Add(withdrawal);
             }
 
+            // For CashRegister payments, create a linked deposit
+            Deposit? deposit = null;
+            if (payment.Type == PaymentType.CashRegister)
+            {
+                deposit = new Deposit
+                {
+                    UserId = user.Id,
+                    Amount = payment.Amount,
+                    DepositedAt = DateTime.UtcNow,
+                };
+                _context.Deposits.Add(deposit);
+            }
+
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
 
@@ -130,6 +143,13 @@ public class PaymentsController : ControllerBase
             {
                 payment.LinkedWithdrawalId = withdrawal.Id;
                 withdrawal.LinkedPaymentId = payment.Id;
+            }
+
+            // Link the payment and deposit
+            if (deposit != null)
+            {
+                payment.LinkedDepositId = deposit.Id;
+                deposit.LinkedPaymentId = payment.Id;
             }
 
             // Update cash register balance for cash register payments

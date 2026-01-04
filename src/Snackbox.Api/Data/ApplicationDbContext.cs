@@ -21,6 +21,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
+    public DbSet<Deposit> Deposits => Set<Deposit>();
     public DbSet<CashRegister> CashRegister => Set<CashRegister>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -89,6 +90,11 @@ public class ApplicationDbContext : DbContext
         });
 
         modelBuilder.Entity<Withdrawal>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<Deposit>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);
         });
