@@ -1,4 +1,4 @@
-namespace Snackbox.Api.DTOs;
+namespace Snackbox.Api.Dtos;
 
 public class ProductDto
 {
@@ -22,8 +22,6 @@ public class ProductBarcodeDto
 public class CreateProductDto
 {
     public required string Name { get; set; }
-    public required string Barcode { get; set; }
-    public int BarcodeQuantity { get; set; } = 1;
 }
 
 public class UpdateProductDto

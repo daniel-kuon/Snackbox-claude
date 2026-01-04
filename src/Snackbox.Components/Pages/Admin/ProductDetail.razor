@@ -1,13 +1,12 @@
 @page "/admin/products/{ProductId:int}"
-@using Snackbox.Api.DTOs
-@using Snackbox.Api.Models
+@using Snackbox.Api.Dtos
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
 <PageTitle>Product Details - Snackbox Admin</PageTitle>
 
 <div class="container-fluid">
-    @if (isLoading)
+    @if (_isLoading)
     {
         <div class="loading-container">
             <div class="spinner-border" role="status">
@@ -16,18 +15,18 @@
             <p>Loading product details...</p>
         </div>
     }
-    else if (errorMessage != null)
+    else if (_errorMessage != null)
     {
         <div class="alert alert-danger" role="alert">
-            @errorMessage
+            @_errorMessage
         </div>
         <button class="btn btn-secondary" @onclick="NavigateBack">Back to Products</button>
     }
-    else if (productStock != null)
+    else if (_productStock != null)
     {
         <div class="page-header">
             <div>
-                <h2>@productStock.ProductName</h2>
+                <h2>@_productStock.ProductName</h2>
             </div>
             <button class="btn btn-secondary" @onclick="NavigateBack">Back to Products</button>
         </div>
@@ -35,7 +34,7 @@
         <div class="barcodes-section">
             <h3>Barcodes</h3>
             <div class="barcodes-list">
-                @foreach (var barcode in productStock.Barcodes)
+                @foreach (var barcode in _productStock.Barcodes)
                 {
                     <div class="barcode-item">
                         <code class="barcode-code">@barcode.Barcode</code>
@@ -54,15 +53,15 @@
         <div class="stock-summary">
             <div class="summary-card">
                 <div class="summary-label">In Storage</div>
-                <div class="summary-value">@productStock.TotalInStorage</div>
+                <div class="summary-value">@_productStock.TotalInStorage</div>
             </div>
             <div class="summary-card">
                 <div class="summary-label">On Shelf</div>
-                <div class="summary-value">@productStock.TotalOnShelf</div>
+                <div class="summary-value">@_productStock.TotalOnShelf</div>
             </div>
             <div class="summary-card">
                 <div class="summary-label">Total Stock</div>
-                <div class="summary-value">@(productStock.TotalInStorage + productStock.TotalOnShelf)</div>
+                <div class="summary-value">@(_productStock.TotalInStorage + _productStock.TotalOnShelf)</div>
             </div>
         </div>
 
@@ -74,14 +73,14 @@
                     <h4>Add to Storage</h4>
                     <div class="form-group">
                         <label>Quantity</label>
-                        <input type="number" class="form-control" @bind="addToStorageQuantity" min="1" />
+                        <input type="number" class="form-control" @bind="_addToStorageQuantity" min="1" />
                     </div>
                     <div class="form-group">
                         <label>Best Before Date</label>
-                        <input type="date" class="form-control" @bind="addToStorageBestBefore" />
+                        <input type="date" class="form-control" @bind="_addToStorageBestBefore" />
                     </div>
-                    <button class="btn btn-primary" @onclick="ExecuteAddToStorage" disabled="@isProcessing">
-                        @if (isProcessing && currentAction == "addToStorage")
+                    <button class="btn btn-primary" @onclick="ExecuteAddToStorage" disabled="@_isProcessing">
+                        @if (_isProcessing && _currentAction == "addToStorage")
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
@@ -94,14 +93,14 @@
                     <h4>Add to Shelf</h4>
                     <div class="form-group">
                         <label>Quantity</label>
-                        <input type="number" class="form-control" @bind="addToShelfQuantity" min="1" />
+                        <input type="number" class="form-control" @bind="_addToShelfQuantity" min="1" />
                     </div>
                     <div class="form-group">
                         <label>Best Before Date</label>
-                        <input type="date" class="form-control" @bind="addToShelfBestBefore" />
+                        <input type="date" class="form-control" @bind="_addToShelfBestBefore" />
                     </div>
-                    <button class="btn btn-success" @onclick="ExecuteAddToShelf" disabled="@isProcessing">
-                        @if (isProcessing && currentAction == "addToShelf")
+                    <button class="btn btn-success" @onclick="ExecuteAddToShelf" disabled="@_isProcessing">
+                        @if (_isProcessing && _currentAction == "addToShelf")
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
@@ -114,13 +113,13 @@
                     <h4>Move Stock to Shelf</h4>
                     <div class="form-group">
                         <label>Quantity</label>
-                        <input type="number" class="form-control" @bind="moveToShelfQuantity" min="1" />
+                        <input type="number" class="form-control" @bind="_moveToShelfQuantity" min="1" />
                     </div>
                     <div class="form-group">
                         <label>Best Before Date</label>
-                        <select class="form-control" @bind="moveToShelfBatchId">
+                        <select class="form-control" @bind="_moveToShelfBatchId">
                             <option value="0">Select batch...</option>
-                            @foreach (var batch in productStock.Batches.Where(b => b.QuantityInStorage > 0).OrderBy(b => b.BestBeforeDate))
+                            @foreach (var batch in _productStock.Batches.Where(b => b.QuantityInStorage > 0).OrderBy(b => b.BestBeforeDate))
                             {
                                 <option value="@batch.BatchId">
                                     @batch.BestBeforeDate.ToString("yyyy-MM-dd") (Available: @batch.QuantityInStorage)
@@ -128,8 +127,8 @@
                             }
                         </select>
                     </div>
-                    <button class="btn btn-info" @onclick="ExecuteMoveToShelf" disabled="@isProcessing">
-                        @if (isProcessing && currentAction == "moveToShelf")
+                    <button class="btn btn-info" @onclick="ExecuteMoveToShelf" disabled="@_isProcessing">
+                        @if (_isProcessing && _currentAction == "moveToShelf")
                         {
                             <span class="spinner-border spinner-border-sm"></span>
                         }
@@ -138,29 +137,29 @@
                 </div>
             </div>
 
-            @if (actionSuccess != null)
+            @if (_actionSuccess != null)
             {
-                <div class="alert alert-success mt-3">@actionSuccess</div>
+                <div class="alert alert-success mt-3">@_actionSuccess</div>
             }
-            @if (actionError != null)
+            @if (_actionError != null)
             {
-                <div class="alert alert-danger mt-3">@actionError</div>
+                <div class="alert alert-danger mt-3">@_actionError</div>
             }
         </div>
 
         <div class="tabs">
-            <button class="tab-button @(activeTab == "batches" ? "active" : "")" @onclick='() => activeTab = "batches"'>
+            <button class="tab-button @(_activeTab == "batches" ? "active" : "")" @onclick='() => _activeTab = "batches"'>
                 Stock by Batch
             </button>
-            <button class="tab-button @(activeTab == "actions" ? "active" : "")" @onclick="ActivateActionsTab">
+            <button class="tab-button @(_activeTab == "actions" ? "active" : "")" @onclick="ActivateActionsTab">
                 Shelving History
             </button>
         </div>
 
         <div class="tab-content">
-            @if (activeTab == "batches")
+            @if (_activeTab == "batches")
             {
-                @if (productStock.Batches.Any())
+                @if (_productStock.Batches.Any())
                 {
                     <div class="table-container">
                         <table class="table">
@@ -174,7 +173,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var batch in productStock.Batches.OrderBy(b => b.BestBeforeDate))
+                                @foreach (var batch in _productStock.Batches.OrderBy(b => b.BestBeforeDate))
                                 {
                                     <tr class="@(batch.BestBeforeDate < DateTime.UtcNow ? "expired" : batch.BestBeforeDate < DateTime.UtcNow.AddDays(30) ? "expiring-soon" : "")">
                                         <td>
@@ -218,16 +217,16 @@
                     </div>
                 }
             }
-            else if (activeTab == "actions")
+            else if (_activeTab == "actions")
             {
-                @if (shelvingActions == null)
+                @if (_shelvingActions == null)
                 {
                     <div class="loading-container">
                         <div class="spinner-border spinner-border-sm"></div>
                         <span>Loading shelving history...</span>
                     </div>
                 }
-                else if (shelvingActions.Any())
+                else if (_shelvingActions.Any())
                 {
                     <div class="table-container">
                         <table class="table">
@@ -240,7 +239,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var action in shelvingActions)
+                                @foreach (var action in _shelvingActions)
                                 {
                                     <tr>
                                         <td>@action.ActionAt.ToString("yyyy-MM-dd HH:mm")</td>
@@ -264,36 +263,36 @@
     }
 </div>
 
-@if (showMoveModal)
+@if (_showMoveModal)
 {
     <div class="modal-backdrop" @onclick="CloseModal"></div>
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>@(moveToShelf ? "Move to Shelf" : "Move to Storage")</h3>
+                <h3>@(_moveToShelf ? "Move to Shelf" : "Move to Storage")</h3>
                 <button class="btn-close" @onclick="CloseModal">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
                 <p>
-                    Moving from batch with best before date: <strong>@selectedBatch?.BestBeforeDate.ToString("yyyy-MM-dd")</strong>
+                    Moving from batch with best before date: <strong>@_selectedBatch?.BestBeforeDate.ToString("yyyy-MM-dd")</strong>
                 </p>
                 <p>
-                    Available: <strong>@(moveToShelf ? selectedBatch?.QuantityInStorage : selectedBatch?.QuantityOnShelf)</strong>
+                    Available: <strong>@(_moveToShelf ? _selectedBatch?.QuantityInStorage : _selectedBatch?.QuantityOnShelf)</strong>
                 </p>
                 <div class="form-group">
                     <label>Quantity to move</label>
-                    <input type="number" class="form-control" @bind="moveQuantity" min="1"
-                           max="@(moveToShelf ? selectedBatch?.QuantityInStorage : selectedBatch?.QuantityOnShelf)" />
+                    <input type="number" class="form-control" @bind="_moveQuantity" min="1"
+                           max="@(_moveToShelf ? _selectedBatch?.QuantityInStorage : _selectedBatch?.QuantityOnShelf)" />
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
-                <button type="button" class="btn btn-primary" @onclick="ExecuteMove" disabled="@isSaving">
-                    @if (isSaving)
+                <button type="button" class="btn btn-primary" @onclick="ExecuteMove" disabled="@_isSaving">
+                    @if (_isSaving)
                     {
                         <span class="spinner-border spinner-border-sm"></span>
                     }
@@ -304,7 +303,7 @@
     </div>
 }
 
-@if (showAddBarcodeModal)
+@if (_showAddBarcodeModal)
 {
     <div class="modal-backdrop" @onclick="CloseModal"></div>
     <div class="modal-dialog">
@@ -314,24 +313,24 @@
                 <button class="btn-close" @onclick="CloseModal">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
                 <div class="form-group">
                     <label>Barcode</label>
-                    <input type="text" class="form-control" @bind="newBarcodeCode" placeholder="Enter barcode..." />
+                    <input type="text" class="form-control" @bind="_newBarcodeCode" placeholder="Enter barcode..." />
                 </div>
                 <div class="form-group">
                     <label>Quantity per Unit</label>
-                    <input type="number" class="form-control" @bind="newBarcodeQuantity" min="1" />
+                    <input type="number" class="form-control" @bind="_newBarcodeQuantity" min="1" />
                     <small class="text-muted">How many units this barcode represents (e.g., 12 for a box)</small>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
-                <button type="button" class="btn btn-primary" @onclick="SaveNewBarcode" disabled="@isSaving">
-                    @if (isSaving)
+                <button type="button" class="btn btn-primary" @onclick="SaveNewBarcode" disabled="@_isSaving">
+                    @if (_isSaving)
                     {
                         <span class="spinner-border spinner-border-sm"></span>
                     }
@@ -749,35 +748,35 @@
     [Parameter]
     public int ProductId { get; set; }
 
-    private ProductStockDto? productStock;
-    private List<ShelvingActionDto>? shelvingActions;
-    private bool isLoading = true;
-    private string? errorMessage;
-    private string activeTab = "batches";
+    private ProductStockDto? _productStock;
+    private List<ShelvingActionDto>? _shelvingActions;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private string _activeTab = "batches";
 
-    private bool showMoveModal = false;
-    private bool showAddBarcodeModal = false;
-    private BatchStockInfo? selectedBatch;
-    private bool moveToShelf = true;
-    private int moveQuantity = 1;
-    private string? modalError;
-    private bool isSaving = false;
+    private bool _showMoveModal;
+    private bool _showAddBarcodeModal;
+    private BatchStockInfo? _selectedBatch;
+    private bool _moveToShelf = true;
+    private int _moveQuantity = 1;
+    private string? _modalError;
+    private bool _isSaving;
 
     // Barcode management
-    private string newBarcodeCode = string.Empty;
-    private int newBarcodeQuantity = 1;
+    private string _newBarcodeCode = string.Empty;
+    private int _newBarcodeQuantity = 1;
 
     // Quick actions properties
-    private int addToStorageQuantity = 1;
-    private DateTime addToStorageBestBefore = DateTime.Today.AddMonths(6);
-    private int addToShelfQuantity = 1;
-    private DateTime addToShelfBestBefore = DateTime.Today.AddMonths(6);
-    private int moveToShelfQuantity = 1;
-    private int moveToShelfBatchId = 0;
-    private bool isProcessing = false;
-    private string? currentAction = null;
-    private string? actionSuccess = null;
-    private string? actionError = null;
+    private int _addToStorageQuantity = 1;
+    private DateTime _addToStorageBestBefore = DateTime.Today.AddMonths(6);
+    private int _addToShelfQuantity = 1;
+    private DateTime _addToShelfBestBefore = DateTime.Today.AddMonths(6);
+    private int _moveToShelfQuantity = 1;
+    private int _moveToShelfBatchId;
+    private bool _isProcessing;
+    private string? _currentAction;
+    private string? _actionSuccess;
+    private string? _actionError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -786,40 +785,40 @@
 
     private async Task LoadProductStock()
     {
-        isLoading = true;
-        errorMessage = null;
+        _isLoading = true;
+        _errorMessage = null;
 
         try
         {
-            productStock = await Http.GetFromJsonAsync<ProductStockDto>($"api/products/{ProductId}/stock");
+            _productStock = await Http.GetFromJsonAsync<ProductStockDto>($"api/products/{ProductId}/stock");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load product: {ex.Message}";
+            _errorMessage = $"Failed to load product: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
     private async Task LoadShelvingActions()
     {
-        if (shelvingActions != null) return;
+        if (_shelvingActions != null) return;
 
         try
         {
-            shelvingActions = await Http.GetFromJsonAsync<List<ShelvingActionDto>>($"api/shelvingactions?productId={ProductId}");
+            _shelvingActions = await Http.GetFromJsonAsync<List<ShelvingActionDto>>($"api/shelvingactions?productId={ProductId}");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load shelving actions: {ex.Message}";
+            _errorMessage = $"Failed to load shelving actions: {ex.Message}";
         }
     }
 
     private async Task ActivateActionsTab()
     {
-        activeTab = "actions";
+        _activeTab = "actions";
         await LoadShelvingActions();
     }
 
@@ -830,83 +829,83 @@
 
     private void ShowMoveToShelf(BatchStockInfo batch)
     {
-        selectedBatch = batch;
-        moveToShelf = true;
-        moveQuantity = 1;
-        modalError = null;
-        showMoveModal = true;
+        _selectedBatch = batch;
+        _moveToShelf = true;
+        _moveQuantity = 1;
+        _modalError = null;
+        _showMoveModal = true;
     }
 
     private void ShowMoveToStorage(BatchStockInfo batch)
     {
-        selectedBatch = batch;
-        moveToShelf = false;
-        moveQuantity = 1;
-        modalError = null;
-        showMoveModal = true;
+        _selectedBatch = batch;
+        _moveToShelf = false;
+        _moveQuantity = 1;
+        _modalError = null;
+        _showMoveModal = true;
     }
 
     private async Task ExecuteMove()
     {
-        if (selectedBatch == null) return;
+        if (_selectedBatch == null) return;
 
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
-            var endpoint = moveToShelf ? "move-to-shelf" : "move-to-storage";
-            var response = await Http.PostAsJsonAsync($"api/productbatches/{selectedBatch.BatchId}/{endpoint}", new
+            var endpoint = _moveToShelf ? "move-to-shelf" : "move-to-storage";
+            var response = await Http.PostAsJsonAsync($"api/productbatches/{_selectedBatch.BatchId}/{endpoint}", new
             {
-                quantity = moveQuantity
+                quantity = _moveQuantity
             });
 
             if (response.IsSuccessStatusCode)
             {
                 CloseModal();
-                shelvingActions = null;
+                _shelvingActions = null;
                 await LoadProductStock();
             }
             else
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                modalError = error?.Message ?? "Failed to move stock. Please try again.";
+                _modalError = error?.Message ?? "Failed to move stock. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private void CloseModal()
     {
-        showMoveModal = false;
-        showAddBarcodeModal = false;
-        selectedBatch = null;
-        moveQuantity = 1;
-        modalError = null;
-        newBarcodeCode = string.Empty;
-        newBarcodeQuantity = 1;
+        _showMoveModal = false;
+        _showAddBarcodeModal = false;
+        _selectedBatch = null;
+        _moveQuantity = 1;
+        _modalError = null;
+        _newBarcodeCode = string.Empty;
+        _newBarcodeQuantity = 1;
     }
 
     private void ShowAddBarcodeModal()
     {
-        newBarcodeCode = string.Empty;
-        newBarcodeQuantity = 1;
-        modalError = null;
-        showAddBarcodeModal = true;
+        _newBarcodeCode = string.Empty;
+        _newBarcodeQuantity = 1;
+        _modalError = null;
+        _showAddBarcodeModal = true;
     }
 
 
     private async Task RemoveBarcode(int barcodeId)
     {
-            isSaving = true;
-            modalError = null;
+            _isSaving = true;
+            _modalError = null;
 
             try
             {
@@ -919,36 +918,36 @@
                 else
                 {
                     var error = await response.Content.ReadAsStringAsync();
-                    modalError = $"Failed to remove barcode: {error}";
+                    _modalError = $"Failed to remove barcode: {error}";
                 }
             }
             catch (Exception ex)
             {
-                modalError = $"Error: {ex.Message}";
+                _modalError = $"Error: {ex.Message}";
             }
             finally
             {
-                isSaving = false;
+                _isSaving = false;
             }
     }
 
     private async Task SaveNewBarcode()
     {
-        if (string.IsNullOrWhiteSpace(newBarcodeCode) || newBarcodeQuantity <= 0 || productStock == null)
+        if (string.IsNullOrWhiteSpace(_newBarcodeCode) || _newBarcodeQuantity <= 0 || _productStock == null)
         {
-            modalError = "Please enter a valid barcode and quantity.";
+            _modalError = "Please enter a valid barcode and quantity.";
             return;
         }
 
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
             var response = await Http.PostAsJsonAsync($"api/products/{ProductId}/barcodes", new
             {
-                barcode = newBarcodeCode,
-                quantity = newBarcodeQuantity
+                barcode = _newBarcodeCode,
+                quantity = _newBarcodeQuantity
             });
 
             if (response.IsSuccessStatusCode)
@@ -959,32 +958,32 @@
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                modalError = $"Failed to add barcode: {error}";
+                _modalError = $"Failed to add barcode: {error}";
             }
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private async Task ExecuteAddToStorage()
     {
-        if (addToStorageQuantity <= 0 || productStock == null) return;
+        if (_addToStorageQuantity <= 0 || _productStock == null) return;
 
-        isProcessing = true;
-        currentAction = "addToStorage";
-        actionSuccess = null;
-        actionError = null;
+        _isProcessing = true;
+        _currentAction = "addToStorage";
+        _actionSuccess = null;
+        _actionError = null;
 
         try
         {
             // Find or create batch
-            var batch = productStock.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == addToStorageBestBefore.Date);
+            var batch = _productStock.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == _addToStorageBestBefore.Date);
             int batchId;
 
             if (batch == null)
@@ -993,13 +992,13 @@
                 var createBatchResponse = await Http.PostAsJsonAsync("api/productbatches", new
                 {
                     productId = ProductId,
-                    bestBeforeDate = addToStorageBestBefore.Date,
+                    bestBeforeDate = _addToStorageBestBefore.Date,
                     initialQuantity = 0
                 });
 
                 if (!createBatchResponse.IsSuccessStatusCode)
                 {
-                    actionError = "Failed to create batch. Please try again.";
+                    _actionError = "Failed to create batch. Please try again.";
                     return;
                 }
 
@@ -1014,45 +1013,45 @@
             // Add to storage
             var response = await Http.PostAsJsonAsync($"api/productbatches/{batchId}/add-to-storage", new
             {
-                quantity = addToStorageQuantity
+                quantity = _addToStorageQuantity
             });
 
             if (response.IsSuccessStatusCode)
             {
-                actionSuccess = $"Successfully added {addToStorageQuantity} items to storage";
-                addToStorageQuantity = 1;
+                _actionSuccess = $"Successfully added {_addToStorageQuantity} items to storage";
+                _addToStorageQuantity = 1;
                 await LoadProductStock();
             }
             else
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                actionError = error?.Message ?? "Failed to add to storage. Please try again.";
+                _actionError = error?.Message ?? "Failed to add to storage. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            actionError = $"Error: {ex.Message}";
+            _actionError = $"Error: {ex.Message}";
         }
         finally
         {
-            isProcessing = false;
-            currentAction = null;
+            _isProcessing = false;
+            _currentAction = null;
         }
     }
 
     private async Task ExecuteAddToShelf()
     {
-        if (addToShelfQuantity <= 0 || productStock == null) return;
+        if (_addToShelfQuantity <= 0 || _productStock == null) return;
 
-        isProcessing = true;
-        currentAction = "addToShelf";
-        actionSuccess = null;
-        actionError = null;
+        _isProcessing = true;
+        _currentAction = "addToShelf";
+        _actionSuccess = null;
+        _actionError = null;
 
         try
         {
             // Find or create batch
-            var batch = productStock.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == addToShelfBestBefore.Date);
+            var batch = _productStock.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == _addToShelfBestBefore.Date);
             int batchId;
 
             if (batch == null)
@@ -1061,13 +1060,13 @@
                 var createBatchResponse = await Http.PostAsJsonAsync("api/productbatches", new
                 {
                     productId = ProductId,
-                    bestBeforeDate = addToShelfBestBefore.Date,
+                    bestBeforeDate = _addToShelfBestBefore.Date,
                     initialQuantity = 0
                 });
 
                 if (!createBatchResponse.IsSuccessStatusCode)
                 {
-                    actionError = "Failed to create batch. Please try again.";
+                    _actionError = "Failed to create batch. Please try again.";
                     return;
                 }
 
@@ -1082,69 +1081,69 @@
             // Add to shelf
             var response = await Http.PostAsJsonAsync($"api/productbatches/{batchId}/add-to-shelf", new
             {
-                quantity = addToShelfQuantity
+                quantity = _addToShelfQuantity
             });
 
             if (response.IsSuccessStatusCode)
             {
-                actionSuccess = $"Successfully added {addToShelfQuantity} items to shelf";
-                addToShelfQuantity = 1;
+                _actionSuccess = $"Successfully added {_addToShelfQuantity} items to shelf";
+                _addToShelfQuantity = 1;
                 await LoadProductStock();
             }
             else
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                actionError = error?.Message ?? "Failed to add to shelf. Please try again.";
+                _actionError = error?.Message ?? "Failed to add to shelf. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            actionError = $"Error: {ex.Message}";
+            _actionError = $"Error: {ex.Message}";
         }
         finally
         {
-            isProcessing = false;
-            currentAction = null;
+            _isProcessing = false;
+            _currentAction = null;
         }
     }
 
     private async Task ExecuteMoveToShelf()
     {
-        if (moveToShelfQuantity <= 0 || moveToShelfBatchId == 0 || productStock == null) return;
+        if (_moveToShelfQuantity <= 0 || _moveToShelfBatchId == 0 || _productStock == null) return;
 
-        isProcessing = true;
-        currentAction = "moveToShelf";
-        actionSuccess = null;
-        actionError = null;
+        _isProcessing = true;
+        _currentAction = "moveToShelf";
+        _actionSuccess = null;
+        _actionError = null;
 
         try
         {
-            var response = await Http.PostAsJsonAsync($"api/productbatches/{moveToShelfBatchId}/move-to-shelf", new
+            var response = await Http.PostAsJsonAsync($"api/productbatches/{_moveToShelfBatchId}/move-to-shelf", new
             {
-                quantity = moveToShelfQuantity
+                quantity = _moveToShelfQuantity
             });
 
             if (response.IsSuccessStatusCode)
             {
-                actionSuccess = $"Successfully moved {moveToShelfQuantity} items to shelf";
-                moveToShelfQuantity = 1;
-                moveToShelfBatchId = 0;
+                _actionSuccess = $"Successfully moved {_moveToShelfQuantity} items to shelf";
+                _moveToShelfQuantity = 1;
+                _moveToShelfBatchId = 0;
                 await LoadProductStock();
             }
             else
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                actionError = error?.Message ?? "Failed to move to shelf. Please try again.";
+                _actionError = error?.Message ?? "Failed to move to shelf. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            actionError = $"Error: {ex.Message}";
+            _actionError = $"Error: {ex.Message}";
         }
         finally
         {
-            isProcessing = false;
-            currentAction = null;
+            _isProcessing = false;
+            _currentAction = null;
         }
     }
 

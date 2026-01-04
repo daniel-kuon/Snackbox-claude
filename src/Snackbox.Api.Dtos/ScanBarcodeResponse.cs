@@ -1,4 +1,4 @@
-﻿namespace Snackbox.Api.DTOs;
+﻿namespace Snackbox.Api.Dtos;
 
 public class ScanBarcodeResponse
 {

@@ -1,6 +1,5 @@
-@using System.Net.Http
+@using System.Timers
 @inject HttpClient Http
-@inject NavigationManager Navigation
 
 @if (!_isHealthy)
 {
@@ -106,11 +105,11 @@ else
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
-    private bool _isHealthy = false;
+    private bool _isHealthy;
     private string _statusMessage = "Connecting to server...";
     private string? _errorMessage;
-    private System.Timers.Timer? _healthCheckTimer;
-    private int _retryCount = 0;
+    private Timer? _healthCheckTimer;
+    private int _retryCount;
     private const int MaxRetries = 60; // 60 seconds with 1 second interval
 
     protected override async Task OnInitializedAsync()
@@ -178,11 +177,8 @@ else
 
     private void StartHealthCheckTimer()
     {
-        _healthCheckTimer = new System.Timers.Timer(1000); // Check every second
-        _healthCheckTimer.Elapsed += async (sender, e) =>
-        {
-            await CheckHealth();
-        };
+        _healthCheckTimer = new Timer(1000); // Check every second
+        _healthCheckTimer.Elapsed += async (_, _) => await CheckHealth();
         _healthCheckTimer.Start();
     }
 

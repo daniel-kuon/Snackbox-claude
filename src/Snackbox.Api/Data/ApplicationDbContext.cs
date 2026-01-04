@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Data;

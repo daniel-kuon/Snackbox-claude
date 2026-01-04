@@ -1,12 +1,13 @@
 @page "/admin/users/{UserId:int}"
-@using Snackbox.Api.DTOs
+@using System.ComponentModel.DataAnnotations
+@using Snackbox.Api.Dtos
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
 <PageTitle>User Details - Snackbox Admin</PageTitle>
 
 <div class="container-fluid">
-    @if (isLoading)
+    @if (_isLoading)
     {
         <div class="loading-container">
             <div class="spinner-border" role="status">
@@ -15,19 +16,19 @@
             <p>Loading user details...</p>
         </div>
     }
-    else if (errorMessage != null)
+    else if (_errorMessage != null)
     {
         <div class="alert alert-danger" role="alert">
-            @errorMessage
+            @_errorMessage
         </div>
         <button class="btn btn-secondary" @onclick="NavigateBack">Back to Users</button>
     }
-    else if (user != null)
+    else if (_user != null)
     {
         <div class="page-header">
             <div>
-                <h2>@user.Username</h2>
-                <p class="text-muted">@user.Email</p>
+                <h2>@_user.Username</h2>
+                <p class="text-muted">@_user.Email</p>
             </div>
             <button class="btn btn-secondary" @onclick="NavigateBack">Back to Users</button>
         </div>
@@ -35,35 +36,35 @@
         <div class="user-summary">
             <div class="summary-card">
                 <div class="summary-label">Balance</div>
-                <div class="summary-value @(user.Balance < 0 ? "text-danger" : "text-success")">
-                    €@user.Balance.ToString("F2")
+                <div class="summary-value @(_user.Balance < 0 ? "text-danger" : "text-success")">
+                    €@_user.Balance.ToString("F2")
                 </div>
             </div>
             <div class="summary-card">
                 <div class="summary-label">Role</div>
                 <div class="summary-value">
-                    <span class="badge">@(user.IsAdmin ? "Admin" : "User")</span>
+                    <span class="badge">@(_user.IsAdmin ? "Admin" : "User")</span>
                 </div>
             </div>
         </div>
 
         <div class="tabs">
-            <button class="tab-button @(activeTab == "info" ? "active" : "")" @onclick='() => activeTab = "info"'>
+            <button class="tab-button @(_activeTab == "info" ? "active" : "")" @onclick='() => _activeTab = "info"'>
                 User Information
             </button>
-            <button class="tab-button @(activeTab == "payments" ? "active" : "")" @onclick='() => activeTab = "payments"'>
+            <button class="tab-button @(_activeTab == "payments" ? "active" : "")" @onclick='() => _activeTab = "payments"'>
                 Payments
             </button>
-            <button class="tab-button @(activeTab == "purchases" ? "active" : "")" @onclick='() => activeTab = "purchases"'>
+            <button class="tab-button @(_activeTab == "purchases" ? "active" : "")" @onclick='() => _activeTab = "purchases"'>
                 Purchases
             </button>
-            <button class="tab-button @(activeTab == "barcodes" ? "active" : "")" @onclick='() => activeTab = "barcodes"'>
+            <button class="tab-button @(_activeTab == "barcodes" ? "active" : "")" @onclick='() => _activeTab = "barcodes"'>
                 Barcodes
             </button>
         </div>
 
         <div class="tab-content">
-            @if (activeTab == "info")
+            @if (_activeTab == "info")
             {
                 <div class="info-section">
                     @if (!isEditingUserInfo)
@@ -74,19 +75,19 @@
                         </div>
                         <div class="info-row">
                             <span class="info-label">Username:</span>
-                            <span class="info-value">@user.Username</span>
+                            <span class="info-value">@_user.Username</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Email:</span>
-                            <span class="info-value">@user.Email</span>
+                            <span class="info-value">@_user.Email</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Role:</span>
-                            <span class="info-value">@(user.IsAdmin ? "Admin" : "User")</span>
+                            <span class="info-value">@(_user.IsAdmin ? "Admin" : "User")</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Balance:</span>
-                            <span class="info-value @(user.Balance < 0 ? "text-danger" : "text-success")">€@user.Balance.ToString("F2")</span>
+                            <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
                         </div>
                     }
                     else
@@ -100,7 +101,7 @@
                         }
                         <EditForm Model="@userEditForm" OnValidSubmit="@SaveUserInfo">
                             <DataAnnotationsValidator />
-                            
+
                             <div class="form-group">
                                 <label>Username</label>
                                 <InputText @bind-Value="userEditForm.Username" class="form-control" />
@@ -123,7 +124,7 @@
 
                             <div class="info-row">
                                 <span class="info-label">Balance:</span>
-                                <span class="info-value @(user.Balance < 0 ? "text-danger" : "text-success")">€@user.Balance.ToString("F2")</span>
+                                <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
                             </div>
 
                             <div class="button-group">
@@ -140,21 +141,21 @@
                     }
                 </div>
             }
-            else if (activeTab == "payments")
+            else if (_activeTab == "payments")
             {
                 <div class="section-header">
                     <h3>Payment History</h3>
                     <button class="btn btn-primary btn-sm" @onclick="ShowAddPayment">+ Add Payment</button>
                 </div>
 
-                @if (payments == null)
+                @if (_payments == null)
                 {
                     <div class="loading-container">
                         <div class="spinner-border spinner-border-sm"></div>
                         <span>Loading payments...</span>
                     </div>
                 }
-                else if (payments.Any())
+                else if (_payments.Any())
                 {
                     <table class="table">
                         <thead>
@@ -165,7 +166,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var payment in payments.OrderByDescending(p => p.PaidAt))
+                            @foreach (var payment in _payments.OrderByDescending(p => p.PaidAt))
                             {
                                 <tr>
                                     <td>@payment.PaidAt.ToString("yyyy-MM-dd HH:mm")</td>
@@ -183,7 +184,7 @@
                     </div>
                 }
             }
-            else if (activeTab == "purchases")
+            else if (_activeTab == "purchases")
             {
                 <div class="section-header">
                     <h3>Purchase History</h3>
@@ -193,14 +194,14 @@
                     </div>
                 </div>
 
-                @if (purchases == null)
+                @if (_purchases == null)
                 {
                     <div class="loading-container">
                         <div class="spinner-border spinner-border-sm"></div>
                         <span>Loading purchases...</span>
                     </div>
                 }
-                else if (purchases.Any())
+                else if (_purchases.Any())
                 {
                     <table class="table">
                         <thead>
@@ -212,7 +213,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var purchase in purchases.OrderByDescending(p => p.CompletedAt))
+                            @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
                             {
                                 <tr>
                                     <td>@purchase.CompletedAt?.ToString("yyyy-MM-dd HH:mm")</td>
@@ -251,21 +252,21 @@
                     </div>
                 }
             }
-            else if (activeTab == "barcodes")
+            else if (_activeTab == "barcodes")
             {
                 <div class="section-header">
                     <h3>Barcodes</h3>
                     <button class="btn btn-primary btn-sm" @onclick="ShowAddBarcode">+ Add Barcode</button>
                 </div>
 
-                @if (barcodes == null)
+                @if (_barcodes == null)
                 {
                     <div class="loading-container">
                         <div class="spinner-border spinner-border-sm"></div>
                         <span>Loading barcodes...</span>
                     </div>
                 }
-                else if (barcodes.Any())
+                else if (_barcodes.Any())
                 {
                     <table class="table">
                         <thead>
@@ -278,7 +279,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var barcode in barcodes)
+                            @foreach (var barcode in _barcodes)
                             {
                                 <tr>
                                     <td><code>@barcode.Code</code></td>
@@ -320,7 +321,7 @@
     }
 </div>
 
-@if (showPaymentModal)
+@if (_showPaymentModal)
 {
     <div class="modal-backdrop" @onclick="CloseModals"></div>
     <div class="modal-dialog">
@@ -330,28 +331,28 @@
                 <button class="btn-close" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
-                <EditForm Model="@paymentForm" OnValidSubmit="@SavePayment">
+                <EditForm Model="@_paymentForm" OnValidSubmit="@SavePayment">
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
                         <label>Amount (€)</label>
-                        <InputNumber @bind-Value="paymentForm.Amount" class="form-control" step="0.01" />
-                        <ValidationMessage For="@(() => paymentForm.Amount)" />
+                        <InputNumber @bind-Value="_paymentForm.Amount" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _paymentForm.Amount)" />
                     </div>
 
                     <div class="form-group">
                         <label>Notes (optional)</label>
-                        <InputTextArea @bind-Value="paymentForm.Notes" class="form-control" rows="3" />
+                        <InputTextArea @bind-Value="_paymentForm.Notes" class="form-control" rows="3" />
                     </div>
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
-                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                            @if (isSaving)
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
@@ -364,7 +365,7 @@
     </div>
 }
 
-@if (showBarcodeModal)
+@if (_showBarcodeModal)
 {
     <div class="modal-backdrop" @onclick="CloseModals"></div>
     <div class="modal-dialog">
@@ -374,34 +375,34 @@
                 <button class="btn-close" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
-                <EditForm Model="@barcodeForm" OnValidSubmit="@SaveBarcode">
+                <EditForm Model="@_barcodeForm" OnValidSubmit="@SaveBarcode">
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
                         <label>Barcode</label>
-                        <InputText @bind-Value="barcodeForm.Code" class="form-control" />
-                        <ValidationMessage For="@(() => barcodeForm.Code)" />
+                        <InputText @bind-Value="_barcodeForm.Code" class="form-control" />
+                        <ValidationMessage For="@(() => _barcodeForm.Code)" />
                     </div>
 
                     <div class="form-group">
                         <label>Amount (€)</label>
-                        <InputNumber @bind-Value="barcodeForm.Amount" class="form-control" step="0.01" />
-                        <ValidationMessage For="@(() => barcodeForm.Amount)" />
+                        <InputNumber @bind-Value="_barcodeForm.Amount" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _barcodeForm.Amount)" />
                     </div>
 
                     <div class="form-check">
-                        <InputCheckbox @bind-Value="barcodeForm.IsLoginOnly" class="form-check-input" id="isLoginOnlyCheck" />
+                        <InputCheckbox @bind-Value="_barcodeForm.IsLoginOnly" class="form-check-input" id="isLoginOnlyCheck" />
                         <label class="form-check-label" for="isLoginOnlyCheck">
                             Login Only (no payment)
                         </label>
                     </div>
 
                     <div class="form-check">
-                        <InputCheckbox @bind-Value="barcodeForm.IsActive" class="form-check-input" id="isActiveCheck" />
+                        <InputCheckbox @bind-Value="_barcodeForm.IsActive" class="form-check-input" id="isActiveCheck" />
                         <label class="form-check-label" for="isActiveCheck">
                             Active
                         </label>
@@ -409,8 +410,8 @@
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
-                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                            @if (isSaving)
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
@@ -885,27 +886,27 @@
     [Parameter]
     public int UserId { get; set; }
 
-    private UserDto? user;
-    private List<PaymentDto>? payments;
-    private List<PurchaseDto>? purchases;
-    private List<BarcodeDto>? barcodes;
-    private bool isLoading = true;
-    private string? errorMessage;
-    private string activeTab = "info";
-    private bool showPaymentModal = false;
-    private bool showBarcodeModal = false;
+    private UserDto? _user;
+    private List<PaymentDto>? _payments;
+    private List<PurchaseDto>? _purchases;
+    private List<BarcodeDto>? _barcodes;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private string _activeTab = "info";
+    private bool _showPaymentModal;
+    private bool _showBarcodeModal;
     private bool showManualPurchaseModal = false;
     private bool showCorrectionModal = false;
     private bool isEditingUserInfo = false;
     private bool isSavingUserInfo = false;
     private string? editError = null;
-    private PaymentFormModel paymentForm = new();
-    private BarcodeFormModel barcodeForm = new();
+    private PaymentFormModel _paymentForm = new();
+    private BarcodeFormModel _barcodeForm = new();
     private ManualPurchaseFormModel manualPurchaseForm = new();
     private CorrectionFormModel correctionForm = new();
     private UserEditFormModel userEditForm = new();
-    private string? modalError;
-    private bool isSaving = false;
+    private string? _modalError;
+    private bool _isSaving;
 
     protected override async Task OnInitializedAsync()
     {
@@ -914,15 +915,15 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (activeTab == "payments" && payments == null)
+        if (_activeTab == "payments" && _payments == null)
         {
             await LoadPayments();
         }
-        else if (activeTab == "purchases" && purchases == null)
+        else if (_activeTab == "purchases" && _purchases == null)
         {
             await LoadPurchases();
         }
-        else if (activeTab == "barcodes" && barcodes == null)
+        else if (_activeTab == "barcodes" && _barcodes == null)
         {
             await LoadBarcodes();
         }
@@ -930,20 +931,20 @@
 
     private async Task LoadUserData()
     {
-        isLoading = true;
-        errorMessage = null;
+        _isLoading = true;
+        _errorMessage = null;
 
         try
         {
-            user = await Http.GetFromJsonAsync<UserDto>($"api/users/{UserId}");
+            _user = await Http.GetFromJsonAsync<UserDto>($"api/users/{UserId}");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load user: {ex.Message}";
+            _errorMessage = $"Failed to load user: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
@@ -951,11 +952,11 @@
     {
         try
         {
-            payments = await Http.GetFromJsonAsync<List<PaymentDto>>($"api/payments/user/{UserId}");
+            _payments = await Http.GetFromJsonAsync<List<PaymentDto>>($"api/payments/user/{UserId}");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load payments: {ex.Message}";
+            _errorMessage = $"Failed to load payments: {ex.Message}";
         }
     }
 
@@ -963,11 +964,11 @@
     {
         try
         {
-            purchases = await Http.GetFromJsonAsync<List<PurchaseDto>>($"api/purchases/user/{UserId}");
+            _purchases = await Http.GetFromJsonAsync<List<PurchaseDto>>($"api/purchases/user/{UserId}");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load purchases: {ex.Message}";
+            _errorMessage = $"Failed to load purchases: {ex.Message}";
         }
     }
 
@@ -975,11 +976,11 @@
     {
         try
         {
-            barcodes = await Http.GetFromJsonAsync<List<BarcodeDto>>($"api/barcodes/user/{UserId}");
+            _barcodes = await Http.GetFromJsonAsync<List<BarcodeDto>>($"api/barcodes/user/{UserId}");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load barcodes: {ex.Message}";
+            _errorMessage = $"Failed to load barcodes: {ex.Message}";
         }
     }
 
@@ -990,88 +991,88 @@
 
     private void ShowAddPayment()
     {
-        paymentForm = new PaymentFormModel();
-        modalError = null;
-        showPaymentModal = true;
+        _paymentForm = new PaymentFormModel();
+        _modalError = null;
+        _showPaymentModal = true;
     }
 
     private void ShowAddBarcode()
     {
-        barcodeForm = new BarcodeFormModel { IsActive = true };
-        modalError = null;
-        showBarcodeModal = true;
+        _barcodeForm = new BarcodeFormModel { IsActive = true };
+        _modalError = null;
+        _showBarcodeModal = true;
     }
 
     private async Task SavePayment()
     {
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
             var response = await Http.PostAsJsonAsync("api/payments", new
             {
                 userId = UserId,
-                amount = paymentForm.Amount,
-                notes = paymentForm.Notes
+                amount = _paymentForm.Amount,
+                notes = _paymentForm.Notes
             });
 
             if (response.IsSuccessStatusCode)
             {
                 CloseModals();
-                payments = null;
+                _payments = null;
                 await LoadPayments();
                 await LoadUserData(); // Refresh balance
             }
             else
             {
-                modalError = "Failed to add payment. Please try again.";
+                _modalError = "Failed to add payment. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private async Task SaveBarcode()
     {
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
             var response = await Http.PostAsJsonAsync("api/barcodes", new
             {
                 userId = UserId,
-                code = barcodeForm.Code,
-                amount = barcodeForm.Amount,
-                isActive = barcodeForm.IsActive,
-                isLoginOnly = barcodeForm.IsLoginOnly
+                code = _barcodeForm.Code,
+                amount = _barcodeForm.Amount,
+                isActive = _barcodeForm.IsActive,
+                isLoginOnly = _barcodeForm.IsLoginOnly
             });
 
             if (response.IsSuccessStatusCode)
             {
                 CloseModals();
-                barcodes = null;
+                _barcodes = null;
                 await LoadBarcodes();
             }
             else
             {
-                modalError = "Failed to add barcode. Please try again.";
+                _modalError = "Failed to add barcode. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
@@ -1090,9 +1091,9 @@
 
     private void ShowAddManualPurchase()
     {
-        manualPurchaseForm = new ManualPurchaseFormModel 
-        { 
-            CreatedAt = DateTime.UtcNow 
+        manualPurchaseForm = new ManualPurchaseFormModel
+        {
+            CreatedAt = DateTime.UtcNow
         };
         modalError = null;
         showManualPurchaseModal = true;
@@ -1187,7 +1188,7 @@
     private void StartEditUserInfo()
     {
         if (user == null) return;
-        
+
         userEditForm = new UserEditFormModel
         {
             Username = user.Username,
@@ -1243,8 +1244,8 @@
 
     private class PaymentFormModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.Range(0.01, 10000, ErrorMessage = "Amount must be between 0.01 and 10000")]
+        [Required]
+        [Range(0.01, 10000, ErrorMessage = "Amount must be between 0.01 and 10000")]
         public decimal Amount { get; set; }
 
         public string? Notes { get; set; }
@@ -1252,10 +1253,10 @@
 
     private class BarcodeFormModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
+        [Required]
         public string Code { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Range(0, 10000)]
+        [Range(0, 10000)]
         public decimal Amount { get; set; }
 
         public bool IsActive { get; set; } = true;
