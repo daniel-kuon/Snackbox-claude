@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
+using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 using Snackbox.Api.Services;
 
@@ -29,25 +30,9 @@ public class ProductsController : ControllerBase
     {
         var products = await _context.Products
             .Include(p => p.Barcodes)
-            .Select(p => new ProductDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                CreatedAt = p.CreatedAt,
-                BestBeforeInStock = p.BestBeforeInStock,
-                BestBeforeOnShelf = p.BestBeforeOnShelf,
-                Barcodes = p.Barcodes.Select(b => new ProductBarcodeDto
-                {
-                    Id = b.Id,
-                    ProductId = b.ProductId,
-                    Barcode = b.Barcode,
-                    Quantity = b.Quantity,
-                    CreatedAt = b.CreatedAt
-                }).ToList()
-            })
             .ToListAsync();
 
-        return Ok(products);
+        return Ok(products.ToDtoList());
     }
 
     [HttpGet("{id}")]
@@ -62,24 +47,7 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        var dto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            CreatedAt = product.CreatedAt,
-            BestBeforeInStock = product.BestBeforeInStock,
-            BestBeforeOnShelf = product.BestBeforeOnShelf,
-            Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-            {
-                Id = b.Id,
-                ProductId = b.ProductId,
-                Barcode = b.Barcode,
-                Quantity = b.Quantity,
-                CreatedAt = b.CreatedAt
-            }).ToList()
-        };
-
-        return Ok(dto);
+        return Ok(product.ToDto());
     }
 
     [HttpPost]
@@ -96,16 +64,7 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Product created: {ProductId} - {ProductName}", product.Id, product.Name);
 
-        var resultDto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            CreatedAt = product.CreatedAt,
-            BestBeforeInStock = product.BestBeforeInStock,
-            BestBeforeOnShelf = product.BestBeforeOnShelf,
-        };
-
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, resultDto);
+        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product.ToDto());
     }
 
     [HttpPut("{id}")]
@@ -142,24 +101,7 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Product updated: {ProductId} - {ProductName}", product.Id, product.Name);
 
-        var resultDto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            CreatedAt = product.CreatedAt,
-            BestBeforeInStock = product.BestBeforeInStock,
-            BestBeforeOnShelf = product.BestBeforeOnShelf,
-            Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-            {
-                Id = b.Id,
-                ProductId = b.ProductId,
-                Barcode = b.Barcode,
-                Quantity = b.Quantity,
-                CreatedAt = b.CreatedAt
-            }).ToList()
-        };
-
-        return Ok(resultDto);
+        return Ok(product.ToDto());
     }
 
     [HttpDelete("{id}")]
@@ -200,26 +142,7 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        var product = productBarcode.Product;
-
-        var dto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            CreatedAt = product.CreatedAt,
-            BestBeforeInStock = product.BestBeforeInStock,
-            BestBeforeOnShelf = product.BestBeforeOnShelf,
-            Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-            {
-                Id = b.Id,
-                ProductId = b.ProductId,
-                Barcode = b.Barcode,
-                Quantity = b.Quantity,
-                CreatedAt = b.CreatedAt
-            }).ToList()
-        };
-
-        return Ok(dto);
+        return Ok(productBarcode.Product.ToDto());
     }
 
     [HttpGet("{id}/stock")]
@@ -249,14 +172,7 @@ public class ProductsController : ControllerBase
             ProductId = product.Id,
             ProductName = product.Name,
             ProductBarcode = product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
-            Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-            {
-                Id = b.Id,
-                ProductId = b.ProductId,
-                Barcode = b.Barcode,
-                Quantity = b.Quantity,
-                CreatedAt = b.CreatedAt
-            }).ToList(),
+            Barcodes = product.Barcodes.ToDtoList(),
             TotalInStorage = batches.Sum(b => b.QuantityInStorage),
             TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
             Batches = batches
@@ -289,14 +205,7 @@ public class ProductsController : ControllerBase
                 ProductId = product.Id,
                 ProductName = product.Name,
                 ProductBarcode = product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
-                Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-                {
-                    Id = b.Id,
-                    ProductId = b.ProductId,
-                    Barcode = b.Barcode,
-                    Quantity = b.Quantity,
-                    CreatedAt = b.CreatedAt
-                }).ToList(),
+                Barcodes = product.Barcodes.ToDtoList(),
                 TotalInStorage = batches.Sum(b => b.QuantityInStorage),
                 TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
                 Batches = batches
@@ -335,16 +244,7 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Barcode added: {Barcode} to product {ProductId}", dto.Barcode, id);
 
-        var resultDto = new ProductBarcodeDto
-        {
-            Id = productBarcode.Id,
-            ProductId = productBarcode.ProductId,
-            Barcode = productBarcode.Barcode,
-            Quantity = productBarcode.Quantity,
-            CreatedAt = productBarcode.CreatedAt
-        };
-
-        return Ok(resultDto);
+        return Ok(productBarcode.ToDto());
     }
 
     [HttpPut("{productId}/barcodes/{barcodeId}")]
@@ -372,16 +272,7 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Barcode updated: {BarcodeId} for product {ProductId}", barcodeId, productId);
 
-        var resultDto = new ProductBarcodeDto
-        {
-            Id = productBarcode.Id,
-            ProductId = productBarcode.ProductId,
-            Barcode = productBarcode.Barcode,
-            Quantity = productBarcode.Quantity,
-            CreatedAt = productBarcode.CreatedAt
-        };
-
-        return Ok(resultDto);
+        return Ok(productBarcode.ToDto());
     }
 
     [HttpDelete("{productId}/barcodes/{barcodeId}")]
