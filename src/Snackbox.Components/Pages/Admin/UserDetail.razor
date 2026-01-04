@@ -67,7 +67,7 @@
             @if (_activeTab == "info")
             {
                 <div class="info-section">
-                    @if (!isEditingUserInfo)
+                    @if (!_isEditingUserInfo)
                     {
                         <div class="section-header">
                             <h3>User Information</h3>
@@ -95,28 +95,28 @@
                         <div class="section-header">
                             <h3>Edit User Information</h3>
                         </div>
-                        @if (editError != null)
+                        @if (_editError != null)
                         {
-                            <div class="alert alert-danger">@editError</div>
+                            <div class="alert alert-danger">@_editError</div>
                         }
-                        <EditForm Model="@userEditForm" OnValidSubmit="@SaveUserInfo">
+                        <EditForm Model="@_userEditForm" OnValidSubmit="@SaveUserInfo">
                             <DataAnnotationsValidator />
 
                             <div class="form-group">
                                 <label>Username</label>
-                                <InputText @bind-Value="userEditForm.Username" class="form-control" />
-                                <ValidationMessage For="@(() => userEditForm.Username)" />
+                                <InputText @bind-Value="_userEditForm.Username" class="form-control" />
+                                <ValidationMessage For="@(() => _userEditForm.Username)" />
                             </div>
 
                             <div class="form-group">
                                 <label>Email</label>
-                                <InputText @bind-Value="userEditForm.Email" class="form-control" type="email" />
-                                <ValidationMessage For="@(() => userEditForm.Email)" />
+                                <InputText @bind-Value="_userEditForm.Email" class="form-control" type="email" />
+                                <ValidationMessage For="@(() => _userEditForm.Email)" />
                             </div>
 
                             <div class="form-group">
                                 <label>Role</label>
-                                <InputSelect @bind-Value="userEditForm.Role" class="form-control">
+                                <InputSelect @bind-Value="_userEditForm.Role" class="form-control">
                                     <option value="User">User</option>
                                     <option value="Admin">Admin</option>
                                 </InputSelect>
@@ -129,8 +129,8 @@
 
                             <div class="button-group">
                                 <button type="button" class="btn btn-secondary" @onclick="CancelEditUserInfo">Cancel</button>
-                                <button type="submit" class="btn btn-primary" disabled="@isSavingUserInfo">
-                                    @if (isSavingUserInfo)
+                                <button type="submit" class="btn btn-primary" disabled="@_isSavingUserInfo">
+                                    @if (_isSavingUserInfo)
                                     {
                                         <span class="spinner-border spinner-border-sm"></span>
                                     }
@@ -424,7 +424,7 @@
     </div>
 }
 
-@if (showManualPurchaseModal)
+@if (_showManualPurchaseModal)
 {
     <div class="modal-backdrop" @onclick="CloseModals"></div>
     <div class="modal-dialog">
@@ -434,29 +434,29 @@
                 <button class="btn-close" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
-                <EditForm Model="@manualPurchaseForm" OnValidSubmit="@SaveManualPurchase">
+                <EditForm Model="@_manualPurchaseForm" OnValidSubmit="@SaveManualPurchase">
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
                         <label>Amount (€)</label>
-                        <InputNumber @bind-Value="manualPurchaseForm.Amount" class="form-control" step="0.01" />
-                        <ValidationMessage For="@(() => manualPurchaseForm.Amount)" />
+                        <InputNumber @bind-Value="_manualPurchaseForm.Amount" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _manualPurchaseForm.Amount)" />
                     </div>
 
                     <div class="form-group">
                         <label>Date</label>
-                        <InputDate @bind-Value="manualPurchaseForm.CreatedAt" class="form-control" Type="InputDateType.DateTimeLocal" />
-                        <ValidationMessage For="@(() => manualPurchaseForm.CreatedAt)" />
+                        <InputDate @bind-Value="_manualPurchaseForm.CreatedAt" class="form-control" Type="InputDateType.DateTimeLocal" />
+                        <ValidationMessage For="@(() => _manualPurchaseForm.CreatedAt)" />
                     </div>
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
-                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                            @if (isSaving)
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
@@ -469,7 +469,7 @@
     </div>
 }
 
-@if (showCorrectionModal)
+@if (_showCorrectionModal)
 {
     <div class="modal-backdrop" @onclick="CloseModals"></div>
     <div class="modal-dialog">
@@ -479,39 +479,39 @@
                 <button class="btn-close" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
-                @if (modalError != null)
+                @if (_modalError != null)
                 {
-                    <div class="alert alert-danger">@modalError</div>
+                    <div class="alert alert-danger">@_modalError</div>
                 }
-                <EditForm Model="@correctionForm" OnValidSubmit="@SaveCorrection">
+                <EditForm Model="@_correctionForm" OnValidSubmit="@SaveCorrection">
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
                         <label>Reference Purchase</label>
-                        <InputSelect @bind-Value="correctionForm.ReferencePurchaseId" class="form-control">
+                        <InputSelect @bind-Value="_correctionForm.ReferencePurchaseId" class="form-control">
                             <option value="">-- Select a purchase --</option>
-                            @if (purchases != null)
+                            @if (_purchases != null)
                             {
-                                @foreach (var purchase in purchases.OrderByDescending(p => p.CompletedAt))
+                                @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
                                 {
                                     <option value="@purchase.Id">#@purchase.Id - @purchase.CompletedAt?.ToString("yyyy-MM-dd") - €@purchase.TotalAmount.ToString("F2")</option>
                                 }
                             }
                         </InputSelect>
-                        <ValidationMessage For="@(() => correctionForm.ReferencePurchaseId)" />
+                        <ValidationMessage For="@(() => _correctionForm.ReferencePurchaseId)" />
                     </div>
 
                     <div class="form-group">
                         <label>Correction Amount (€)</label>
-                        <InputNumber @bind-Value="correctionForm.Amount" class="form-control" step="0.01" />
-                        <ValidationMessage For="@(() => correctionForm.Amount)" />
+                        <InputNumber @bind-Value="_correctionForm.Amount" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _correctionForm.Amount)" />
                         <small class="form-text text-muted">Use negative values to deduct from balance</small>
                     </div>
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
-                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                            @if (isSaving)
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
@@ -895,16 +895,16 @@
     private string _activeTab = "info";
     private bool _showPaymentModal;
     private bool _showBarcodeModal;
-    private bool showManualPurchaseModal = false;
-    private bool showCorrectionModal = false;
-    private bool isEditingUserInfo = false;
-    private bool isSavingUserInfo = false;
-    private string? editError = null;
+    private bool _showManualPurchaseModal;
+    private bool _showCorrectionModal;
+    private bool _isEditingUserInfo;
+    private bool _isSavingUserInfo;
+    private string? _editError;
     private PaymentFormModel _paymentForm = new();
     private BarcodeFormModel _barcodeForm = new();
-    private ManualPurchaseFormModel manualPurchaseForm = new();
-    private CorrectionFormModel correctionForm = new();
-    private UserEditFormModel userEditForm = new();
+    private ManualPurchaseFormModel _manualPurchaseForm = new();
+    private CorrectionFormModel _correctionForm = new();
+    private UserEditFormModel _userEditForm = new();
     private string? _modalError;
     private bool _isSaving;
 
@@ -1078,167 +1078,167 @@
 
     private void CloseModals()
     {
-        showPaymentModal = false;
-        showBarcodeModal = false;
-        showManualPurchaseModal = false;
-        showCorrectionModal = false;
-        paymentForm = new();
-        barcodeForm = new();
-        manualPurchaseForm = new();
-        correctionForm = new();
-        modalError = null;
+        _showPaymentModal = false;
+        _showBarcodeModal = false;
+        _showManualPurchaseModal = false;
+        _showCorrectionModal = false;
+        _paymentForm = new();
+        _barcodeForm = new();
+        _manualPurchaseForm = new();
+        _correctionForm = new();
+        _modalError = null;
     }
 
     private void ShowAddManualPurchase()
     {
-        manualPurchaseForm = new ManualPurchaseFormModel
+        _manualPurchaseForm = new ManualPurchaseFormModel
         {
             CreatedAt = DateTime.UtcNow
         };
-        modalError = null;
-        showManualPurchaseModal = true;
+        _modalError = null;
+        _showManualPurchaseModal = true;
     }
 
     private void ShowAddCorrection()
     {
-        correctionForm = new CorrectionFormModel();
-        modalError = null;
-        showCorrectionModal = true;
+        _correctionForm = new CorrectionFormModel();
+        _modalError = null;
+        _showCorrectionModal = true;
     }
 
     private async Task SaveManualPurchase()
     {
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
             var response = await Http.PostAsJsonAsync("api/purchases/manual", new
             {
                 userId = UserId,
-                amount = manualPurchaseForm.Amount,
-                createdAt = manualPurchaseForm.CreatedAt
+                amount = _manualPurchaseForm.Amount,
+                createdAt = _manualPurchaseForm.CreatedAt
             });
 
             if (response.IsSuccessStatusCode)
             {
                 CloseModals();
-                purchases = null;
+                _purchases = null;
                 await LoadPurchases();
                 await LoadUserData(); // Refresh balance
             }
             else
             {
-                modalError = "Failed to add manual purchase. Please try again.";
+                _modalError = "Failed to add manual purchase. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private async Task SaveCorrection()
     {
-        isSaving = true;
-        modalError = null;
+        _isSaving = true;
+        _modalError = null;
 
         try
         {
-            if (correctionForm.ReferencePurchaseId == 0)
+            if (_correctionForm.ReferencePurchaseId == 0)
             {
-                modalError = "Please select a reference purchase.";
-                isSaving = false;
+                _modalError = "Please select a reference purchase.";
+                _isSaving = false;
                 return;
             }
 
             var response = await Http.PostAsJsonAsync("api/purchases/correction", new
             {
                 userId = UserId,
-                referencePurchaseId = correctionForm.ReferencePurchaseId,
-                amount = correctionForm.Amount
+                referencePurchaseId = _correctionForm.ReferencePurchaseId,
+                amount = _correctionForm.Amount
             });
 
             if (response.IsSuccessStatusCode)
             {
                 CloseModals();
-                purchases = null;
+                _purchases = null;
                 await LoadPurchases();
                 await LoadUserData(); // Refresh balance
             }
             else
             {
-                modalError = "Failed to add correction. Please try again.";
+                _modalError = "Failed to add correction. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            modalError = $"Error: {ex.Message}";
+            _modalError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
 
     private void StartEditUserInfo()
     {
-        if (user == null) return;
+        if (_user == null) return;
 
-        userEditForm = new UserEditFormModel
+        _userEditForm = new UserEditFormModel
         {
-            Username = user.Username,
-            Email = user.Email ?? string.Empty,
-            Role = user.IsAdmin ? "Admin" : "User"
+            Username = _user.Username,
+            Email = _user.Email ?? string.Empty,
+            Role = _user.IsAdmin ? "Admin" : "User"
         };
-        editError = null;
-        isEditingUserInfo = true;
+        _editError = null;
+        _isEditingUserInfo = true;
     }
 
     private void CancelEditUserInfo()
     {
-        isEditingUserInfo = false;
-        userEditForm = new();
-        editError = null;
+        _isEditingUserInfo = false;
+        _userEditForm = new();
+        _editError = null;
     }
 
     private async Task SaveUserInfo()
     {
-        if (user == null) return;
+        if (_user == null) return;
 
-        isSavingUserInfo = true;
-        editError = null;
+        _isSavingUserInfo = true;
+        _editError = null;
 
         try
         {
             var response = await Http.PutAsJsonAsync($"api/users/{UserId}", new
             {
-                username = userEditForm.Username,
-                email = userEditForm.Email,
-                isAdmin = userEditForm.Role == "Admin"
+                username = _userEditForm.Username,
+                email = _userEditForm.Email,
+                isAdmin = _userEditForm.Role == "Admin"
             });
 
             if (response.IsSuccessStatusCode)
             {
                 await LoadUserData();
-                isEditingUserInfo = false;
+                _isEditingUserInfo = false;
             }
             else
             {
-                editError = "Failed to update user information. Please try again.";
+                _editError = "Failed to update user information. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            editError = $"Error: {ex.Message}";
+            _editError = $"Error: {ex.Message}";
         }
         finally
         {
-            isSavingUserInfo = false;
+            _isSavingUserInfo = false;
         }
     }
 
@@ -1265,34 +1265,34 @@
 
     private class UserEditFormModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
+        [Required]
         public string Username { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.EmailAddress]
+        [Required]
+        [EmailAddress]
         public string Email { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required]
+        [Required]
         public string Role { get; set; } = "User";
     }
 
     private class ManualPurchaseFormModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.Range(0.01, 10000, ErrorMessage = "Amount must be between 0.01 and 10000")]
+        [Required]
+        [Range(0.01, 10000, ErrorMessage = "Amount must be between 0.01 and 10000")]
         public decimal Amount { get; set; }
 
-        [System.ComponentModel.DataAnnotations.Required]
+        [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
     private class CorrectionFormModel
     {
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.Range(1, int.MaxValue, ErrorMessage = "Please select a purchase")]
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "Please select a purchase")]
         public int ReferencePurchaseId { get; set; }
 
-        [System.ComponentModel.DataAnnotations.Required]
+        [Required]
         public decimal Amount { get; set; }
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
+using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Controllers;
 
@@ -13,10 +14,12 @@ namespace Snackbox.Api.Controllers;
 public class PurchasesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly ILogger<PurchasesController> _logger;
 
-    public PurchasesController(ApplicationDbContext context)
+    public PurchasesController(ApplicationDbContext context, ILogger<PurchasesController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     [HttpGet("my-purchases")]
