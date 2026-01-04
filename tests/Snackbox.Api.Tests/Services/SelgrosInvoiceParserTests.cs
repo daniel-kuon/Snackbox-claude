@@ -54,7 +54,7 @@ EUR 370,33
         Assert.Equal("4059586509519", firstItem.ArticleNumber);
 
         var secondItem = result.Items[1];
-        Assert.Equal(2, secondItem.Quantity); // Rounded from 1.532
+        Assert.Equal(2, secondItem.Quantity); // Rounded from 1.532 kg
         Assert.Equal(2.290m, secondItem.UnitPrice);
 
         var thirdItem = result.Items[2];

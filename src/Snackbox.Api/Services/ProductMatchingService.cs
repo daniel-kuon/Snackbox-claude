@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
+using System.Text.RegularExpressions;
 
 namespace Snackbox.Api.Services;
 
@@ -9,9 +10,19 @@ public interface IProductMatchingService
     Task<ProductMatchResult?> FindMatchingProduct(string barcode, string productName);
 }
 
-public class ProductMatchingService : IProductMatchingService
+public partial class ProductMatchingService : IProductMatchingService
 {
     private readonly ApplicationDbContext _context;
+
+    // Compiled regex patterns for performance
+    [GeneratedRegex(@"MHD:\d{1,2}\.\d{1,2}\.\d{2,4}", RegexOptions.Compiled)]
+    private static partial Regex MhdDateRegex();
+    
+    [GeneratedRegex(@"\d+[gkmlt]+", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    private static partial Regex WeightSizeRegex();
+    
+    [GeneratedRegex(@"\s+", RegexOptions.Compiled)]
+    private static partial Regex WhitespaceRegex();
 
     public ProductMatchingService(ApplicationDbContext context)
     {
@@ -80,13 +91,13 @@ public class ProductMatchingService : IProductMatchingService
         var cleaned = name;
         
         // Remove MHD dates
-        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"MHD:\d{1,2}\.\d{1,2}\.\d{2,4}", "");
+        cleaned = MhdDateRegex().Replace(cleaned, "");
         
         // Remove weights/sizes
-        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\d+[gkmlt]+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        cleaned = WeightSizeRegex().Replace(cleaned, "");
         
         // Remove extra whitespace
-        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ").Trim();
+        cleaned = WhitespaceRegex().Replace(cleaned, " ").Trim();
         
         return cleaned;
     }
