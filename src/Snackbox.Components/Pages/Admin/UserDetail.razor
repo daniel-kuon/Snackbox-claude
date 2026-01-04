@@ -252,7 +252,15 @@
                                         }
                                     </td>
                                     <td class="@(purchase.TotalAmount >= 0 ? "text-danger" : "text-success")">
-                                        @(purchase.TotalAmount >= 0 ? "€" : "-€")@Math.Abs(purchase.TotalAmount).ToString("F2")
+                                        @if (purchase.TotalAmount < 0)
+                                        {
+                                            <span class="badge bg-success me-1">Credit</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger me-1">Debit</span>
+                                        }
+                                        €@Math.Abs(purchase.TotalAmount).ToString("F2")
                                     </td>
                                     <td>
                                         @if (purchase.ReferencePurchaseId.HasValue)
