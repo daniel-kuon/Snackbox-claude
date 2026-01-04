@@ -1,4 +1,4 @@
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 using Xunit;
