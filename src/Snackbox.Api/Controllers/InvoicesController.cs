@@ -17,15 +17,18 @@ public class InvoicesController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly ILogger<InvoicesController> _logger;
     private readonly InvoiceParserFactory _parserFactory;
+    private readonly IProductMatchingService _productMatching;
 
     public InvoicesController(
         ApplicationDbContext context, 
         ILogger<InvoicesController> logger,
-        InvoiceParserFactory parserFactory)
+        InvoiceParserFactory parserFactory,
+        IProductMatchingService productMatching)
     {
         _context = context;
         _logger = logger;
         _parserFactory = parserFactory;
+        _productMatching = productMatching;
     }
 
     [HttpGet]
@@ -267,7 +270,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost("parse")]
-    public ActionResult<ParseInvoiceResponse> ParseInvoice([FromBody] ParseInvoiceRequest request)
+    public async Task<ActionResult<ParseInvoiceResponse>> ParseInvoice([FromBody] ParseInvoiceRequest request)
     {
         var parser = _parserFactory.GetParser(request.Format);
         if (parser == null)
@@ -281,8 +284,24 @@ public class InvoicesController : ControllerBase
 
         var result = parser.Parse(request.InvoiceText);
         
-        _logger.LogInformation("Invoice parsed: Format={Format}, Success={Success}, Items={ItemCount}", 
-            request.Format, result.Success, result.Items.Count);
+        // Try to match each item to existing products
+        foreach (var item in result.Items)
+        {
+            var match = await _productMatching.FindMatchingProduct(
+                item.ArticleNumber ?? string.Empty, 
+                item.ProductName);
+            
+            if (match != null)
+            {
+                item.MatchedProductId = match.ProductId;
+                item.MatchedProductName = match.ProductName;
+                item.MatchType = match.MatchType;
+                item.MatchConfidence = match.Confidence;
+            }
+        }
+        
+        _logger.LogInformation("Invoice parsed: Format={Format}, Success={Success}, Items={ItemCount}, Matched={MatchedCount}", 
+            request.Format, result.Success, result.Items.Count, result.Items.Count(i => i.MatchedProductId.HasValue));
 
         return Ok(result);
     }
@@ -367,5 +386,126 @@ public class InvoicesController : ControllerBase
     public ActionResult<IEnumerable<string>> GetSupportedFormats()
     {
         return Ok(_parserFactory.GetSupportedFormats());
+    }
+
+    [HttpPost("items/{itemId}/add-to-stock")]
+    public async Task<ActionResult<ShelvingActionDto>> AddInvoiceItemToStock(
+        int itemId, 
+        [FromBody] AddInvoiceItemToStockDto dto)
+    {
+        var item = await _context.InvoiceItems
+            .Include(i => i.Invoice)
+            .FirstOrDefaultAsync(i => i.Id == itemId);
+
+        if (item == null)
+        {
+            return NotFound(new { message = "Invoice item not found" });
+        }
+
+        // Find or create product
+        int productId;
+        if (dto.ProductId.HasValue)
+        {
+            productId = dto.ProductId.Value;
+        }
+        else if (!string.IsNullOrEmpty(dto.ProductBarcode))
+        {
+            // Find product by barcode
+            var productBarcode = await _context.ProductBarcodes
+                .FirstOrDefaultAsync(pb => pb.Barcode == dto.ProductBarcode);
+            
+            if (productBarcode != null)
+            {
+                productId = productBarcode.ProductId;
+            }
+            else
+            {
+                return BadRequest(new { message = "Product not found with the provided barcode" });
+            }
+        }
+        else
+        {
+            return BadRequest(new { message = "Either ProductId or ProductBarcode must be provided" });
+        }
+
+        // Add article number as barcode if provided and doesn't exist
+        if (!string.IsNullOrEmpty(item.ArticleNumber))
+        {
+            var existingBarcode = await _context.ProductBarcodes
+                .AnyAsync(pb => pb.Barcode == item.ArticleNumber);
+            
+            if (!existingBarcode)
+            {
+                var newBarcode = new ProductBarcode
+                {
+                    ProductId = productId,
+                    Barcode = item.ArticleNumber,
+                    Quantity = 1,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.ProductBarcodes.Add(newBarcode);
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("Added article number {ArticleNumber} as barcode for product {ProductId}", 
+                    item.ArticleNumber, productId);
+            }
+        }
+
+        // Create shelving action
+        var product = await _context.Products
+            .Include(p => p.Batches)
+            .ThenInclude(b => b.ShelvingActions)
+            .FirstOrDefaultAsync(p => p.Id == productId);
+
+        if (product == null)
+        {
+            return NotFound(new { message = "Product not found" });
+        }
+
+        var bestBeforeDate = item.BestBeforeDate ?? DateTime.UtcNow.AddMonths(6);
+        var batch = product.Batches.FirstOrDefault(b => b.BestBeforeDate.Date == bestBeforeDate.Date);
+
+        if (batch == null)
+        {
+            batch = new ProductBatch
+            {
+                ProductId = product.Id,
+                BestBeforeDate = bestBeforeDate.Date,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.ProductBatches.Add(batch);
+            await _context.SaveChangesAsync();
+        }
+
+        var shelvingAction = new ShelvingAction
+        {
+            ProductBatchId = batch.Id,
+            Quantity = item.Quantity,
+            Type = dto.AddToShelf ? ShelvingActionType.AddedToShelf : ShelvingActionType.AddedToStorage,
+            ActionAt = DateTime.UtcNow,
+            InvoiceItemId = item.Id
+        };
+
+        _context.ShelvingActions.Add(shelvingAction);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Added invoice item {ItemId} to stock: Product {ProductId}, Quantity {Quantity}, Type {Type}",
+            itemId, productId, item.Quantity, shelvingAction.Type);
+
+        var result = new ShelvingActionDto
+        {
+            Id = shelvingAction.Id,
+            ProductBatchId = batch.Id,
+            ProductId = product.Id,
+            ProductName = product.Name,
+            ProductBarcode = dto.ProductBarcode ?? string.Empty,
+            BestBeforeDate = batch.BestBeforeDate,
+            Quantity = shelvingAction.Quantity,
+            Type = shelvingAction.Type,
+            ActionAt = shelvingAction.ActionAt,
+            InvoiceItemId = shelvingAction.InvoiceItemId
+        };
+
+        return Ok(result);
     }
 }

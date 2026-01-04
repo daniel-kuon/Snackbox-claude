@@ -29,6 +29,9 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 
+// Register product matching service
+builder.Services.AddScoped<IProductMatchingService, ProductMatchingService>();
+
 // Register invoice parser services
 builder.Services.AddScoped<IInvoiceParserService, SonderpostenInvoiceParser>();
 builder.Services.AddScoped<IInvoiceParserService, SelgrosInvoiceParser>();

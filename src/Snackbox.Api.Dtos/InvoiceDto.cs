@@ -80,6 +80,10 @@ public class ParsedInvoiceItem
     public DateTime? BestBeforeDate { get; set; }
     public string? ArticleNumber { get; set; }
     public bool Selected { get; set; } = true;
+    public int? MatchedProductId { get; set; }
+    public string? MatchedProductName { get; set; }
+    public string? MatchType { get; set; }
+    public decimal? MatchConfidence { get; set; }
 }
 
 public class InvoiceMetadata
@@ -99,4 +103,11 @@ public class CreateInvoiceFromParsedDto
     public decimal AdditionalCosts { get; set; }
     public string? Notes { get; set; }
     public List<ParsedInvoiceItem> SelectedItems { get; set; } = new();
+}
+
+public class AddInvoiceItemToStockDto
+{
+    public int? ProductId { get; set; }
+    public string? ProductBarcode { get; set; }
+    public bool AddToShelf { get; set; }
 }
