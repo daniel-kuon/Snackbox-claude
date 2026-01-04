@@ -15,13 +15,13 @@ public partial class ProductMatchingService : IProductMatchingService
     private readonly ApplicationDbContext _context;
 
     // Compiled regex patterns for performance
-    [GeneratedRegex(@"MHD:\d{1,2}\.\d{1,2}\.\d{2,4}", RegexOptions.Compiled)]
+    [GeneratedRegex(@"MHD:\d{1,2}\.\d{1,2}\.\d{2,4}")]
     private static partial Regex MhdDateRegex();
     
-    [GeneratedRegex(@"\d+[gkmlt]+", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\d+[gkmlt]+", RegexOptions.IgnoreCase)]
     private static partial Regex WeightSizeRegex();
     
-    [GeneratedRegex(@"\s+", RegexOptions.Compiled)]
+    [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();
 
     public ProductMatchingService(ApplicationDbContext context)
