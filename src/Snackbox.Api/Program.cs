@@ -41,6 +41,9 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 
+// Register product best before date service
+builder.Services.AddScoped<IProductBestBeforeDateService, ProductBestBeforeDateService>();
+
 // Register barcode lookup service
 builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()
     .ConfigureHttpClient(client =>

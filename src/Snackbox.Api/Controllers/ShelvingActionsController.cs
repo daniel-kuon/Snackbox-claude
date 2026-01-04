@@ -17,12 +17,14 @@ public class ShelvingActionsController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ShelvingActionsController> _logger;
     private readonly IStockCalculationService _stockCalculation;
+    private readonly IProductBestBeforeDateService _bestBeforeDateService;
 
-    public ShelvingActionsController(ApplicationDbContext context, ILogger<ShelvingActionsController> logger, IStockCalculationService stockCalculation)
+    public ShelvingActionsController(ApplicationDbContext context, ILogger<ShelvingActionsController> logger, IStockCalculationService stockCalculation, IProductBestBeforeDateService bestBeforeDateService)
     {
         _context = context;
         _logger = logger;
         _stockCalculation = stockCalculation;
+        _bestBeforeDateService = bestBeforeDateService;
     }
 
     [HttpGet]
@@ -84,6 +86,7 @@ public class ShelvingActionsController : ControllerBase
     public async Task<ActionResult<BatchShelvingResponse>> CreateBatch([FromBody] BatchShelvingRequest request)
     {
         var response = new BatchShelvingResponse();
+        var productsToUpdate = new HashSet<int>();
 
         foreach (var action in request.Actions)
         {
@@ -148,6 +151,9 @@ public class ShelvingActionsController : ControllerBase
                 _context.ShelvingActions.Add(shelvingAction);
                 await _context.SaveChangesAsync();
 
+                // Track product for best before date update
+                productsToUpdate.Add(product.Id);
+
                 shelvingAction.ProductBatch = batch;
                 batch.Product = product;
                 response.Results.Add(shelvingAction.ToDtoWithBarcode(action.ProductBarcode));
@@ -159,6 +165,12 @@ public class ShelvingActionsController : ControllerBase
             {
                 response.Errors.Add($"Error processing product '{action.ProductBarcode}': {ex.Message}");
             }
+        }
+
+        // Update best before dates for all affected products
+        foreach (var productId in productsToUpdate)
+        {
+            await _bestBeforeDateService.UpdateProductBestBeforeDatesAsync(productId);
         }
 
         if (response.Errors.Any() && !response.Results.Any())
@@ -225,6 +237,9 @@ public class ShelvingActionsController : ControllerBase
 
         _context.ShelvingActions.Add(shelvingAction);
         await _context.SaveChangesAsync();
+
+        // Update product best before dates
+        await _bestBeforeDateService.UpdateProductBestBeforeDatesAsync(product.Id);
 
         _logger.LogInformation("Shelving action created: {ActionType} {Quantity} of {ProductName} (Batch {BatchId})",
             dto.Type, dto.Quantity, product.Name, batch.Id);

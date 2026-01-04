@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Snackbox.Api.Controllers;
 using Snackbox.Api.Data;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 using Snackbox.Api.Services;
 using Xunit;
