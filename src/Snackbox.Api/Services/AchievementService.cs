@@ -151,14 +151,15 @@ public class AchievementService : IAchievementService
             }
         }
 
+        if (dailyStreak >= 3 && !existingCodes.Contains("STREAK_DAILY_3"))
+        {
+            if (achievementLookup.TryGetValue("STREAK_DAILY_3", out var achievement))
+                earned.Add(achievement);
+        }
+
         if (dailyStreak >= 7 && !existingCodes.Contains("STREAK_DAILY_7"))
         {
             if (achievementLookup.TryGetValue("STREAK_DAILY_7", out var achievement))
-                earned.Add(achievement);
-        }
-        else if (dailyStreak >= 3 && !existingCodes.Contains("STREAK_DAILY_3"))
-        {
-            if (achievementLookup.TryGetValue("STREAK_DAILY_3", out var achievement))
                 earned.Add(achievement);
         }
 
