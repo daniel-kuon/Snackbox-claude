@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
+using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 using Snackbox.Api.Services;
 
@@ -76,20 +77,7 @@ public class ShelvingActionsController : ControllerBase
             return NotFound(new { message = "Shelving action not found" });
         }
 
-        var dto = new ShelvingActionDto
-        {
-            Id = action.Id,
-            ProductBatchId = action.ProductBatchId,
-            ProductId = action.ProductBatch.ProductId,
-            ProductName = action.ProductBatch.Product.Name,
-            ProductBarcode = action.ProductBatch.Product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
-            BestBeforeDate = action.ProductBatch.BestBeforeDate,
-            Quantity = action.Quantity,
-            Type = action.Type,
-            ActionAt = action.ActionAt
-        };
-
-        return Ok(dto);
+        return Ok(action.ToDtoWithProduct());
     }
 
     [HttpPost("batch")]
@@ -155,29 +143,14 @@ public class ShelvingActionsController : ControllerBase
                 }
 
                 // Create the shelving action
-                var shelvingAction = new ShelvingAction
-                {
-                    ProductBatchId = batch.Id,
-                    Quantity = action.Quantity,
-                    Type = action.Type,
-                    ActionAt = DateTime.UtcNow
-                };
+                var shelvingAction = action.ToEntity(batch.Id);
 
                 _context.ShelvingActions.Add(shelvingAction);
                 await _context.SaveChangesAsync();
 
-                response.Results.Add(new ShelvingActionDto
-                {
-                    Id = shelvingAction.Id,
-                    ProductBatchId = batch.Id,
-                    ProductId = product.Id,
-                    ProductName = product.Name,
-                    ProductBarcode = action.ProductBarcode, // Use the scanned barcode
-                    BestBeforeDate = batch.BestBeforeDate,
-                    Quantity = shelvingAction.Quantity,
-                    Type = shelvingAction.Type,
-                    ActionAt = shelvingAction.ActionAt
-                });
+                shelvingAction.ProductBatch = batch;
+                batch.Product = product;
+                response.Results.Add(shelvingAction.ToDtoWithBarcode(action.ProductBarcode));
 
                 _logger.LogInformation("Shelving action created: {ActionType} {Quantity} of {ProductName} (Batch {BatchId})",
                     action.Type, action.Quantity, product.Name, batch.Id);
@@ -248,13 +221,7 @@ public class ShelvingActionsController : ControllerBase
             }
         }
 
-        var shelvingAction = new ShelvingAction
-        {
-            ProductBatchId = batch.Id,
-            Quantity = dto.Quantity,
-            Type = dto.Type,
-            ActionAt = DateTime.UtcNow
-        };
+        var shelvingAction = dto.ToEntity(batch.Id);
 
         _context.ShelvingActions.Add(shelvingAction);
         await _context.SaveChangesAsync();
@@ -262,18 +229,9 @@ public class ShelvingActionsController : ControllerBase
         _logger.LogInformation("Shelving action created: {ActionType} {Quantity} of {ProductName} (Batch {BatchId})",
             dto.Type, dto.Quantity, product.Name, batch.Id);
 
-        var result = new ShelvingActionDto
-        {
-            Id = shelvingAction.Id,
-            ProductBatchId = batch.Id,
-            ProductId = product.Id,
-            ProductName = product.Name,
-            ProductBarcode = dto.ProductBarcode, // Use the scanned barcode
-            BestBeforeDate = batch.BestBeforeDate,
-            Quantity = shelvingAction.Quantity,
-            Type = shelvingAction.Type,
-            ActionAt = shelvingAction.ActionAt
-        };
+        shelvingAction.ProductBatch = batch;
+        batch.Product = product;
+        var result = shelvingAction.ToDtoWithBarcode(dto.ProductBarcode);
 
         return CreatedAtAction(nameof(GetById), new { id = shelvingAction.Id }, result);
     }

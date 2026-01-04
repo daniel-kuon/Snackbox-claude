@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
-using Snackbox.Api.Models;
+using Snackbox.Api.Mappers;
 
 namespace Snackbox.Api.Controllers;
 
@@ -29,18 +29,9 @@ public class PaymentsController : ControllerBase
         var payments = await _context.Payments
             .Include(p => p.User)
             .OrderByDescending(p => p.PaidAt)
-            .Select(p => new PaymentDto
-            {
-                Id = p.Id,
-                UserId = p.UserId,
-                Username = p.User.Username,
-                Amount = p.Amount,
-                PaidAt = p.PaidAt,
-                Notes = p.Notes
-            })
             .ToListAsync();
 
-        return Ok(payments);
+        return Ok(payments.ToDtoListWithUser());
     }
 
     [HttpGet("my-payments")]
@@ -56,18 +47,9 @@ public class PaymentsController : ControllerBase
             .Include(p => p.User)
             .Where(p => p.UserId == userId)
             .OrderByDescending(p => p.PaidAt)
-            .Select(p => new PaymentDto
-            {
-                Id = p.Id,
-                UserId = p.UserId,
-                Username = p.User.Username,
-                Amount = p.Amount,
-                PaidAt = p.PaidAt,
-                Notes = p.Notes
-            })
             .ToListAsync();
 
-        return Ok(payments);
+        return Ok(payments.ToDtoListWithUser());
     }
 
     [HttpGet("user/{userId}")]
@@ -78,18 +60,9 @@ public class PaymentsController : ControllerBase
             .Include(p => p.User)
             .Where(p => p.UserId == userId)
             .OrderByDescending(p => p.PaidAt)
-            .Select(p => new PaymentDto
-            {
-                Id = p.Id,
-                UserId = p.UserId,
-                Username = p.User.Username,
-                Amount = p.Amount,
-                PaidAt = p.PaidAt,
-                Notes = p.Notes
-            })
             .ToListAsync();
 
-        return Ok(payments);
+        return Ok(payments.ToDtoListWithUser());
     }
 
     [HttpPost]
@@ -107,13 +80,7 @@ public class PaymentsController : ControllerBase
             return BadRequest(new { message = "Payment amount must be greater than zero" });
         }
 
-        var payment = new Payment
-        {
-            UserId = dto.UserId,
-            Amount = dto.Amount,
-            PaidAt = DateTime.UtcNow,
-            Notes = dto.Notes
-        };
+        var payment = dto.ToEntity();
 
         _context.Payments.Add(payment);
         await _context.SaveChangesAsync();
@@ -121,15 +88,8 @@ public class PaymentsController : ControllerBase
         _logger.LogInformation("Payment created: {PaymentId} for user {UserId} - Amount: {Amount}",
             payment.Id, payment.UserId, payment.Amount);
 
-        var resultDto = new PaymentDto
-        {
-            Id = payment.Id,
-            UserId = payment.UserId,
-            Username = user.Username,
-            Amount = payment.Amount,
-            PaidAt = payment.PaidAt,
-            Notes = payment.Notes
-        };
+        payment.User = user;
+        var resultDto = payment.ToDtoWithUser();
 
         return CreatedAtAction(nameof(GetByUserId), new { userId = payment.UserId }, resultDto);
     }
