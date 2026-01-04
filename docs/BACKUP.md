@@ -14,7 +14,26 @@ The Snackbox application includes a comprehensive backup and restore system that
 
 ### PostgreSQL Tools
 
-The backup functionality requires PostgreSQL client tools (`pg_dump` and `psql`) to be installed on the system:
+The backup functionality requires PostgreSQL client tools (`pg_dump` and `psql`) to be installed on the system.
+
+#### Automated Installation (Windows)
+
+**Recommended**: Use the provided PowerShell script for automatic installation:
+
+```powershell
+# Run from the Snackbox root directory
+.\scripts\Install-PostgresTools.ps1
+```
+
+This script will:
+- Download PostgreSQL client tools automatically
+- Install them to your system
+- Configure your PATH environment variable
+- Verify the installation
+
+See [scripts/README.md](../scripts/README.md) for more options and troubleshooting.
+
+#### Manual Installation
 
 **Ubuntu/Debian:**
 ```bash
@@ -22,7 +41,7 @@ sudo apt-get update
 sudo apt-get install postgresql-client
 ```
 
-**Windows:**
+**Windows Manual:**
 - Install from [PostgreSQL Downloads](https://www.postgresql.org/download/windows/)
 - Ensure the PostgreSQL `bin` directory is in your PATH
 
@@ -30,6 +49,21 @@ sudo apt-get install postgresql-client
 ```bash
 brew install postgresql
 ```
+
+#### Verify Installation
+
+Check if tools are installed:
+```bash
+pg_dump --version
+psql --version
+```
+
+Or check via the API:
+```bash
+curl http://localhost:5000/api/backup/tools/check
+```
+
+**Note**: The backup functionality will gracefully handle missing tools and provide helpful error messages. The application will not crash if PostgreSQL tools are not installed.
 
 ### Configuration
 
@@ -200,15 +234,32 @@ Backup metadata is stored in `backups/metadata.json` with the following informat
 
 ## Troubleshooting
 
-### "pg_dump not found" Error
+### PostgreSQL Tools Not Found
 
-Ensure PostgreSQL client tools are installed and in your system PATH.
+If you see errors about `pg_dump` or `psql` not being found:
+
+**Windows:**
+1. Run the provided installation script:
+   ```powershell
+   .\scripts\Install-PostgresTools.ps1
+   ```
+2. If the script fails, see [scripts/README.md](../scripts/README.md) for manual installation
+3. Verify installation: `pg_dump --version`
+4. Check tool availability via API: `GET /api/backup/tools/check`
+
+**Linux/macOS:**
+1. Install PostgreSQL client tools via package manager
+2. Verify installation: `pg_dump --version`
+
+**Note**: The application will continue running even if PostgreSQL tools are not available. Backup operations will fail gracefully with informative error messages.
 
 ### Backup Creation Fails
 
 1. Check database connection string in `appsettings.json`
-2. Verify the backup directory exists and is writable
-3. Check logs for detailed error messages
+2. Verify PostgreSQL tools are installed: `pg_dump --version`
+3. Verify the backup directory exists and is writable
+4. Check logs for detailed error messages
+5. Ensure database is accessible from the application
 
 ### Email Sending Fails
 

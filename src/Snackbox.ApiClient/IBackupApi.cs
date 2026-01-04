@@ -35,9 +35,18 @@ public interface IBackupApi
 
     [Post("/api/backup/database/create-seeded")]
     Task CreateSeededDatabaseAsync();
+
+    [Get("/api/backup/tools/check")]
+    Task<ToolsCheckResponse> CheckPostgresToolsAsync();
 }
 
 public class DatabaseCheckResponse
 {
     public bool Exists { get; set; }
+}
+
+public class ToolsCheckResponse
+{
+    public bool Available { get; set; }
+    public string? Message { get; set; }
 }
