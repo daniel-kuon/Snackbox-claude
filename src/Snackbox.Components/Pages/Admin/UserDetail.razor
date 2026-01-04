@@ -1146,6 +1146,12 @@
             }
         }
         
+        // Preselect first admin user for PayPal option (will be used if user switches to PayPal)
+        if (_adminUsers != null && _adminUsers.Any())
+        {
+            _paymentForm.AdminUserId = _adminUsers.First().Id.ToString();
+        }
+        
         _showPaymentModal = true;
     }
 
