@@ -71,8 +71,28 @@
                     {
                         <div class="section-header">
                             <h3>User Information</h3>
-                            <button class="btn btn-primary btn-sm" @onclick="StartEditUserInfo">Edit</button>
+                            <div class="button-group">
+                                @if (_user.Balance > 0 && !string.IsNullOrEmpty(_user.Email))
+                                {
+                                    <button class="btn btn-warning btn-sm" @onclick="SendPaymentReminder" disabled="@_isSendingEmail">
+                                        @if (_isSendingEmail)
+                                        {
+                                            <span class="spinner-border spinner-border-sm"></span>
+                                        }
+                                        ✉ Send Payment Reminder
+                                    </button>
+                                }
+                                <button class="btn btn-primary btn-sm" @onclick="StartEditUserInfo">Edit</button>
+                            </div>
                         </div>
+                        @if (_emailSuccess != null)
+                        {
+                            <div class="alert alert-success">@_emailSuccess</div>
+                        }
+                        @if (_emailError != null)
+                        {
+                            <div class="alert alert-danger">@_emailError</div>
+                        }
                         <div class="info-row">
                             <span class="info-label">Username:</span>
                             <span class="info-value">@_user.Username</span>
@@ -731,6 +751,22 @@
         color: #212529;
     }
 
+    .btn-warning {
+        background-color: #ffc107;
+        color: #212529;
+        border: 1px solid #ffc107;
+    }
+
+    .btn-warning:hover {
+        background-color: #e0a800;
+        border-color: #d39e00;
+    }
+
+    .btn-warning:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+
     .form-text {
         font-size: 0.875rem;
         margin-top: 0.25rem;
@@ -927,6 +963,8 @@
     private List<UserDto>? _adminUsers;
     private bool _isLoading = true;
     private string? _errorMessage;
+    private string? _emailSuccess;
+    private string? _emailError;
     private string _activeTab = "info";
     private bool _showPaymentModal;
     private bool _showBarcodeModal;
@@ -934,6 +972,7 @@
     private bool _showCorrectionModal;
     private bool _isEditingUserInfo;
     private bool _isSavingUserInfo;
+    private bool _isSendingEmail;
     private string? _editError;
     private PaymentFormModel _paymentForm = new();
     private BarcodeFormModel _barcodeForm = new();
@@ -999,6 +1038,36 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task SendPaymentReminder()
+    {
+        _isSendingEmail = true;
+        _emailSuccess = null;
+        _emailError = null;
+
+        try
+        {
+            var response = await Http.PostAsync($"api/email/send-payment-reminder/{UserId}", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _emailSuccess = $"Payment reminder sent to {_user?.Email}";
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _emailError = $"Failed to send reminder: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _emailError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSendingEmail = false;
         }
     }
 

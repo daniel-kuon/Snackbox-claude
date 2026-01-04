@@ -29,6 +29,10 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 
+// Register email service
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 // Register barcode lookup service
 builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()
     .ConfigureHttpClient(client =>
