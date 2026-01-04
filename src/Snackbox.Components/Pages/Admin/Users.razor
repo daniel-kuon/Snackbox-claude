@@ -10,7 +10,7 @@
     <div class="page-header">
         <h2>User Management</h2>
         <div class="button-group">
-            <button class="btn btn-warning" @onclick="SendBulkPaymentReminders" disabled="@_isSendingEmails">
+            <button class="btn btn-warning" @onclick="ShowBulkEmailModal" disabled="@_isSendingEmails">
                 @if (_isSendingEmails)
                 {
                     <span class="spinner-border spinner-border-sm"></span>
@@ -142,6 +142,62 @@
     </div>
 }
 
+@if (_showBulkEmailModal)
+{
+    <div class="modal-backdrop" @onclick="CloseBulkEmailModal"></div>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Send Payment Reminders</h3>
+                <button class="btn-close" @onclick="CloseBulkEmailModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+                
+                <div class="form-group">
+                    <label>Filter users</label>
+                    <input type="text" @bind="_userFilter" @bind:event="oninput" class="form-control" placeholder="Search by name..." />
+                </div>
+
+                <div class="mb-3">
+                    <button class="btn btn-sm btn-outline-primary me-2" @onclick="SelectAllUsers">Select All</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="DeselectAllUsers">Deselect All</button>
+                    <span class="ms-3 text-muted">@_selectedUserIds.Count selected</span>
+                </div>
+
+                <div class="user-selection-list">
+                    @foreach (var user in GetFilteredUsersForEmail())
+                    {
+                        <div class="user-selection-item">
+                            <input type="checkbox" 
+                                   id="user-@user.Id" 
+                                   checked="@_selectedUserIds.Contains(user.Id)"
+                                   @onchange="@(e => ToggleUserSelection(user.Id, (bool)e.Value!))" />
+                            <label for="user-@user.Id">
+                                <span class="user-name">@user.Username</span>
+                                <span class="user-balance text-danger">€@Math.Abs(user.Balance).ToString("F2")</span>
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseBulkEmailModal">Cancel</button>
+                <button type="button" class="btn btn-warning" @onclick="SendBulkPaymentReminders" disabled="@(_isSendingEmails || _selectedUserIds.Count == 0)">
+                    @if (_isSendingEmails)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    Send to @_selectedUserIds.Count user(s)
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .page-header {
         display: flex;
@@ -264,6 +320,55 @@
         z-index: 1001;
         max-width: 500px;
         width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-lg {
+        max-width: 800px;
+    }
+
+    .user-selection-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 0.5rem;
+    }
+
+    .user-selection-item {
+        padding: 0.75rem;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .user-selection-item:last-child {
+        border-bottom: none;
+    }
+
+    .user-selection-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    .user-selection-item label {
+        flex: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .user-selection-item .user-name {
+        font-weight: 500;
+    }
+
+    .user-selection-item .user-balance {
+        font-weight: 600;
     }
 
     .modal-header {
@@ -417,11 +522,14 @@
     private string? _errorMessage;
     private string? _emailSuccess;
     private bool _showCreateEditModal;
+    private bool _showBulkEmailModal;
     private int? _editingUserId;
     private UserFormModel _userForm = new();
     private string? _modalError;
     private bool _isSaving;
     private bool _isSendingEmails;
+    private HashSet<int> _selectedUserIds = new();
+    private string _userFilter = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -447,26 +555,92 @@
         }
     }
 
+    private void ShowBulkEmailModal()
+    {
+        _showBulkEmailModal = true;
+        _modalError = null;
+        _userFilter = string.Empty;
+        _selectedUserIds.Clear();
+        
+        // Pre-select all users with balance >= 10
+        if (_users != null)
+        {
+            foreach (var user in _users.Where(u => u.Balance < -10 && !string.IsNullOrEmpty(u.Email)))
+            {
+                _selectedUserIds.Add(user.Id);
+            }
+        }
+    }
+
+    private void CloseBulkEmailModal()
+    {
+        _showBulkEmailModal = false;
+        _selectedUserIds.Clear();
+        _userFilter = string.Empty;
+    }
+
+    private List<UserDto> GetFilteredUsersForEmail()
+    {
+        if (_users == null) return new List<UserDto>();
+        
+        var eligible = _users.Where(u => u.Balance < -10 && !string.IsNullOrEmpty(u.Email));
+        
+        if (string.IsNullOrWhiteSpace(_userFilter))
+            return eligible.ToList();
+        
+        return eligible.Where(u => u.Username.Contains(_userFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void ToggleUserSelection(int userId, bool isSelected)
+    {
+        if (isSelected)
+            _selectedUserIds.Add(userId);
+        else
+            _selectedUserIds.Remove(userId);
+    }
+
+    private void SelectAllUsers()
+    {
+        foreach (var user in GetFilteredUsersForEmail())
+        {
+            _selectedUserIds.Add(user.Id);
+        }
+    }
+
+    private void DeselectAllUsers()
+    {
+        _selectedUserIds.Clear();
+    }
+
     private async Task SendBulkPaymentReminders()
     {
+        if (_selectedUserIds.Count == 0) return;
+
         _isSendingEmails = true;
         _errorMessage = null;
         _emailSuccess = null;
 
         try
         {
-            var response = await Http.PostAsJsonAsync("api/email/send-bulk-payment-reminders", new { minimumBalance = 10.0m });
+            // Send individual reminders to selected users
+            int successCount = 0;
+            foreach (var userId in _selectedUserIds)
+            {
+                try
+                {
+                    var response = await Http.PostAsync($"api/email/send-payment-reminder/{userId}", null);
+                    if (response.IsSuccessStatusCode)
+                        successCount++;
+                }
+                catch
+                {
+                    // Continue with other users even if one fails
+                }
+            }
 
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<BulkEmailResult>();
-                _emailSuccess = $"Payment reminders sent to {result?.Count ?? 0} user(s) with balance >= €10";
-            }
-            else
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _errorMessage = $"Failed to send reminders: {errorContent}";
-            }
+            _emailSuccess = $"Payment reminders sent to {successCount} user(s)";
+            _showBulkEmailModal = false;
+            _selectedUserIds.Clear();
         }
         catch (Exception ex)
         {

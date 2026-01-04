@@ -118,6 +118,38 @@
                                 @Math.Abs(session.OpenAmount).ToString("C")
                             </span>
                         </div>
+
+                        @* Balance-based payment reminders *@
+                        @if (session.OpenAmount >= 30)
+                        {
+                            <div class="balance-notification danger">
+                                <span class="notification-icon">🔴</span>
+                                <div class="notification-content">
+                                    <strong>Urgent Payment Required</strong>
+                                    <p>Your balance has reached @Math.Abs(session.OpenAmount).ToString("C"). We kindly but firmly request immediate payment to keep your account in good standing. Please use PayPal below or contact an admin.</p>
+                                </div>
+                            </div>
+                        }
+                        else if (session.OpenAmount >= 20)
+                        {
+                            <div class="balance-notification warning">
+                                <span class="notification-icon">⚠️</span>
+                                <div class="notification-content">
+                                    <strong>Payment Requested</strong>
+                                    <p>Your balance is @Math.Abs(session.OpenAmount).ToString("C"). Please make a payment soon using the PayPal QR code below.</p>
+                                </div>
+                            </div>
+                        }
+                        else if (session.OpenAmount >= 10)
+                        {
+                            <div class="balance-notification info">
+                                <span class="notification-icon">💡</span>
+                                <div class="notification-content">
+                                    <strong>Friendly Reminder</strong>
+                                    <p>Your balance is @Math.Abs(session.OpenAmount).ToString("C"). When convenient, feel free to settle up using PayPal below.</p>
+                                </div>
+                            </div>
+                        }
                     </div>
 
                     <!-- QR Code -->
@@ -385,6 +417,79 @@
 
     .balance-amount.positive {
         color: #dc3545;
+    }
+
+    .balance-amount.negative {
+        color: #28a745;
+    }
+
+    .balance-notification {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 8px;
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .balance-notification.info {
+        background: #d1ecf1;
+        border-left: 4px solid #0dcaf0;
+    }
+
+    .balance-notification.warning {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+
+    .balance-notification.danger {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+    }
+
+    .balance-notification .notification-icon {
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+
+    .balance-notification .notification-content {
+        flex: 1;
+    }
+
+    .balance-notification .notification-content strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.95rem;
+    }
+
+    .balance-notification .notification-content p {
+        margin: 0;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    .balance-notification.info .notification-content strong {
+        color: #055160;
+    }
+
+    .balance-notification.warning .notification-content strong {
+        color: #664d03;
+    }
+
+    .balance-notification.danger .notification-content strong {
+        color: #842029;
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     .balance-amount.negative {
