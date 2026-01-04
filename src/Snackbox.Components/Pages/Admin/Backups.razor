@@ -1,0 +1,293 @@
+@page "/admin/backups"
+@using Snackbox.ApiClient
+@using Snackbox.Api.Dtos
+@using Refit
+@using Microsoft.AspNetCore.Components.Forms
+@inject IBackupApi BackupApi
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Backup Management - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Backup Management</h2>
+        <div class="button-group">
+            <button class="btn btn-primary" @onclick="CreateBackup" disabled="@_isCreatingBackup">
+                <span class="icon">💾</span> @(_isCreatingBackup ? "Creating Backup..." : "Create Backup")
+            </button>
+            <label class="btn btn-secondary" for="importBackupFile">
+                <span class="icon">📥</span> Import Backup
+            </label>
+            <InputFile id="importBackupFile" OnChange="ImportBackup" style="display: none;" accept=".sql" />
+        </div>
+    </div>
+
+    @if (_statusMessage != null)
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+            @_statusMessage
+            <button type="button" class="btn-close" @onclick="ClearStatusMessage"></button>
+        </div>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading backups...</p>
+        </div>
+    }
+    else if (_backups != null && _backups.Any())
+    {
+        <div class="table-container">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Created At</th>
+                        <th>Type</th>
+                        <th>File Name</th>
+                        <th>Size</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var backup in _backups)
+                    {
+                        <tr>
+                            <td>@backup.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>
+                                <span class="badge bg-@GetBackupTypeBadgeClass(backup.Type)">
+                                    @backup.Type
+                                </span>
+                            </td>
+                            <td>@backup.FileName</td>
+                            <td>@FormatFileSize(backup.FileSizeBytes)</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-success" @onclick="() => DownloadBackup(backup.Id)" title="Download">
+                                    <span class="icon">⬇️</span> Download
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => RestoreBackup(backup.Id)" title="Restore">
+                                    <span class="icon">🔄</span> Restore
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBackup(backup.Id)" title="Delete">
+                                    <span class="icon">🗑️</span> Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <p>No backups found. Create a backup to get started.</p>
+        </div>
+    }
+</div>
+
+@code {
+    private List<BackupMetadataDto> _backups = new();
+    private bool _isLoading = true;
+    private bool _isCreatingBackup = false;
+    private string? _statusMessage;
+    private bool _isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBackups();
+    }
+
+    private async Task LoadBackups()
+    {
+        try
+        {
+            _isLoading = true;
+            var backups = await BackupApi.ListBackupsAsync();
+            _backups = backups.ToList();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to load backups: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task CreateBackup()
+    {
+        try
+        {
+            _isCreatingBackup = true;
+            ClearStatusMessage();
+            
+            var backup = await BackupApi.CreateBackupAsync();
+            _statusMessage = $"Backup created successfully: {backup.FileName}";
+            _isError = false;
+            
+            await LoadBackups();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to create backup: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isCreatingBackup = false;
+        }
+    }
+
+    private async Task ImportBackup(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            _isLoading = true;
+            ClearStatusMessage();
+
+            // Create stream from the file
+            using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            var streamPart = new StreamPart(memoryStream, file.Name, "application/octet-stream");
+            var backup = await BackupApi.ImportBackupAsync(streamPart);
+            
+            _statusMessage = $"Backup imported successfully: {backup.FileName}";
+            _isError = false;
+            
+            await LoadBackups();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to import backup: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task DownloadBackup(string backupId)
+    {
+        try
+        {
+            ClearStatusMessage();
+            
+            var response = await BackupApi.DownloadBackupAsync(backupId);
+            var content = await response.Content.ReadAsByteArrayAsync();
+            var fileName = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"backup_{backupId}.sql";
+            
+            // Use JavaScript to trigger download
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(content));
+            
+            _statusMessage = "Backup downloaded successfully";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to download backup: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    private async Task RestoreBackup(string backupId)
+    {
+        var backup = _backups.FirstOrDefault(b => b.Id == backupId);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to restore backup '{backup?.FileName}'? This will replace all current data.");
+        
+        if (!confirmed) return;
+
+        try
+        {
+            _isLoading = true;
+            ClearStatusMessage();
+            
+            await BackupApi.RestoreBackupAsync(backupId);
+            
+            _statusMessage = "Backup restored successfully. The application will reload.";
+            _isError = false;
+            
+            // Reload the page after a short delay
+            await Task.Delay(2000);
+            await JSRuntime.InvokeVoidAsync("location.reload");
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to restore backup: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task DeleteBackup(string backupId)
+    {
+        var backup = _backups.FirstOrDefault(b => b.Id == backupId);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to delete backup '{backup?.FileName}'?");
+        
+        if (!confirmed) return;
+
+        try
+        {
+            ClearStatusMessage();
+            
+            await BackupApi.DeleteBackupAsync(backupId);
+            
+            _statusMessage = "Backup deleted successfully";
+            _isError = false;
+            
+            await LoadBackups();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Failed to delete backup: {ex.Message}";
+            _isError = true;
+        }
+    }
+
+    private void ClearStatusMessage()
+    {
+        _statusMessage = null;
+    }
+
+    private string GetBackupTypeBadgeClass(string type)
+    {
+        return type switch
+        {
+            "Manual" => "primary",
+            "Daily" => "info",
+            "Weekly" => "warning",
+            "Monthly" => "success",
+            _ => "secondary"
+        };
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}
