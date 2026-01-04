@@ -42,20 +42,34 @@ public class BackupService : IBackupService
 
         // Parse connection string to get database connection details
         var connectionParams = ParseConnectionString(_connectionString);
+        ValidateConnectionParams(connectionParams);
 
-        // Create pg_dump command
+        // Create pg_dump command with properly escaped arguments
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "pg_dump",
-                Arguments = $"-h {connectionParams.Host} -p {connectionParams.Port} -U {connectionParams.Username} -d {connectionParams.Database} -F p -f \"{filePath}\"",
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             }
         };
+
+        // Add arguments individually to avoid shell injection
+        process.StartInfo.ArgumentList.Add("-h");
+        process.StartInfo.ArgumentList.Add(connectionParams.Host);
+        process.StartInfo.ArgumentList.Add("-p");
+        process.StartInfo.ArgumentList.Add(connectionParams.Port.ToString());
+        process.StartInfo.ArgumentList.Add("-U");
+        process.StartInfo.ArgumentList.Add(connectionParams.Username);
+        process.StartInfo.ArgumentList.Add("-d");
+        process.StartInfo.ArgumentList.Add(connectionParams.Database);
+        process.StartInfo.ArgumentList.Add("-F");
+        process.StartInfo.ArgumentList.Add("p");
+        process.StartInfo.ArgumentList.Add("-f");
+        process.StartInfo.ArgumentList.Add(filePath);
 
         // Set password via environment variable
         process.StartInfo.Environment["PGPASSWORD"] = connectionParams.Password;
@@ -123,23 +137,35 @@ public class BackupService : IBackupService
 
         // Parse connection string
         var connectionParams = ParseConnectionString(_connectionString);
+        ValidateConnectionParams(connectionParams);
 
         // Drop and recreate the database
         await DropAndRecreateDatabaseAsync(connectionParams);
 
-        // Restore from backup using psql
+        // Restore from backup using psql with properly escaped arguments
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "psql",
-                Arguments = $"-h {connectionParams.Host} -p {connectionParams.Port} -U {connectionParams.Username} -d {connectionParams.Database} -f \"{filePath}\"",
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             }
         };
+
+        // Add arguments individually to avoid shell injection
+        process.StartInfo.ArgumentList.Add("-h");
+        process.StartInfo.ArgumentList.Add(connectionParams.Host);
+        process.StartInfo.ArgumentList.Add("-p");
+        process.StartInfo.ArgumentList.Add(connectionParams.Port.ToString());
+        process.StartInfo.ArgumentList.Add("-U");
+        process.StartInfo.ArgumentList.Add(connectionParams.Username);
+        process.StartInfo.ArgumentList.Add("-d");
+        process.StartInfo.ArgumentList.Add(connectionParams.Database);
+        process.StartInfo.ArgumentList.Add("-f");
+        process.StartInfo.ArgumentList.Add(filePath);
 
         process.StartInfo.Environment["PGPASSWORD"] = connectionParams.Password;
 
@@ -317,6 +343,9 @@ public class BackupService : IBackupService
 
     private async Task DropAndRecreateDatabaseAsync(ConnectionParams connectionParams)
     {
+        // Validate parameters to prevent SQL injection
+        ValidateConnectionParams(connectionParams);
+
         // Connect to postgres database to drop and recreate target database
         var postgresConnString = $"Host={connectionParams.Host};Port={connectionParams.Port};Username={connectionParams.Username};Password={connectionParams.Password};Database=postgres";
 
@@ -327,7 +356,7 @@ public class BackupService : IBackupService
         using var tempContext = new ApplicationDbContext(optionsBuilder.Options);
         
         // Terminate existing connections
-        // Note: Database name comes from configuration, not user input, so it's safe from SQL injection
+        // Note: Database name has been validated by ValidateConnectionParams
         #pragma warning disable EF1002
         await tempContext.Database.ExecuteSqlRawAsync($@"
             SELECT pg_terminate_backend(pg_stat_activity.pid)
@@ -398,6 +427,28 @@ public class BackupService : IBackupService
             Password = builder.Password ?? "",
             Database = builder.Database ?? "snackboxdb"
         };
+    }
+
+    private void ValidateConnectionParams(ConnectionParams connectionParams)
+    {
+        // Validate database name to prevent SQL injection
+        // PostgreSQL identifiers can contain letters, digits, and underscores, and start with a letter or underscore
+        if (string.IsNullOrWhiteSpace(connectionParams.Database) ||
+            !System.Text.RegularExpressions.Regex.IsMatch(connectionParams.Database, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+        {
+            throw new ArgumentException("Invalid database name. Database name must contain only letters, numbers, and underscores, and start with a letter or underscore.");
+        }
+
+        // Validate other parameters to prevent command injection
+        if (string.IsNullOrWhiteSpace(connectionParams.Host))
+        {
+            throw new ArgumentException("Host cannot be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionParams.Username))
+        {
+            throw new ArgumentException("Username cannot be empty.");
+        }
     }
 
     private class ConnectionParams
