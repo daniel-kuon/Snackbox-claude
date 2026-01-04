@@ -20,6 +20,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<ShelvingAction> ShelvingActions => Set<ShelvingAction>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Achievement> Achievements => Set<Achievement>();
+    public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,6 +77,19 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<Achievement>(entity =>
+        {
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.Property(e => e.Code).HasMaxLength(50);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<UserAchievement>(entity =>
+        {
+            entity.HasIndex(e => new { e.UserId, e.AchievementId }).IsUnique();
         });
 
         // Seed data
@@ -383,6 +398,38 @@ public class ApplicationDbContext : DbContext
                 PaidAt = seedDate.AddDays(2),
                 Notes = "Cash payment"
             }
+        );
+
+        // Seed achievements
+        modelBuilder.Entity<Achievement>().HasData(
+            // Single purchase amount achievements
+            new Achievement { Id = 1, Code = "BIG_SPENDER_5", Name = "Snack Attack!", Description = "Spent €5 or more in a single purchase", Category = AchievementCategory.SinglePurchase },
+            new Achievement { Id = 2, Code = "BIG_SPENDER_10", Name = "Hunger Games Champion", Description = "Spent €10 or more in a single purchase", Category = AchievementCategory.SinglePurchase },
+            new Achievement { Id = 3, Code = "BIG_SPENDER_15", Name = "Snack Hoarder", Description = "Spent €15 or more in a single purchase", Category = AchievementCategory.SinglePurchase },
+            
+            // Daily purchase count achievements
+            new Achievement { Id = 4, Code = "DAILY_BUYER_5", Name = "Frequent Flyer", Description = "Made 5 or more purchases in a single day", Category = AchievementCategory.DailyActivity },
+            new Achievement { Id = 5, Code = "DAILY_BUYER_10", Name = "Snack Marathon", Description = "Made 10 or more purchases in a single day", Category = AchievementCategory.DailyActivity },
+            
+            // Streak achievements
+            new Achievement { Id = 6, Code = "STREAK_DAILY_3", Name = "Three-peat", Description = "Made a purchase 3 days in a row", Category = AchievementCategory.Streak },
+            new Achievement { Id = 7, Code = "STREAK_DAILY_7", Name = "Week Warrior", Description = "Made a purchase 7 days in a row", Category = AchievementCategory.Streak },
+            new Achievement { Id = 8, Code = "STREAK_WEEKLY_4", Name = "Monthly Muncher", Description = "Made at least one purchase per week for 4 weeks", Category = AchievementCategory.Streak },
+            
+            // Comeback achievements
+            new Achievement { Id = 9, Code = "COMEBACK_30", Name = "Long Time No See", Description = "First purchase after 1 month away", Category = AchievementCategory.Comeback },
+            new Achievement { Id = 10, Code = "COMEBACK_60", Name = "The Return", Description = "First purchase after 2 months away", Category = AchievementCategory.Comeback },
+            new Achievement { Id = 11, Code = "COMEBACK_90", Name = "Lazarus Rising", Description = "First purchase after 3 months away", Category = AchievementCategory.Comeback },
+            
+            // High debt achievements
+            new Achievement { Id = 12, Code = "IN_DEBT_50", Name = "Credit Card Lifestyle", Description = "Unpaid balance of €50 or more", Category = AchievementCategory.HighDebt },
+            new Achievement { Id = 13, Code = "IN_DEBT_100", Name = "Financial Freedom? Never Heard of It", Description = "Unpaid balance of €100 or more", Category = AchievementCategory.HighDebt },
+            new Achievement { Id = 14, Code = "IN_DEBT_150", Name = "Living on the Edge", Description = "Unpaid balance of €150 or more", Category = AchievementCategory.HighDebt },
+            
+            // Total spent achievements
+            new Achievement { Id = 15, Code = "TOTAL_SPENT_100", Name = "Century Club", Description = "Spent €100 or more in total", Category = AchievementCategory.TotalSpent },
+            new Achievement { Id = 16, Code = "TOTAL_SPENT_150", Name = "Snack Connoisseur", Description = "Spent €150 or more in total", Category = AchievementCategory.TotalSpent },
+            new Achievement { Id = 17, Code = "TOTAL_SPENT_200", Name = "Snackbox Legend", Description = "Spent €200 or more in total", Category = AchievementCategory.TotalSpent }
         );
     }
 }

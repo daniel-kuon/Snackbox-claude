@@ -22,6 +22,9 @@ public class ScanBarcodeResponse
     
     // Recent purchases
     public List<RecentPurchaseDto> RecentPurchases { get; set; } = new();
+    
+    // Newly earned achievements (not yet shown to user)
+    public List<AchievementDto> NewAchievements { get; set; } = new();
 }
 
 public class ScannedBarcodeDto

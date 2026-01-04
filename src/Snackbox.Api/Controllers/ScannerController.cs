@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
 
@@ -12,12 +13,14 @@ public class ScannerController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IAchievementService _achievementService;
     private const int DefaultTimeoutSeconds = 60;
 
-    public ScannerController(ApplicationDbContext context, IConfiguration configuration)
+    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService)
     {
         _context = context;
         _configuration = configuration;
+        _achievementService = achievementService;
     }
 
     [HttpPost("scan")]
@@ -87,6 +90,12 @@ public class ScannerController : ControllerBase
                 {
                     // Use the last scan time as the completion time (more accurate than "now")
                     lastPurchase.CompletedAt = lastScan?.ScannedAt ?? DateTime.UtcNow;
+                    
+                    // Save the completion first
+                    await _context.SaveChangesAsync();
+                    
+                    // Check for achievements earned from the completed purchase
+                    var earnedAchievements = await _achievementService.CheckAndAwardAchievementsAsync(user.Id, lastPurchase.Id);
                 }
                 else
                 {
@@ -172,6 +181,37 @@ public class ScannerController : ControllerBase
         // Log for debugging
         Console.WriteLine($"User {user.Id} - Found {recentPurchases.Count} recent purchases");
 
+        // Get newly earned achievements (not yet shown to user)
+        var newAchievements = await _context.UserAchievements
+            .Include(ua => ua.Achievement)
+            .Where(ua => ua.UserId == user.Id && !ua.HasBeenShown)
+            .Select(ua => new AchievementDto
+            {
+                Id = ua.Achievement.Id,
+                Code = ua.Achievement.Code,
+                Name = ua.Achievement.Name,
+                Description = ua.Achievement.Description,
+                Category = ua.Achievement.Category.ToString(),
+                ImageUrl = ua.Achievement.ImageUrl,
+                EarnedAt = ua.EarnedAt
+            })
+            .ToListAsync();
+
+        // Mark achievements as shown
+        if (newAchievements.Any())
+        {
+            var achievementIds = newAchievements.Select(a => a.Id).ToList();
+            var userAchievementsToUpdate = await _context.UserAchievements
+                .Where(ua => ua.UserId == user.Id && achievementIds.Contains(ua.AchievementId))
+                .ToListAsync();
+            
+            foreach (var ua in userAchievementsToUpdate)
+            {
+                ua.HasBeenShown = true;
+            }
+            await _context.SaveChangesAsync();
+        }
+
         // Build response
         var response = new ScanBarcodeResponse
         {
@@ -193,7 +233,8 @@ public class ScannerController : ControllerBase
             Balance = balance,
             LastPaymentAmount = lastPayment?.Amount ?? 0,
             LastPaymentDate = lastPayment?.PaidAt,
-            RecentPurchases = recentPurchases
+            RecentPurchases = recentPurchases,
+            NewAchievements = newAchievements
         };
 
         return Ok(response);

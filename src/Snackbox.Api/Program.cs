@@ -38,6 +38,9 @@ builder.Services.AddHealthChecks()
 // Register authentication service
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
+// Register achievement service
+builder.Services.AddScoped<IAchievementService, AchievementService>();
+
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 
