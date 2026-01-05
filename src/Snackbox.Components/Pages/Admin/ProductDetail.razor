@@ -1,6 +1,7 @@
 @page "/admin/products/{ProductId:int}"
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
+@using Snackbox.Components.Components.Shared
 @using Refit
 @inject IProductsApi ProductsApi
 @inject IShelvingActionsApi ShelvingActionsApi
@@ -346,7 +347,7 @@
                 }
                 <div class="form-group">
                     <label>Barcode</label>
-                    <input type="text" class="form-control" @bind="_newBarcodeCode" placeholder="Enter barcode..." />
+                    <BarcodeInput @bind-Value="_newBarcodeCode" Placeholder="Enter or scan barcode..." />
                 </div>
                 <div class="form-group">
                     <label>Quantity per Unit</label>
