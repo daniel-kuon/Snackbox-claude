@@ -1,3 +1,4 @@
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,6 +12,12 @@ namespace Snackbox.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<int>(
+                name: "linked_deposit_id",
+                table: "payments",
+                type: "integer",
+                nullable: true);
+
             migrationBuilder.CreateTable(
                 name: "deposits",
                 columns: table => new
@@ -24,44 +31,42 @@ namespace Snackbox.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_deposits", x => x.id);
+                    table.PrimaryKey("PK_deposits", x => x.id);
                     table.ForeignKey(
-                        name: "fk_deposits_payments_linked_payment_id",
-                        column: x => x.linked_payment_id,
-                        principalTable: "payments",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "fk_deposits_users_user_id",
+                        name: "FK_deposits_users_user_id",
                         column: x => x.user_id,
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.CreateIndex(
-                name: "ix_deposits_linked_payment_id",
-                table: "deposits",
-                column: "linked_payment_id");
+            migrationBuilder.UpdateData(
+                table: "payments",
+                keyColumn: "id",
+                keyValue: 1,
+                column: "linked_deposit_id",
+                value: null);
+
+            migrationBuilder.UpdateData(
+                table: "payments",
+                keyColumn: "id",
+                keyValue: 2,
+                column: "linked_deposit_id",
+                value: null);
 
             migrationBuilder.CreateIndex(
-                name: "ix_deposits_user_id",
+                name: "IX_payments_linked_deposit_id",
+                table: "payments",
+                column: "linked_deposit_id",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_deposits_user_id",
                 table: "deposits",
                 column: "user_id");
 
-            migrationBuilder.AddColumn<int>(
-                name: "linked_deposit_id",
-                table: "payments",
-                type: "integer",
-                nullable: true);
-
-            migrationBuilder.CreateIndex(
-                name: "ix_payments_linked_deposit_id",
-                table: "payments",
-                column: "linked_deposit_id");
-
             migrationBuilder.AddForeignKey(
-                name: "fk_payments_deposits_linked_deposit_id",
+                name: "FK_payments_deposits_linked_deposit_id",
                 table: "payments",
                 column: "linked_deposit_id",
                 principalTable: "deposits",
@@ -73,14 +78,14 @@ namespace Snackbox.Api.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
-                name: "fk_payments_deposits_linked_deposit_id",
+                name: "FK_payments_deposits_linked_deposit_id",
                 table: "payments");
 
             migrationBuilder.DropTable(
                 name: "deposits");
 
             migrationBuilder.DropIndex(
-                name: "ix_payments_linked_deposit_id",
+                name: "IX_payments_linked_deposit_id",
                 table: "payments");
 
             migrationBuilder.DropColumn(

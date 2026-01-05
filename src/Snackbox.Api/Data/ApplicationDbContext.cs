@@ -97,6 +97,10 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Deposit>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);
+            entity.HasOne(e => e.LinkedPayment)
+                .WithOne(p => p.LinkedDeposit)
+                .HasForeignKey<Payment>(p => p.LinkedDepositId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<CashRegister>(entity =>
