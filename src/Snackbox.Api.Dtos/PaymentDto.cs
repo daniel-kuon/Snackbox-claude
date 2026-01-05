@@ -49,3 +49,8 @@ public class CashRegisterDto
     public int LastUpdatedByUserId { get; set; }
     public string? LastUpdatedByUsername { get; set; }
 }
+
+public class CorrectCashRegisterDto
+{
+    public decimal NewBalance { get; set; }
+}

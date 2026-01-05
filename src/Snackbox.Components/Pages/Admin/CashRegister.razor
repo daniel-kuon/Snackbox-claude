@@ -28,7 +28,12 @@
     {
         <div class="card mb-4">
             <div class="card-body">
-                <h3>Current Balance</h3>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3>Current Balance</h3>
+                    <button class="btn btn-warning" @onclick="ShowCorrectBalanceModal">
+                        Correct Balance
+                    </button>
+                </div>
                 <div class="balance-display">
                     <span class="currency">€</span>
                     <span class="amount">@(_cashRegister?.CurrentBalance.ToString("F2") ?? "0.00")</span>
@@ -183,6 +188,56 @@
     </div>
 }
 
+@if (_showCorrectBalanceModal)
+{
+    <div class="modal-backdrop" @onclick="CloseCorrectBalanceModal"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Correct Cash Register Balance</h3>
+                <button class="btn-close" @onclick="CloseCorrectBalanceModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+                @if (_correctionSuccess != null)
+                {
+                    <div class="alert alert-success">@_correctionSuccess</div>
+                }
+                <EditForm Model="@_correctBalanceForm" OnValidSubmit="@SaveBalanceCorrection">
+                    <DataAnnotationsValidator />
+
+                    <div class="alert alert-info">
+                        <strong>Current Balance:</strong> €@(_cashRegister?.CurrentBalance.ToString("F2") ?? "0.00")
+                    </div>
+
+                    <div class="form-group">
+                        <label>New Balance (€)</label>
+                        <InputNumber @bind-Value="_correctBalanceForm.NewBalance" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _correctBalanceForm.NewBalance)" />
+                        <small class="form-text text-muted">
+                            Enter the actual cash amount counted in the register
+                        </small>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseCorrectBalanceModal">Cancel</button>
+                        <button type="submit" class="btn btn-warning" disabled="@_isSaving">
+                            @if (_isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Correct Balance
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .balance-display {
         font-size: 3rem;
@@ -320,8 +375,11 @@
     private bool _isLoading = true;
     private string? _errorMessage;
     private bool _showWithdrawModal;
+    private bool _showCorrectBalanceModal;
     private WithdrawalFormModel _withdrawalForm = new();
+    private CorrectBalanceFormModel _correctBalanceForm = new();
     private string? _modalError;
+    private string? _correctionSuccess;
     private bool _isSaving;
 
     protected override async Task OnInitializedAsync()
@@ -370,6 +428,62 @@
         _modalError = null;
     }
 
+    private void ShowCorrectBalanceModal()
+    {
+        _correctBalanceForm = new CorrectBalanceFormModel
+        {
+            NewBalance = _cashRegister?.CurrentBalance ?? 0
+        };
+        _modalError = null;
+        _correctionSuccess = null;
+        _showCorrectBalanceModal = true;
+    }
+
+    private void CloseCorrectBalanceModal()
+    {
+        _showCorrectBalanceModal = false;
+        _correctBalanceForm = new();
+        _modalError = null;
+        _correctionSuccess = null;
+    }
+
+    private async Task SaveBalanceCorrection()
+    {
+        _isSaving = true;
+        _modalError = null;
+        _correctionSuccess = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/cashregister/correct", new
+            {
+                newBalance = _correctBalanceForm.NewBalance
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                _correctionSuccess = "Balance corrected successfully!";
+                await LoadData();
+                // Close modal after a short delay to show success message
+                await Task.Delay(1500);
+                CloseCorrectBalanceModal();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _modalError = $"Failed to correct balance: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
     private async Task SaveWithdrawal()
     {
         _isSaving = true;
@@ -411,5 +525,12 @@
         public decimal Amount { get; set; }
 
         public string? Notes { get; set; }
+    }
+
+    private class CorrectBalanceFormModel
+    {
+        [Required]
+        [Range(0, 100000, ErrorMessage = "Balance must be between 0 and 100000")]
+        public decimal NewBalance { get; set; }
     }
 }

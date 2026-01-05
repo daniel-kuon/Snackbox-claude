@@ -156,7 +156,18 @@ public class PaymentsController : ControllerBase
             if (payment.Type == PaymentType.CashRegister)
             {
                 var cashRegister = await _context.CashRegister.FirstOrDefaultAsync();
-                if (cashRegister != null)
+                if (cashRegister == null)
+                {
+                    // Initialize cash register if it doesn't exist
+                    cashRegister = new CashRegister
+                    {
+                        CurrentBalance = payment.Amount,
+                        LastUpdatedAt = DateTime.UtcNow,
+                        LastUpdatedByUserId = user.Id
+                    };
+                    _context.CashRegister.Add(cashRegister);
+                }
+                else
                 {
                     cashRegister.CurrentBalance += payment.Amount;
                     cashRegister.LastUpdatedAt = DateTime.UtcNow;
@@ -182,28 +193,6 @@ public class PaymentsController : ControllerBase
             _logger.LogError(ex, "Failed to create payment for user {UserId}", dto.UserId);
             throw;
         }
-    }
-
-    private async Task UpdateCashRegister(decimal amount, int userId)
-    {
-        var cashRegister = await _context.CashRegister.FirstOrDefaultAsync();
-        if (cashRegister == null)
-        {
-            cashRegister = new CashRegister
-            {
-                CurrentBalance = amount,
-                LastUpdatedAt = DateTime.UtcNow,
-                LastUpdatedByUserId = userId
-            };
-            _context.CashRegister.Add(cashRegister);
-        }
-        else
-        {
-            cashRegister.CurrentBalance += amount;
-            cashRegister.LastUpdatedAt = DateTime.UtcNow;
-            cashRegister.LastUpdatedByUserId = userId;
-        }
-        await _context.SaveChangesAsync();
     }
 
     [HttpDelete("{id}")]
