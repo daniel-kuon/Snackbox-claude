@@ -108,12 +108,12 @@ public class BackupBackgroundService : BackgroundService
     {
         try
         {
-            var emailConfig = _configuration.GetSection("Email");
-            var backupRecipient = emailConfig["BackupRecipient"];
+            var backupConfig = _configuration.GetSection("Backup");
+            var backupRecipient = backupConfig["EmailRecipient"];
 
             if (string.IsNullOrEmpty(backupRecipient))
             {
-                _logger.LogWarning("Email:BackupRecipient is not configured, skipping email send");
+                _logger.LogWarning("Backup:EmailRecipient is not configured, skipping email send");
                 return;
             }
 

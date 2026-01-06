@@ -12,8 +12,14 @@ public static partial class PaymentMapper
     /// Username is not mapped by Mapperly; must be set manually when User is loaded.
     /// </summary>
     [MapperIgnoreSource(nameof(Payment.User))]
+    [MapperIgnoreSource(nameof(Payment.AdminUser))]
+    [MapperIgnoreSource(nameof(Payment.LinkedDeposit))]
     [MapperIgnoreTarget(nameof(PaymentDto.Username))]
+    [MapperIgnoreTarget(nameof(PaymentDto.AdminUsername))]
+    [MapProperty(nameof(Payment.Type), nameof(PaymentDto.Type), Use = nameof(MapPaymentTypeToString))]
     public static partial PaymentDto ToDto(this Payment source);
+
+    private static string MapPaymentTypeToString(PaymentType type) => type.ToString();
 
     /// <summary>
     /// Maps a Payment entity to a PaymentDto including the Username from User navigation property.
@@ -22,6 +28,7 @@ public static partial class PaymentMapper
     {
         var dto = source.ToDto();
         dto.Username = source.User.Username;
+        dto.AdminUsername = source.AdminUser?.Username;
         return dto;
     }
 
@@ -44,7 +51,9 @@ public static partial class PaymentMapper
             UserId = source.UserId,
             Amount = source.Amount,
             Notes = source.Notes,
-            PaidAt = DateTime.UtcNow
+            PaidAt = DateTime.UtcNow,
+            Type = Enum.TryParse<PaymentType>(source.Type, out var type) ? type : PaymentType.CashRegister,
+            AdminUserId = source.AdminUserId
         };
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snackbox.Api.Data;
@@ -11,9 +12,11 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260104174841_FixManualAmountPrecision")]
+    partial class FixManualAmountPrecision
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -230,39 +233,6 @@ namespace Snackbox.Api.Migrations
                     b.ToTable("cash_register");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<DateTime>("DepositedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deposited_at");
-
-                    b.Property<int?>("LinkedPaymentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("linked_payment_id");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("deposits");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
                 {
                     b.Property<int>("Id")
@@ -280,10 +250,6 @@ namespace Snackbox.Api.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("amount");
-
-                    b.Property<int?>("LinkedDepositId")
-                        .HasColumnType("integer")
-                        .HasColumnName("linked_deposit_id");
 
                     b.Property<int?>("LinkedWithdrawalId")
                         .HasColumnType("integer")
@@ -308,9 +274,6 @@ namespace Snackbox.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AdminUserId");
-
-                    b.HasIndex("LinkedDepositId")
-                        .IsUnique();
 
                     b.HasIndex("UserId");
 
@@ -549,7 +512,7 @@ namespace Snackbox.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CompletedAt")
+                    b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
@@ -848,27 +811,11 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("LastUpdatedByUser");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
-                {
-                    b.HasOne("Snackbox.Api.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.User", "AdminUser")
                         .WithMany()
                         .HasForeignKey("AdminUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Snackbox.Api.Models.Deposit", "LinkedDeposit")
-                        .WithOne("LinkedPayment")
-                        .HasForeignKey("Snackbox.Api.Models.Payment", "LinkedDepositId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Snackbox.Api.Models.User", "User")
@@ -878,8 +825,6 @@ namespace Snackbox.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("AdminUser");
-
-                    b.Navigation("LinkedDeposit");
 
                     b.Navigation("User");
                 });
@@ -937,7 +882,7 @@ namespace Snackbox.Api.Migrations
             modelBuilder.Entity("Snackbox.Api.Models.Withdrawal", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.User", "User")
-                        .WithMany("Withdrawals")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -948,11 +893,6 @@ namespace Snackbox.Api.Migrations
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
                 {
                     b.Navigation("Scans");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
-                {
-                    b.Navigation("LinkedPayment");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Product", b =>
@@ -979,8 +919,6 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("Payments");
 
                     b.Navigation("Purchases");
-
-                    b.Navigation("Withdrawals");
                 });
 #pragma warning restore 612, 618
         }

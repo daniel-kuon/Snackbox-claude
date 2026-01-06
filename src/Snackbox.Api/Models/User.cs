@@ -13,4 +13,5 @@ public class User
     public ICollection<Barcode> Barcodes { get; set; } = new List<Barcode>();
     public ICollection<Purchase> Purchases { get; set; } = new List<Purchase>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public ICollection<Withdrawal> Withdrawals { get; set; } = new List<Withdrawal>();
 }
