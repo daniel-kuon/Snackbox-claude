@@ -7,6 +7,7 @@ public class ProductDto
     public required DateTime CreatedAt { get; set; }
     public required DateTime? BestBeforeInStock { get; set; }
     public required DateTime? BestBeforeOnShelf { get; set; }
+    public double AverageProductsShelvedPerWeek { get; set; }
     public List<ProductBarcodeDto> Barcodes { get; set; } = new();
 }
 
@@ -27,8 +28,6 @@ public class CreateProductDto
 public class UpdateProductDto
 {
     public required string Name { get; set; }
-    public required string Barcode { get; set; }
-    public decimal Price { get; set; }
 }
 
 public class CreateProductBarcodeDto

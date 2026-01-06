@@ -1,5 +1,10 @@
 @page "/admin/products/{ProductId:int}"
 @using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Snackbox.Components.Components.Shared
+@using Refit
+@inject IProductsApi ProductsApi
+@inject IShelvingActionsApi ShelvingActionsApi
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -285,9 +290,32 @@
                 </p>
                 <div class="form-group">
                     <label>Quantity to move</label>
-                    <input type="number" class="form-control" @bind="_moveQuantity" min="1"
+                    <input type="number" class="form-control" @bind="_moveQuantity" @bind:event="oninput" min="0"
                            max="@(_moveToShelf ? _selectedBatch?.QuantityInStorage : _selectedBatch?.QuantityOnShelf)" />
                 </div>
+                <div class="quick-actions">
+                    <label>Quick adjust:</label>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-10)">-10</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-5)">-5</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-1)">-1</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(1)">+1</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(5)">+5</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(10)">+10</button>
+                    </div>
+                </div>
+                @if (GetBarcodeQuantities().Any())
+                {
+                    <div class="barcode-quantities mt-3">
+                        <label>Set to barcode quantity:</label>
+                        <div class="btn-group" role="group">
+                            @foreach (var qty in GetBarcodeQuantities())
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => _moveQuantity = qty">@qty</button>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
@@ -319,7 +347,7 @@
                 }
                 <div class="form-group">
                     <label>Barcode</label>
-                    <input type="text" class="form-control" @bind="_newBarcodeCode" placeholder="Enter barcode..." />
+                    <BarcodeInput @bind-Value="_newBarcodeCode" Placeholder="Enter or scan barcode..." />
                 </div>
                 <div class="form-group">
                     <label>Quantity per Unit</label>
@@ -742,6 +770,25 @@
     .text-muted {
         color: #6c757d;
     }
+
+    .quick-actions,
+    .barcode-quantities {
+        margin-top: 1rem;
+    }
+
+    .quick-actions label,
+    .barcode-quantities label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
 </style>
 
 @code {
@@ -790,7 +837,11 @@
 
         try
         {
-            _productStock = await Http.GetFromJsonAsync<ProductStockDto>($"api/products/{ProductId}/stock");
+            _productStock = await ProductsApi.GetProductStockAsync(ProductId);
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load product: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -808,7 +859,12 @@
 
         try
         {
-            _shelvingActions = await Http.GetFromJsonAsync<List<ShelvingActionDto>>($"api/shelvingactions?productId={ProductId}");
+            var result = await ShelvingActionsApi.GetAllAsync(productId: ProductId);
+            _shelvingActions = result.ToList();
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load shelving actions: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -831,7 +887,8 @@
     {
         _selectedBatch = batch;
         _moveToShelf = true;
-        _moveQuantity = 1;
+        // Prefill with current storage quantity
+        _moveQuantity = batch.QuantityInStorage > 0 ? batch.QuantityInStorage : 1;
         _modalError = null;
         _showMoveModal = true;
     }
@@ -840,9 +897,27 @@
     {
         _selectedBatch = batch;
         _moveToShelf = false;
-        _moveQuantity = 1;
+        // Prefill with current shelf quantity
+        _moveQuantity = batch.QuantityOnShelf > 0 ? batch.QuantityOnShelf : 1;
         _modalError = null;
         _showMoveModal = true;
+    }
+
+    private void AdjustMoveQuantity(int delta)
+    {
+        var maxQuantity = _moveToShelf ? (_selectedBatch?.QuantityInStorage ?? 0) : (_selectedBatch?.QuantityOnShelf ?? 0);
+        _moveQuantity = Math.Max(0, Math.Min(_moveQuantity + delta, maxQuantity));
+    }
+
+    private IEnumerable<int> GetBarcodeQuantities()
+    {
+        if (_productStock?.Barcodes == null) return Enumerable.Empty<int>();
+        
+        return _productStock.Barcodes
+            .Select(b => b.Quantity)
+            .Where(q => q > 0)
+            .Distinct()
+            .OrderBy(q => q);
     }
 
     private async Task ExecuteMove()
@@ -909,17 +984,12 @@
 
             try
             {
-                var response = await Http.DeleteAsync($"api/products/{ProductId}/barcodes/{barcodeId}");
-
-                if (response.IsSuccessStatusCode)
-                {
-                    await LoadProductStock();
-                }
-                else
-                {
-                    var error = await response.Content.ReadAsStringAsync();
-                    _modalError = $"Failed to remove barcode: {error}";
-                }
+                await ProductsApi.DeleteBarcodeAsync(ProductId, barcodeId);
+                await LoadProductStock();
+            }
+            catch (ApiException ex)
+            {
+                _modalError = $"Failed to remove barcode: {ex.Content ?? ex.Message}";
             }
             catch (Exception ex)
             {
@@ -944,22 +1014,18 @@
 
         try
         {
-            var response = await Http.PostAsJsonAsync($"api/products/{ProductId}/barcodes", new
+            var dto = new CreateProductBarcodeDto
             {
-                barcode = _newBarcodeCode,
-                quantity = _newBarcodeQuantity
-            });
-
-            if (response.IsSuccessStatusCode)
-            {
-                await LoadProductStock();
-                CloseModal();
-            }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                _modalError = $"Failed to add barcode: {error}";
-            }
+                Barcode = _newBarcodeCode,
+                Quantity = _newBarcodeQuantity
+            };
+            await ProductsApi.AddBarcodeAsync(ProductId, dto);
+            await LoadProductStock();
+            CloseModal();
+        }
+        catch (ApiException ex)
+        {
+            _modalError = $"Failed to add barcode: {ex.Content ?? ex.Message}";
         }
         catch (Exception ex)
         {

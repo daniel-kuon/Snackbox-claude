@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Snackbox.Api.Controllers;
 using Snackbox.Api.Data;
-using Snackbox.Api.DTOs;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 using Snackbox.Api.Services;
 using Xunit;
@@ -25,7 +25,8 @@ public class ShelvingActionsControllerTests : IDisposable
         _context = new ApplicationDbContext(options);
         var logger = new Mock<ILogger<ShelvingActionsController>>();
         var stockCalculation = new StockCalculationService();
-        _controller = new ShelvingActionsController(_context, logger.Object, stockCalculation);
+        var bestBeforeDateService = new Mock<IProductBestBeforeDateService>();
+        _controller = new ShelvingActionsController(_context, logger.Object, stockCalculation, bestBeforeDateService.Object);
 
         SeedTestData();
     }

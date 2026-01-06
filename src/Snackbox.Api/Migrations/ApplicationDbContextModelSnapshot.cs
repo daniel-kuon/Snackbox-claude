@@ -312,7 +312,36 @@ namespace Snackbox.Api.Migrations
                     b.ToTable("invoice_items");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
+            modelBuilder.Entity("Snackbox.Api.Models.CashRegister", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CurrentBalance")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("current_balance");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_updated_at");
+
+                    b.Property<int>("LastUpdatedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("last_updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LastUpdatedByUserId");
+
+                    b.ToTable("cash_register");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -326,6 +355,51 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("amount");
 
+                    b.Property<DateTime>("DepositedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deposited_at");
+
+                    b.Property<int?>("LinkedPaymentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("linked_payment_id");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("deposits");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AdminUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("admin_user_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<int?>("LinkedDepositId")
+                        .HasColumnType("integer")
+                        .HasColumnName("linked_deposit_id");
+
+                    b.Property<int?>("LinkedWithdrawalId")
+                        .HasColumnType("integer")
+                        .HasColumnName("linked_withdrawal_id");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text")
                         .HasColumnName("notes");
@@ -334,11 +408,20 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_at");
 
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AdminUserId");
+
+                    b.HasIndex("LinkedDepositId")
+                        .IsUnique();
 
                     b.HasIndex("UserId");
 
@@ -351,6 +434,7 @@ namespace Snackbox.Api.Migrations
                             Amount = 20.00m,
                             Notes = "Initial payment",
                             PaidAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Type = 0,
                             UserId = 2
                         },
                         new
@@ -359,6 +443,7 @@ namespace Snackbox.Api.Migrations
                             Amount = 15.00m,
                             Notes = "Cash payment",
                             PaidAt = new DateTime(2024, 1, 3, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Type = 0,
                             UserId = 3
                         });
                 });
@@ -575,7 +660,7 @@ namespace Snackbox.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("CompletedAt")
+                    b.Property<DateTime>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
@@ -583,11 +668,26 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<decimal?>("ManualAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("manual_amount");
+
+                    b.Property<int?>("ReferencePurchaseId")
+                        .HasColumnType("integer")
+                        .HasColumnName("reference_purchase_id");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReferencePurchaseId");
 
                     b.HasIndex("UserId");
 
@@ -599,6 +699,7 @@ namespace Snackbox.Api.Migrations
                             Id = 1,
                             CompletedAt = new DateTime(2024, 1, 6, 0, 5, 0, 0, DateTimeKind.Utc),
                             CreatedAt = new DateTime(2024, 1, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Type = 0,
                             UserId = 2
                         },
                         new
@@ -606,6 +707,7 @@ namespace Snackbox.Api.Migrations
                             Id = 2,
                             CompletedAt = new DateTime(2024, 1, 11, 0, 3, 0, 0, DateTimeKind.Utc),
                             CreatedAt = new DateTime(2024, 1, 11, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Type = 0,
                             UserId = 3
                         });
                 });
@@ -785,6 +887,43 @@ namespace Snackbox.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.Withdrawal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<int?>("LinkedPaymentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("linked_payment_id");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTime>("WithdrawnAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("withdrawn_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("withdrawals");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.User", "User")
@@ -837,13 +976,49 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("Invoice");
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.CashRegister", b =>
+                {
+                    b.HasOne("Snackbox.Api.Models.User", "LastUpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("LastUpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LastUpdatedByUser");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
+                {
+                    b.HasOne("Snackbox.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
                 {
+                    b.HasOne("Snackbox.Api.Models.User", "AdminUser")
+                        .WithMany()
+                        .HasForeignKey("AdminUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Snackbox.Api.Models.Deposit", "LinkedDeposit")
+                        .WithOne("LinkedPayment")
+                        .HasForeignKey("Snackbox.Api.Models.Payment", "LinkedDepositId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Snackbox.Api.Models.User", "User")
                         .WithMany("Payments")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AdminUser");
+
+                    b.Navigation("LinkedDeposit");
 
                     b.Navigation("User");
                 });
@@ -872,11 +1047,17 @@ namespace Snackbox.Api.Migrations
 
             modelBuilder.Entity("Snackbox.Api.Models.Purchase", b =>
                 {
+                    b.HasOne("Snackbox.Api.Models.Purchase", "ReferencePurchase")
+                        .WithMany()
+                        .HasForeignKey("ReferencePurchaseId");
+
                     b.HasOne("Snackbox.Api.Models.User", "User")
                         .WithMany("Purchases")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("ReferencePurchase");
 
                     b.Navigation("User");
                 });
@@ -899,6 +1080,17 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("ProductBatch");
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.Withdrawal", b =>
+                {
+                    b.HasOne("Snackbox.Api.Models.User", "User")
+                        .WithMany("Withdrawals")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
                 {
                     b.Navigation("Scans");
@@ -912,6 +1104,11 @@ namespace Snackbox.Api.Migrations
             modelBuilder.Entity("Snackbox.Api.Models.InvoiceItem", b =>
                 {
                     b.Navigation("ShelvingActions");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
+                {
+                    b.Navigation("LinkedPayment");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Product", b =>
@@ -938,6 +1135,8 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("Payments");
 
                     b.Navigation("Purchases");
+
+                    b.Navigation("Withdrawals");
                 });
 #pragma warning restore 612, 618
         }

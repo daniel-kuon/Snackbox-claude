@@ -22,6 +22,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
+    public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
+    public DbSet<Deposit> Deposits => Set<Deposit>();
+    public DbSet<CashRegister> CashRegister => Set<CashRegister>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -77,6 +80,20 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);
+            entity.HasOne(e => e.AdminUser)
+                .WithMany()
+                .HasForeignKey(e => e.AdminUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Purchase>(entity =>
+        {
+            entity.Property(e => e.ManualAmount).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<Withdrawal>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(10, 2);
         });
 
         modelBuilder.Entity<Invoice>(entity =>
@@ -105,6 +122,20 @@ public class ApplicationDbContext : DbContext
                 .WithMany(ii => ii.ShelvingActions)
                 .HasForeignKey(sa => sa.InvoiceItemId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Deposit>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(10, 2);
+            entity.HasOne(e => e.LinkedPayment)
+                .WithOne(p => p.LinkedDeposit)
+                .HasForeignKey<Payment>(p => p.LinkedDepositId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CashRegister>(entity =>
+        {
+            entity.Property(e => e.CurrentBalance).HasPrecision(10, 2);
         });
 
         // Seed data

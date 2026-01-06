@@ -1,0 +1,102 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<div class="barcode-input-wrapper">
+    <input type="text" 
+           class="form-control @CssClass" 
+           @bind="@CurrentValue" 
+           @bind:event="oninput"
+           placeholder="@Placeholder"
+           disabled="@Disabled"
+           @ref="_inputElement" />
+    @if (_scannerActive)
+    {
+        <span class="scanner-indicator">📷</span>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; } = "Scan or enter barcode";
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    private ElementReference _inputElement;
+    private DotNetObjectReference<BarcodeInput>? _objRef;
+    private bool _scannerActive;
+
+    private string CurrentValue
+    {
+        get => Value;
+        set
+        {
+            if (Value != value)
+            {
+                Value = value;
+                ValueChanged.InvokeAsync(value);
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("barcodeScanner.register", _objRef);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnBarcodeScanned(string barcode)
+    {
+        CurrentValue = barcode;
+        _scannerActive = true;
+        StateHasChanged();
+        
+        await Task.Delay(1000);
+        _scannerActive = false;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        if (_objRef != null)
+        {
+            JS.InvokeVoidAsync("barcodeScanner.unregister", _objRef);
+            _objRef?.Dispose();
+        }
+    }
+}
+
+<style>
+    .barcode-input-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .scanner-indicator {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.2em;
+        animation: pulse 0.5s ease-in-out;
+    }
+
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+</style>

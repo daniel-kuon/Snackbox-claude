@@ -13,7 +13,9 @@ public class ScannerService : IScannerService
 
     public event Action<PurchaseSession>? OnPurchaseStarted;
     public event Action<PurchaseSession>? OnPurchaseUpdated;
+    #pragma warning disable CS0067
     public event Action? OnPurchaseCompleted;
+    #pragma warning restore CS0067
     public event Action? OnPurchaseTimeout;
 
     public PurchaseSession? CurrentSession { get; private set; }
@@ -52,7 +54,8 @@ public class ScannerService : IScannerService
             return new ScanResult
             {
                 IsSuccess = true,
-                IsAdmin = result.IsAdmin
+                IsAdmin = result.IsAdmin,
+                IsLoginOnly = result.IsLoginOnly
             };
         }
         catch (Exception ex)
@@ -82,6 +85,14 @@ public class ScannerService : IScannerService
 
             if (!result.Success)
                 throw new Exception(result.ErrorMessage ?? "Barcode not recognized");
+
+            // Check if this is a login-only barcode
+            if (result.IsLoginOnly)
+            {
+                // Login-only barcodes should be handled by the caller (redirect to login)
+                // This shouldn't be called for login barcodes, but handle it gracefully
+                throw new Exception("This barcode is for login only");
+            }
 
             var wasActive = IsSessionActive;
             var previousUserId = CurrentSession?.UserId;

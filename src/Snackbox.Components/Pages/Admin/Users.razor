@@ -1,18 +1,39 @@
 @page "/admin/users"
 @using System.ComponentModel.DataAnnotations
+@using Snackbox.ApiClient
 @using Snackbox.Api.Dtos
+@using Refit
+@inject IUsersApi UsersApi
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject HttpClient Http
 
 <PageTitle>User Management - Snackbox Admin</PageTitle>
 
 <div class="container-fluid">
     <div class="page-header">
         <h2>User Management</h2>
-        <button class="btn btn-primary" @onclick="ShowCreateUser">
-            <span class="icon">+</span> Add User
-        </button>
+        <div class="button-group">
+            <button class="btn btn-warning" @onclick="ShowBulkEmailModal" disabled="@_isSendingEmails">
+                @if (_isSendingEmails)
+                {
+                    <span class="spinner-border spinner-border-sm"></span>
+                }
+                <span class="icon">✉</span> Send Payment Reminders (>€10)
+            </button>
+            <button class="btn btn-primary" @onclick="ShowCreateUser">
+                <span class="icon">+</span> Add User
+            </button>
+        </div>
     </div>
+
+    @if (_emailSuccess != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @_emailSuccess
+            <button type="button" class="btn-close" @onclick='() => _emailSuccess = null'></button>
+        </div>
+    }
 
     @if (_isLoading)
     {
@@ -38,7 +59,6 @@
                         <th>Username</th>
                         <th>Email</th>
                         <th>Balance</th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -49,14 +69,6 @@
                             <td>@user.Email</td>
                             <td class="@(user.Balance < 0 ? "text-danger" : "text-success")">
                                 €@user.Balance.ToString("F2")
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => NavigateToUserDetail(user.Id)">
-                                    View Details
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary" @onclick:stopPropagation="true" @onclick="() => ShowEditUser(user.Id)">
-                                    Edit
-                                </button>
                             </td>
                         </tr>
                     }
@@ -134,12 +146,104 @@
     </div>
 }
 
+@if (_showBulkEmailModal)
+{
+    <div class="modal-backdrop" @onclick="CloseBulkEmailModal"></div>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Send Payment Reminders</h3>
+                <button class="btn-close" @onclick="CloseBulkEmailModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+
+                <div class="form-group">
+                    <label>Filter users</label>
+                    <input type="text" @bind="_userFilter" @bind:event="oninput" class="form-control" placeholder="Search by name..." />
+                </div>
+
+                <div class="mb-3">
+                    <button class="btn btn-sm btn-outline-primary me-2" @onclick="SelectAllUsers">Select All</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="DeselectAllUsers">Deselect All</button>
+                    <span class="ms-3 text-muted">@_selectedUserIds.Count selected</span>
+                </div>
+
+                <div class="user-selection-list">
+                    @foreach (var user in GetFilteredUsersForEmail())
+                    {
+                        <div class="user-selection-item">
+                            <input type="checkbox"
+                                   id="user-@user.Id"
+                                   checked="@_selectedUserIds.Contains(user.Id)"
+                                   @onchange="@(e => ToggleUserSelection(user.Id, (bool)e.Value!))" />
+                            <label for="user-@user.Id">
+                                <span class="user-name">@user.Username</span>
+                                <span class="user-balance text-danger">€@Math.Abs(user.Balance).ToString("F2")</span>
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseBulkEmailModal">Cancel</button>
+                <button type="button" class="btn btn-warning" @onclick="SendBulkPaymentReminders" disabled="@(_isSendingEmails || _selectedUserIds.Count == 0)">
+                    @if (_isSendingEmails)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    Send to @_selectedUserIds.Count user(s)
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .page-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 2rem;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-warning {
+        background-color: #ffc107;
+        color: #212529;
+        border: 1px solid #ffc107;
+    }
+
+    .btn-warning:hover {
+        background-color: #e0a800;
+        border-color: #d39e00;
+    }
+
+    .btn-warning:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.2em;
+        margin-right: 0.25rem;
+    }
+
+    .alert-dismissible .btn-close {
+        padding: 0.5rem;
+        background: transparent;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
     }
 
     .table-container {
@@ -220,6 +324,55 @@
         z-index: 1001;
         max-width: 500px;
         width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-lg {
+        max-width: 800px;
+    }
+
+    .user-selection-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 0.5rem;
+    }
+
+    .user-selection-item {
+        padding: 0.75rem;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .user-selection-item:last-child {
+        border-bottom: none;
+    }
+
+    .user-selection-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    .user-selection-item label {
+        flex: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .user-selection-item .user-name {
+        font-weight: 500;
+    }
+
+    .user-selection-item .user-balance {
+        font-weight: 600;
     }
 
     .modal-header {
@@ -371,11 +524,16 @@
     private List<UserDto>? _users;
     private bool _isLoading = true;
     private string? _errorMessage;
+    private string? _emailSuccess;
     private bool _showCreateEditModal;
+    private bool _showBulkEmailModal;
     private int? _editingUserId;
     private UserFormModel _userForm = new();
     private string? _modalError;
     private bool _isSaving;
+    private bool _isSendingEmails;
+    private HashSet<int> _selectedUserIds = new();
+    private string _userFilter = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -389,7 +547,12 @@
 
         try
         {
-            _users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+            var result = await UsersApi.GetAllAsync();
+            _users = result.ToList();
+        }
+        catch (ApiException ex)
+        {
+            _errorMessage = $"Failed to load users: {ex.Message}";
         }
         catch (Exception ex)
         {
@@ -398,6 +561,103 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private void ShowBulkEmailModal()
+    {
+        _showBulkEmailModal = true;
+        _modalError = null;
+        _userFilter = string.Empty;
+        _selectedUserIds.Clear();
+
+        // Pre-select all users with balance >= 10
+        if (_users != null)
+        {
+            foreach (var user in _users.Where(u => u.Balance < -10 && !string.IsNullOrEmpty(u.Email)))
+            {
+                _selectedUserIds.Add(user.Id);
+            }
+        }
+    }
+
+    private void CloseBulkEmailModal()
+    {
+        _showBulkEmailModal = false;
+        _selectedUserIds.Clear();
+        _userFilter = string.Empty;
+    }
+
+    private List<UserDto> GetFilteredUsersForEmail()
+    {
+        if (_users == null) return new List<UserDto>();
+
+        var eligible = _users.Where(u => u.Balance < -10 && !string.IsNullOrEmpty(u.Email));
+
+        if (string.IsNullOrWhiteSpace(_userFilter))
+            return eligible.ToList();
+
+        return eligible.Where(u => u.Username.Contains(_userFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void ToggleUserSelection(int userId, bool isSelected)
+    {
+        if (isSelected)
+            _selectedUserIds.Add(userId);
+        else
+            _selectedUserIds.Remove(userId);
+    }
+
+    private void SelectAllUsers()
+    {
+        foreach (var user in GetFilteredUsersForEmail())
+        {
+            _selectedUserIds.Add(user.Id);
+        }
+    }
+
+    private void DeselectAllUsers()
+    {
+        _selectedUserIds.Clear();
+    }
+
+    private async Task SendBulkPaymentReminders()
+    {
+        if (_selectedUserIds.Count == 0) return;
+
+        _isSendingEmails = true;
+        _errorMessage = null;
+        _emailSuccess = null;
+
+        try
+        {
+            // Send individual reminders to selected users
+            int successCount = 0;
+            foreach (var userId in _selectedUserIds)
+            {
+                try
+                {
+                    var response = await Http.PostAsync($"api/email/send-payment-reminder/{userId}", null);
+                    if (response.IsSuccessStatusCode)
+                        successCount++;
+                }
+                catch
+                {
+                    // Continue with other users even if one fails
+                }
+            }
+
+            _emailSuccess = $"Payment reminders sent to {successCount} user(s)";
+            _showBulkEmailModal = false;
+            _selectedUserIds.Clear();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error sending reminders: {ex.Message}";
+        }
+        finally
+        {
+            _isSendingEmails = false;
         }
     }
 
@@ -414,30 +674,6 @@
         _showCreateEditModal = true;
     }
 
-    private async Task ShowEditUser(int userId)
-    {
-        _editingUserId = userId;
-        _modalError = null;
-
-        try
-        {
-            var user = await Http.GetFromJsonAsync<UserDto>($"api/users/{userId}");
-            if (user != null)
-            {
-                _userForm = new UserFormModel
-                {
-                    Username = user.Username,
-                    Email = user.Email,
-                };
-                _showCreateEditModal = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            _errorMessage = $"Failed to load user: {ex.Message}";
-        }
-    }
-
     private async Task SaveUser()
     {
         _isSaving = true;
@@ -448,45 +684,33 @@
             if (_editingUserId == null)
             {
                 // Create new user
-                var response = await Http.PostAsJsonAsync("api/users", new
+                var createDto = new CreateUserDto
                 {
-                    username = _userForm.Username,
-                    email = _userForm.Email,
-                    role = _userForm.Role,
-                    isActive = _userForm.IsActive
-                });
-
-                if (response.IsSuccessStatusCode)
-                {
-                    CloseModal();
-                    await LoadUsers();
-                }
-                else
-                {
-                    _modalError = "Failed to create user. Please try again.";
-                }
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    IsAdmin = _userForm.Role == "Admin"
+                };
+                await UsersApi.CreateAsync(createDto);
+                CloseModal();
+                await LoadUsers();
             }
             else
             {
                 // Update existing user
-                var response = await Http.PutAsJsonAsync($"api/users/{_editingUserId}", new
+                var updateDto = new UpdateUserDto
                 {
-                    username = _userForm.Username,
-                    email = _userForm.Email,
-                    role = _userForm.Role,
-                    isActive = _userForm.IsActive
-                });
-
-                if (response.IsSuccessStatusCode)
-                {
-                    CloseModal();
-                    await LoadUsers();
-                }
-                else
-                {
-                    _modalError = "Failed to update user. Please try again.";
-                }
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    IsAdmin = _userForm.Role == "Admin"
+                };
+                await UsersApi.UpdateAsync(_editingUserId.Value, updateDto);
+                CloseModal();
+                await LoadUsers();
             }
+        }
+        catch (ApiException ex)
+        {
+            _modalError = ex.Content ?? "Failed to save user. Please try again.";
         }
         catch (Exception ex)
         {
@@ -518,5 +742,11 @@
         public string Role { get; set; } = "User";
 
         public bool IsActive { get; set; } = true;
+    }
+
+    private class BulkEmailResult
+    {
+        public int Count { get; set; }
+        public string? Message { get; set; }
     }
 }

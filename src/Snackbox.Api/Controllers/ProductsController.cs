@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
+using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
 using Snackbox.Api.Services;
 
@@ -29,25 +30,11 @@ public class ProductsController : ControllerBase
     {
         var products = await _context.Products
             .Include(p => p.Barcodes)
-            .Select(p => new ProductDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                CreatedAt = p.CreatedAt,
-                BestBeforeInStock = p.BestBeforeInStock,
-                BestBeforeOnShelf = p.BestBeforeOnShelf,
-                Barcodes = p.Barcodes.Select(b => new ProductBarcodeDto
-                {
-                    Id = b.Id,
-                    ProductId = b.ProductId,
-                    Barcode = b.Barcode,
-                    Quantity = b.Quantity,
-                    CreatedAt = b.CreatedAt
-                }).ToList()
-            })
+            .Include(p => p.Batches)
+            .ThenInclude(b => b.ShelvingActions)
             .ToListAsync();
 
-        return Ok(products);
+        return Ok(products.ToDtoList(_stockCalculation));
     }
 
     [HttpGet("{id}")]
@@ -55,6 +42,8 @@ public class ProductsController : ControllerBase
     {
         var product = await _context.Products
             .Include(p => p.Barcodes)
+            .Include(p => p.Batches)
+            .ThenInclude(b => b.ShelvingActions)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null)
@@ -62,24 +51,7 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        var dto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            CreatedAt = product.CreatedAt,
-            BestBeforeInStock = product.BestBeforeInStock,
-            BestBeforeOnShelf = product.BestBeforeOnShelf,
-            Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-            {
-                Id = b.Id,
-                ProductId = b.ProductId,
-                Barcode = b.Barcode,
-                Quantity = b.Quantity,
-                CreatedAt = b.CreatedAt
-            }).ToList()
-        };
-
-        return Ok(dto);
+        return Ok(product.ToDto(_stockCalculation));
     }
 
     [HttpPost]
@@ -96,16 +68,7 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Product created: {ProductId} - {ProductName}", product.Id, product.Name);
 
-        var resultDto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            CreatedAt = product.CreatedAt,
-            BestBeforeInStock = product.BestBeforeInStock,
-            BestBeforeOnShelf = product.BestBeforeOnShelf,
-        };
-
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, resultDto);
+        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product.ToDto(null));
     }
 
     [HttpPut("{id}")]
@@ -113,6 +76,8 @@ public class ProductsController : ControllerBase
     {
         var product = await _context.Products
             .Include(p => p.Barcodes)
+            .Include(p => p.Batches)
+            .ThenInclude(b => b.ShelvingActions)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null)
@@ -120,46 +85,13 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        var currentPrimaryBarcode = product.Barcodes.OrderBy(b => b.Id).FirstOrDefault();
-
-        // Check if new barcode conflicts with another product
-        if (currentPrimaryBarcode != null &&
-            dto.Barcode != currentPrimaryBarcode.Barcode &&
-            await _context.ProductBarcodes.AnyAsync(pb => pb.Barcode == dto.Barcode))
-        {
-            return BadRequest(new { message = "A product with this barcode already exists" });
-        }
-
         product.Name = dto.Name;
-
-        // Update the primary barcode if it changed
-        if (currentPrimaryBarcode != null && currentPrimaryBarcode.Barcode != dto.Barcode)
-        {
-            currentPrimaryBarcode.Barcode = dto.Barcode;
-        }
 
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Product updated: {ProductId} - {ProductName}", product.Id, product.Name);
 
-        var resultDto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            CreatedAt = product.CreatedAt,
-            BestBeforeInStock = product.BestBeforeInStock,
-            BestBeforeOnShelf = product.BestBeforeOnShelf,
-            Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-            {
-                Id = b.Id,
-                ProductId = b.ProductId,
-                Barcode = b.Barcode,
-                Quantity = b.Quantity,
-                CreatedAt = b.CreatedAt
-            }).ToList()
-        };
-
-        return Ok(resultDto);
+        return Ok(product.ToDto(_stockCalculation));
     }
 
     [HttpDelete("{id}")]
@@ -192,7 +124,10 @@ public class ProductsController : ControllerBase
     {
         var productBarcode = await _context.ProductBarcodes
             .Include(pb => pb.Product)
-            .ThenInclude(p => p.Barcodes)
+                .ThenInclude(p => p.Barcodes)
+            .Include(pb => pb.Product)
+                .ThenInclude(p => p.Batches)
+                .ThenInclude(b => b.ShelvingActions)
             .FirstOrDefaultAsync(pb => pb.Barcode == barcode);
 
         if (productBarcode == null)
@@ -200,26 +135,7 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        var product = productBarcode.Product;
-
-        var dto = new ProductDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            CreatedAt = product.CreatedAt,
-            BestBeforeInStock = product.BestBeforeInStock,
-            BestBeforeOnShelf = product.BestBeforeOnShelf,
-            Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-            {
-                Id = b.Id,
-                ProductId = b.ProductId,
-                Barcode = b.Barcode,
-                Quantity = b.Quantity,
-                CreatedAt = b.CreatedAt
-            }).ToList()
-        };
-
-        return Ok(dto);
+        return Ok(productBarcode.Product.ToDto(_stockCalculation));
     }
 
     [HttpGet("{id}/stock")]
@@ -249,14 +165,7 @@ public class ProductsController : ControllerBase
             ProductId = product.Id,
             ProductName = product.Name,
             ProductBarcode = product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
-            Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-            {
-                Id = b.Id,
-                ProductId = b.ProductId,
-                Barcode = b.Barcode,
-                Quantity = b.Quantity,
-                CreatedAt = b.CreatedAt
-            }).ToList(),
+            Barcodes = product.Barcodes.ToDtoList(),
             TotalInStorage = batches.Sum(b => b.QuantityInStorage),
             TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
             Batches = batches
@@ -289,14 +198,7 @@ public class ProductsController : ControllerBase
                 ProductId = product.Id,
                 ProductName = product.Name,
                 ProductBarcode = product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
-                Barcodes = product.Barcodes.Select(b => new ProductBarcodeDto
-                {
-                    Id = b.Id,
-                    ProductId = b.ProductId,
-                    Barcode = b.Barcode,
-                    Quantity = b.Quantity,
-                    CreatedAt = b.CreatedAt
-                }).ToList(),
+                Barcodes = product.Barcodes.ToDtoList(),
                 TotalInStorage = batches.Sum(b => b.QuantityInStorage),
                 TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
                 Batches = batches
@@ -335,16 +237,7 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Barcode added: {Barcode} to product {ProductId}", dto.Barcode, id);
 
-        var resultDto = new ProductBarcodeDto
-        {
-            Id = productBarcode.Id,
-            ProductId = productBarcode.ProductId,
-            Barcode = productBarcode.Barcode,
-            Quantity = productBarcode.Quantity,
-            CreatedAt = productBarcode.CreatedAt
-        };
-
-        return Ok(resultDto);
+        return Ok(productBarcode.ToDto());
     }
 
     [HttpPut("{productId}/barcodes/{barcodeId}")]
@@ -372,16 +265,7 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation("Barcode updated: {BarcodeId} for product {ProductId}", barcodeId, productId);
 
-        var resultDto = new ProductBarcodeDto
-        {
-            Id = productBarcode.Id,
-            ProductId = productBarcode.ProductId,
-            Barcode = productBarcode.Barcode,
-            Quantity = productBarcode.Quantity,
-            CreatedAt = productBarcode.CreatedAt
-        };
-
-        return Ok(resultDto);
+        return Ok(productBarcode.ToDto());
     }
 
     [HttpDelete("{productId}/barcodes/{barcodeId}")]
