@@ -44,6 +44,10 @@ builder.Services.AddScoped<IAchievementService, AchievementService>();
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 
+// Register email service
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 // Register product best before date service
 builder.Services.AddScoped<IProductBestBeforeDateService, ProductBestBeforeDateService>();
 
@@ -119,6 +123,15 @@ if (app.Environment.IsDevelopment())
         options.RoutePrefix = "swagger";
     });
 }
+
+// Add middleware to disable caching for all API responses
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+    context.Response.Headers["Pragma"] = "no-cache";
+    context.Response.Headers["Expires"] = "0";
+    await next();
+});
 
 app.UseHttpsRedirection();
 app.UseCors("AllowBlazorApp");

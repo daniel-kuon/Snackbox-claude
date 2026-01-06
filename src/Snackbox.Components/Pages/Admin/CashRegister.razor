@@ -1,0 +1,536 @@
+@page "/admin/cash-register"
+@using System.ComponentModel.DataAnnotations
+@using Snackbox.Api.Dtos
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Cash Register - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h1>Cash Register</h1>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border"></div>
+            <p>Loading...</p>
+        </div>
+    }
+    else if (_errorMessage != null)
+    {
+        <div class="alert alert-danger">
+            @_errorMessage
+        </div>
+    }
+    else
+    {
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3>Current Balance</h3>
+                    <button class="btn btn-warning" @onclick="ShowCorrectBalanceModal">
+                        Correct Balance
+                    </button>
+                </div>
+                <div class="balance-display">
+                    <span class="currency">€</span>
+                    <span class="amount">@(_cashRegister?.CurrentBalance.ToString("F2") ?? "0.00")</span>
+                </div>
+                @if (_cashRegister != null)
+                {
+                    <p class="text-muted mt-2">
+                        Last updated: @_cashRegister.LastUpdatedAt.ToString("yyyy-MM-dd HH:mm") 
+                        by @_cashRegister.LastUpdatedByUsername
+                    </p>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3>Withdrawals</h3>
+                    <button class="btn btn-primary" @onclick="ShowWithdrawModal">
+                        + Make Withdrawal
+                    </button>
+                </div>
+
+                @if (_withdrawals == null)
+                {
+                    <div class="loading-container">
+                        <div class="spinner-border spinner-border-sm"></div>
+                        <span>Loading withdrawals...</span>
+                    </div>
+                }
+                else if (_withdrawals.Any())
+                {
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Admin</th>
+                                <th>Amount</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var withdrawal in _withdrawals.OrderByDescending(w => w.WithdrawnAt))
+                            {
+                                <tr>
+                                    <td>@withdrawal.WithdrawnAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>@withdrawal.Username</td>
+                                    <td class="text-danger">€@withdrawal.Amount.ToString("F2")</td>
+                                    <td>@withdrawal.Notes</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <p>No withdrawals recorded yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h3>Deposits</h3>
+
+                @if (_deposits == null)
+                {
+                    <div class="loading-container">
+                        <div class="spinner-border spinner-border-sm"></div>
+                        <span>Loading deposits...</span>
+                    </div>
+                }
+                else if (_deposits.Any())
+                {
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>User</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var deposit in _deposits.OrderByDescending(d => d.DepositedAt))
+                            {
+                                <tr>
+                                    <td>@deposit.DepositedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>@deposit.Username</td>
+                                    <td class="text-success">€@deposit.Amount.ToString("F2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <p>No deposits recorded yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showWithdrawModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Make Withdrawal</h3>
+                <button class="btn-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+                <EditForm Model="@_withdrawalForm" OnValidSubmit="@SaveWithdrawal">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label>Amount (€)</label>
+                        <InputNumber @bind-Value="_withdrawalForm.Amount" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _withdrawalForm.Amount)" />
+                        <small class="form-text text-muted">
+                            Available: €@(_cashRegister?.CurrentBalance.ToString("F2") ?? "0.00")
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Notes (optional)</label>
+                        <InputTextArea @bind-Value="_withdrawalForm.Notes" class="form-control" rows="3" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Make Withdrawal
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showCorrectBalanceModal)
+{
+    <div class="modal-backdrop" @onclick="CloseCorrectBalanceModal"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Correct Cash Register Balance</h3>
+                <button class="btn-close" @onclick="CloseCorrectBalanceModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+                @if (_correctionSuccess != null)
+                {
+                    <div class="alert alert-success">@_correctionSuccess</div>
+                }
+                <EditForm Model="@_correctBalanceForm" OnValidSubmit="@SaveBalanceCorrection">
+                    <DataAnnotationsValidator />
+
+                    <div class="alert alert-info">
+                        <strong>Current Balance:</strong> €@(_cashRegister?.CurrentBalance.ToString("F2") ?? "0.00")
+                    </div>
+
+                    <div class="form-group">
+                        <label>New Balance (€)</label>
+                        <InputNumber @bind-Value="_correctBalanceForm.NewBalance" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _correctBalanceForm.NewBalance)" />
+                        <small class="form-text text-muted">
+                            Enter the actual cash amount counted in the register
+                        </small>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseCorrectBalanceModal">Cancel</button>
+                        <button type="submit" class="btn btn-warning" disabled="@_isSaving">
+                            @if (_isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Correct Balance
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .balance-display {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #28a745;
+        margin: 1rem 0;
+    }
+
+    .balance-display .currency {
+        font-size: 2rem;
+        opacity: 0.7;
+    }
+
+    .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1040;
+    }
+
+    .modal-dialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1050;
+        width: 90%;
+        max-width: 500px;
+    }
+
+    .modal-content {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+    }
+
+    .btn-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #666;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+    }
+
+    .spinner-border {
+        display: inline-block;
+        width: 2rem;
+        height: 2rem;
+        vertical-align: text-bottom;
+        border: 0.25em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spinner-border 0.75s linear infinite;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.2em;
+    }
+
+    @@keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+@code {
+    private CashRegisterDto? _cashRegister;
+    private List<WithdrawalDto>? _withdrawals;
+    private List<DepositDto>? _deposits;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private bool _showWithdrawModal;
+    private bool _showCorrectBalanceModal;
+    private WithdrawalFormModel _withdrawalForm = new();
+    private CorrectBalanceFormModel _correctBalanceForm = new();
+    private string? _modalError;
+    private string? _correctionSuccess;
+    private bool _isSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var cashRegisterTask = Http.GetFromJsonAsync<CashRegisterDto>("api/cashregister");
+            var withdrawalsTask = Http.GetFromJsonAsync<List<WithdrawalDto>>("api/withdrawals");
+            var depositsTask = Http.GetFromJsonAsync<List<DepositDto>>("api/deposits");
+
+            await Task.WhenAll(cashRegisterTask, withdrawalsTask, depositsTask);
+
+            _cashRegister = await cashRegisterTask;
+            _withdrawals = await withdrawalsTask;
+            _deposits = await depositsTask;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load data: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ShowWithdrawModal()
+    {
+        _withdrawalForm = new WithdrawalFormModel();
+        _modalError = null;
+        _showWithdrawModal = true;
+    }
+
+    private void CloseModal()
+    {
+        _showWithdrawModal = false;
+        _withdrawalForm = new();
+        _modalError = null;
+    }
+
+    private void ShowCorrectBalanceModal()
+    {
+        _correctBalanceForm = new CorrectBalanceFormModel
+        {
+            NewBalance = _cashRegister?.CurrentBalance ?? 0
+        };
+        _modalError = null;
+        _correctionSuccess = null;
+        _showCorrectBalanceModal = true;
+    }
+
+    private void CloseCorrectBalanceModal()
+    {
+        _showCorrectBalanceModal = false;
+        _correctBalanceForm = new();
+        _modalError = null;
+        _correctionSuccess = null;
+    }
+
+    private async Task SaveBalanceCorrection()
+    {
+        _isSaving = true;
+        _modalError = null;
+        _correctionSuccess = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/cashregister/correct", new
+            {
+                newBalance = _correctBalanceForm.NewBalance
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                _correctionSuccess = "Balance corrected successfully!";
+                await LoadData();
+                // Close modal after a short delay to show success message
+                await Task.Delay(1500);
+                CloseCorrectBalanceModal();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _modalError = $"Failed to correct balance: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task SaveWithdrawal()
+    {
+        _isSaving = true;
+        _modalError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/withdrawals", new
+            {
+                amount = _withdrawalForm.Amount,
+                notes = _withdrawalForm.Notes
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModal();
+                await LoadData();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _modalError = $"Failed to make withdrawal: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private class WithdrawalFormModel
+    {
+        [Required]
+        [Range(0.01, 10000, ErrorMessage = "Amount must be between 0.01 and 10000")]
+        public decimal Amount { get; set; }
+
+        public string? Notes { get; set; }
+    }
+
+    private class CorrectBalanceFormModel
+    {
+        [Required]
+        [Range(0, 100000, ErrorMessage = "Balance must be between 0 and 100000")]
+        public decimal NewBalance { get; set; }
+    }
+}

@@ -58,13 +58,27 @@ public class ScannerController : ControllerBase
             });
         }
 
+        // Check if this is a login-only barcode
+        if (barcode.IsLoginOnly)
+        {
+            // Login-only barcodes - return success with special flag for frontend to handle login redirect
+            return Ok(new ScanBarcodeResponse
+            {
+                Success = true,
+                UserId = barcode.UserId,
+                Username = barcode.User.Username,
+                IsAdmin = barcode.User.IsAdmin,
+                IsLoginOnly = true  // Special flag indicating this is a login barcode
+            });
+        }
+
         var user = barcode.User;
 
-        // Find the last incomplete purchase for this user
+        // Find the last purchase for this user that is still active (within timeout window)
         var lastPurchase = await _context.Purchases
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .Where(p => p.UserId == user.Id && p.CompletedAt == null)
+            .Where(p => p.UserId == user.Id && p.CompletedAt >= timeoutThreshold)
             .OrderByDescending(p => p.CreatedAt)
             .FirstOrDefaultAsync();
 
@@ -85,7 +99,7 @@ public class ScannerController : ControllerBase
             }
             else
             {
-                // Timeout expired - complete the old purchase and create a new one
+                // Timeout expired - update completion time of old purchase and create a new one
                 if (lastPurchase.Scans.Any())
                 {
                     // Use the last scan time as the completion time (more accurate than "now")
@@ -103,10 +117,12 @@ public class ScannerController : ControllerBase
                     _context.Purchases.Remove(lastPurchase);
                 }
 
+                var now = DateTime.UtcNow;
                 currentPurchase = new Purchase
                 {
                     UserId = user.Id,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = now,
+                    CompletedAt = now
                 };
                 _context.Purchases.Add(currentPurchase);
                 isNewPurchase = true;
@@ -114,25 +130,31 @@ public class ScannerController : ControllerBase
         }
         else
         {
-            // No existing incomplete purchase, create new one
+            // No existing active purchase, create new one
+            var now = DateTime.UtcNow;
             currentPurchase = new Purchase
             {
                 UserId = user.Id,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = now,
+                CompletedAt = now
             };
             _context.Purchases.Add(currentPurchase);
             isNewPurchase = true;
         }
 
         // Add the barcode scan to the purchase
+        var scanTime = DateTime.UtcNow;
         var barcodeScan = new BarcodeScan
         {
             Purchase = currentPurchase,
             BarcodeId = barcode.Id,
             Amount = barcode.Amount,
-            ScannedAt = DateTime.UtcNow
+            ScannedAt = scanTime
         };
         _context.BarcodeScans.Add(barcodeScan);
+        
+        // Update the purchase's CompletedAt to the time of this scan
+        currentPurchase.CompletedAt = scanTime;
 
         await _context.SaveChangesAsync();
 
@@ -166,14 +188,14 @@ public class ScannerController : ControllerBase
         // Get last 3 completed purchases (excluding the current one)
         var recentPurchases = await _context.Purchases
             .Include(p => p.Scans)
-            .Where(p => p.UserId == user.Id && p.CompletedAt != null && p.Id != currentPurchase.Id)
+            .Where(p => p.UserId == user.Id && p.Id != currentPurchase.Id)
             .OrderByDescending(p => p.CompletedAt)
             .Take(3)
             .Select(p => new RecentPurchaseDto
             {
                 PurchaseId = p.Id,
-                TotalAmount = p.Scans.Sum(s => s.Amount),
-                CompletedAt = p.CompletedAt!.Value,
+                TotalAmount = p.ManualAmount ?? p.Scans.Sum(s => s.Amount),
+                CompletedAt = p.CompletedAt,
                 ItemCount = p.Scans.Count
             })
             .ToListAsync();

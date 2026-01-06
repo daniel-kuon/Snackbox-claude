@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snackbox.Api.Data;
@@ -11,9 +12,11 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260103215450_AddPurchaseTypeAndManualFields")]
+    partial class AddPurchaseTypeAndManualFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,187 +24,6 @@ namespace Snackbox.Api.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("Snackbox.Api.Models.Achievement", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Category")
-                        .HasColumnType("integer")
-                        .HasColumnName("category");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("code");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("description");
-
-                    b.Property<string>("ImageUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("image_url");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("name");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("achievements");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Category = 0,
-                            Code = "BIG_SPENDER_5",
-                            Description = "Spent €5 or more in a single purchase",
-                            Name = "Snack Attack!"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Category = 0,
-                            Code = "BIG_SPENDER_10",
-                            Description = "Spent €10 or more in a single purchase",
-                            Name = "Hunger Games Champion"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Category = 0,
-                            Code = "BIG_SPENDER_15",
-                            Description = "Spent €15 or more in a single purchase",
-                            Name = "Snack Hoarder"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Category = 1,
-                            Code = "DAILY_BUYER_5",
-                            Description = "Made 5 or more purchases in a single day",
-                            Name = "Frequent Flyer"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Category = 1,
-                            Code = "DAILY_BUYER_10",
-                            Description = "Made 10 or more purchases in a single day",
-                            Name = "Snack Marathon"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Category = 2,
-                            Code = "STREAK_DAILY_3",
-                            Description = "Made a purchase 3 days in a row",
-                            Name = "Three-peat"
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Category = 2,
-                            Code = "STREAK_DAILY_7",
-                            Description = "Made a purchase 7 days in a row",
-                            Name = "Week Warrior"
-                        },
-                        new
-                        {
-                            Id = 8,
-                            Category = 2,
-                            Code = "STREAK_WEEKLY_4",
-                            Description = "Made at least one purchase per week for 4 weeks",
-                            Name = "Monthly Muncher"
-                        },
-                        new
-                        {
-                            Id = 9,
-                            Category = 3,
-                            Code = "COMEBACK_30",
-                            Description = "First purchase after 1 month away",
-                            Name = "Long Time No See"
-                        },
-                        new
-                        {
-                            Id = 10,
-                            Category = 3,
-                            Code = "COMEBACK_60",
-                            Description = "First purchase after 2 months away",
-                            Name = "The Return"
-                        },
-                        new
-                        {
-                            Id = 11,
-                            Category = 3,
-                            Code = "COMEBACK_90",
-                            Description = "First purchase after 3 months away",
-                            Name = "Lazarus Rising"
-                        },
-                        new
-                        {
-                            Id = 12,
-                            Category = 4,
-                            Code = "IN_DEBT_50",
-                            Description = "Unpaid balance of €50 or more",
-                            Name = "Credit Card Lifestyle"
-                        },
-                        new
-                        {
-                            Id = 13,
-                            Category = 4,
-                            Code = "IN_DEBT_100",
-                            Description = "Unpaid balance of €100 or more",
-                            Name = "Financial Freedom? Never Heard of It"
-                        },
-                        new
-                        {
-                            Id = 14,
-                            Category = 4,
-                            Code = "IN_DEBT_150",
-                            Description = "Unpaid balance of €150 or more",
-                            Name = "Living on the Edge"
-                        },
-                        new
-                        {
-                            Id = 15,
-                            Category = 5,
-                            Code = "TOTAL_SPENT_100",
-                            Description = "Spent €100 or more in total",
-                            Name = "Century Club"
-                        },
-                        new
-                        {
-                            Id = 16,
-                            Category = 5,
-                            Code = "TOTAL_SPENT_150",
-                            Description = "Spent €150 or more in total",
-                            Name = "Snack Connoisseur"
-                        },
-                        new
-                        {
-                            Id = 17,
-                            Category = 5,
-                            Code = "TOTAL_SPENT_200",
-                            Description = "Spent €200 or more in total",
-                            Name = "Snackbox Legend"
-                        });
-                });
 
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
                 {
@@ -382,68 +204,6 @@ namespace Snackbox.Api.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.CashRegister", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("CurrentBalance")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("current_balance");
-
-                    b.Property<DateTime>("LastUpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_updated_at");
-
-                    b.Property<int>("LastUpdatedByUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("last_updated_by_user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LastUpdatedByUserId");
-
-                    b.ToTable("cash_register");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<DateTime>("DepositedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deposited_at");
-
-                    b.Property<int?>("LinkedPaymentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("linked_payment_id");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("deposits");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
                 {
                     b.Property<int>("Id")
@@ -453,22 +213,10 @@ namespace Snackbox.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AdminUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("admin_user_id");
-
                     b.Property<decimal>("Amount")
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("amount");
-
-                    b.Property<int?>("LinkedDepositId")
-                        .HasColumnType("integer")
-                        .HasColumnName("linked_deposit_id");
-
-                    b.Property<int?>("LinkedWithdrawalId")
-                        .HasColumnType("integer")
-                        .HasColumnName("linked_withdrawal_id");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")
@@ -478,20 +226,11 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_at");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AdminUserId");
-
-                    b.HasIndex("LinkedDepositId")
-                        .IsUnique();
 
                     b.HasIndex("UserId");
 
@@ -504,7 +243,6 @@ namespace Snackbox.Api.Migrations
                             Amount = 20.00m,
                             Notes = "Initial payment",
                             PaidAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Type = 0,
                             UserId = 2
                         },
                         new
@@ -513,7 +251,6 @@ namespace Snackbox.Api.Migrations
                             Amount = 15.00m,
                             Notes = "Cash payment",
                             PaidAt = new DateTime(2024, 1, 3, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Type = 0,
                             UserId = 3
                         });
                 });
@@ -730,7 +467,7 @@ namespace Snackbox.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CompletedAt")
+                    b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
@@ -739,8 +476,7 @@ namespace Snackbox.Api.Migrations
                         .HasColumnName("created_at");
 
                     b.Property<decimal?>("ManualAmount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
+                        .HasColumnType("numeric")
                         .HasColumnName("manual_amount");
 
                     b.Property<int?>("ReferencePurchaseId")
@@ -951,78 +687,6 @@ namespace Snackbox.Api.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.UserAchievement", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AchievementId")
-                        .HasColumnType("integer")
-                        .HasColumnName("achievement_id");
-
-                    b.Property<DateTime>("EarnedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("earned_at");
-
-                    b.Property<bool>("HasBeenShown")
-                        .HasColumnType("boolean")
-                        .HasColumnName("has_been_shown");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AchievementId");
-
-                    b.HasIndex("UserId", "AchievementId")
-                        .IsUnique();
-
-                    b.ToTable("user_achievements");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.Withdrawal", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<int?>("LinkedPaymentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("linked_payment_id");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text")
-                        .HasColumnName("notes");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("user_id");
-
-                    b.Property<DateTime>("WithdrawnAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("withdrawn_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("withdrawals");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.User", "User")
@@ -1053,49 +717,13 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("Purchase");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.CashRegister", b =>
-                {
-                    b.HasOne("Snackbox.Api.Models.User", "LastUpdatedByUser")
-                        .WithMany()
-                        .HasForeignKey("LastUpdatedByUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("LastUpdatedByUser");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
-                {
-                    b.HasOne("Snackbox.Api.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
                 {
-                    b.HasOne("Snackbox.Api.Models.User", "AdminUser")
-                        .WithMany()
-                        .HasForeignKey("AdminUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Snackbox.Api.Models.Deposit", "LinkedDeposit")
-                        .WithOne("LinkedPayment")
-                        .HasForeignKey("Snackbox.Api.Models.Payment", "LinkedDepositId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Snackbox.Api.Models.User", "User")
                         .WithMany("Payments")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("AdminUser");
-
-                    b.Navigation("LinkedDeposit");
 
                     b.Navigation("User");
                 });
@@ -1150,49 +778,9 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("ProductBatch");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.Withdrawal", b =>
-                {
-                    b.HasOne("Snackbox.Api.Models.User", "User")
-                        .WithMany("Withdrawals")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.UserAchievement", b =>
-                {
-                    b.HasOne("Snackbox.Api.Models.Achievement", "Achievement")
-                        .WithMany("UserAchievements")
-                        .HasForeignKey("AchievementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Snackbox.Api.Models.User", "User")
-                        .WithMany("UserAchievements")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Achievement");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.Achievement", b =>
-                {
-                    b.Navigation("UserAchievements");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
                 {
                     b.Navigation("Scans");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
-                {
-                    b.Navigation("LinkedPayment");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Product", b =>
@@ -1219,10 +807,6 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("Payments");
 
                     b.Navigation("Purchases");
-
-                    b.Navigation("UserAchievements");
-
-                    b.Navigation("Withdrawals");
                 });
 #pragma warning restore 612, 618
         }
