@@ -1,6 +1,7 @@
 @page "/admin/users/{UserId:int}"
 @using System.ComponentModel.DataAnnotations
 @using Snackbox.Api.Dtos
+@using Snackbox.Components.Components.Shared
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -49,16 +50,16 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-button @(_activeTab == "info" ? "active" : "")" @onclick='() => _activeTab = "info"'>
+            <button class="tab-button @(_activeTab == "info" ? "active" : "")" @onclick='() => SwitchTab("info")'>
                 User Information
             </button>
-            <button class="tab-button @(_activeTab == "payments" ? "active" : "")" @onclick='() => _activeTab = "payments"'>
+            <button class="tab-button @(_activeTab == "payments" ? "active" : "")" @onclick='() => SwitchTab("payments")'>
                 Payments
             </button>
-            <button class="tab-button @(_activeTab == "purchases" ? "active" : "")" @onclick='() => _activeTab = "purchases"'>
+            <button class="tab-button @(_activeTab == "purchases" ? "active" : "")" @onclick='() => SwitchTab("purchases")'>
                 Purchases
             </button>
-            <button class="tab-button @(_activeTab == "barcodes" ? "active" : "")" @onclick='() => _activeTab = "barcodes"'>
+            <button class="tab-button @(_activeTab == "barcodes" ? "active" : "")" @onclick='() => SwitchTab("barcodes")'>
                 Barcodes
             </button>
         </div>
@@ -67,22 +68,98 @@
             @if (_activeTab == "info")
             {
                 <div class="info-section">
-                    <div class="info-row">
-                        <span class="info-label">Username:</span>
-                        <span class="info-value">@_user.Username</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Email:</span>
-                        <span class="info-value">@_user.Email</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Role:</span>
-                        <span class="info-value">@_user.IsAdmin ? "Admin" : "User"</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Balance:</span>
-                        <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
-                    </div>
+                    @if (!_isEditingUserInfo)
+                    {
+                        <div class="section-header">
+                            <h3>User Information</h3>
+                            <div class="button-group">
+                                @if (_user.Balance < 0 && !string.IsNullOrEmpty(_user.Email))
+                                {
+                                    <button class="btn btn-warning btn-sm" @onclick="SendPaymentReminder" disabled="@_isSendingEmail">
+                                        @if (_isSendingEmail)
+                                        {
+                                            <span class="spinner-border spinner-border-sm"></span>
+                                        }
+                                        ✉ Send Payment Reminder
+                                    </button>
+                                }
+                                <button class="btn btn-primary btn-sm" @onclick="StartEditUserInfo">Edit</button>
+                            </div>
+                        </div>
+                        @if (_emailSuccess != null)
+                        {
+                            <div class="alert alert-success">@_emailSuccess</div>
+                        }
+                        @if (_emailError != null)
+                        {
+                            <div class="alert alert-danger">@_emailError</div>
+                        }
+                        <div class="info-row">
+                            <span class="info-label">Username:</span>
+                            <span class="info-value">@_user.Username</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">@_user.Email</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Role:</span>
+                            <span class="info-value">@(_user.IsAdmin ? "Admin" : "User")</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Balance:</span>
+                            <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="section-header">
+                            <h3>Edit User Information</h3>
+                        </div>
+                        @if (_editError != null)
+                        {
+                            <div class="alert alert-danger">@_editError</div>
+                        }
+                        <EditForm Model="@_userEditForm" OnValidSubmit="@SaveUserInfo">
+                            <DataAnnotationsValidator />
+
+                            <div class="form-group">
+                                <label>Username</label>
+                                <InputText @bind-Value="_userEditForm.Username" class="form-control" />
+                                <ValidationMessage For="@(() => _userEditForm.Username)" />
+                            </div>
+
+                            <div class="form-group">
+                                <label>Email</label>
+                                <InputText @bind-Value="_userEditForm.Email" class="form-control" type="email" />
+                                <ValidationMessage For="@(() => _userEditForm.Email)" />
+                            </div>
+
+                            <div class="form-group">
+                                <label>Role</label>
+                                <InputSelect @bind-Value="_userEditForm.Role" class="form-control">
+                                    <option value="User">User</option>
+                                    <option value="Admin">Admin</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="info-row">
+                                <span class="info-label">Balance:</span>
+                                <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
+                            </div>
+
+                            <div class="button-group">
+                                <button type="button" class="btn btn-secondary" @onclick="CancelEditUserInfo">Cancel</button>
+                                <button type="submit" class="btn btn-primary" disabled="@_isSavingUserInfo">
+                                    @if (_isSavingUserInfo)
+                                    {
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    }
+                                    Save
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
                 </div>
             }
             else if (_activeTab == "payments")
@@ -132,6 +209,10 @@
             {
                 <div class="section-header">
                     <h3>Purchase History</h3>
+                    <div class="button-group">
+                        <button class="btn btn-primary btn-sm" @onclick="ShowAddManualPurchase">+ Manual Purchase</button>
+                        <button class="btn btn-secondary btn-sm" @onclick="ShowAddCorrection">+ Correction</button>
+                    </div>
                 </div>
 
                 @if (_purchases == null)
@@ -147,7 +228,10 @@
                         <thead>
                             <tr>
                                 <th>Date</th>
+                                <th>Type</th>
                                 <th>Total</th>
+                                <th>Reference</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -155,7 +239,42 @@
                             {
                                 <tr>
                                     <td>@purchase.CompletedAt?.ToString("yyyy-MM-dd HH:mm")</td>
-                                    <td class="text-danger">€@purchase.TotalAmount.ToString("C")</td>
+                                    <td>
+                                        @if (purchase.Type == "Manual")
+                                        {
+                                            <span class="badge badge-info">Manual</span>
+                                        }
+                                        else if (purchase.Type == "Correction")
+                                        {
+                                            <span class="badge badge-warning">Correction</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-secondary">Normal</span>
+                                        }
+                                    </td>
+                                    <td class="@(purchase.TotalAmount >= 0 ? "text-danger" : "text-success")">
+                                        @if (purchase.TotalAmount < 0)
+                                        {
+                                            <span class="badge bg-success me-1">Credit</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger me-1">Debit</span>
+                                        }
+                                        €@Math.Abs(purchase.TotalAmount).ToString("F2")
+                                    </td>
+                                    <td>
+                                        @if (purchase.ReferencePurchaseId.HasValue)
+                                        {
+                                            <span>Ref: #@purchase.ReferencePurchaseId</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-warning" @onclick="() => ShowCorrectionForPurchase(purchase.Id)">
+                                            Create Correction
+                                        </button>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -261,6 +380,40 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Payment Type</label>
+                        <div class="form-check">
+                            <input type="radio" name="paymentType" value="CashRegister" checked="@(_paymentForm.Type == "CashRegister")" @onchange='() => _paymentForm.Type = "CashRegister"' class="form-check-input" id="paymentTypeCash" />
+                            <label class="form-check-label" for="paymentTypeCash">
+                                Cash Register
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" name="paymentType" value="PayPal" checked="@(_paymentForm.Type == "PayPal")" @onchange='() => _paymentForm.Type = "PayPal"' class="form-check-input" id="paymentTypePayPal" />
+                            <label class="form-check-label" for="paymentTypePayPal">
+                                PayPal to Admin
+                            </label>
+                        </div>
+                    </div>
+
+                    @if (_paymentForm.Type == "PayPal")
+                    {
+                        <div class="form-group">
+                            <label>Admin User</label>
+                            <InputSelect @bind-Value="_paymentForm.AdminUserId" class="form-control">
+                                <option value="">-- Select Admin --</option>
+                                @if (_adminUsers != null)
+                                {
+                                    @foreach (var admin in _adminUsers)
+                                    {
+                                        <option value="@admin.Id">@admin.Username</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => _paymentForm.AdminUserId)" />
+                        </div>
+                    }
+
+                    <div class="form-group">
                         <label>Notes (optional)</label>
                         <InputTextArea @bind-Value="_paymentForm.Notes" class="form-control" rows="3" />
                     </div>
@@ -300,22 +453,39 @@
 
                     <div class="form-group">
                         <label>Barcode</label>
-                        <InputText @bind-Value="_barcodeForm.Code" class="form-control" />
+                        <BarcodeInput @bind-Value="_barcodeForm.Code" />
                         <ValidationMessage For="@(() => _barcodeForm.Code)" />
                     </div>
 
                     <div class="form-group">
-                        <label>Amount (€)</label>
-                        <InputNumber @bind-Value="_barcodeForm.Amount" class="form-control" step="0.01" />
-                        <ValidationMessage For="@(() => _barcodeForm.Amount)" />
+                        <label>Barcode Type</label>
+                        <div class="form-check">
+                            <input type="radio" class="form-check-input" id="typeLogin" name="barcodeType"
+                                   checked="@(_barcodeForm.BarcodeType == "Login")"
+                                   @onchange="@(() => _barcodeForm.BarcodeType = "Login")" />
+                            <label class="form-check-label" for="typeLogin">
+                                🔐 Login Only (Authentication)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" class="form-check-input" id="typePayment" name="barcodeType"
+                                   checked="@(_barcodeForm.BarcodeType == "Payment")"
+                                   @onchange="@(() => _barcodeForm.BarcodeType = "Payment")" />
+                            <label class="form-check-label" for="typePayment">
+                                💳 Payment Barcode (Purchases)
+                            </label>
+                        </div>
                     </div>
 
-                    <div class="form-check">
-                        <InputCheckbox @bind-Value="_barcodeForm.IsLoginOnly" class="form-check-input" id="isLoginOnlyCheck" />
-                        <label class="form-check-label" for="isLoginOnlyCheck">
-                            Login Only (no payment)
-                        </label>
-                    </div>
+                    @if (_barcodeForm.BarcodeType == "Payment")
+                    {
+                        <div class="form-group">
+                            <label>Amount (€)</label>
+                            <InputNumber @bind-Value="_barcodeForm.Amount" class="form-control" step="0.01" />
+                            <ValidationMessage For="@(() => _barcodeForm.Amount)" />
+                            <small class="form-text text-muted">Default amount charged when this barcode is scanned</small>
+                        </div>
+                    }
 
                     <div class="form-check">
                         <InputCheckbox @bind-Value="_barcodeForm.IsActive" class="form-check-input" id="isActiveCheck" />
@@ -332,6 +502,106 @@
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
                             Save Barcode
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showManualPurchaseModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModals"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Manual Purchase</h3>
+                <button class="btn-close" @onclick="CloseModals">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+                <EditForm Model="@_manualPurchaseForm" OnValidSubmit="@SaveManualPurchase">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label>Amount (€)</label>
+                        <InputNumber @bind-Value="_manualPurchaseForm.Amount" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _manualPurchaseForm.Amount)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Date</label>
+                        <InputDate @bind-Value="_manualPurchaseForm.CreatedAt" class="form-control" Type="InputDateType.DateTimeLocal" />
+                        <ValidationMessage For="@(() => _manualPurchaseForm.CreatedAt)" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Add Purchase
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showCorrectionModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModals"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Purchase Correction</h3>
+                <button class="btn-close" @onclick="CloseModals">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+                <EditForm Model="@_correctionForm" OnValidSubmit="@SaveCorrection">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label>Reference Purchase</label>
+                        <InputSelect @bind-Value="_correctionForm.ReferencePurchaseId" class="form-control">
+                            <option value="">-- Select a purchase --</option>
+                            @if (_purchases != null)
+                            {
+                                @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
+                                {
+                                    <option value="@purchase.Id">#@purchase.Id - @purchase.CompletedAt?.ToString("yyyy-MM-dd") - €@purchase.TotalAmount.ToString("F2")</option>
+                                }
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => _correctionForm.ReferencePurchaseId)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Correction Amount (€)</label>
+                        <InputNumber @bind-Value="_correctionForm.Amount" class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => _correctionForm.Amount)" />
+                        <small class="form-text text-muted">Use negative values to deduct from balance</small>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Add Correction
                         </button>
                     </div>
                 </EditForm>
@@ -446,6 +716,13 @@
         margin: 0;
     }
 
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+
     .table {
         width: 100%;
         border-collapse: collapse;
@@ -499,6 +776,36 @@
     .badge-primary {
         background-color: #007bff;
         color: white;
+    }
+
+    .badge-warning {
+        background-color: #ffc107;
+        color: #212529;
+    }
+
+    .btn-warning {
+        background-color: #ffc107;
+        color: #212529;
+        border: 1px solid #ffc107;
+    }
+
+    .btn-warning:hover {
+        background-color: #e0a800;
+        border-color: #d39e00;
+    }
+
+    .btn-warning:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+
+    .form-text {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .text-muted {
+        color: #6c757d !important;
     }
 
     .loading-container {
@@ -685,13 +992,25 @@
     private List<PaymentDto>? _payments;
     private List<PurchaseDto>? _purchases;
     private List<BarcodeDto>? _barcodes;
+    private List<UserDto>? _adminUsers;
     private bool _isLoading = true;
     private string? _errorMessage;
+    private string? _emailSuccess;
+    private string? _emailError;
     private string _activeTab = "info";
     private bool _showPaymentModal;
     private bool _showBarcodeModal;
+    private bool _showManualPurchaseModal;
+    private bool _showCorrectionModal;
+    private bool _isEditingUserInfo;
+    private bool _isSavingUserInfo;
+    private bool _isSendingEmail;
+    private string? _editError;
     private PaymentFormModel _paymentForm = new();
     private BarcodeFormModel _barcodeForm = new();
+    private ManualPurchaseFormModel _manualPurchaseForm = new();
+    private CorrectionFormModel _correctionForm = new();
+    private UserEditFormModel _userEditForm = new();
     private string? _modalError;
     private bool _isSaving;
 
@@ -716,6 +1035,25 @@
         }
     }
 
+    private async Task SwitchTab(string tab)
+    {
+        _activeTab = tab;
+
+        // Load data for the new tab if not already loaded
+        if (tab == "payments" && _payments == null)
+        {
+            await LoadPayments();
+        }
+        else if (tab == "purchases" && _purchases == null)
+        {
+            await LoadPurchases();
+        }
+        else if (tab == "barcodes" && _barcodes == null)
+        {
+            await LoadBarcodes();
+        }
+    }
+
     private async Task LoadUserData()
     {
         _isLoading = true;
@@ -732,6 +1070,36 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task SendPaymentReminder()
+    {
+        _isSendingEmail = true;
+        _emailSuccess = null;
+        _emailError = null;
+
+        try
+        {
+            var response = await Http.PostAsync($"api/email/send-payment-reminder/{UserId}", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _emailSuccess = $"Payment reminder sent to {_user?.Email}";
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _emailError = $"Failed to send reminder: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _emailError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSendingEmail = false;
         }
     }
 
@@ -776,16 +1144,38 @@
         Navigation.NavigateTo("/admin/users");
     }
 
-    private void ShowAddPayment()
+    private async Task ShowAddPayment()
     {
-        _paymentForm = new PaymentFormModel();
+        _paymentForm = new PaymentFormModel { Type = "CashRegister" };
         _modalError = null;
+
+        // Load admin users if not already loaded
+        if (_adminUsers == null)
+        {
+            try
+            {
+                var allUsers = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+                _adminUsers = allUsers?.Where(u => u.IsAdmin).ToList();
+            }
+            catch (Exception)
+            {
+                // Set to empty list but don't show error - admin dropdown will just be empty
+                _adminUsers = new List<UserDto>();
+            }
+        }
+
+        // Preselect first admin user for PayPal option (will be used if user switches to PayPal)
+        if (_adminUsers != null && _adminUsers.Any())
+        {
+            _paymentForm.AdminUserId = _adminUsers.First().Id;
+        }
+
         _showPaymentModal = true;
     }
 
     private void ShowAddBarcode()
     {
-        _barcodeForm = new BarcodeFormModel { IsActive = true };
+        _barcodeForm = new BarcodeFormModel { IsActive = true, BarcodeType = "Payment" };
         _modalError = null;
         _showBarcodeModal = true;
     }
@@ -801,7 +1191,9 @@
             {
                 userId = UserId,
                 amount = _paymentForm.Amount,
-                notes = _paymentForm.Notes
+                notes = _paymentForm.Notes,
+                type = _paymentForm.Type,
+                adminUserId = _paymentForm.AdminUserId
             });
 
             if (response.IsSuccessStatusCode)
@@ -839,7 +1231,7 @@
                 code = _barcodeForm.Code,
                 amount = _barcodeForm.Amount,
                 isActive = _barcodeForm.IsActive,
-                isLoginOnly = _barcodeForm.IsLoginOnly
+                isLoginOnly = _barcodeForm.BarcodeType == "Login"
             });
 
             if (response.IsSuccessStatusCode)
@@ -867,9 +1259,183 @@
     {
         _showPaymentModal = false;
         _showBarcodeModal = false;
+        _showManualPurchaseModal = false;
+        _showCorrectionModal = false;
         _paymentForm = new();
         _barcodeForm = new();
+        _manualPurchaseForm = new();
+        _correctionForm = new();
         _modalError = null;
+    }
+
+    private void ShowAddManualPurchase()
+    {
+        _manualPurchaseForm = new ManualPurchaseFormModel
+        {
+            CreatedAt = DateTime.UtcNow
+        };
+        _modalError = null;
+        _showManualPurchaseModal = true;
+    }
+
+    private void ShowAddCorrection()
+    {
+        _correctionForm = new CorrectionFormModel();
+        _modalError = null;
+        _showCorrectionModal = true;
+    }
+
+    private void ShowCorrectionForPurchase(int purchaseId)
+    {
+        _correctionForm = new CorrectionFormModel
+        {
+            ReferencePurchaseId = purchaseId
+        };
+        _modalError = null;
+        _showCorrectionModal = true;
+    }
+
+    private async Task SaveManualPurchase()
+    {
+        _isSaving = true;
+        _modalError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/purchases/manual", new
+            {
+                userId = UserId,
+                amount = _manualPurchaseForm.Amount,
+                createdAt = _manualPurchaseForm.CreatedAt
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModals();
+                _purchases = null;
+                await LoadPurchases();
+                await LoadUserData(); // Refresh balance
+            }
+            else
+            {
+                _modalError = "Failed to add manual purchase. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task SaveCorrection()
+    {
+        _isSaving = true;
+        _modalError = null;
+
+        try
+        {
+            if (_correctionForm.ReferencePurchaseId == 0)
+            {
+                _modalError = "Please select a reference purchase.";
+                _isSaving = false;
+                return;
+            }
+
+            if (_correctionForm.Amount == 0)
+            {
+                _modalError = "Correction amount cannot be zero.";
+                _isSaving = false;
+                return;
+            }
+
+            var response = await Http.PostAsJsonAsync("api/purchases/correction", new
+            {
+                userId = UserId,
+                referencePurchaseId = _correctionForm.ReferencePurchaseId,
+                amount = _correctionForm.Amount
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModals();
+                _purchases = null;
+                await LoadPurchases();
+                await LoadUserData(); // Refresh balance
+            }
+            else
+            {
+                _modalError = "Failed to add correction. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void StartEditUserInfo()
+    {
+        if (_user == null) return;
+
+        _userEditForm = new UserEditFormModel
+        {
+            Username = _user.Username,
+            Email = _user.Email ?? string.Empty,
+            Role = _user.IsAdmin ? "Admin" : "User"
+        };
+        _editError = null;
+        _isEditingUserInfo = true;
+    }
+
+    private void CancelEditUserInfo()
+    {
+        _isEditingUserInfo = false;
+        _userEditForm = new();
+        _editError = null;
+    }
+
+    private async Task SaveUserInfo()
+    {
+        if (_user == null) return;
+
+        _isSavingUserInfo = true;
+        _editError = null;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/users/{UserId}", new
+            {
+                username = _userEditForm.Username,
+                email = _userEditForm.Email,
+                isAdmin = _userEditForm.Role == "Admin"
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUserData();
+                _isEditingUserInfo = false;
+            }
+            else
+            {
+                _editError = "Failed to update user information. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _editError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSavingUserInfo = false;
+        }
     }
 
     private class PaymentFormModel
@@ -879,6 +1445,10 @@
         public decimal Amount { get; set; }
 
         public string? Notes { get; set; }
+
+        public string Type { get; set; } = "CashRegister";
+
+        public int? AdminUserId { get; set; }
     }
 
     private class BarcodeFormModel
@@ -890,6 +1460,41 @@
         public decimal Amount { get; set; }
 
         public bool IsActive { get; set; } = true;
-        public bool IsLoginOnly { get; set; }
+        
+        [Required]
+        public string BarcodeType { get; set; } = "Payment"; // "Login" or "Payment"
+    }
+
+    private class UserEditFormModel
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        public string Role { get; set; } = "User";
+    }
+
+    private class ManualPurchaseFormModel
+    {
+        [Required]
+        [Range(-10000, 10000, ErrorMessage = "Amount must be between -10000 and 10000")]
+        public decimal Amount { get; set; }
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    private class CorrectionFormModel
+    {
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "Please select a purchase")]
+        public int ReferencePurchaseId { get; set; }
+
+        [Required]
+        public decimal Amount { get; set; }
     }
 }
