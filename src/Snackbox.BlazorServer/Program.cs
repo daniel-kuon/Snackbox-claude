@@ -13,6 +13,9 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddSingleton<IStorageService, WebStorageService>()
        .AddSingleton<IScannerListener, DummyScannerListener>();
 
+// Register Snackbar service
+builder.Services.AddScoped<SnackbarService>();
+
 // Register delegating handler for authentication
 builder.Services.AddTransient<AuthenticationHeaderHandler>();
 

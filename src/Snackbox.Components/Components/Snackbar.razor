@@ -1,0 +1,193 @@
+@using Snackbox.Components.Services
+@implements IDisposable
+@inject SnackbarService SnackbarService
+
+<div class="snackbar-container">
+    @foreach (var message in _messages)
+    {
+        <div class="snackbar snackbar-@message.Type.ToString().ToLower() @(message.IsVisible ? "show" : "")">
+            <div class="snackbar-content">
+                <span class="snackbar-icon">@GetIcon(message.Type)</span>
+                <span class="snackbar-message">@message.Text</span>
+                <button class="snackbar-close" @onclick="() => RemoveMessage(message.Id)">×</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<SnackbarMessage> _messages = new();
+    private Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        SnackbarService.OnShow += HandleShow;
+        _timer = new Timer(CheckExpiredMessages, null, 100, 100);
+    }
+
+    private void HandleShow(string text, SnackbarType type, int durationMs)
+    {
+        var message = new SnackbarMessage
+        {
+            Id = Guid.NewGuid(),
+            Text = text,
+            Type = type,
+            ExpiresAt = DateTime.Now.AddMilliseconds(durationMs),
+            IsVisible = false
+        };
+
+        _messages.Add(message);
+        InvokeAsync(StateHasChanged);
+
+        // Trigger animation after a small delay
+        Task.Run(async () =>
+        {
+            await Task.Delay(10);
+            message.IsVisible = true;
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void CheckExpiredMessages(object? state)
+    {
+        var now = DateTime.Now;
+        var expiredMessages = _messages.Where(m => m.ExpiresAt <= now).ToList();
+
+        if (expiredMessages.Any())
+        {
+            foreach (var message in expiredMessages)
+            {
+                _messages.Remove(message);
+            }
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void RemoveMessage(Guid id)
+    {
+        var message = _messages.FirstOrDefault(m => m.Id == id);
+        if (message != null)
+        {
+            message.IsVisible = false;
+            InvokeAsync(StateHasChanged);
+
+            Task.Run(async () =>
+            {
+                await Task.Delay(300); // Wait for animation
+                _messages.Remove(message);
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+    }
+
+    private string GetIcon(SnackbarType type)
+    {
+        return type switch
+        {
+            SnackbarType.Success => "✓",
+            SnackbarType.Error => "✕",
+            SnackbarType.Warning => "⚠",
+            SnackbarType.Info => "ℹ",
+            _ => "ℹ"
+        };
+    }
+
+    public void Dispose()
+    {
+        SnackbarService.OnShow -= HandleShow;
+        _timer?.Dispose();
+    }
+
+    private class SnackbarMessage
+    {
+        public Guid Id { get; set; }
+        public required string Text { get; set; }
+        public required SnackbarType Type { get; set; }
+        public DateTime ExpiresAt { get; set; }
+        public bool IsVisible { get; set; }
+    }
+}
+
+<style>
+    .snackbar-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+    }
+
+    .snackbar {
+        background: #323232;
+        color: white;
+        padding: 16px 24px;
+        border-radius: 4px;
+        box-shadow: 0 3px 5px -1px rgba(0,0,0,.2), 0 6px 10px 0 rgba(0,0,0,.14), 0 1px 18px 0 rgba(0,0,0,.12);
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        min-width: 300px;
+    }
+
+    .snackbar.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .snackbar-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .snackbar-icon {
+        font-size: 20px;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    .snackbar-message {
+        flex: 1;
+        word-break: break-word;
+    }
+
+    .snackbar-close {
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        flex-shrink: 0;
+    }
+
+    .snackbar-close:hover {
+        opacity: 1;
+    }
+
+    .snackbar-success {
+        background: #4caf50;
+    }
+
+    .snackbar-error {
+        background: #f44336;
+    }
+
+    .snackbar-warning {
+        background: #ff9800;
+    }
+
+    .snackbar-info {
+        background: #2196f3;
+    }
+</style>

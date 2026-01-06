@@ -137,12 +137,13 @@ public class ScannerController : ControllerBase
         var scanTime = DateTime.UtcNow;
         var barcodeScan = new BarcodeScan
         {
-            Purchase = currentPurchase,
             BarcodeId = barcode.Id,
             Amount = barcode.Amount,
             ScannedAt = scanTime
         };
-        _context.BarcodeScans.Add(barcodeScan);
+        
+        // Add to the purchase's collection to let EF handle the relationship
+        currentPurchase.Scans.Add(barcodeScan);
         
         // Update the purchase's CompletedAt to the time of this scan
         currentPurchase.CompletedAt = scanTime;

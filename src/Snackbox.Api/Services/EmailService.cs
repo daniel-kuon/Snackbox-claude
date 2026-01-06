@@ -46,8 +46,14 @@ public class EmailService : IEmailService
         await Task.WhenAll(tasks);
     }
 
-    private async Task SendEmailAsync(string toEmail, string subject, string body)
+    public async Task SendEmailAsync(string toEmail, string subject, string body, Stream? attachmentStream = null, string? attachmentFileName = null)
     {
+        if (!_emailSettings.Enabled)
+        {
+            _logger.LogInformation("Email sending is disabled. Would have sent email to {Email} with subject: {Subject}", toEmail, subject);
+            return;
+        }
+
         try
         {
             using var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort);
@@ -63,6 +69,12 @@ public class EmailService : IEmailService
             };
 
             mailMessage.To.Add(toEmail);
+
+            if (attachmentStream != null && attachmentFileName != null)
+            {
+                var attachment = new Attachment(attachmentStream, attachmentFileName);
+                mailMessage.Attachments.Add(attachment);
+            }
 
             await client.SendMailAsync(mailMessage);
             _logger.LogInformation("Email sent successfully to {Email}", toEmail);

@@ -21,6 +21,9 @@ public static class MauiProgram
         // Register storage service (MAUI secure storage)
         builder.Services.AddSingleton<IStorageService>(_ => new MauiStorageService(SecureStorage.Default));
 
+        // Register Snackbar service
+        builder.Services.AddScoped<SnackbarService>();
+
         // Register delegating handler for authentication
         builder.Services.AddTransient<AuthenticationHeaderHandler>();
 
