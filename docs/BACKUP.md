@@ -72,16 +72,18 @@ Add the following settings to `appsettings.json`:
 ```json
 {
   "Backup": {
-    "Directory": "backups"
+    "Directory": "backups",
+    "EmailRecipient": "admin@example.com"
   },
-  "Email": {
-    "SmtpHost": "smtp.example.com",
-    "SmtpPort": "587",
-    "SmtpUsername": "your-email@example.com",
-    "SmtpPassword": "your-password",
+  "EmailSettings": {
+    "Enabled": true,
+    "SmtpServer": "smtp.example.com",
+    "SmtpPort": 587,
+    "EnableSsl": true,
+    "Username": "your-email@example.com",
+    "Password": "your-password",
     "FromEmail": "snackbox@example.com",
-    "BackupRecipient": "admin@example.com",
-    "EnableSsl": "true"
+    "FromName": "Snackbox"
   }
 }
 ```
@@ -89,13 +91,17 @@ Add the following settings to `appsettings.json`:
 **Configuration Options:**
 
 - `Backup:Directory`: Directory where backups are stored (relative or absolute path)
-- `Email:SmtpHost`: SMTP server hostname
-- `Email:SmtpPort`: SMTP server port (usually 587 for TLS)
-- `Email:SmtpUsername`: SMTP authentication username
-- `Email:SmtpPassword`: SMTP authentication password
-- `Email:FromEmail`: Email address to send from
-- `Email:BackupRecipient`: Email address to receive weekly backups
-- `Email:EnableSsl`: Enable SSL/TLS for SMTP connection
+- `Backup:EmailRecipient`: Email address to receive weekly backups
+- `EmailSettings:Enabled`: Enable/disable email sending (set to false to disable)
+- `EmailSettings:SmtpServer`: SMTP server hostname
+- `EmailSettings:SmtpPort`: SMTP server port (usually 587 for TLS)
+- `EmailSettings:EnableSsl`: Enable SSL/TLS for SMTP connection
+- `EmailSettings:Username`: SMTP authentication username
+- `EmailSettings:Password`: SMTP authentication password
+- `EmailSettings:FromEmail`: Email address to send from
+- `EmailSettings:FromName`: Display name for the sender
+
+**Note:** The `EmailSettings` configuration is shared between backup emails and payment reminder emails.
 
 ## Features
 

@@ -7,61 +7,71 @@
 # Minimal configuration for local backups only
 {
   "Backup": {
-    "Directory": "backups"  # Relative path from application directory
+    "Directory": "backups",  # Relative path from application directory
+    "EmailRecipient": "admin@example.com"  # Optional: recipient for weekly backup emails
   }
 }
 
 # Email Configuration Examples
+# Note: EmailSettings is a unified configuration used for both backup emails and payment reminders
 
 ## Gmail Example
 {
-  "Email": {
-    "SmtpHost": "smtp.gmail.com",
-    "SmtpPort": "587",
-    "SmtpUsername": "your-email@gmail.com",
-    "SmtpPassword": "your-app-password",  # Use App Password, not regular password
+  "EmailSettings": {
+    "Enabled": true,
+    "SmtpServer": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "EnableSsl": true,
+    "Username": "your-email@gmail.com",
+    "Password": "your-app-password",  # Use App Password, not regular password
     "FromEmail": "your-email@gmail.com",
-    "BackupRecipient": "backup-recipient@example.com",
-    "EnableSsl": "true"
+    "FromName": "Snackbox",
+    "PayPalLink": "https://paypal.me/yourpaypallink"  # Optional: for payment reminders
   }
 }
 
 ## Outlook/Office 365 Example
 {
-  "Email": {
-    "SmtpHost": "smtp.office365.com",
-    "SmtpPort": "587",
-    "SmtpUsername": "your-email@outlook.com",
-    "SmtpPassword": "your-password",
+  "EmailSettings": {
+    "Enabled": true,
+    "SmtpServer": "smtp.office365.com",
+    "SmtpPort": 587,
+    "EnableSsl": true,
+    "Username": "your-email@outlook.com",
+    "Password": "your-password",
     "FromEmail": "your-email@outlook.com",
-    "BackupRecipient": "backup-recipient@example.com",
-    "EnableSsl": "true"
+    "FromName": "Snackbox",
+    "PayPalLink": "https://paypal.me/yourpaypallink"
   }
 }
 
 ## Custom SMTP Server Example
 {
-  "Email": {
-    "SmtpHost": "mail.example.com",
-    "SmtpPort": "587",
-    "SmtpUsername": "snackbox@example.com",
-    "SmtpPassword": "secure-password",
+  "EmailSettings": {
+    "Enabled": true,
+    "SmtpServer": "mail.example.com",
+    "SmtpPort": 587,
+    "EnableSsl": true,
+    "Username": "snackbox@example.com",
+    "Password": "secure-password",
     "FromEmail": "snackbox@example.com",
-    "BackupRecipient": "admin@example.com",
-    "EnableSsl": "true"
+    "FromName": "Snackbox System",
+    "PayPalLink": ""
   }
 }
 
 ## SendGrid Example
 {
-  "Email": {
-    "SmtpHost": "smtp.sendgrid.net",
-    "SmtpPort": "587",
-    "SmtpUsername": "apikey",  # Literally "apikey"
-    "SmtpPassword": "YOUR_SENDGRID_API_KEY",
+  "EmailSettings": {
+    "Enabled": true,
+    "SmtpServer": "smtp.sendgrid.net",
+    "SmtpPort": 587,
+    "EnableSsl": true,
+    "Username": "apikey",  # Literally "apikey"
+    "Password": "YOUR_SENDGRID_API_KEY",
     "FromEmail": "verified-sender@example.com",
-    "BackupRecipient": "backup-recipient@example.com",
-    "EnableSsl": "true"
+    "FromName": "Snackbox",
+    "PayPalLink": ""
   }
 }
 
@@ -71,16 +81,19 @@
     "snackboxdb": "Host=localhost;Port=5432;Database=snackboxdb;Username=postgres;Password=your-password"
   },
   "Backup": {
-    "Directory": "/var/backups/snackbox"  # Absolute path for production
+    "Directory": "/var/backups/snackbox",  # Absolute path for production
+    "EmailRecipient": "admin@example.com"  # Recipient for weekly backup emails
   },
-  "Email": {
-    "SmtpHost": "smtp.gmail.com",
-    "SmtpPort": "587",
-    "SmtpUsername": "snackbox@example.com",
-    "SmtpPassword": "your-app-password",
+  "EmailSettings": {
+    "Enabled": true,
+    "SmtpServer": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "EnableSsl": true,
+    "Username": "snackbox@example.com",
+    "Password": "your-app-password",
     "FromEmail": "snackbox@example.com",
-    "BackupRecipient": "admin@example.com",
-    "EnableSsl": "true"
+    "FromName": "Snackbox",
+    "PayPalLink": "https://paypal.me/yourpaypallink"
   },
   "JwtSettings": {
     "SecretKey": "YourVerySecretKeyThatIsAtLeast32CharactersLong!",
