@@ -31,24 +31,37 @@
             <option value="created">Sort by Created Date</option>
             <option value="average">Sort by Most Sold (Avg/Week)</option>
         </select>
-        <button class="btn @(_batchMode ? "btn-primary" : "btn-outline-primary")" @onclick="ToggleBatchMode">
-            @(_batchMode ? "Exit Batch Mode" : "Batch Scan Mode")
-        </button>
+        @if (!_batchMode)
+        {
+            <button class="btn btn-outline-primary" @onclick="StartBatchMode">
+                <i class="bi bi-upc-scan icon" aria-hidden="true"></i> Start Batch
+            </button>
+        }
     </div>
 
     @if (_batchMode)
     {
         <div class="batch-mode-section">
+            <div class="batch-mode-header">
+                <div>
+                    <h3>Batch Scan Mode</h3>
+                    <p class="text-muted">Scan product barcodes continuously to add items to the batch</p>
+                </div>
+                <button class="btn btn-secondary" @onclick="ExitBatchMode">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i> Exit Batch Mode
+                </button>
+            </div>
+
             <div class="batch-controls">
                 <div class="control-group">
                     <label>Action Type</label>
-                    <select class="form-control" @bind="_batchActionType">
+                    <select class="form-control" @bind="_batchActionType" @bind:after="OnActionTypeChanged">
                         <option value="AddedToStorage">Add to Storage</option>
                         <option value="AddedToShelf">Add Directly to Shelf</option>
-                        <option value="MovedToShelf">Move Stock to Shelf</option>
+                        <option value="MovedToShelf">Move from Storage to Shelf</option>
                     </select>
                 </div>
-                <div class="control-group">
+                <div class="control-group flex-grow">
                     <label>Scan Barcode</label>
                     <input type="text" class="form-control" @bind="_batchBarcode" @bind:event="oninput"
                            @onkeyup="HandleBatchBarcodeInput" placeholder="Scan or enter barcode..." autofocus />
@@ -62,12 +75,12 @@
                         <h4>Scanned Items (@_batchScannedItems.Count)</h4>
                         <div class="batch-actions">
                             <button class="btn btn-outline-secondary btn-sm" @onclick="ClearBatchItems">Clear All</button>
-                            <button class="btn btn-primary btn-sm" @onclick="ProcessBatchItems" disabled="@_isBatchProcessing">
+                            <button class="btn btn-success btn-sm" @onclick="ProcessBatchItems" disabled="@_isBatchProcessing">
                                 @if (_isBatchProcessing)
                                 {
                                     <span class="spinner-border spinner-border-sm"></span>
                                 }
-                                Process (@_batchScannedItems.Count)
+                                Finish Batch (@_batchScannedItems.Count)
                             </button>
                         </div>
                     </div>
@@ -411,10 +424,22 @@
         border-radius: 4px;
         cursor: pointer;
         font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .icon {
+        font-size: 1rem;
     }
 
     .btn-primary {
         background-color: #007bff;
+        color: white;
+    }
+
+    .btn-success {
+        background-color: #28a745;
         color: white;
     }
 
@@ -500,6 +525,26 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         padding: 1.5rem;
         margin-bottom: 1.5rem;
+        border: 2px solid #007bff;
+    }
+
+    .batch-mode-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .batch-mode-header h3 {
+        margin: 0 0 0.25rem 0;
+        color: #007bff;
+    }
+
+    .batch-mode-header p {
+        margin: 0;
+        font-size: 0.875rem;
     }
 
     .batch-controls {
@@ -510,8 +555,12 @@
     }
 
     .control-group {
-        flex: 1;
+        flex: 0 0 auto;
         min-width: 200px;
+    }
+
+    .control-group.flex-grow {
+        flex: 1 1 auto;
     }
 
     .control-group label {
@@ -752,13 +801,23 @@
         await LoadProducts();
     }
 
-    private void ToggleBatchMode()
+    private void StartBatchMode()
     {
-        _batchMode = !_batchMode;
-        if (!_batchMode)
-        {
-            ClearBatchItems();
-        }
+        _batchMode = true;
+        _batchActionType = "AddedToStorage";
+        ClearBatchItems();
+    }
+
+    private void ExitBatchMode()
+    {
+        _batchMode = false;
+        ClearBatchItems();
+    }
+
+    private void OnActionTypeChanged()
+    {
+        // This method is called when the action type is changed
+        // We don't need to do anything here, but it's useful for future enhancements
     }
 
     private async Task HandleBatchBarcodeInput(KeyboardEventArgs e)
