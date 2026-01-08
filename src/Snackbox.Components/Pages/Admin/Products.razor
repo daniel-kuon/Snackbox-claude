@@ -3,6 +3,7 @@
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
 @using Refit
+@using Snackbox.Components.Components.Shared
 @inject IProductsApi ProductsApi
 @inject IShelvingActionsApi ShelvingActionsApi
 @inject HttpClient Http
@@ -64,8 +65,9 @@
                 </div>
                 <div class="control-group flex-grow">
                     <label>Scan Barcode</label>
-                    <input type="text" class="form-control" @bind="_batchBarcode" @bind:event="oninput"
-                           @onkeyup="HandleBatchBarcodeInput" placeholder="Scan or enter barcode..." autofocus />
+                    <BarcodeInput Value="@_batchBarcode" 
+                                  ValueChanged="@OnBarcodeChanged"
+                                  Placeholder="Scan or enter barcode..." />
                 </div>
             </div>
 
@@ -815,6 +817,17 @@
         ClearBatchItems();
     }
 
+    private async Task OnBarcodeChanged(string newValue)
+    {
+        _batchBarcode = newValue;
+        
+        if (!string.IsNullOrWhiteSpace(_batchBarcode))
+        {
+            await LookupAndAddBatchProduct(_batchBarcode.Trim());
+            _batchBarcode = string.Empty;
+        }
+    }
+
     private async Task HandleBatchBarcodeInput(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_batchBarcode))
@@ -857,7 +870,8 @@
                 Barcode = barcode,
                 Quantity = barcodeQuantity,
                 ActionType = _batchActionType,
-                BestBeforeDate = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
+                // Only set default date for AddedToStorage and AddedToShelf
+                BestBeforeDate = (_batchActionType == "MovedToShelf") ? "" : DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
             };
 
             // For MovedToShelf, populate available dates with storage stock
