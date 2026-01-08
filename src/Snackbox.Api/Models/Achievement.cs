@@ -8,7 +8,7 @@ public class Achievement
     public required string Description { get; set; }
     public AchievementCategory Category { get; set; }
     public string? ImageUrl { get; set; } // Optional custom image
-    
+
     // Navigation properties
     public ICollection<UserAchievement> UserAchievements { get; set; } = new List<UserAchievement>();
 }
@@ -20,5 +20,8 @@ public enum AchievementCategory
     Streak,
     Comeback,
     HighDebt,
-    TotalSpent
+    TotalSpent,
+    TimeBased,
+    Milestone,
+    Special
 }

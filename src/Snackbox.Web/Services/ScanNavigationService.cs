@@ -26,13 +26,12 @@ public partial class ScanNavigationService : IDisposable
     {
         try
         {
-            // Try to scan the barcode through the scanner service
-            var result = await _scannerService.ScanBarcodeAsync(code);
+            // Process the barcode through the scanner service
+            var result = await _scannerService.ProcessBarcodeAsync(code);
 
-            if (result.IsSuccess)
+            if (!result.IsSuccess)
             {
-                // Navigate to scanner view (which handles the session)
-                await _scannerService.ProcessBarcodeAsync(code);
+                Console.WriteLine($"Error processing scanned code: {result.ErrorMessage}");
             }
         }
         catch (Exception ex)

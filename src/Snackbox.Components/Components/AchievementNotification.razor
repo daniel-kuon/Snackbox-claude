@@ -8,13 +8,13 @@
             <div class="achievement-header">
                 <h2 class="achievement-title">🎉 Achievement Unlocked! 🎉</h2>
             </div>
-            
+
             <div class="achievement-content">
                 <!-- Achievement icon/gif -->
                 <div class="achievement-icon">
                     @if (!string.IsNullOrEmpty(_currentAchievement.ImageUrl))
                     {
-                        <img src="@_currentAchievement.ImageUrl" alt="Achievement" class="achievement-image" />
+                        @((MarkupString)_currentAchievement.ImageUrl)
                     }
                     else
                     {
@@ -120,6 +120,13 @@
         margin-bottom: 1.5rem;
     }
 
+    .achievement-icon svg {
+        width: 150px;
+        height: 150px;
+        animation: bounce 1s ease-in-out infinite;
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    }
+
     .achievement-image {
         max-width: 200px;
         max-height: 200px;
@@ -188,44 +195,41 @@
     [Parameter]
     public string CurrentScanInfo { get; set; } = string.Empty;
 
+    [Parameter]
+    public EventCallback OnAllAchievementsShown { get; set; }
+
     private Achievement? _currentAchievement;
     private bool _isVisible;
+    private bool _isDisplaying; // True during entire display cycle (including delays)
     private int _currentIndex;
     private System.Timers.Timer? _displayTimer;
-    private int _lastAchievementsCount;
+    private HashSet<int> _shownAchievementIds = new();
     private bool _isDisposed;
 
     protected override void OnParametersSet()
     {
-        if (Achievements.Any())
+        // Don't start a new display cycle if we're already displaying
+        if (_isDisplaying)
+            return;
+
+        // Find new achievements that haven't been shown yet
+        var newAchievements = Achievements.Where(a => !_shownAchievementIds.Contains(a.Id)).ToList();
+
+        if (newAchievements.Any())
         {
-            if (!_isVisible)
-            {
-                // Start displaying achievements when becoming visible
-                _currentIndex = 0;
-                ShowNextAchievement();
-            }
-            else if (Achievements.Count != _lastAchievementsCount)
-            {
-                // New achievements detected while already displaying:
-                // reset index and clear existing timer so we don't skip any.
-                _displayTimer?.Stop();
-                _displayTimer?.Dispose();
-                _displayTimer = null;
-
-                _currentIndex = 0;
-                ShowNextAchievement();
-            }
+            // Start displaying new achievements
+            _isDisplaying = true;
+            _currentIndex = 0;
+            ShowNextAchievement(newAchievements);
         }
-
-        _lastAchievementsCount = Achievements.Count;
     }
 
-    private void ShowNextAchievement()
+    private void ShowNextAchievement(List<Achievement> achievementsToShow)
     {
-        if (_currentIndex < Achievements.Count)
+        if (_currentIndex < achievementsToShow.Count)
         {
-            _currentAchievement = Achievements[_currentIndex];
+            _currentAchievement = achievementsToShow[_currentIndex];
+            _shownAchievementIds.Add(_currentAchievement.Id);
             _isVisible = true;
             StateHasChanged();
 
@@ -243,23 +247,38 @@
 
                 // Wait 0.5 seconds before showing next achievement
                 await Task.Delay(500);
-                
+
                 // Check again after delay
                 if (_isDisposed)
                     return;
 
                 _currentIndex++;
-                
-                if (_currentIndex < Achievements.Count)
+
+                if (_currentIndex < achievementsToShow.Count)
                 {
                     await InvokeAsync(() =>
                     {
-                        ShowNextAchievement();
+                        ShowNextAchievement(achievementsToShow);
+                    });
+                }
+                else
+                {
+                    // All achievements shown
+                    _isDisplaying = false;
+
+                    // Notify parent
+                    await InvokeAsync(async () =>
+                    {
+                        await OnAllAchievementsShown.InvokeAsync();
                     });
                 }
             };
             _displayTimer.AutoReset = false;
             _displayTimer.Start();
+        }
+        else
+        {
+            _isDisplaying = false;
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Snackbox.Api.Controllers;
@@ -372,6 +372,31 @@ public class ScannerControllerTests : IDisposable
         // Verify empty purchase was deleted
         var deletedPurchase = await _context.Purchases.FindAsync(emptyPurchase.Id);
         Assert.Null(deletedPurchase);
+    }
+
+    [Fact]
+    public async Task ScanBarcode_LoginOnlyBarcode_ReturnsSuccessWithoutCreatingPurchase()
+    {
+        // Arrange
+        var request = new ScanBarcodeRequest { BarcodeCode = "TEST-LOGIN" };
+        var purchaseCountBefore = await _context.Purchases.CountAsync();
+
+        // Act
+        var result = await _controller.ScanBarcode(request);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
+
+        Assert.True(response.Success);
+        Assert.True(response.IsLoginOnly);
+        Assert.Equal(1, response.UserId);
+        Assert.Equal("testuser", response.Username);
+        Assert.Empty(response.ScannedBarcodes);
+
+        // Verify no purchase was created
+        var purchaseCountAfter = await _context.Purchases.CountAsync();
+        Assert.Equal(purchaseCountBefore, purchaseCountAfter);
     }
 
     public void Dispose()

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snackbox.Api.Data;
@@ -11,9 +12,11 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260106155536_AllowRepeatedAchievements")]
+    partial class AllowRepeatedAchievements
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -71,7 +74,6 @@ namespace Snackbox.Api.Migrations
                             Category = 0,
                             Code = "BIG_SPENDER_2",
                             Description = "Spent €2 or more in a single purchase",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFE5B4\" stroke=\"#FF8C00\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF8C00\">🍪</text><text x=\"60\" y=\"85\" font-size=\"24\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF8C00\">€2</text></svg>",
                             Name = "Snack Nibbler"
                         },
                         new
@@ -80,7 +82,6 @@ namespace Snackbox.Api.Migrations
                             Category = 0,
                             Code = "BIG_SPENDER_3",
                             Description = "Spent €3 or more in a single purchase",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFD700\" stroke=\"#FF6347\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF0000\">⚡</text><text x=\"60\" y=\"85\" font-size=\"24\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF0000\">€3</text></svg>",
                             Name = "Snack Attack!"
                         },
                         new
@@ -89,7 +90,6 @@ namespace Snackbox.Api.Migrations
                             Category = 0,
                             Code = "BIG_SPENDER_4",
                             Description = "Spent €4 or more in a single purchase",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF69B4\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#DC143C\">🦛</text><text x=\"60\" y=\"85\" font-size=\"24\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#DC143C\">€4</text></svg>",
                             Name = "Hungry Hippo"
                         },
                         new
@@ -98,7 +98,6 @@ namespace Snackbox.Api.Migrations
                             Category = 0,
                             Code = "BIG_SPENDER_5",
                             Description = "Spent €5 or more in a single purchase",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#E6E6FA\" stroke=\"#9370DB\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4B0082\">📦</text><text x=\"60\" y=\"85\" font-size=\"24\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4B0082\">€5</text></svg>",
                             Name = "Snack Hoarder"
                         },
                         new
@@ -107,7 +106,6 @@ namespace Snackbox.Api.Migrations
                             Category = 0,
                             Code = "BIG_SPENDER_6",
                             Description = "Spent €6 or more in a single purchase",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#B0E0E6\" stroke=\"#1E90FF\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#00008B\">🐋</text><text x=\"60\" y=\"85\" font-size=\"24\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#00008B\">€6</text></svg>",
                             Name = "The Whale"
                         },
                         new
@@ -116,7 +114,6 @@ namespace Snackbox.Api.Migrations
                             Category = 1,
                             Code = "DAILY_BUYER_5",
                             Description = "Made 5 or more purchases in a single day",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#87CEEB\" stroke=\"#4169E1\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#00008B\">✈️</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#00008B\">x5</text></svg>",
                             Name = "Frequent Flyer"
                         },
                         new
@@ -125,7 +122,6 @@ namespace Snackbox.Api.Migrations
                             Category = 1,
                             Code = "DAILY_BUYER_10",
                             Description = "Made 10 or more purchases in a single day",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFDAB9\" stroke=\"#D2691E\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">🏃</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">x10</text></svg>",
                             Name = "Snack Marathon"
                         },
                         new
@@ -134,7 +130,6 @@ namespace Snackbox.Api.Migrations
                             Category = 1,
                             Code = "DAILY_BUYER_3",
                             Description = "Made 3 purchases in a single day",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#98FB98\" stroke=\"#228B22\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">🎩</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">x3</text></svg>",
                             Name = "Hat Trick"
                         },
                         new
@@ -143,7 +138,6 @@ namespace Snackbox.Api.Migrations
                             Category = 2,
                             Code = "STREAK_DAILY_3",
                             Description = "Made a purchase 3 days in a row",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFA07A\" stroke=\"#FF4500\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">🔥</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">3d</text></svg>",
                             Name = "Three-peat"
                         },
                         new
@@ -152,7 +146,6 @@ namespace Snackbox.Api.Migrations
                             Category = 2,
                             Code = "STREAK_DAILY_7",
                             Description = "Made a purchase 7 days in a row",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFD700\" stroke=\"#FF8C00\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">⚔️</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">7d</text></svg>",
                             Name = "Week Warrior"
                         },
                         new
@@ -161,7 +154,6 @@ namespace Snackbox.Api.Migrations
                             Category = 2,
                             Code = "STREAK_WEEKLY_4",
                             Description = "Made at least one purchase per week for 4 weeks",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#90EE90\" stroke=\"#32CD32\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">📆</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">4w</text></svg>",
                             Name = "Monthly Muncher"
                         },
                         new
@@ -170,7 +162,6 @@ namespace Snackbox.Api.Migrations
                             Category = 2,
                             Code = "STREAK_DAILY_14",
                             Description = "Made a purchase 14 days in a row",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#DDA0DD\" stroke=\"#9932CC\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4B0082\">🎯</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4B0082\">14d</text></svg>",
                             Name = "Fortnight Fanatic"
                         },
                         new
@@ -179,7 +170,6 @@ namespace Snackbox.Api.Migrations
                             Category = 2,
                             Code = "STREAK_DAILY_30",
                             Description = "Made a purchase 30 days in a row",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF69B4\" stroke=\"#C71585\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">💉</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">30d</text></svg>",
                             Name = "Snack Addict"
                         },
                         new
@@ -188,7 +178,6 @@ namespace Snackbox.Api.Migrations
                             Category = 3,
                             Code = "COMEBACK_30",
                             Description = "First purchase after 1 month away",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#F0E68C\" stroke=\"#BDB76B\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B7355\">👋</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B7355\">30d</text></svg>",
                             Name = "Long Time No See"
                         },
                         new
@@ -197,7 +186,6 @@ namespace Snackbox.Api.Migrations
                             Category = 3,
                             Code = "COMEBACK_60",
                             Description = "First purchase after 2 months away",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#D8BFD8\" stroke=\"#9370DB\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4B0082\">↩️</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4B0082\">60d</text></svg>",
                             Name = "The Return"
                         },
                         new
@@ -206,7 +194,6 @@ namespace Snackbox.Api.Migrations
                             Category = 3,
                             Code = "COMEBACK_90",
                             Description = "First purchase after 3 months away",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFE4E1\" stroke=\"#FF1493\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">🧟</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">90d</text></svg>",
                             Name = "Lazarus Rising"
                         },
                         new
@@ -215,7 +202,6 @@ namespace Snackbox.Api.Migrations
                             Category = 4,
                             Code = "IN_DEBT_15",
                             Description = "Unpaid balance of €15 or more",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFE4B5\" stroke=\"#DEB887\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">📝</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">€15</text></svg>",
                             Name = "Tab Starter"
                         },
                         new
@@ -224,7 +210,6 @@ namespace Snackbox.Api.Migrations
                             Category = 4,
                             Code = "IN_DEBT_20",
                             Description = "Unpaid balance of €20 or more",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFDAB9\" stroke=\"#CD853F\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">💳</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">€20</text></svg>",
                             Name = "Credit Curious"
                         },
                         new
@@ -233,7 +218,6 @@ namespace Snackbox.Api.Migrations
                             Category = 4,
                             Code = "IN_DEBT_25",
                             Description = "Unpaid balance of €25 or more",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF69B4\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">💸</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">€25</text></svg>",
                             Name = "Living on Credit"
                         },
                         new
@@ -242,7 +226,6 @@ namespace Snackbox.Api.Migrations
                             Category = 4,
                             Code = "IN_DEBT_30",
                             Description = "Unpaid balance of €30 or more",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFA07A\" stroke=\"#FF6347\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">📞</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">€30</text></svg>",
                             Name = "Debt Collector's Friend"
                         },
                         new
@@ -251,7 +234,6 @@ namespace Snackbox.Api.Migrations
                             Category = 4,
                             Code = "IN_DEBT_35",
                             Description = "Unpaid balance of €35 or more",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF6B6B\" stroke=\"#DC143C\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"32\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">🚫💰</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">€35</text></svg>",
                             Name = "Financial Freedom? Never Heard of It"
                         },
                         new
@@ -260,7 +242,6 @@ namespace Snackbox.Api.Migrations
                             Category = 5,
                             Code = "TOTAL_SPENT_100",
                             Description = "Spent €100 or more in total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFD700\" stroke=\"#FFA500\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">💯</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">€100</text></svg>",
                             Name = "Century Club"
                         },
                         new
@@ -269,7 +250,6 @@ namespace Snackbox.Api.Migrations
                             Category = 5,
                             Code = "TOTAL_SPENT_150",
                             Description = "Spent €150 or more in total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#E6E6FA\" stroke=\"#9370DB\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4B0082\">🍷</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4B0082\">€150</text></svg>",
                             Name = "Snack Connoisseur"
                         },
                         new
@@ -278,7 +258,6 @@ namespace Snackbox.Api.Migrations
                             Category = 5,
                             Code = "TOTAL_SPENT_200",
                             Description = "Spent €200 or more in total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#87CEEB\" stroke=\"#4169E1\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#00008B\">🏆</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#00008B\">€200</text></svg>",
                             Name = "Snackbox Legend"
                         },
                         new
@@ -287,7 +266,6 @@ namespace Snackbox.Api.Migrations
                             Category = 5,
                             Code = "TOTAL_SPENT_50",
                             Description = "Spent €50 or more in total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#C0C0C0\" stroke=\"#A9A9A9\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#696969\">🥈</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#696969\">€50</text></svg>",
                             Name = "First Fifty"
                         },
                         new
@@ -296,7 +274,6 @@ namespace Snackbox.Api.Migrations
                             Category = 5,
                             Code = "TOTAL_SPENT_300",
                             Description = "Spent €300 or more in total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#DDA0DD\" stroke=\"#BA55D3\" stroke-width=\"3\"/><text x=\"60\" y=\"50\" font-size=\"36\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">👑</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">€300</text></svg>",
                             Name = "Snack Royalty"
                         },
                         new
@@ -305,7 +282,6 @@ namespace Snackbox.Api.Migrations
                             Category = 5,
                             Code = "TOTAL_SPENT_500",
                             Description = "Spent €500 or more in total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF69B4\" stroke=\"#FF1493\" stroke-width=\"3\"/><path d=\"M 60 20 L 70 45 L 95 45 L 75 60 L 85 85 L 60 70 L 35 85 L 45 60 L 25 45 L 50 45 Z\" fill=\"#FFD700\" stroke=\"#FFA500\" stroke-width=\"2\"/><text x=\"60\" y=\"65\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">€500</text></svg>",
                             Name = "Snack God"
                         },
                         new
@@ -314,7 +290,6 @@ namespace Snackbox.Api.Migrations
                             Category = 6,
                             Code = "EARLY_BIRD",
                             Description = "Made a purchase before 8 AM",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#87CEEB\" stroke=\"#4682B4\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#191970\">🐦</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#191970\">&lt;8AM</text></svg>",
                             Name = "Early Bird"
                         },
                         new
@@ -323,7 +298,6 @@ namespace Snackbox.Api.Migrations
                             Category = 6,
                             Code = "NIGHT_OWL",
                             Description = "Made a purchase after 8 PM",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#191970\" stroke=\"#000080\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">🦉</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">&gt;8PM</text></svg>",
                             Name = "Night Owl"
                         },
                         new
@@ -332,7 +306,6 @@ namespace Snackbox.Api.Migrations
                             Category = 6,
                             Code = "LUNCH_RUSH",
                             Description = "Made a purchase between 12-1 PM",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFE4B5\" stroke=\"#D2691E\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">🍱</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">12-1PM</text></svg>",
                             Name = "Lunch Rush Survivor"
                         },
                         new
@@ -341,7 +314,6 @@ namespace Snackbox.Api.Migrations
                             Category = 6,
                             Code = "WEEKEND_WARRIOR",
                             Description = "Made a purchase on a Saturday or Sunday",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#98FB98\" stroke=\"#228B22\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">🎉</text><text x=\"60\" y=\"85\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">Sat/Sun</text></svg>",
                             Name = "Weekend Warrior"
                         },
                         new
@@ -350,7 +322,6 @@ namespace Snackbox.Api.Migrations
                             Category = 6,
                             Code = "MONDAY_BLUES",
                             Description = "Made a purchase on a Monday",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#ADD8E6\" stroke=\"#4682B4\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000080\">😔</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000080\">Monday</text></svg>",
                             Name = "Monday Blues Cure"
                         },
                         new
@@ -359,7 +330,6 @@ namespace Snackbox.Api.Migrations
                             Category = 6,
                             Code = "FRIDAY_TREAT",
                             Description = "Made a purchase on a Friday",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFD700\" stroke=\"#FFA500\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">🎊</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">Friday</text></svg>",
                             Name = "Friday Treat Yourself"
                         },
                         new
@@ -368,7 +338,6 @@ namespace Snackbox.Api.Migrations
                             Category = 7,
                             Code = "FIRST_PURCHASE",
                             Description = "Made your first purchase",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFE4E1\" stroke=\"#FF69B4\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">🎈</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">1st</text></svg>",
                             Name = "Welcome to the Club!"
                         },
                         new
@@ -377,7 +346,6 @@ namespace Snackbox.Api.Migrations
                             Category = 7,
                             Code = "PURCHASE_10",
                             Description = "Made 10 purchases total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#F0E68C\" stroke=\"#DAA520\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">🎫</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B4513\">10</text></svg>",
                             Name = "Regular Customer"
                         },
                         new
@@ -386,7 +354,6 @@ namespace Snackbox.Api.Migrations
                             Category = 7,
                             Code = "PURCHASE_50",
                             Description = "Made 50 purchases total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#C0C0C0\" stroke=\"#A9A9A9\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#696969\">🎖️</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#696969\">50</text></svg>",
                             Name = "Snack Veteran"
                         },
                         new
@@ -395,7 +362,6 @@ namespace Snackbox.Api.Migrations
                             Category = 7,
                             Code = "PURCHASE_100",
                             Description = "Made 100 purchases total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFD700\" stroke=\"#FFA500\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">🎖️</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">100</text></svg>",
                             Name = "Snack Centurion"
                         },
                         new
@@ -404,7 +370,6 @@ namespace Snackbox.Api.Migrations
                             Category = 7,
                             Code = "PURCHASE_250",
                             Description = "Made 250 purchases total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#DDA0DD\" stroke=\"#BA55D3\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">🥋</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">250</text></svg>",
                             Name = "Snack Master"
                         },
                         new
@@ -413,7 +378,6 @@ namespace Snackbox.Api.Migrations
                             Category = 7,
                             Code = "PURCHASE_500",
                             Description = "Made 500 purchases total",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF4500\" stroke=\"#8B0000\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">👑</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">500</text></svg>",
                             Name = "Snack Overlord"
                         },
                         new
@@ -422,7 +386,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "SPEED_DEMON",
                             Description = "Made 2 purchases within 1 minute",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF6347\" stroke=\"#DC143C\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">⚡</text><text x=\"60\" y=\"85\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">&lt;1min</text></svg>",
                             Name = "Speed Demon"
                         },
                         new
@@ -431,7 +394,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "DOUBLE_TROUBLE",
                             Description = "Made exactly 2 purchases in a session",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF69B4\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">2️⃣</text></svg>",
                             Name = "Double Trouble"
                         },
                         new
@@ -440,7 +402,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "TRIPLE_THREAT",
                             Description = "Made exactly 3 purchases in a session",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#DDA0DD\" stroke=\"#BA55D3\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">3️⃣</text></svg>",
                             Name = "Triple Threat"
                         },
                         new
@@ -449,7 +410,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "LUCKY_SEVEN",
                             Description = "Made exactly 7 purchases in a session",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#32CD32\" stroke=\"#228B22\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">7️⃣</text></svg>",
                             Name = "Lucky Seven"
                         },
                         new
@@ -458,7 +418,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "ROUND_NUMBER",
                             Description = "Made a purchase totaling exactly €5 or €10",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#E0FFFF\" stroke=\"#00CED1\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#008B8B\">✔️</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#008B8B\">€5/€10</text></svg>",
                             Name = "OCD Approved"
                         },
                         new
@@ -467,7 +426,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "SAME_AGAIN",
                             Description = "Made 3 identical purchases in a row",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FAFAD2\" stroke=\"#BDB76B\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B7355\">🔁</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B7355\">x3</text></svg>",
                             Name = "Same Again, Please"
                         },
                         new
@@ -476,7 +434,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "PAID_UP",
                             Description = "Paid off your entire balance",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#90EE90\" stroke=\"#32CD32\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">✅</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">€0</text></svg>",
                             Name = "Debt Free!"
                         },
                         new
@@ -485,7 +442,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "GENEROUS_SOUL",
                             Description = "Have a positive balance (credit) of €10 or more",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFD700\" stroke=\"#FFA500\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">💝</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">+€10</text></svg>",
                             Name = "Generous Soul"
                         },
                         new
@@ -494,7 +450,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "SNACK_BIRTHDAY",
                             Description = "Made a purchase exactly 1 year after your first",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF1493\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">🎂</text><text x=\"60\" y=\"85\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">1 year</text></svg>",
                             Name = "Happy Snack-iversary!"
                         },
                         new
@@ -503,7 +458,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "THIRTEENTH",
                             Description = "Made a purchase totaling exactly €13",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#2F4F4F\" stroke=\"#000000\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">🖤</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">€13</text></svg>",
                             Name = "Unlucky 13"
                         },
                         new
@@ -512,7 +466,6 @@ namespace Snackbox.Api.Migrations
                             Category = 8,
                             Code = "NICE",
                             Description = "Made a purchase totaling exactly €6.90",
-                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF69B4\" stroke=\"#FF1493\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">😏</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">€6.90</text></svg>",
                             Name = "Nice."
                         });
                 });

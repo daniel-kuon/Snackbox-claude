@@ -13,9 +13,7 @@ public class ScannerService : IScannerService
 
     public event Action<PurchaseSession>? OnPurchaseStarted;
     public event Action<PurchaseSession>? OnPurchaseUpdated;
-    #pragma warning disable CS0067
     public event Action? OnPurchaseCompleted;
-    #pragma warning restore CS0067
     public event Action? OnPurchaseTimeout;
 
     public PurchaseSession? CurrentSession { get; private set; }
@@ -28,13 +26,14 @@ public class ScannerService : IScannerService
         TimeoutSeconds = configuration.GetValue("Scanner:TimeoutSeconds", 60);
     }
 
-    public async Task<ScanResult> ScanBarcodeAsync(string barcodeCode)
+    public async Task<ScanResult> ProcessBarcodeAsync(string barcodeCode)
     {
         if (string.IsNullOrWhiteSpace(barcodeCode))
             return new ScanResult { IsSuccess = false, ErrorMessage = "Empty barcode" };
 
         try
         {
+            // Call the API - it handles everything (auth, purchase creation/update)
             var response = await _httpClient.PostAsJsonAsync("api/scanner/scan", new
             {
                 BarcodeCode = barcodeCode
@@ -51,47 +50,15 @@ public class ScannerService : IScannerService
             if (!result.Success)
                 return new ScanResult { IsSuccess = false, ErrorMessage = result.ErrorMessage };
 
-            return new ScanResult
-            {
-                IsSuccess = true,
-                IsAdmin = result.IsAdmin,
-                IsLoginOnly = result.IsLoginOnly
-            };
-        }
-        catch (Exception ex)
-        {
-            return new ScanResult { IsSuccess = false, ErrorMessage = ex.Message };
-        }
-    }
-
-    public async Task ProcessBarcodeAsync(string barcodeCode)
-    {
-        if (string.IsNullOrWhiteSpace(barcodeCode))
-            return;
-
-            // Call the API - it handles everything (auth, purchase creation/update)
-            var response = await _httpClient.PostAsJsonAsync("api/scanner/scan", new
-            {
-                BarcodeCode = barcodeCode
-            });
-
-            if (!response.IsSuccessStatusCode)
-                throw new Exception("API request failed");
-
-            var result = await response.Content.ReadFromJsonAsync<ScanBarcodeResponse>();
-
-            if (result == null)
-                throw new Exception("Invalid response from server");
-
-            if (!result.Success)
-                throw new Exception(result.ErrorMessage ?? "Barcode not recognized");
-
-            // Check if this is a login-only barcode
+            // Handle login-only barcodes - don't update session
             if (result.IsLoginOnly)
             {
-                // Login-only barcodes should be handled by the caller (redirect to login)
-                // This shouldn't be called for login barcodes, but handle it gracefully
-                throw new Exception("This barcode is for login only");
+                return new ScanResult
+                {
+                    IsSuccess = true,
+                    IsAdmin = result.IsAdmin,
+                    IsLoginOnly = true
+                };
             }
 
             var wasActive = IsSessionActive;
@@ -144,14 +111,35 @@ public class ScannerService : IScannerService
                 ResetTimeoutTimer();
                 OnPurchaseUpdated?.Invoke(CurrentSession);
             }
+
+            return new ScanResult
+            {
+                IsSuccess = true,
+                IsAdmin = result.IsAdmin,
+                IsLoginOnly = false
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ScanResult { IsSuccess = false, ErrorMessage = ex.Message };
+        }
     }
 
-    private void ResetSession()
+    public void ResetSession()
     {
         // Reset the local session state (called when timeout expires)
         StopTimeoutTimer();
         CurrentSession = null;
         OnPurchaseTimeout?.Invoke();
+    }
+
+    public Task CompletePurchaseAsync()
+    {
+        // Complete the current purchase session
+        StopTimeoutTimer();
+        CurrentSession = null;
+        OnPurchaseCompleted?.Invoke();
+        return Task.CompletedTask;
     }
 
     private void StartTimeoutTimer()
