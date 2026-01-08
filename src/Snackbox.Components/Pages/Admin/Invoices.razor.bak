@@ -62,7 +62,7 @@
     @if (_parsedInvoice != null)
     {
         <div class="modal-backdrop"></div>
-        <div class="modal-dialog modal-xl modal-fullheight">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5>Review Parsed Invoice</h5>
@@ -70,60 +70,37 @@
                 </div>
                 <div class="modal-body">
                     <div class="row">
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <div class="form-group">
                                 <label>Invoice Number *</label>
                                 <input type="text" class="form-control" @bind="_parsedInvoice!.Metadata!.InvoiceNumber" />
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <div class="form-group">
                                 <label>Invoice Date *</label>
                                 <input type="date" class="form-control" value="@_parsedInvoiceDate" 
                                        @oninput="@(e => _parsedInvoiceDate = e.Value?.ToString() ?? DateTime.Now.ToString("yyyy-MM-dd"))" />
                             </div>
                         </div>
-                        <div class="col-md-3">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
                             <div class="form-group">
                                 <label>Supplier *</label>
                                 <input type="text" class="form-control" @bind="_parsedInvoice!.Metadata!.Supplier" />
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label>Paid By *</label>
-                                <select class="form-control" @bind="_paidByUserId">
-                                    <option value="0">Select user...</option>
-                                    @if (_users != null)
-                                    {
-                                        @foreach (var user in _users)
-                                        {
-                                            <option value="@user.Id">@user.Username</option>
-                                        }
-                                    }
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="form-group">
                                 <label>Additional Costs (Shipping, etc.)</label>
                                 <input type="number" step="0.01" class="form-control" @bind="_additionalCosts" />
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label>Price Reduction</label>
-                                <input type="number" step="0.01" class="form-control" @bind="_priceReduction" />
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label>Notes</label>
-                                <input type="text" class="form-control" @bind="_invoiceNotes" placeholder="Optional notes..." />
-                            </div>
-                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea class="form-control" rows="2" @bind="_invoiceNotes"></textarea>
                     </div>
 
                     <h6 class="mt-4">Items (@_parsedInvoice.Items.Count(i => i.Selected) selected)</h6>
@@ -131,87 +108,48 @@
                         <table class="table table-sm">
                             <thead>
                                 <tr>
-                                    <th style="width: 40px;">
+                                    <th style="width: 50px;">
                                         <input type="checkbox" checked="@_selectAll" 
                                                @onchange="ToggleSelectAll" />
                                     </th>
                                     <th>Product Name</th>
-                                    <th style="width: 80px;">Qty</th>
-                                    <th style="width: 100px;">Unit Price</th>
-                                    <th style="width: 100px;">Total</th>
-                                    <th style="width: 250px;">Product Match *</th>
-                                    <th style="width: 100px;">Actions</th>
+                                    <th>Article #</th>
+                                    <th>Qty</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                    <th>Best Before</th>
+                                    <th>Match</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @for (int i = 0; i < _parsedInvoice.Items.Count; i++)
+                                @foreach (var item in _parsedInvoice.Items)
                                 {
-                                    var item = _parsedInvoice.Items[i];
-                                    var itemIndex = i;
-                                    var hasMatch = _selectedProductIds.ContainsKey(itemIndex) && _selectedProductIds[itemIndex].HasValue;
-                                    var matchedName = GetSelectedProductName(itemIndex);
-                                    
                                     <tr class="@(item.Selected ? "" : "text-muted")">
                                         <td>
                                             <input type="checkbox" @bind="item.Selected" />
                                         </td>
-                                        <td>
-                                            <div>@item.ProductName</div>
-                                            @if (!string.IsNullOrEmpty(item.ArticleNumber))
-                                            {
-                                                <small class="text-muted">@item.ArticleNumber</small>
-                                            }
-                                        </td>
+                                        <td>@item.ProductName</td>
+                                        <td><small>@item.ArticleNumber</small></td>
                                         <td>@item.Quantity</td>
                                         <td>€@item.UnitPrice.ToString("F2")</td>
                                         <td>€@item.TotalPrice.ToString("F2")</td>
                                         <td>
-                                            @if (hasMatch)
+                                            @if (item.BestBeforeDate.HasValue)
                                             {
-                                                <div class="match-display">
-                                                    <span class="badge bg-success">✓</span>
-                                                    <span>@matchedName</span>
-                                                </div>
-                                            }
-                                            else if (item.MatchedProductId.HasValue)
-                                            {
-                                                <select class="form-control form-control-sm" 
-                                                        @onchange="@(e => SelectProduct(itemIndex, int.Parse(e.Value?.ToString() ?? "0")))">
-                                                    <option value="@item.MatchedProductId">@item.MatchedProductName (@item.MatchType)</option>
-                                                </select>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-danger">No match</span>
-                                            }
-                                            
-                                            @if (_showingSearch.ContainsKey(itemIndex) && _showingSearch[itemIndex])
-                                            {
-                                                <div class="search-box">
-                                                    <input type="text" class="form-control form-control-sm" 
-                                                           placeholder="Search products..."
-                                                           @bind="_searchTerms[itemIndex]"
-                                                           @oninput="@(e => SearchProducts(itemIndex, e.Value?.ToString() ?? ""))" />
-                                                    @if (_itemSuggestions.ContainsKey(itemIndex) && _itemSuggestions[itemIndex].Any())
-                                                    {
-                                                        <div class="suggestions-list">
-                                                            @foreach (var product in _itemSuggestions[itemIndex])
-                                                            {
-                                                                <div class="suggestion-item" @onclick="() => SelectProduct(itemIndex, product.Id)">
-                                                                    @product.Name
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    }
-                                                </div>
+                                                @item.BestBeforeDate.Value.ToString("dd.MM.yyyy")
                                             }
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => ToggleSearch(itemIndex)" 
-                                                    title="Search for product">
-                                                🔍
-                                            </button>
+                                            @if (item.MatchedProductId.HasValue)
+                                            {
+                                                <span class="badge bg-success" title="@item.MatchType">
+                                                    ✓ @item.MatchedProductName (@((item.MatchConfidence!.Value * 100).ToString("F0"))%)
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">No match</span>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -224,29 +162,18 @@
                     }
                 </div>
                 <div class="modal-footer">
-                    <div class="footer-left">
-                        <strong>Total: €@CalculateGrandTotal().ToString("F2")</strong>
-                        <small class="text-muted ms-2">
-                            (Items: €@_parsedInvoice.Items.Where(i => i.Selected).Sum(i => i.TotalPrice).ToString("F2")
-                            + Additional: €@_additionalCosts.ToString("F2")
-                            - Reduction: €@_priceReduction.ToString("F2"))
-                        </small>
-                    </div>
-                    <div class="footer-right">
-                        <button class="btn btn-secondary" @onclick="CloseParsedModal">Cancel</button>
-                        <button class="btn btn-success" @onclick="CreateFromParsed" disabled="@_isCreating">
-                            @if (_isCreating)
-                            {
-                                <span class="spinner-border spinner-border-sm"></span>
-                            }
-                            Create Invoice
-                        </button>
-                    </div>
+                    <button class="btn btn-secondary" @onclick="CloseParsedModal">Cancel</button>
+                    <button class="btn btn-success" @onclick="CreateFromParsed" disabled="@_isCreating">
+                        @if (_isCreating)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        Create Invoice
+                    </button>
                 </div>
             </div>
         </div>
     }
-
 
     @if (_isLoading)
     {
@@ -413,75 +340,6 @@
 
     .btn-close:hover {
         opacity: 1;
-    }
-    
-    /* Full height modal */
-    .modal-fullheight .modal-content {
-        height: 95vh;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .modal-fullheight .modal-body {
-        flex: 1;
-        overflow-y: auto;
-    }
-    
-    /* Product matching UI */
-    .match-display {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .search-box {
-        position: relative;
-        margin-top: 0.5rem;
-    }
-    
-    .suggestions-list {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
-        max-height: 200px;
-        overflow-y: auto;
-        z-index: 1000;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .suggestion-item {
-        padding: 0.5rem;
-        cursor: pointer;
-        border-bottom: 1px solid #f1f1f1;
-    }
-    
-    .suggestion-item:hover {
-        background-color: #f8f9fa;
-    }
-    
-    .suggestion-item:last-child {
-        border-bottom: none;
-    }
-    
-    /* Footer layout */
-    .modal-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .footer-left {
-        flex: 1;
-        text-align: left;
-    }
-    
-    .footer-right {
-        display: flex;
-        gap: 0.5rem;
     }
 </style>
 
