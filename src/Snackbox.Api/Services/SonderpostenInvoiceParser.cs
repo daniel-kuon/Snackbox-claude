@@ -69,9 +69,10 @@ public class SonderpostenInvoiceParser : IInvoiceParserService
 
         // Pattern to match lines like:
         // 1 SW25617 M&Ms USA Peanut Butter Chocolate Candies 963,9g MHD:30.7.25 2 7 % 21,00 € 42,00 €
-        // Pos. Art-Nr. Bezeichnung Anz. MwSt.Brutto PreisBrutto Gesamt
+        // Also match lines without article number for shipping:
+        // 24 Versand + Verpackungskosten 1 7 % 6,99 € 6,99 €
         
-        var itemPattern = @"^\s*(\d+)\s+(SW\d+)\s+(.+?)\s+(\d+)\s+\d+\s*%\s+([\d,]+)\s*€\s+([\d,]+)\s*€";
+        var itemPattern = @"^\s*(\d+)\s+(SW\d+)?\s*(.+?)\s+(\d+)\s+\d+\s*%\s+([\d,]+)\s*€\s+([\d,]+)\s*€";
         var lines = invoiceText.Split('\n');
 
         foreach (var line in lines)
@@ -80,15 +81,24 @@ public class SonderpostenInvoiceParser : IInvoiceParserService
             if (match.Success)
             {
                 var productName = match.Groups[3].Value.Trim();
+                var articleNumber = match.Groups[2].Success ? match.Groups[2].Value : null;
+                
+                // Skip shipping/packaging costs (they don't have article numbers)
+                if (string.IsNullOrEmpty(articleNumber) || 
+                    productName.Contains("Versand") || 
+                    productName.Contains("Verpackungskosten"))
+                {
+                    continue;
+                }
+                
                 var quantity = int.Parse(match.Groups[4].Value);
                 var unitPriceStr = match.Groups[5].Value.Replace(",", ".");
                 var totalPriceStr = match.Groups[6].Value.Replace(",", ".");
-                var articleNumber = match.Groups[2].Value;
 
                 if (decimal.TryParse(unitPriceStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var unitPrice) &&
                     decimal.TryParse(totalPriceStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var totalPrice))
                 {
-                    // Extract best before date (MHD:30.7.25)
+                    // Extract best before date (MHD:30.7.25) and remove it from product name
                     DateTime? bestBefore = null;
                     var mhdMatch = Regex.Match(productName, @"MHD:(\d{1,2})\.(\d{1,2})\.(\d{2,4})");
                     if (mhdMatch.Success)
@@ -111,12 +121,9 @@ public class SonderpostenInvoiceParser : IInvoiceParserService
                         {
                             // Invalid date, ignore
                         }
-                    }
-
-                    // Skip shipping/packaging costs
-                    if (productName.Contains("Versand") || productName.Contains("Verpackungskosten"))
-                    {
-                        continue;
+                        
+                        // Remove MHD date from product name
+                        productName = Regex.Replace(productName, @"\s*MHD:\d{1,2}\.\d{1,2}\.\d{2,4}\s*", " ").Trim();
                     }
 
                     items.Add(new ParsedInvoiceItem

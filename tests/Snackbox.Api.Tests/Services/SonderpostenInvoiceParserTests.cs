@@ -45,6 +45,8 @@ Gesamtkosten: 114,40 €
         Assert.Equal(3, result.Items.Count); // Should skip shipping costs
 
         var firstItem = result.Items[0];
+        // Product name should NOT contain MHD date
+        Assert.DoesNotContain("MHD:", firstItem.ProductName);
         Assert.Contains("M&Ms USA Peanut Butter", firstItem.ProductName);
         Assert.Equal(2, firstItem.Quantity);
         Assert.Equal(21.00m, firstItem.UnitPrice);
@@ -54,6 +56,7 @@ Gesamtkosten: 114,40 €
         Assert.Equal(new DateTime(2025, 7, 30), firstItem.BestBeforeDate);
 
         var secondItem = result.Items[1];
+        Assert.DoesNotContain("MHD:", secondItem.ProductName);
         Assert.Equal(4, secondItem.Quantity);
         Assert.Equal(1.11m, secondItem.UnitPrice);
         Assert.Equal("SW21346", secondItem.ArticleNumber);
@@ -108,5 +111,29 @@ Pos. Art-Nr. Bezeichnung Anz. MwSt.Brutto PreisBrutto Gesamt
         Assert.True(result.Success);
         Assert.Single(result.Items);
         Assert.DoesNotContain(result.Items, i => i.ProductName.Contains("Versand"));
+        Assert.DoesNotContain(result.Items, i => i.ProductName.Contains("Verpackungskosten"));
+    }
+
+    [Fact]
+    public void Parse_RemovesMhdFromProductName()
+    {
+        // Arrange
+        var invoiceText = @"
+Pos. Art-Nr. Bezeichnung Anz. MwSt.Brutto PreisBrutto Gesamt
+1 SW12345 Test Product with MHD:30.7.25 date 1 7 % 5,00 € 5,00 €
+";
+
+        // Act
+        var result = _parser.Parse(invoiceText);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Single(result.Items);
+        var item = result.Items[0];
+        Assert.DoesNotContain("MHD:", item.ProductName);
+        Assert.Contains("Test Product with", item.ProductName);
+        Assert.Contains("date", item.ProductName);
+        Assert.NotNull(item.BestBeforeDate);
+        Assert.Equal(new DateTime(2025, 7, 30), item.BestBeforeDate);
     }
 }
