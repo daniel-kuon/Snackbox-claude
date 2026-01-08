@@ -5,6 +5,7 @@
 @using Refit
 @inject IProductsApi ProductsApi
 @inject IShelvingActionsApi ShelvingActionsApi
+@inject HttpClient Http
 @inject NavigationManager Navigation
 
 <PageTitle>Product Management - Snackbox Admin</PageTitle>
@@ -908,7 +909,7 @@
 
         try
         {
-            var actions = new List<CreateShelvingActionDto>();
+            var actions = new List<object>();
 
             foreach (var item in _batchScannedItems)
             {
@@ -929,32 +930,43 @@
                     return;
                 }
 
-                actions.Add(new CreateShelvingActionDto
+                actions.Add(new
                 {
-                    ProductBarcode = item.Barcode,
-                    Quantity = item.Quantity,
-                    BestBeforeDate = parsedDate,
-                    Type = Enum.Parse<ShelvingActionType>(item.ActionType)
+                    productBarcode = item.Barcode,
+                    bestBeforeDate = parsedDate,
+                    quantity = item.Quantity,
+                    type = item.ActionType
                 });
             }
 
-            var request = new BatchShelvingRequest { Actions = actions };
-            var result = await ShelvingActionsApi.CreateBatchAsync(request);
+            var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", new { actions });
 
-            if (result.Success)
+            if (response.IsSuccessStatusCode)
             {
-                _batchSuccess = $"Successfully processed {_batchScannedItems.Count} items.";
-                _batchScannedItems.Clear();
-                await LoadProducts(); // Refresh product list
+                var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
+
+                if (result?.Errors.Any() == true)
+                {
+                    _batchError = string.Join(", ", result.Errors);
+                    if (result.Results.Any())
+                    {
+                        _batchSuccess = $"Successfully processed {result.Results.Count} items.";
+                    }
+                }
+                else
+                {
+                    _batchSuccess = $"Successfully processed {_batchScannedItems.Count} items.";
+                    _batchScannedItems.Clear();
+                    await LoadProducts(); // Refresh product list
+                }
             }
             else
             {
-                _batchError = string.Join(", ", result.Errors);
+                var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
+                _batchError = result?.Errors.Any() == true
+                    ? string.Join(", ", result.Errors)
+                    : "Failed to process batch items.";
             }
-        }
-        catch (ApiException ex)
-        {
-            _batchError = ex.Content ?? "Failed to process batch items.";
         }
         catch (Exception ex)
         {
