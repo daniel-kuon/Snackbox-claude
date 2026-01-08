@@ -55,7 +55,7 @@
             <div class="batch-controls">
                 <div class="control-group">
                     <label>Action Type</label>
-                    <select class="form-control" @bind="_batchActionType" @bind:after="OnActionTypeChanged">
+                    <select class="form-control" @bind="_batchActionType">
                         <option value="AddedToStorage">Add to Storage</option>
                         <option value="AddedToShelf">Add Directly to Shelf</option>
                         <option value="MovedToShelf">Move from Storage to Shelf</option>
@@ -555,12 +555,12 @@
     }
 
     .control-group {
-        flex: 0 0 auto;
+        flex: 0 0 auto;  /* Fixed width control groups */
         min-width: 200px;
     }
 
     .control-group.flex-grow {
-        flex: 1 1 auto;
+        flex: 1 1 auto;  /* Allow barcode input to grow and fill remaining space */
     }
 
     .control-group label {
@@ -812,12 +812,6 @@
     {
         _batchMode = false;
         ClearBatchItems();
-    }
-
-    private void OnActionTypeChanged()
-    {
-        // This method is called when the action type is changed
-        // We don't need to do anything here, but it's useful for future enhancements
     }
 
     private async Task HandleBatchBarcodeInput(KeyboardEventArgs e)
