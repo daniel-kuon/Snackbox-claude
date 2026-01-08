@@ -103,10 +103,21 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TotalAmount).HasPrecision(10, 2);
             entity.Property(e => e.AdditionalCosts).HasPrecision(10, 2);
             entity.Property(e => e.PriceReduction).HasPrecision(10, 2);
+            
+            // Map CreatedByUserId to created_by_id column (which has the FK constraint)
+            entity.Property(e => e.CreatedByUserId)
+                .HasColumnName("created_by_id");
+            
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
             entity.HasOne(e => e.PaidBy)
                 .WithMany()
                 .HasForeignKey(e => e.PaidByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+            
             entity.HasOne(e => e.Payment)
                 .WithOne(p => p.Invoice)
                 .HasForeignKey<Invoice>(e => e.PaymentId)
