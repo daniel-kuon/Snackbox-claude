@@ -71,6 +71,18 @@ public class SelgrosInvoiceParser : IInvoiceParserService
             }
         }
 
+        // Extract price reduction (Gesamtersparnis)
+        // Example: "Ihre Gesamtersparnis (bereits verrechnet) -25,95 EUR"
+        var reductionMatch = Regex.Match(invoiceText, @"Gesamtersparnis.*?-([\d,]+)\s*EUR", RegexOptions.IgnoreCase);
+        if (reductionMatch.Success)
+        {
+            var reductionStr = reductionMatch.Groups[1].Value.Replace(",", ".");
+            if (decimal.TryParse(reductionStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var reduction))
+            {
+                metadata.PriceReduction = reduction;
+            }
+        }
+
         return metadata;
     }
 

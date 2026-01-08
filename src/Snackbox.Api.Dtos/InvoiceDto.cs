@@ -8,6 +8,10 @@ public class InvoiceDto
     public required string Supplier { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal AdditionalCosts { get; set; }
+    public decimal PriceReduction { get; set; }
+    public int PaidByUserId { get; set; }
+    public string? PaidByUsername { get; set; }
+    public int? PaymentId { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
     public int CreatedByUserId { get; set; }
@@ -34,6 +38,8 @@ public class CreateInvoiceDto
     public DateTime InvoiceDate { get; set; }
     public required string Supplier { get; set; }
     public decimal AdditionalCosts { get; set; }
+    public decimal PriceReduction { get; set; }
+    public int PaidByUserId { get; set; }
     public string? Notes { get; set; }
     public List<CreateInvoiceItemDto> Items { get; set; } = new();
 }
@@ -54,6 +60,8 @@ public class UpdateInvoiceDto
     public DateTime InvoiceDate { get; set; }
     public required string Supplier { get; set; }
     public decimal AdditionalCosts { get; set; }
+    public decimal PriceReduction { get; set; }
+    public int PaidByUserId { get; set; }
     public string? Notes { get; set; }
 }
 
@@ -93,6 +101,7 @@ public class InvoiceMetadata
     public string? Supplier { get; set; }
     public decimal? TotalAmount { get; set; }
     public decimal? AdditionalCosts { get; set; }
+    public decimal? PriceReduction { get; set; }
 }
 
 public class CreateInvoiceFromParsedDto
@@ -101,6 +110,8 @@ public class CreateInvoiceFromParsedDto
     public DateTime InvoiceDate { get; set; }
     public required string Supplier { get; set; }
     public decimal AdditionalCosts { get; set; }
+    public decimal PriceReduction { get; set; }
+    public int PaidByUserId { get; set; }
     public string? Notes { get; set; }
     public List<ParsedInvoiceItem> SelectedItems { get; set; } = new();
 }

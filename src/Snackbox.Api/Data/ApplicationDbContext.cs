@@ -102,6 +102,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Supplier).HasMaxLength(200);
             entity.Property(e => e.TotalAmount).HasPrecision(10, 2);
             entity.Property(e => e.AdditionalCosts).HasPrecision(10, 2);
+            entity.Property(e => e.PriceReduction).HasPrecision(10, 2);
+            entity.HasOne(e => e.PaidBy)
+                .WithMany()
+                .HasForeignKey(e => e.PaidByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Payment)
+                .WithOne(p => p.Invoice)
+                .HasForeignKey<Invoice>(e => e.PaymentId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<InvoiceItem>(entity =>

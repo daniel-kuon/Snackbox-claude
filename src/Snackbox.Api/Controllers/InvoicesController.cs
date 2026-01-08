@@ -36,6 +36,7 @@ public class InvoicesController : ControllerBase
     {
         var invoices = await _context.Invoices
             .Include(i => i.CreatedBy)
+            .Include(i => i.PaidBy)
             .Include(i => i.Items)
             .OrderByDescending(i => i.InvoiceDate)
             .Select(i => new InvoiceDto
@@ -46,6 +47,10 @@ public class InvoicesController : ControllerBase
                 Supplier = i.Supplier,
                 TotalAmount = i.TotalAmount,
                 AdditionalCosts = i.AdditionalCosts,
+                PriceReduction = i.PriceReduction,
+                PaidByUserId = i.PaidByUserId,
+                PaidByUsername = i.PaidBy.Username,
+                PaymentId = i.PaymentId,
                 Notes = i.Notes,
                 CreatedAt = i.CreatedAt,
                 CreatedByUserId = i.CreatedByUserId,
@@ -73,6 +78,7 @@ public class InvoicesController : ControllerBase
     {
         var invoice = await _context.Invoices
             .Include(i => i.CreatedBy)
+            .Include(i => i.PaidBy)
             .Include(i => i.Items)
             .FirstOrDefaultAsync(i => i.Id == id);
 
@@ -89,6 +95,10 @@ public class InvoicesController : ControllerBase
             Supplier = invoice.Supplier,
             TotalAmount = invoice.TotalAmount,
             AdditionalCosts = invoice.AdditionalCosts,
+            PriceReduction = invoice.PriceReduction,
+            PaidByUserId = invoice.PaidByUserId,
+            PaidByUsername = invoice.PaidBy.Username,
+            PaymentId = invoice.PaymentId,
             Notes = invoice.Notes,
             CreatedAt = invoice.CreatedAt,
             CreatedByUserId = invoice.CreatedByUserId,
@@ -125,6 +135,8 @@ public class InvoicesController : ControllerBase
             InvoiceDate = dto.InvoiceDate,
             Supplier = dto.Supplier,
             AdditionalCosts = dto.AdditionalCosts,
+            PriceReduction = dto.PriceReduction,
+            PaidByUserId = dto.PaidByUserId,
             Notes = dto.Notes,
             CreatedAt = DateTime.UtcNow,
             CreatedByUserId = userId
@@ -146,17 +158,35 @@ public class InvoicesController : ControllerBase
             invoice.Items.Add(item);
         }
 
-        // Calculate total amount
-        invoice.TotalAmount = invoice.Items.Sum(i => i.TotalPrice) + invoice.AdditionalCosts;
+        // Calculate total amount (items + additional costs - price reduction)
+        invoice.TotalAmount = invoice.Items.Sum(i => i.TotalPrice) + invoice.AdditionalCosts - invoice.PriceReduction;
 
         _context.Invoices.Add(invoice);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Invoice created: {InvoiceNumber} with {ItemCount} items", 
-            invoice.InvoiceNumber, invoice.Items.Count);
+        // Create payment for the invoice
+        var payment = new Payment
+        {
+            UserId = invoice.PaidByUserId,
+            Amount = invoice.TotalAmount,
+            PaidAt = invoice.InvoiceDate,
+            Notes = $"Payment for invoice {invoice.InvoiceNumber}",
+            Type = PaymentType.CashRegister,
+            InvoiceId = invoice.Id
+        };
+        _context.Payments.Add(payment);
+        await _context.SaveChangesAsync();
 
-        // Load the created by user for the response
+        // Update invoice with payment reference
+        invoice.PaymentId = payment.Id;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Invoice created: {InvoiceNumber} with {ItemCount} items and payment {PaymentId}", 
+            invoice.InvoiceNumber, invoice.Items.Count, payment.Id);
+
+        // Load the created by and paid by users for the response
         await _context.Entry(invoice).Reference(i => i.CreatedBy).LoadAsync();
+        await _context.Entry(invoice).Reference(i => i.PaidBy).LoadAsync();
 
         var result = new InvoiceDto
         {
@@ -166,6 +196,10 @@ public class InvoicesController : ControllerBase
             Supplier = invoice.Supplier,
             TotalAmount = invoice.TotalAmount,
             AdditionalCosts = invoice.AdditionalCosts,
+            PriceReduction = invoice.PriceReduction,
+            PaidByUserId = invoice.PaidByUserId,
+            PaidByUsername = invoice.PaidBy.Username,
+            PaymentId = invoice.PaymentId,
             Notes = invoice.Notes,
             CreatedAt = invoice.CreatedAt,
             CreatedByUserId = invoice.CreatedByUserId,
@@ -321,6 +355,8 @@ public class InvoicesController : ControllerBase
             InvoiceDate = dto.InvoiceDate,
             Supplier = dto.Supplier,
             AdditionalCosts = dto.AdditionalCosts,
+            PriceReduction = dto.PriceReduction,
+            PaidByUserId = dto.PaidByUserId,
             Notes = dto.Notes,
             CreatedAt = DateTime.UtcNow,
             CreatedByUserId = userId
@@ -341,17 +377,35 @@ public class InvoicesController : ControllerBase
             invoice.Items.Add(item);
         }
 
-        // Calculate total amount
-        invoice.TotalAmount = invoice.Items.Sum(i => i.TotalPrice) + invoice.AdditionalCosts;
+        // Calculate total amount (items + additional costs - price reduction)
+        invoice.TotalAmount = invoice.Items.Sum(i => i.TotalPrice) + invoice.AdditionalCosts - invoice.PriceReduction;
 
         _context.Invoices.Add(invoice);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Invoice created from parsed data: {InvoiceNumber} with {ItemCount} items", 
-            invoice.InvoiceNumber, invoice.Items.Count);
+        // Create payment for the invoice
+        var payment = new Payment
+        {
+            UserId = invoice.PaidByUserId,
+            Amount = invoice.TotalAmount,
+            PaidAt = invoice.InvoiceDate,
+            Notes = $"Payment for invoice {invoice.InvoiceNumber}",
+            Type = PaymentType.CashRegister,
+            InvoiceId = invoice.Id
+        };
+        _context.Payments.Add(payment);
+        await _context.SaveChangesAsync();
 
-        // Load the created by user for the response
+        // Update invoice with payment reference
+        invoice.PaymentId = payment.Id;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Invoice created from parsed data: {InvoiceNumber} with {ItemCount} items and payment {PaymentId}", 
+            invoice.InvoiceNumber, invoice.Items.Count, payment.Id);
+
+        // Load the created by and paid by users for the response
         await _context.Entry(invoice).Reference(i => i.CreatedBy).LoadAsync();
+        await _context.Entry(invoice).Reference(i => i.PaidBy).LoadAsync();
 
         var result = new InvoiceDto
         {
@@ -361,6 +415,10 @@ public class InvoicesController : ControllerBase
             Supplier = invoice.Supplier,
             TotalAmount = invoice.TotalAmount,
             AdditionalCosts = invoice.AdditionalCosts,
+            PriceReduction = invoice.PriceReduction,
+            PaidByUserId = invoice.PaidByUserId,
+            PaidByUsername = invoice.PaidBy.Username,
+            PaymentId = invoice.PaymentId,
             Notes = invoice.Notes,
             CreatedAt = invoice.CreatedAt,
             CreatedByUserId = invoice.CreatedByUserId,
