@@ -47,6 +47,7 @@ builder.Services.AddScoped<IProductMatchingService, ProductMatchingService>();
 // Register invoice parser services
 builder.Services.AddScoped<IInvoiceParserService, SonderpostenInvoiceParser>();
 builder.Services.AddScoped<IInvoiceParserService, SelgrosInvoiceParser>();
+builder.Services.AddScoped<IInvoiceParserService, ReweInvoiceParser>();
 builder.Services.AddScoped<InvoiceParserFactory>();
 
 // Register email service
