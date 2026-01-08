@@ -12,9 +12,6 @@
             <button class="btn btn-primary" @onclick="ShowParseInvoice">
                 <span class="icon">📄</span> Parse Invoice
             </button>
-            <button class="btn btn-success" @onclick="ShowCreateManual">
-                <span class="icon">➕</span> Create Invoice
-            </button>
         </div>
     </div>
 
@@ -582,11 +579,6 @@
     private void CloseParseModal()
     {
         _showParseModal = false;
-    }
-
-    private void ShowCreateManual()
-    {
-        Navigation.NavigateTo("/admin/invoices/create");
     }
 
     private async Task ParseInvoice()
