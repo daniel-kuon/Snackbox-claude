@@ -132,7 +132,7 @@ public class InvoicesController : ControllerBase
         var invoice = new Invoice
         {
             InvoiceNumber = dto.InvoiceNumber,
-            InvoiceDate = dto.InvoiceDate,
+            InvoiceDate = DateTime.SpecifyKind(dto.InvoiceDate, DateTimeKind.Utc),
             Supplier = dto.Supplier,
             AdditionalCosts = dto.AdditionalCosts,
             PriceReduction = dto.PriceReduction,
@@ -151,7 +151,9 @@ public class InvoicesController : ControllerBase
                 Quantity = itemDto.Quantity,
                 UnitPrice = itemDto.UnitPrice,
                 TotalPrice = itemDto.Quantity * itemDto.UnitPrice,
-                BestBeforeDate = itemDto.BestBeforeDate,
+                BestBeforeDate = itemDto.BestBeforeDate.HasValue 
+                    ? DateTime.SpecifyKind(itemDto.BestBeforeDate.Value, DateTimeKind.Utc) 
+                    : null,
                 Notes = itemDto.Notes,
                 ArticleNumber = itemDto.ArticleNumber
             };
@@ -352,7 +354,7 @@ public class InvoicesController : ControllerBase
         var invoice = new Invoice
         {
             InvoiceNumber = dto.InvoiceNumber,
-            InvoiceDate = dto.InvoiceDate,
+            InvoiceDate = DateTime.SpecifyKind(dto.InvoiceDate, DateTimeKind.Utc),
             Supplier = dto.Supplier,
             AdditionalCosts = dto.AdditionalCosts,
             PriceReduction = dto.PriceReduction,
@@ -371,7 +373,9 @@ public class InvoicesController : ControllerBase
                 Quantity = itemDto.Quantity,
                 UnitPrice = itemDto.UnitPrice,
                 TotalPrice = itemDto.TotalPrice,
-                BestBeforeDate = itemDto.BestBeforeDate,
+                BestBeforeDate = itemDto.BestBeforeDate.HasValue 
+                    ? DateTime.SpecifyKind(itemDto.BestBeforeDate.Value, DateTimeKind.Utc) 
+                    : null,
                 ArticleNumber = itemDto.ArticleNumber
             };
             invoice.Items.Add(item);
