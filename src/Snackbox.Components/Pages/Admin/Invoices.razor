@@ -124,20 +124,24 @@
                     </div>
 
                     <h6 class="mt-4">Items (@_parsedInvoice.Items.Count(i => i.Selected) selected)</h6>
+                    <div class="mb-2">
+                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="SelectOnlyMatched">
+                            Select Only Matched
+                        </button>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <thead>
                                 <tr>
-                                    <th style="width: 40px;">
-                                        <input type="checkbox" checked="@_selectAll" 
+                                    <th style="width: 50px;">
+                                        <input type="checkbox" class="form-check-input-lg" checked="@_selectAll" 
                                                @onchange="ToggleSelectAll" />
                                     </th>
                                     <th>Product Name</th>
                                     <th style="width: 80px;">Qty</th>
                                     <th style="width: 100px;">Unit Price</th>
                                     <th style="width: 100px;">Total</th>
-                                    <th style="width: 250px;">Product Match *</th>
-                                    <th style="width: 100px;">Actions</th>
+                                    <th style="width: 350px;">Product Match *</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -147,10 +151,11 @@
                                     var itemIndex = i;
                                     var hasMatch = _selectedProductIds.ContainsKey(itemIndex) && _selectedProductIds[itemIndex].HasValue;
                                     var matchedName = GetSelectedProductName(itemIndex);
+                                    var isApprovedMatch = _approvedMatches.Contains(itemIndex);
                                     
                                     <tr class="@(item.Selected ? "" : "text-muted")">
                                         <td>
-                                            <input type="checkbox" @bind="item.Selected" />
+                                            <input type="checkbox" class="form-check-input-lg" @bind="item.Selected" />
                                         </td>
                                         <td>
                                             <div>@item.ProductName</div>
@@ -163,52 +168,78 @@
                                         <td>€@item.UnitPrice.ToString("F2")</td>
                                         <td>€@item.TotalPrice.ToString("F2")</td>
                                         <td>
-                                            @if (hasMatch)
-                                            {
-                                                <div class="match-display">
-                                                    <span class="badge bg-success">✓</span>
-                                                    <span>@matchedName</span>
+                                            <div class="product-match-control">
+                                                @if (hasMatch && isApprovedMatch)
+                                                {
+                                                    <div class="match-display">
+                                                        <span class="badge bg-success">✓</span>
+                                                        <span>@matchedName</span>
+                                                    </div>
+                                                }
+                                                else if (item.MatchedProductId.HasValue && item.MatchType == "ExactBarcode")
+                                                {
+                                                    <!-- Auto-approved exact barcode match -->
+                                                    <div class="match-display">
+                                                        <span class="badge bg-success">✓</span>
+                                                        <span>@item.MatchedProductName (Barcode)</span>
+                                                    </div>
+                                                }
+                                                else if (item.MatchedProductId.HasValue)
+                                                {
+                                                    <!-- Show dropdown for partial matches -->
+                                                    <div class="btn-group" role="group">
+                                                        <select class="form-control form-control-sm" 
+                                                                @bind="_tempSelectedProducts[itemIndex]">
+                                                            <option value="0">-- Select product --</option>
+                                                            <option value="@item.MatchedProductId">@item.MatchedProductName (@item.MatchConfidence% match)</option>
+                                                        </select>
+                                                        <button class="btn btn-sm btn-success" 
+                                                                @onclick="() => ApproveMatch(itemIndex)"
+                                                                disabled="@(_tempSelectedProducts.GetValueOrDefault(itemIndex) == 0)"
+                                                                title="Approve match">
+                                                            ✓
+                                                        </button>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">No match</span>
+                                                }
+                                                
+                                                <div class="btn-group ms-2" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                            @onclick="() => ToggleSearch(itemIndex)" 
+                                                            title="Search for product">
+                                                        🔍
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-success" 
+                                                            @onclick="() => ShowCreateProduct(itemIndex)" 
+                                                            title="Create new product">
+                                                        ➕
+                                                    </button>
                                                 </div>
-                                            }
-                                            else if (item.MatchedProductId.HasValue)
-                                            {
-                                                <select class="form-control form-control-sm" 
-                                                        @onchange="@(e => SelectProduct(itemIndex, int.Parse(e.Value?.ToString() ?? "0")))">
-                                                    <option value="@item.MatchedProductId">@item.MatchedProductName (@item.MatchType)</option>
-                                                </select>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-danger">No match</span>
-                                            }
-                                            
-                                            @if (_showingSearch.ContainsKey(itemIndex) && _showingSearch[itemIndex])
-                                            {
-                                                <div class="search-box">
-                                                    <input type="text" class="form-control form-control-sm" 
-                                                           placeholder="Search products..."
-                                                           @bind="_searchTerms[itemIndex]"
-                                                           @oninput="@(e => SearchProducts(itemIndex, e.Value?.ToString() ?? ""))" />
-                                                    @if (_itemSuggestions.ContainsKey(itemIndex) && _itemSuggestions[itemIndex].Any())
-                                                    {
-                                                        <div class="suggestions-list">
-                                                            @foreach (var product in _itemSuggestions[itemIndex])
-                                                            {
-                                                                <div class="suggestion-item" @onclick="() => SelectProduct(itemIndex, product.Id)">
-                                                                    @product.Name
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    }
-                                                </div>
-                                            }
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => ToggleSearch(itemIndex)" 
-                                                    title="Search for product">
-                                                🔍
-                                            </button>
+                                                
+                                                @if (_showingSearch.ContainsKey(itemIndex) && _showingSearch[itemIndex])
+                                                {
+                                                    <div class="search-box mt-2">
+                                                        <input type="text" class="form-control form-control-sm" 
+                                                               placeholder="Search products..."
+                                                               @bind="_searchTerms[itemIndex]"
+                                                               @oninput="@(e => SearchProducts(itemIndex, e.Value?.ToString() ?? ""))" />
+                                                        @if (_itemSuggestions.ContainsKey(itemIndex) && _itemSuggestions[itemIndex].Any())
+                                                        {
+                                                            <div class="suggestions-list">
+                                                                @foreach (var product in _itemSuggestions[itemIndex])
+                                                                {
+                                                                    <div class="suggestion-item" @onclick="() => SelectProductFromSearch(itemIndex, product.Id)">
+                                                                        @product.Name
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
                                         </td>
                                     </tr>
                                 }
@@ -480,6 +511,24 @@
         display: flex;
         gap: 0.5rem;
     }
+    
+    /* Larger checkboxes */
+    .form-check-input-lg {
+        width: 1.5rem;
+        height: 1.5rem;
+        cursor: pointer;
+    }
+    
+    /* Product match control group */
+    .product-match-control {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .product-match-control .btn-group {
+        display: inline-flex;
+    }
 </style>
 
 @code {
@@ -511,6 +560,11 @@
     private Dictionary<int, string> _searchTerms = new();
     private Dictionary<int, bool> _showingSearch = new();
     private Dictionary<int, int?> _selectedProductIds = new();
+    private HashSet<int> _approvedMatches = new(); // Track which matches have been manually approved
+    private Dictionary<int, int> _tempSelectedProducts = new(); // Temp storage for dropdown selection before approval
+    private int? _creatingProductForIndex = null; // Track which item is creating a product
+    private string _newProductName = "";
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -618,13 +672,25 @@
                     _searchTerms.Clear();
                     _showingSearch.Clear();
                     _itemSuggestions.Clear();
+                    _approvedMatches.Clear();
+                    _tempSelectedProducts.Clear();
                     
                     for (int i = 0; i < _parsedInvoice.Items.Count; i++)
                     {
                         var item = _parsedInvoice.Items[i];
                         if (item.MatchedProductId.HasValue)
                         {
-                            _selectedProductIds[i] = item.MatchedProductId.Value;
+                            // Only auto-approve exact barcode matches
+                            if (item.MatchType == "ExactBarcode")
+                            {
+                                _selectedProductIds[i] = item.MatchedProductId.Value;
+                                _approvedMatches.Add(i);
+                            }
+                            else
+                            {
+                                // For partial matches, store in temp for dropdown
+                                _tempSelectedProducts[i] = item.MatchedProductId.Value;
+                            }
                         }
                     }
                     
@@ -820,6 +886,77 @@
             return _allProducts?.FirstOrDefault(p => p.Id == productId)?.Name;
         }
         return null;
+    }
+    
+    private void ApproveMatch(int itemIndex)
+    {
+        if (_tempSelectedProducts.ContainsKey(itemIndex) && _tempSelectedProducts[itemIndex] > 0)
+        {
+            var productId = _tempSelectedProducts[itemIndex];
+            _selectedProductIds[itemIndex] = productId;
+            _approvedMatches.Add(itemIndex);
+            
+            // Update the item's matched product info
+            if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
+            {
+                var item = _parsedInvoice.Items[itemIndex];
+                var product = _allProducts?.FirstOrDefault(p => p.Id == productId);
+                if (product != null)
+                {
+                    item.MatchedProductId = productId;
+                    item.MatchedProductName = product.Name;
+                    item.MatchType = "Manual";
+                    item.MatchConfidence = 1.0m;
+                }
+            }
+        }
+    }
+    
+    private void SelectProductFromSearch(int itemIndex, int productId)
+    {
+        _selectedProductIds[itemIndex] = productId;
+        _approvedMatches.Add(itemIndex); // Auto-approve search selections
+        _showingSearch[itemIndex] = false;
+        
+        // Update the item's matched product info
+        if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
+        {
+            var item = _parsedInvoice.Items[itemIndex];
+            var product = _allProducts?.FirstOrDefault(p => p.Id == productId);
+            if (product != null)
+            {
+                item.MatchedProductId = productId;
+                item.MatchedProductName = product.Name;
+                item.MatchType = "Manual";
+                item.MatchConfidence = 1.0m;
+            }
+        }
+    }
+    
+    private void SelectOnlyMatched()
+    {
+        if (_parsedInvoice == null) return;
+        
+        for (int i = 0; i < _parsedInvoice.Items.Count; i++)
+        {
+            var item = _parsedInvoice.Items[i];
+            // Select if: exact barcode match OR manually approved
+            var isExactMatch = item.MatchedProductId.HasValue && item.MatchType == "ExactBarcode";
+            var isApproved = _approvedMatches.Contains(i);
+            item.Selected = isExactMatch || isApproved;
+        }
+    }
+    
+    private void ShowCreateProduct(int itemIndex)
+    {
+        _creatingProductForIndex = itemIndex;
+        if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
+        {
+            _newProductName = _parsedInvoice.Items[itemIndex].ProductName;
+        }
+        // In a real implementation, this would open a modal
+        // For now, we'll just show an alert via the create error field
+        _createError = $"Product creation UI not yet implemented. Would create: {_newProductName}";
     }
     
     private decimal CalculateGrandTotal()
