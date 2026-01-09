@@ -308,14 +308,33 @@ public class InvoicesController : ControllerBase
     [HttpPost("parse")]
     public async Task<ActionResult<ParseInvoiceResponse>> ParseInvoice([FromBody] ParseInvoiceRequest request)
     {
-        var parser = _parserFactory.GetParser(request.Format);
-        if (parser == null)
+        IInvoiceParserService? parser = null;
+        
+        // If no format specified, try to auto-detect
+        if (string.IsNullOrWhiteSpace(request.Format))
         {
-            return BadRequest(new ParseInvoiceResponse
+            parser = _parserFactory.DetectParser(request.InvoiceText);
+            if (parser == null)
             {
-                Success = false,
-                ErrorMessage = $"Unsupported invoice format: {request.Format}. Supported formats: {string.Join(", ", _parserFactory.GetSupportedFormats())}"
-            });
+                return BadRequest(new ParseInvoiceResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Could not detect invoice format. Please select a format manually. Supported formats: {string.Join(", ", _parserFactory.GetSupportedFormats())}"
+                });
+            }
+            _logger.LogInformation("Auto-detected invoice format: {Format}", parser.Format);
+        }
+        else
+        {
+            parser = _parserFactory.GetParser(request.Format);
+            if (parser == null)
+            {
+                return BadRequest(new ParseInvoiceResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Unsupported invoice format: {request.Format}. Supported formats: {string.Join(", ", _parserFactory.GetSupportedFormats())}"
+                });
+            }
         }
 
         var result = parser.Parse(request.InvoiceText);
@@ -337,7 +356,7 @@ public class InvoicesController : ControllerBase
         }
         
         _logger.LogInformation("Invoice parsed: Format={Format}, Success={Success}, Items={ItemCount}, Matched={MatchedCount}", 
-            request.Format, result.Success, result.Items.Count, result.Items.Count(i => i.MatchedProductId.HasValue));
+            parser.Format, result.Success, result.Items.Count, result.Items.Count(i => i.MatchedProductId.HasValue));
 
         return Ok(result);
     }

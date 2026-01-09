@@ -6,4 +6,5 @@ public interface IInvoiceParserService
 {
     ParseInvoiceResponse Parse(string invoiceText);
     string Format { get; }
+    bool CanParse(string invoiceText);
 }

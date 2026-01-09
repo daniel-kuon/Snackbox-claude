@@ -26,8 +26,9 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>Invoice Format</label>
+                        <label>Invoice Format (optional - will auto-detect if not specified)</label>
                         <select class="form-control" @bind="_parseFormat">
+                            <option value="">Auto-detect format</option>
                             <option value="sonderposten">Lebensmittel-Sonderposten</option>
                             <option value="selgros">Selgros</option>
                             <option value="rewe">REWE</option>
@@ -538,7 +539,7 @@
     private string? _errorMessage;
     private bool _showParseModal = false;
     private bool _isParsing = false;
-    private string _parseFormat = "sonderposten";
+    private string _parseFormat = "";
     private string _invoiceText = "";
     private string? _parseError;
     private ParseInvoiceResponse? _parsedInvoice;

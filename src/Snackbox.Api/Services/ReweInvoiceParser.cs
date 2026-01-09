@@ -8,6 +8,15 @@ public partial class ReweInvoiceParser : IInvoiceParserService
 {
     public string Format => "rewe";
 
+    public bool CanParse(string invoiceText)
+    {
+        // Check for distinctive REWE markers
+        // Look for "R E W E", "REWE", "Beleg-Nr.", and typical REWE format
+        return invoiceText.Contains("R E W E", StringComparison.OrdinalIgnoreCase) ||
+               invoiceText.Contains("REWE", StringComparison.OrdinalIgnoreCase) ||
+               (invoiceText.Contains("Beleg-Nr.") && invoiceText.Contains("SUMME EUR"));
+    }
+
     [GeneratedRegex(@"Datum:\s*(\d{2}\.\d{2}\.\d{4})", RegexOptions.Multiline)]
     private static partial Regex DateRegex();
 
