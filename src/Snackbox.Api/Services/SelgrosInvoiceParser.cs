@@ -8,6 +8,15 @@ public class SelgrosInvoiceParser : IInvoiceParserService
 {
     public string Format => "selgros";
 
+    public bool CanParse(string invoiceText)
+    {
+        // Check for distinctive Selgros markers
+        // Look for "SELGROS", "GTIN" column header, and specific format
+        return invoiceText.Contains("SELGROS", StringComparison.OrdinalIgnoreCase) ||
+               invoiceText.Contains("Selgros", StringComparison.OrdinalIgnoreCase) ||
+               (invoiceText.Contains("GTIN") && invoiceText.Contains("Pos.") && invoiceText.Contains("Warenwert"));
+    }
+
     public ParseInvoiceResponse Parse(string invoiceText)
     {
         var response = new ParseInvoiceResponse { Success = true };

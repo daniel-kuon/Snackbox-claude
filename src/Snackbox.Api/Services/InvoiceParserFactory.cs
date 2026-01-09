@@ -17,6 +17,12 @@ public class InvoiceParserFactory
             p.Format.Equals(format, StringComparison.OrdinalIgnoreCase));
     }
 
+    public IInvoiceParserService? DetectParser(string invoiceText)
+    {
+        // Try each parser's CanParse method to find the right one
+        return _parsers.FirstOrDefault(p => p.CanParse(invoiceText));
+    }
+
     public IEnumerable<string> GetSupportedFormats()
     {
         return _parsers.Select(p => p.Format);

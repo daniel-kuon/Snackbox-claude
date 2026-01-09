@@ -8,6 +8,15 @@ public class SonderpostenInvoiceParser : IInvoiceParserService
 {
     public string Format => "sonderposten";
 
+    public bool CanParse(string invoiceText)
+    {
+        // Check for distinctive Sonderposten markers
+        // Look for "Hapex GmbH", SW article numbers, and "Belegnummer"
+        return invoiceText.Contains("Hapex GmbH", StringComparison.OrdinalIgnoreCase) ||
+               invoiceText.Contains("Sonderposten", StringComparison.OrdinalIgnoreCase) ||
+               (invoiceText.Contains("Belegnummer") && Regex.IsMatch(invoiceText, @"SW\d{5}"));
+    }
+
     public ParseInvoiceResponse Parse(string invoiceText)
     {
         var response = new ParseInvoiceResponse { Success = true };
