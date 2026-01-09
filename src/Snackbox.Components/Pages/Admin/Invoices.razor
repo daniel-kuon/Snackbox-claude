@@ -169,7 +169,12 @@
                                                 <small class="text-muted">@item.ArticleNumber</small>
                                             }
                                         </td>
-                                        <td>@item.Quantity</td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm" 
+                                                   @bind="item.Quantity" @bind:event="oninput"
+                                                   @oninput="@(e => UpdateItemQuantity(item, e.Value?.ToString()))"
+                                                   min="1" style="width: 80px;" />
+                                        </td>
                                         <td>€@item.UnitPrice.ToString("F2")</td>
                                         <td>€@item.TotalPrice.ToString("F2")</td>
                                         <td>
@@ -1041,6 +1046,25 @@
                 var itemIndex = _creatingProductForIndex.Value;
                 var item = _parsedInvoice.Items[itemIndex];
                 
+                // Add barcode if article number exists
+                if (!string.IsNullOrEmpty(item.ArticleNumber))
+                {
+                    try
+                    {
+                        var barcodeDto = new CreateProductBarcodeDto
+                        {
+                            Barcode = item.ArticleNumber,
+                            Quantity = 1
+                        };
+                        await ProductsApi.AddBarcodeAsync(createdProduct.Id, barcodeDto);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error but don't fail product creation
+                        Console.WriteLine($"Failed to add barcode: {ex.Message}");
+                    }
+                }
+                
                 // Set the matched product
                 _selectedProductIds[itemIndex] = createdProduct.Id;
                 item.MatchedProductId = createdProduct.Id;
@@ -1080,5 +1104,14 @@
             .Sum(i => i.TotalPrice);
         
         return selectedItemsTotal + _additionalCosts - _priceReduction;
+    }
+    
+    private void UpdateItemQuantity(ParsedInvoiceItem item, string? quantityStr)
+    {
+        if (int.TryParse(quantityStr, out int newQuantity) && newQuantity > 0)
+        {
+            item.Quantity = newQuantity;
+            item.TotalPrice = item.Quantity * item.UnitPrice;
+        }
     }
 }

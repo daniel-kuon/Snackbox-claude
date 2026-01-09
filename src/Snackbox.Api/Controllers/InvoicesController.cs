@@ -436,6 +436,38 @@ public class InvoicesController : ControllerBase
         invoice.PaymentId = payment.Id;
         await _context.SaveChangesAsync();
 
+        // Add barcodes to matched products
+        foreach (var itemDto in dto.SelectedItems.Where(i => i.Selected && i.ArticleNumber != null && i.MatchedProductId.HasValue))
+        {
+            try
+            {
+                var product = await _context.Products
+                    .Include(p => p.Barcodes)
+                    .FirstOrDefaultAsync(p => p.Id == itemDto.MatchedProductId.Value);
+
+                if (product != null && !product.Barcodes.Any(b => b.Barcode == itemDto.ArticleNumber))
+                {
+                    var productBarcode = new ProductBarcode
+                    {
+                        ProductId = product.Id,
+                        Barcode = itemDto.ArticleNumber!,
+                        Quantity = 1,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.ProductBarcodes.Add(productBarcode);
+                    _logger.LogInformation("Auto-added barcode {Barcode} to product {ProductId} from invoice item", 
+                        itemDto.ArticleNumber, product.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail invoice creation
+                _logger.LogWarning(ex, "Failed to add barcode {Barcode} to product {ProductId}", 
+                    itemDto.ArticleNumber, itemDto.MatchedProductId);
+            }
+        }
+        await _context.SaveChangesAsync();
+
         _logger.LogInformation("Invoice created from parsed data: {InvoiceNumber} with {ItemCount} items and payment {PaymentId}", 
             invoice.InvoiceNumber, invoice.Items.Count, payment.Id);
 
