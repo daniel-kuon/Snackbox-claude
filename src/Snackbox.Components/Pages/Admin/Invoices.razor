@@ -1,7 +1,10 @@
 @page "/admin/invoices"
 @using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IProductsApi ProductsApi
 
 <PageTitle>Invoices - Snackbox Admin</PageTitle>
 
@@ -337,6 +340,45 @@
     }
 </div>
 
+@* Product Creation Modal *@
+@if (_showProductCreateModal)
+{
+    <div class="modal-backdrop" @onclick="CloseProductCreateModal"></div>
+    <div class="modal-dialog" style="width: 500px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>Create New Product</h5>
+                <button class="btn-close" @onclick="CloseProductCreateModal">×</button>
+            </div>
+            <div class="modal-body">
+                @if (_productCreateError != null)
+                {
+                    <div class="alert alert-danger">@_productCreateError</div>
+                }
+                <div class="form-group">
+                    <label>Product Name</label>
+                    <input type="text" class="form-control" @bind="_newProductName" 
+                           placeholder="Enter product name..." />
+                    <small class="form-text text-muted">
+                        This product will be created and automatically assigned to the invoice item.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseProductCreateModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="CreateProductForInvoiceItem" 
+                        disabled="@(_isCreatingProduct || string.IsNullOrWhiteSpace(_newProductName))">
+                    @if (_isCreatingProduct)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Create & Assign
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .page-header {
         display: flex;
@@ -566,6 +608,11 @@
     private Dictionary<int, int> _tempSelectedProducts = new(); // Temp storage for dropdown selection before approval
     private int? _creatingProductForIndex = null; // Track which item is creating a product
     private string _newProductName = "";
+    
+    // Product creation modal
+    private bool _showProductCreateModal = false;
+    private bool _isCreatingProduct = false;
+    private string? _productCreateError = null;
 
 
     protected override async Task OnInitializedAsync()
@@ -956,9 +1003,72 @@
         {
             _newProductName = _parsedInvoice.Items[itemIndex].ProductName;
         }
-        // In a real implementation, this would open a modal
-        // For now, we'll just show an alert via the create error field
-        _createError = $"Product creation UI not yet implemented. Would create: {_newProductName}";
+        _productCreateError = null;
+        _showProductCreateModal = true;
+    }
+    
+    private void CloseProductCreateModal()
+    {
+        _showProductCreateModal = false;
+        _creatingProductForIndex = null;
+        _newProductName = "";
+        _productCreateError = null;
+    }
+    
+    private async Task CreateProductForInvoiceItem()
+    {
+        if (string.IsNullOrWhiteSpace(_newProductName))
+        {
+            _productCreateError = "Product name is required.";
+            return;
+        }
+        
+        _isCreatingProduct = true;
+        _productCreateError = null;
+        
+        try
+        {
+            var createDto = new CreateProductDto
+            {
+                Name = _newProductName.Trim()
+            };
+            
+            var createdProduct = await ProductsApi.CreateAsync(createDto);
+            
+            // Assign the newly created product to the invoice item
+            if (_creatingProductForIndex.HasValue && _parsedInvoice != null)
+            {
+                var itemIndex = _creatingProductForIndex.Value;
+                var item = _parsedInvoice.Items[itemIndex];
+                
+                // Set the matched product
+                _selectedProductIds[itemIndex] = createdProduct.Id;
+                item.MatchedProductId = createdProduct.Id;
+                item.MatchedProductName = createdProduct.Name;
+                item.MatchType = "Manual";
+                item.MatchConfidence = 100;
+                
+                // Mark as approved
+                _approvedMatches.Add(itemIndex);
+                
+                // Reload products to include the new one
+                await LoadProducts();
+            }
+            
+            CloseProductCreateModal();
+        }
+        catch (ApiException ex)
+        {
+            _productCreateError = $"Error creating product: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _productCreateError = $"Unexpected error: {ex.Message}";
+        }
+        finally
+        {
+            _isCreatingProduct = false;
+        }
     }
     
     private decimal CalculateGrandTotal()
