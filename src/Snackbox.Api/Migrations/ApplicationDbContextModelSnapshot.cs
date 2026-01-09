@@ -361,6 +361,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("notes");
 
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("integer")
+                        .HasColumnName("product_id");
+
                     b.Property<string>("ProductName")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -384,6 +388,8 @@ namespace Snackbox.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("ProductId");
 
                     b.ToTable("invoice_items");
                 });
@@ -1028,7 +1034,14 @@ namespace Snackbox.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Snackbox.Api.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Invoice");
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>

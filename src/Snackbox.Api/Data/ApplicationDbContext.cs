@@ -134,6 +134,10 @@ public class ApplicationDbContext : DbContext
                 .WithMany(i => i.Items)
                 .HasForeignKey(ii => ii.InvoiceId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(ii => ii.Product)
+                .WithMany()
+                .HasForeignKey(ii => ii.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ShelvingAction>(entity =>

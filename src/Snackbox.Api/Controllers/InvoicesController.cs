@@ -38,6 +38,7 @@ public class InvoicesController : ControllerBase
             .Include(i => i.CreatedBy)
             .Include(i => i.PaidBy)
             .Include(i => i.Items)
+            .ThenInclude(item => item.Product)
             .OrderByDescending(i => i.InvoiceDate)
             .Select(i => new InvoiceDto
             {
@@ -59,6 +60,8 @@ public class InvoicesController : ControllerBase
                 {
                     Id = item.Id,
                     InvoiceId = item.InvoiceId,
+                    ProductId = item.ProductId,
+                    MatchedProductName = item.Product != null ? item.Product.Name : null,
                     ProductName = item.ProductName,
                     Quantity = item.Quantity,
                     UnitPrice = item.UnitPrice,
@@ -80,6 +83,7 @@ public class InvoicesController : ControllerBase
             .Include(i => i.CreatedBy)
             .Include(i => i.PaidBy)
             .Include(i => i.Items)
+            .ThenInclude(item => item.Product)
             .FirstOrDefaultAsync(i => i.Id == id);
 
         if (invoice == null)
@@ -107,6 +111,8 @@ public class InvoicesController : ControllerBase
             {
                 Id = item.Id,
                 InvoiceId = item.InvoiceId,
+                ProductId = item.ProductId,
+                MatchedProductName = item.Product != null ? item.Product.Name : null,
                 ProductName = item.ProductName,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
@@ -210,7 +216,9 @@ public class InvoicesController : ControllerBase
             {
                 Id = item.Id,
                 InvoiceId = item.InvoiceId,
-                ProductName = item.ProductName,
+                ProductId = item.ProductId,
+                    MatchedProductName = item.Product != null ? item.Product.Name : null,
+                    ProductName = item.ProductName,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TotalPrice = item.TotalPrice,
@@ -229,6 +237,7 @@ public class InvoicesController : ControllerBase
         var invoice = await _context.Invoices
             .Include(i => i.CreatedBy)
             .Include(i => i.Items)
+            .ThenInclude(item => item.Product)
             .FirstOrDefaultAsync(i => i.Id == id);
 
         if (invoice == null)
@@ -265,7 +274,9 @@ public class InvoicesController : ControllerBase
             {
                 Id = item.Id,
                 InvoiceId = item.InvoiceId,
-                ProductName = item.ProductName,
+                ProductId = item.ProductId,
+                    MatchedProductName = item.Product != null ? item.Product.Name : null,
+                    ProductName = item.ProductName,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TotalPrice = item.TotalPrice,
@@ -283,6 +294,7 @@ public class InvoicesController : ControllerBase
     {
         var invoice = await _context.Invoices
             .Include(i => i.Items)
+            .ThenInclude(item => item.Product)
             .ThenInclude(item => item.ShelvingActions)
             .FirstOrDefaultAsync(i => i.Id == id);
 
@@ -388,6 +400,7 @@ public class InvoicesController : ControllerBase
         {
             var item = new InvoiceItem
             {
+                ProductId = itemDto.MatchedProductId,
                 ProductName = itemDto.ProductName,
                 Quantity = itemDto.Quantity,
                 UnitPrice = itemDto.UnitPrice,
@@ -450,7 +463,9 @@ public class InvoicesController : ControllerBase
             {
                 Id = item.Id,
                 InvoiceId = item.InvoiceId,
-                ProductName = item.ProductName,
+                ProductId = item.ProductId,
+                    MatchedProductName = item.Product != null ? item.Product.Name : null,
+                    ProductName = item.ProductName,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TotalPrice = item.TotalPrice,

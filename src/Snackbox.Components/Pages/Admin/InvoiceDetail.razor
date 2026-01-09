@@ -112,10 +112,11 @@
                     <thead>
                         <tr>
                             <th style="width: 50px;">
-                                <input type="checkbox" checked="@_selectAll" 
+                                <input type="checkbox" class="form-check-lg" checked="@_selectAll" 
                                        @onchange="ToggleSelectAll" />
                             </th>
                             <th>Product Name</th>
+                            <th>Matched Product</th>
                             <th>Article #</th>
                             <th>Quantity</th>
                             <th>Unit Price</th>
@@ -130,10 +131,20 @@
                             var isSelected = _selectedItems.Contains(item.Id);
                             <tr class="@(isSelected ? "" : "text-muted")">
                                 <td>
-                                    <input type="checkbox" checked="@isSelected"
+                                    <input type="checkbox" class="form-check-lg" checked="@isSelected"
                                            @onchange="() => ToggleItem(item.Id)" />
                                 </td>
                                 <td>@item.ProductName</td>
+                                <td>
+                                    @if (item.ProductId.HasValue)
+                                    {
+                                        <span class="badge bg-success">✓ @item.MatchedProductName</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">⚠ No match</span>
+                                    }
+                                </td>
                                 <td><small class="text-muted">@item.ArticleNumber</small></td>
                                 <td>@item.Quantity</td>
                                 <td>€@item.UnitPrice.ToString("F2")</td>
@@ -170,17 +181,42 @@
                     <div class="modal-body">
                         <p>Review and confirm adding @_selectedItems.Count item(s) to stock.</p>
                         
-                        <div class="alert alert-info">
-                            <strong>Note:</strong> Items will be matched to existing products or you can create new products.
-                            Article numbers will be added as barcodes to matched products.
-                        </div>
+                        @{
+                            var unmatchedCount = _invoice.Items.Where(i => _selectedItems.Contains(i.Id) && !i.ProductId.HasValue).Count();
+                        }
+                        
+                        @if (unmatchedCount > 0)
+                        {
+                            <div class="alert alert-danger">
+                                <strong>Error:</strong> @unmatchedCount item(s) are not matched to products. All items must be matched before adding to stock.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                <strong>Note:</strong> Items will be added to stock. Article numbers will be added as barcodes to matched products.
+                            </div>
 
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" @bind="_addToShelf" />
-                                Add directly to shelf (instead of storage)
-                            </label>
-                        </div>
+                            <div class="form-group mb-3">
+                                <label class="form-check">
+                                    <input type="checkbox" class="form-check-input form-check-lg" @bind="_addToShelf" />
+                                    <span class="form-check-label">Add directly to shelf (instead of storage)</span>
+                                </label>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label class="form-check">
+                                    <input type="checkbox" class="form-check-input form-check-lg" @bind="_markAsSold" />
+                                    <span class="form-check-label">Mark as sold (for importing old invoices)</span>
+                                </label>
+                                @if (_markAsSold)
+                                {
+                                    <small class="text-muted d-block mt-1">
+                                        Items will be added to stock and immediately marked as consumed.
+                                    </small>
+                                }
+                            </div>
+                        }
 
                         @if (_addToStockError != null)
                         {
@@ -193,7 +229,10 @@
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" @onclick="CloseAddToStockModal">Cancel</button>
-                        <button class="btn btn-success" @onclick="ConfirmAddToStock" disabled="@_isAddingToStock">
+                        @{
+                            var canConfirm = _invoice != null && _invoice.Items.Where(i => _selectedItems.Contains(i.Id)).All(i => i.ProductId.HasValue);
+                        }
+                        <button class="btn btn-success" @onclick="ConfirmAddToStock" disabled="@(_isAddingToStock || !canConfirm)">
                             @if (_isAddingToStock)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
@@ -324,6 +363,12 @@
     .btn-close:hover {
         opacity: 1;
     }
+
+    .form-check-lg {
+        width: 1.25rem;
+        height: 1.25rem;
+        cursor: pointer;
+    }
 </style>
 
 @code {
@@ -337,6 +382,7 @@
     private bool _selectAll = true;
     private bool _showAddToStockModal = false;
     private bool _addToShelf = false;
+    private bool _markAsSold = false;
     private bool _isAddingToStock = false;
     private string? _addToStockError;
     private string? _addToStockSuccess;
@@ -424,14 +470,121 @@
         _addToStockError = null;
         _addToStockSuccess = null;
 
-        // For now, this is a placeholder - we'll need to implement the matching logic
-        // In a full implementation, we'd show a UI to map each item to a product
-        
-        _addToStockError = "Item-to-stock mapping not yet fully implemented. Use the Stock Management page to manually add items.";
-        _isAddingToStock = false;
+        if (_invoice == null) return;
 
-        // TODO: Implement the actual stock addition logic
-        // This would involve calling the endpoint for each selected item
+        try
+        {
+            var selectedInvoiceItems = _invoice.Items.Where(i => _selectedItems.Contains(i.Id)).ToList();
+            
+            // Validate all items have ProductId
+            if (selectedInvoiceItems.Any(i => !i.ProductId.HasValue))
+            {
+                _addToStockError = "All selected items must be matched to products.";
+                _isAddingToStock = false;
+                return;
+            }
+
+            var successCount = 0;
+            var errorCount = 0;
+            var errors = new List<string>();
+
+            foreach (var item in selectedInvoiceItems)
+            {
+                try
+                {
+                    // Get product to find a barcode
+                    var productResponse = await Http.GetAsync($"api/products/{item.ProductId}");
+                    if (!productResponse.IsSuccessStatusCode)
+                    {
+                        errors.Add($"{item.ProductName}: Failed to get product details");
+                        errorCount++;
+                        continue;
+                    }
+
+                    var productData = await productResponse.Content.ReadAsStringAsync();
+                    var productDto = System.Text.Json.JsonSerializer.Deserialize<ProductDto>(productData, 
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    
+                    if (productDto == null || !productDto.Barcodes.Any())
+                    {
+                        errors.Add($"{item.ProductName}: Product has no barcodes");
+                        errorCount++;
+                        continue;
+                    }
+
+                    // Use the first barcode
+                    var barcode = productDto.Barcodes.First().Barcode;
+
+                    // Create shelving action
+                    var shelvingAction = new CreateShelvingActionDto
+                    {
+                        ProductBarcode = barcode,
+                        BestBeforeDate = item.BestBeforeDate ?? DateTime.UtcNow.AddYears(1),
+                        Quantity = item.Quantity,
+                        Type = _addToShelf ? ShelvingActionType.AddToShelf : ShelvingActionType.AddToStorage,
+                        InvoiceItemId = item.Id
+                    };
+
+                    var shelvingResponse = await Http.PostAsJsonAsync("api/shelving-actions", shelvingAction);
+                    if (!shelvingResponse.IsSuccessStatusCode)
+                    {
+                        var errorContent = await shelvingResponse.Content.ReadAsStringAsync();
+                        errors.Add($"{item.ProductName}: {errorContent}");
+                        errorCount++;
+                        continue;
+                    }
+
+                    // If mark as sold, create purchase immediately
+                    if (_markAsSold)
+                    {
+                        var purchaseDto = new
+                        {
+                            ProductBarcode = barcode,
+                            Quantity = item.Quantity,
+                            UserId = _invoice.PaidByUserId
+                        };
+                        
+                        var purchaseResponse = await Http.PostAsJsonAsync("api/purchases", purchaseDto);
+                        if (!purchaseResponse.IsSuccessStatusCode)
+                        {
+                            errors.Add($"{item.ProductName}: Added to stock but failed to mark as sold");
+                        }
+                    }
+
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"{item.ProductName}: {ex.Message}");
+                    errorCount++;
+                }
+            }
+
+            if (errorCount > 0)
+            {
+                _addToStockError = $"Completed with errors: {successCount} succeeded, {errorCount} failed.\n" + 
+                    string.Join("\n", errors);
+            }
+            else
+            {
+                _addToStockSuccess = _markAsSold 
+                    ? $"Successfully marked {successCount} item(s) as sold."
+                    : $"Successfully added {successCount} item(s) to {(_addToShelf ? "shelf" : "storage")}.";
+                
+                // Reload invoice to update status
+                await Task.Delay(2000);
+                await LoadInvoice();
+                _showAddToStockModal = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _addToStockError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isAddingToStock = false;
+        }
     }
 
     private async Task DeleteInvoice()
