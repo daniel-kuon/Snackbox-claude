@@ -246,9 +246,9 @@
     {
         [Required(ErrorMessage = "Email is required")]
         [EmailAddress(ErrorMessage = "Invalid email address")]
-        public string Email { get; set; } = string.Empty;
+        public string Email { get; set; } = "admin@snackbox.com";
 
         [Required(ErrorMessage = "Password is required")]
-        public string Password { get; set; } = string.Empty;
+        public string Password { get; set; } = "adminPassword";
     }
 }

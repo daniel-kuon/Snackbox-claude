@@ -63,7 +63,8 @@ public static partial class ShelvingActionMapper
             ProductBatchId = productBatchId,
             Quantity = source.Quantity,
             Type = source.Type,
-            ActionAt = DateTime.UtcNow
+            ActionAt = DateTime.UtcNow,
+            InvoiceItemId = source.InvoiceItemId
         };
     }
 }

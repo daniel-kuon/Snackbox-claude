@@ -3,7 +3,7 @@ namespace Snackbox.Api.Dtos;
 public class ShelvingActionDto
 {
     public int Id { get; set; }
-    public int ProductBatchId { get; set; }
+    public int? ProductBatchId { get; set; }
     public int ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string ProductBarcode { get; set; } = string.Empty;
@@ -11,14 +11,17 @@ public class ShelvingActionDto
     public int Quantity { get; set; }
     public required ShelvingActionType Type { get; set; }
     public DateTime ActionAt { get; set; }
+    public int? InvoiceItemId { get; set; }
 }
 
 public class CreateShelvingActionDto
 {
-    public string ProductBarcode { get; set; } = string.Empty;
-    public DateTime BestBeforeDate { get; set; }
+    public string? ProductBarcode { get; set; }
+    public int? ProductId { get; set; }
+    public DateTime? BestBeforeDate { get; set; }
     public int Quantity { get; set; }
     public ShelvingActionType Type { get; set; }
+    public int? InvoiceItemId { get; set; }
 }
 
 public class BatchShelvingRequest
