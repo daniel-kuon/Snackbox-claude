@@ -1,6 +1,10 @@
 @page "/admin/invoices/{InvoiceId:int}"
 @using Snackbox.Api.Dtos
-@inject HttpClient Http
+@using Snackbox.ApiClient
+@using Refit
+@inject IInvoicesApi InvoicesApi
+@inject IShelvingActionsApi ShelvingActionsApi
+@inject IProductsApi ProductsApi
 @inject NavigationManager Navigation
 
 <PageTitle>Invoice Details - Snackbox Admin</PageTitle>
@@ -418,7 +422,7 @@
 
         try
         {
-            _invoice = await Http.GetFromJsonAsync<InvoiceDto>($"api/invoices/{InvoiceId}");
+            _invoice = await InvoicesApi.GetByIdAsync(InvoiceId);
             if (_invoice != null)
             {
                 // Select all items by default
@@ -503,6 +507,19 @@
                 return;
             }
 
+            // Validate best before dates for non-consumed items
+            if (_stockDestination != StockDestination.Consumed)
+            {
+                var itemsWithoutDate = selectedInvoiceItems.Where(i => !i.BestBeforeDate.HasValue).ToList();
+                if (itemsWithoutDate.Any())
+                {
+                    _addToStockError = $"Best before date is required for {itemsWithoutDate.Count} item(s) when adding to storage or shelf. " +
+                        "Please add best before dates in the invoice detail page first.";
+                    _isAddingToStock = false;
+                    return;
+                }
+            }
+
             var successCount = 0;
             var errorCount = 0;
             var errors = new List<string>();
@@ -511,66 +528,39 @@
             {
                 try
                 {
-                    // Get product to find a barcode
-                    var productResponse = await Http.GetAsync($"api/products/{item.ProductId}");
-                    if (!productResponse.IsSuccessStatusCode)
+                    ShelvingActionType actionType;
+                    if (_stockDestination == StockDestination.Consumed)
                     {
-                        errors.Add($"{item.ProductName}: Failed to get product details");
-                        errorCount++;
-                        continue;
+                        actionType = ShelvingActionType.Consumed;
+                    }
+                    else if (_stockDestination == StockDestination.Shelf)
+                    {
+                        actionType = ShelvingActionType.AddedToShelf;
+                    }
+                    else
+                    {
+                        actionType = ShelvingActionType.AddedToStorage;
                     }
 
-                    var productData = await productResponse.Content.ReadAsStringAsync();
-                    var productDto = System.Text.Json.JsonSerializer.Deserialize<ProductDto>(productData,
-                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                    if (productDto == null || !productDto.Barcodes.Any())
-                    {
-                        errors.Add($"{item.ProductName}: Product has no barcodes");
-                        errorCount++;
-                        continue;
-                    }
-
-                    // Use the first barcode
-                    var barcode = productDto.Barcodes.First().Barcode;
-
-                    // Create shelving action
+                    // Create shelving action using ProductId
                     var shelvingAction = new CreateShelvingActionDto
                     {
-                        ProductBarcode = barcode,
-                        BestBeforeDate = item.BestBeforeDate ?? DateTime.UtcNow.AddYears(1),
+                        ProductId = item.ProductId,
+                        ProductBarcode = null, // Not needed when ProductId is provided
+                        BestBeforeDate = item.BestBeforeDate,
                         Quantity = item.Quantity,
-                        Type = _stockDestination == StockDestination.Shelf ? ShelvingActionType.AddedToShelf : ShelvingActionType.AddedToStorage,
+                        Type = actionType,
                         InvoiceItemId = item.Id
                     };
 
-                    var shelvingResponse = await Http.PostAsJsonAsync("api/shelving-actions", shelvingAction);
-                    if (!shelvingResponse.IsSuccessStatusCode)
-                    {
-                        var errorContent = await shelvingResponse.Content.ReadAsStringAsync();
-                        errors.Add($"{item.ProductName}: {errorContent}");
-                        errorCount++;
-                        continue;
-                    }
-
-                    // If mark as consumed, create purchase immediately
-                    if (_stockDestination == StockDestination.Consumed)
-                    {
-                        var purchaseDto = new
-                        {
-                            ProductBarcode = barcode,
-                            Quantity = item.Quantity,
-                            UserId = _invoice.PaidByUserId
-                        };
-
-                        var purchaseResponse = await Http.PostAsJsonAsync("api/purchases", purchaseDto);
-                        if (!purchaseResponse.IsSuccessStatusCode)
-                        {
-                            errors.Add($"{item.ProductName}: Added to stock but failed to mark as consumed");
-                        }
-                    }
-
+                    var result = await ShelvingActionsApi.CreateAsync(shelvingAction);
                     successCount++;
+                }
+                catch (ApiException ex)
+                {
+                    var errorMessage = await ex.GetContentAsAsync<string>() ?? ex.Message;
+                    errors.Add($"{item.ProductName}: {errorMessage}");
+                    errorCount++;
                 }
                 catch (Exception ex)
                 {
@@ -586,8 +576,8 @@
             }
             else
             {
-                _addToStockSuccess =  _stockDestination == StockDestination.Consumed
-                                         ? $"Successfully marked {successCount} item(s) as sold."
+                _addToStockSuccess = _stockDestination == StockDestination.Consumed
+                                         ? $"Successfully marked {successCount} item(s) as consumed."
                                          : $"Successfully added {successCount} item(s) to {(_stockDestination == StockDestination.Shelf ? "shelf" : "storage")}.";
 
                 // Reload invoice to update status
@@ -613,7 +603,7 @@
 
         try
         {
-            await Http.DeleteAsync($"api/invoices/{InvoiceId}");
+            await InvoicesApi.DeleteAsync(InvoiceId);
             GoBack();
         }
         catch (Exception ex)

@@ -7,5 +7,6 @@ public enum ShelvingActionType
     MovedToShelf,
     MovedFromShelf,
     RemovedFromStorage,
-    RemovedFromShelf
+    RemovedFromShelf,
+    Consumed
 }

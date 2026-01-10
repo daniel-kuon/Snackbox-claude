@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IScannerApi>();
         AddRefitClient<IBarcodesApi>();
         AddRefitClient<IBarcodeLookupApi>();
+        AddRefitClient<IInvoicesApi>();
 
         return services;
     }
@@ -91,6 +92,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IScannerApi>();
         AddRefitClient<IBarcodesApi>();
         AddRefitClient<IBarcodeLookupApi>();
+        AddRefitClient<IInvoicesApi>();
     }
 
 }
