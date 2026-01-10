@@ -198,23 +198,37 @@
                             </div>
 
                             <div class="form-group mb-3">
-                                <label class="form-check">
-                                    <input type="checkbox" class="form-check-input form-check-lg" @bind="_addToShelf" />
-                                    <span class="form-check-label">Add directly to shelf (instead of storage)</span>
-                                </label>
-                            </div>
-
-                            <div class="form-group mb-3">
-                                <label class="form-check">
-                                    <input type="checkbox" class="form-check-input form-check-lg" @bind="_markAsSold" />
-                                    <span class="form-check-label">Mark as sold (for importing old invoices)</span>
-                                </label>
-                                @if (_markAsSold)
-                                {
-                                    <small class="text-muted d-block mt-1">
-                                        Items will be added to stock and immediately marked as consumed.
-                                    </small>
-                                }
+                                <label class="form-label fw-bold">Stock Destination</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stockDestination" id="destStorage"
+                                           checked="@(_stockDestination == StockDestination.Storage)"
+                                           @onchange="@(() => _stockDestination = StockDestination.Storage)" />
+                                    <label class="form-check-label" for="destStorage">
+                                        Add to Storage
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stockDestination" id="destShelf"
+                                           checked="@(_stockDestination == StockDestination.Shelf)"
+                                           @onchange="@(() => _stockDestination = StockDestination.Shelf)" />
+                                    <label class="form-check-label" for="destShelf">
+                                        Add to Shelf
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stockDestination" id="destConsumed"
+                                           checked="@(_stockDestination == StockDestination.Consumed)"
+                                           @onchange="@(() => _stockDestination = StockDestination.Consumed)" />
+                                    <label class="form-check-label" for="destConsumed">
+                                        Mark as Consumed (for old invoices)
+                                    </label>
+                                    @if (_stockDestination == StockDestination.Consumed)
+                                    {
+                                        <small class="text-muted d-block mt-1">
+                                            Items will be added to stock and immediately marked as consumed.
+                                        </small>
+                                    }
+                                </div>
                             </div>
                         }
 
@@ -381,8 +395,13 @@
     private HashSet<int> _selectedItems = new();
     private bool _selectAll = true;
     private bool _showAddToStockModal = false;
-    private bool _addToShelf = false;
-    private bool _markAsSold = false;
+    private enum StockDestination
+    {
+        Storage,
+        Shelf,
+        Consumed
+    }
+    private StockDestination _stockDestination = StockDestination.Storage;
     private bool _isAddingToStock = false;
     private string? _addToStockError;
     private string? _addToStockSuccess;
@@ -521,7 +540,7 @@
                         ProductBarcode = barcode,
                         BestBeforeDate = item.BestBeforeDate ?? DateTime.UtcNow.AddYears(1),
                         Quantity = item.Quantity,
-                        Type = _addToShelf ? ShelvingActionType.AddToShelf : ShelvingActionType.AddToStorage,
+                        Type = _stockDestination == StockDestination.Shelf ? ShelvingActionType.AddToShelf : ShelvingActionType.AddToStorage,
                         InvoiceItemId = item.Id
                     };
 
@@ -534,8 +553,8 @@
                         continue;
                     }
 
-                    // If mark as sold, create purchase immediately
-                    if (_markAsSold)
+                    // If mark as consumed, create purchase immediately
+                    if (_stockDestination == StockDestination.Consumed)
                     {
                         var purchaseDto = new
                         {
@@ -547,7 +566,7 @@
                         var purchaseResponse = await Http.PostAsJsonAsync("api/purchases", purchaseDto);
                         if (!purchaseResponse.IsSuccessStatusCode)
                         {
-                            errors.Add($"{item.ProductName}: Added to stock but failed to mark as sold");
+                            errors.Add($"{item.ProductName}: Added to stock but failed to mark as consumed");
                         }
                     }
 
