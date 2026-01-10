@@ -39,6 +39,8 @@ public class InvoicesController : ControllerBase
             .Include(i => i.PaidBy)
             .Include(i => i.Items)
             .ThenInclude(item => item.Product)
+            .Include(i => i.Items)
+            .ThenInclude(item => item.ShelvingActions)
             .OrderByDescending(i => i.InvoiceDate)
             .Select(i => new InvoiceDto
             {
@@ -68,8 +70,11 @@ public class InvoicesController : ControllerBase
                     TotalPrice = item.TotalPrice,
                     BestBeforeDate = item.BestBeforeDate,
                     Notes = item.Notes,
-                    ArticleNumber = item.ArticleNumber
-                }).ToList()
+                    ArticleNumber = item.ArticleNumber,
+                    Status = item.Status,
+                    ActionType = item.ShelvingActions.FirstOrDefault() != null ? item.ShelvingActions.FirstOrDefault()!.Type : null
+                }).ToList(),
+                HasUnprocessedItems = i.Items.Any(item => item.Status == InvoiceItemStatus.Pending)
             })
             .ToListAsync();
 
@@ -84,6 +89,8 @@ public class InvoicesController : ControllerBase
             .Include(i => i.PaidBy)
             .Include(i => i.Items)
             .ThenInclude(item => item.Product)
+            .Include(i => i.Items)
+            .ThenInclude(item => item.ShelvingActions)
             .FirstOrDefaultAsync(i => i.Id == id);
 
         if (invoice == null)
@@ -119,8 +126,11 @@ public class InvoicesController : ControllerBase
                 TotalPrice = item.TotalPrice,
                 BestBeforeDate = item.BestBeforeDate,
                 Notes = item.Notes,
-                ArticleNumber = item.ArticleNumber
-            }).ToList()
+                ArticleNumber = item.ArticleNumber,
+                Status = item.Status,
+                ActionType = item.ShelvingActions.FirstOrDefault()?.Type
+            }).ToList(),
+            HasUnprocessedItems = invoice.Items.Any(item => item.Status == InvoiceItemStatus.Pending)
         };
 
         return Ok(dto);
@@ -224,8 +234,11 @@ public class InvoicesController : ControllerBase
                 TotalPrice = item.TotalPrice,
                 BestBeforeDate = item.BestBeforeDate,
                 Notes = item.Notes,
-                ArticleNumber = item.ArticleNumber
-            }).ToList()
+                ArticleNumber = item.ArticleNumber,
+                Status = item.Status,
+                ActionType = item.ShelvingActions.FirstOrDefault()?.Type
+            }).ToList(),
+            HasUnprocessedItems = invoice.Items.Any(item => item.Status == InvoiceItemStatus.Pending)
         };
 
         return CreatedAtAction(nameof(GetById), new { id = invoice.Id }, result);
@@ -282,8 +295,11 @@ public class InvoicesController : ControllerBase
                 TotalPrice = item.TotalPrice,
                 BestBeforeDate = item.BestBeforeDate,
                 Notes = item.Notes,
-                ArticleNumber = item.ArticleNumber
-            }).ToList()
+                ArticleNumber = item.ArticleNumber,
+                Status = item.Status,
+                ActionType = item.ShelvingActions.FirstOrDefault()?.Type
+            }).ToList(),
+            HasUnprocessedItems = invoice.Items.Any(item => item.Status == InvoiceItemStatus.Pending)
         };
 
         return Ok(result);
@@ -500,8 +516,11 @@ public class InvoicesController : ControllerBase
                 TotalPrice = item.TotalPrice,
                 BestBeforeDate = item.BestBeforeDate,
                 Notes = item.Notes,
-                ArticleNumber = item.ArticleNumber
-            }).ToList()
+                ArticleNumber = item.ArticleNumber,
+                Status = item.Status,
+                ActionType = item.ShelvingActions.FirstOrDefault()?.Type
+            }).ToList(),
+            HasUnprocessedItems = invoice.Items.Any(item => item.Status == InvoiceItemStatus.Pending)
         };
 
         return CreatedAtAction(nameof(GetById), new { id = invoice.Id }, result);
@@ -511,6 +530,53 @@ public class InvoicesController : ControllerBase
     public ActionResult<IEnumerable<string>> GetSupportedFormats()
     {
         return Ok(_parserFactory.GetSupportedFormats());
+    }
+
+    [HttpPut("items/{itemId}")]
+    public async Task<ActionResult<InvoiceItemDto>> UpdateInvoiceItem(int itemId, [FromBody] UpdateInvoiceItemDto dto)
+    {
+        var item = await _context.InvoiceItems
+            .Include(i => i.Product)
+            .FirstOrDefaultAsync(i => i.Id == itemId);
+
+        if (item == null)
+        {
+            return NotFound(new { message = "Invoice item not found" });
+        }
+
+        // Check if item has been added to stock already
+        if (await _context.ShelvingActions.AnyAsync(sa => sa.InvoiceItemId == itemId))
+        {
+            return BadRequest(new { message = "Cannot update invoice item that has already been added to stock" });
+        }
+
+        item.BestBeforeDate = dto.BestBeforeDate.HasValue
+            ? DateTime.SpecifyKind(dto.BestBeforeDate.Value, DateTimeKind.Utc)
+            : null;
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Invoice item {ItemId} updated: BestBeforeDate={BestBeforeDate}",
+            itemId, item.BestBeforeDate);
+
+        var result = new InvoiceItemDto
+        {
+            Id = item.Id,
+            InvoiceId = item.InvoiceId,
+            ProductId = item.ProductId,
+            MatchedProductName = item.Product?.Name,
+            ProductName = item.ProductName,
+            Quantity = item.Quantity,
+            UnitPrice = item.UnitPrice,
+            TotalPrice = item.TotalPrice,
+            BestBeforeDate = item.BestBeforeDate,
+            Notes = item.Notes,
+            ArticleNumber = item.ArticleNumber,
+            Status = item.Status,
+            ActionType = item.ShelvingActions.FirstOrDefault()?.Type
+        };
+
+        return Ok(result);
     }
 
     [HttpPost("items/{itemId}/add-to-stock")]
@@ -525,6 +591,12 @@ public class InvoicesController : ControllerBase
         if (item == null)
         {
             return NotFound(new { message = "Invoice item not found" });
+        }
+
+        // Check if item already has a shelving action (already processed)
+        if (item.Status == InvoiceItemStatus.Processed || await _context.ShelvingActions.AnyAsync(sa => sa.InvoiceItemId == itemId))
+        {
+            return BadRequest(new { message = "Invoice item has already been processed. Cannot add to stock again." });
         }
 
         // Find or create product
@@ -612,6 +684,10 @@ public class InvoicesController : ControllerBase
         };
 
         _context.ShelvingActions.Add(shelvingAction);
+
+        // Update invoice item status to Processed
+        item.Status = InvoiceItemStatus.Processed;
+
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Added invoice item {ItemId} to stock: Product {ProductId}, Quantity {Quantity}, Type {Type}",

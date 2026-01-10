@@ -123,7 +123,7 @@
                         <div class="col-md-4">
                             <div class="form-group">
                                 <label>Notes</label>
-                                <input type="text" class="form-control" @bind="_invoiceNotes" placeholder="Optional notes..." />
+                                <textarea class="form-control" rows="3" @bind="_invoiceNotes" placeholder="Optional notes..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -320,6 +320,7 @@
                         <th>Items</th>
                         <th>Total Amount</th>
                         <th>Created By</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -333,6 +334,16 @@
                             <td>@invoice.Items.Count</td>
                             <td>€@invoice.TotalAmount.ToString("F2")</td>
                             <td>@invoice.CreatedByUsername</td>
+                            <td>
+                                @if (invoice.HasUnprocessedItems)
+                                {
+                                    <span class="badge bg-warning text-dark">⚠ Pending Items</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">✓ Complete</span>
+                                }
+                            </td>
                             <td @onclick:stopPropagation="true">
                                 <button class="btn btn-sm btn-danger" @onclick="() => DeleteInvoice(invoice.Id)">
                                     Delete
@@ -737,6 +748,18 @@
                         _priceReduction = _parsedInvoice.Metadata.PriceReduction.Value;
                     }
 
+                    // Set additional costs if detected
+                    if (_parsedInvoice.Metadata?.AdditionalCosts.HasValue == true)
+                    {
+                        _additionalCosts = _parsedInvoice.Metadata.AdditionalCosts.Value;
+                    }
+
+                    // Set notes if detected
+                    if (!string.IsNullOrEmpty(_parsedInvoice.Metadata?.Notes))
+                    {
+                        _invoiceNotes = _parsedInvoice.Metadata.Notes;
+                    }
+
                     // Initialize product selections for each item
                     _selectedProductIds.Clear();
                     _searchTerms.Clear();
@@ -792,6 +815,7 @@
         _additionalCosts = 0;
         _priceReduction = 0;
         _invoiceNotes = "";
+        _paidByUserId = _currentUserId; // Reset to current user
     }
 
     private void ToggleSelectAll(ChangeEventArgs e)

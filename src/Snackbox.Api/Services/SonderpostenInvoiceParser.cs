@@ -47,6 +47,7 @@ public class SonderpostenInvoiceParser : IInvoiceParserService
     private InvoiceMetadata ExtractMetadata(string invoiceText)
     {
         var metadata = new InvoiceMetadata();
+        var notesLines = new List<string>();
 
         // Extract invoice number (Belegnummer)
         var invoiceNumberMatch = Regex.Match(invoiceText, @"Belegnummer\s+(\d+)");
@@ -59,7 +60,7 @@ public class SonderpostenInvoiceParser : IInvoiceParserService
         var dateMatch = Regex.Match(invoiceText, @"Datum:\s+(\d{2}\.\d{2}\.\d{4})");
         if (dateMatch.Success)
         {
-            if (DateTime.TryParseExact(dateMatch.Groups[1].Value, "dd.MM.yyyy", 
+            if (DateTime.TryParseExact(dateMatch.Groups[1].Value, "dd.MM.yyyy",
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             {
                 metadata.InvoiceDate = date;
@@ -68,6 +69,43 @@ public class SonderpostenInvoiceParser : IInvoiceParserService
 
         // Supplier is Lebensmittel-Sonderposten (Hapex GmbH)
         metadata.Supplier = "Lebensmittel-Sonderposten";
+
+        // Extract shipping/packaging costs and discounts
+        var lines = invoiceText.Split('\n');
+        var costPattern = @"^\s*\d+\s+(.+?)\s+\d+\s+\d+\s*%\s+([\d,-]+)\s*€\s+([\d,-]+)\s*€";
+
+        foreach (var line in lines)
+        {
+            var match = Regex.Match(line, costPattern);
+            if (match.Success)
+            {
+                var description = match.Groups[1].Value.Trim();
+                var totalStr = match.Groups[3].Value.Replace(",", ".").Replace("-", "-");
+
+                if (decimal.TryParse(totalStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var total))
+                {
+                    // Check for shipping/packaging
+                    if (description.Contains("Versand", StringComparison.OrdinalIgnoreCase) ||
+                        description.Contains("Verpackung", StringComparison.OrdinalIgnoreCase))
+                    {
+                        metadata.AdditionalCosts = (metadata.AdditionalCosts ?? 0) + Math.Abs(total);
+                        notesLines.Add($"Shipping: {description} - €{Math.Abs(total):F2}");
+                    }
+                    // Treat negative amounts as discounts
+                    else if (total < 0)
+                    {
+                        metadata.PriceReduction = (metadata.PriceReduction ?? 0) + Math.Abs(total);
+                        notesLines.Add($"Discount: {description} - €{Math.Abs(total):F2}");
+                    }
+                }
+            }
+        }
+
+        // Set notes with all shipping and discount descriptions
+        if (notesLines.Any())
+        {
+            metadata.Notes = string.Join("\n", notesLines);
+        }
 
         return metadata;
     }

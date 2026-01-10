@@ -106,7 +106,7 @@
         <div class="info-card">
             <div class="card-header-actions">
                 <h5>Invoice Items (@_invoice.Items.Count)</h5>
-                <button class="btn btn-primary btn-sm" @onclick="AddItemsToStock">
+                <button class="btn btn-primary btn-sm" @onclick="AddItemsToStock" disabled="@(!_selectedItems.Any())">
                     <span class="icon">📦</span> Add Selected to Stock
                 </button>
             </div>
@@ -120,7 +120,6 @@
                                        @onchange="ToggleSelectAll" />
                             </th>
                             <th>Product Name</th>
-                            <th>Matched Product</th>
                             <th>Article #</th>
                             <th>Quantity</th>
                             <th>Unit Price</th>
@@ -133,20 +132,23 @@
                         @foreach (var item in _invoice.Items)
                         {
                             var isSelected = _selectedItems.Contains(item.Id);
-                            <tr class="@(isSelected ? "" : "text-muted")">
+                            var isEditing = _editingItemId == item.Id;
+                            var isProcessed = item.Status == InvoiceItemStatus.Processed;
+                            var rowClass = isProcessed ? "row-processed" : (isSelected ? "" : "text-muted");
+                            <tr class="@rowClass">
                                 <td>
                                     <input type="checkbox" class="form-check-lg" checked="@isSelected"
-                                           @onchange="() => ToggleItem(item.Id)" />
+                                           @onchange="() => ToggleItem(item.Id)"
+                                           disabled="@isProcessed" />
                                 </td>
-                                <td>@item.ProductName</td>
                                 <td>
                                     @if (item.ProductId.HasValue)
                                     {
-                                        <span class="badge bg-success">✓ @item.MatchedProductName</span>
+                                        <a href="/admin/products/@item.ProductId" class="product-link">@item.MatchedProductName</a>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-danger">⚠ No match</span>
+                                        <span class="text-danger">⚠ @item.ProductName (No match)</span>
                                     }
                                 </td>
                                 <td><small class="text-muted">@item.ArticleNumber</small></td>
@@ -154,17 +156,68 @@
                                 <td>€@item.UnitPrice.ToString("F2")</td>
                                 <td>€@item.TotalPrice.ToString("F2")</td>
                                 <td>
-                                    @if (item.BestBeforeDate.HasValue)
+                                    @if (isEditing)
                                     {
-                                        @item.BestBeforeDate.Value.ToString("dd.MM.yyyy")
+                                        <div class="d-flex align-items-center gap-1">
+                                            <input type="date" class="form-control form-control-sm" style="width: 140px;"
+                                                   value="@_editingBestBeforeDate?.ToString("yyyy-MM-dd")"
+                                                   @onchange="e => _editingBestBeforeDate = DateTime.Parse(e.Value?.ToString() ?? DateTime.Today.ToString())" />
+                                            <button class="btn btn-sm btn-success" @onclick="() => SaveBestBeforeDate(item.Id)" disabled="@_isSavingDate">
+                                                @if (_isSavingDate)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm"></span>
+                                                }
+                                                else
+                                                {
+                                                    <span>✓</span>
+                                                }
+                                            </button>
+                                            <button class="btn btn-sm btn-secondary" @onclick="CancelEditBestBeforeDate">✕</button>
+                                        </div>
                                     }
                                     else
                                     {
-                                        <span class="text-muted">-</span>
+                                        <div class="d-flex align-items-center gap-1">
+                                            @if (item.BestBeforeDate.HasValue)
+                                            {
+                                                <span>@item.BestBeforeDate.Value.ToString("dd.MM.yyyy")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Not set</span>
+                                            }
+                                            @if (!isProcessed)
+                                            {
+                                                <button class="btn btn-sm btn-link p-0" @onclick="() => StartEditBestBeforeDate(item.Id, item.BestBeforeDate)">
+                                                    <span>✏️</span>
+                                                </button>
+                                            }
+                                        </div>
                                     }
                                 </td>
                                 <td>
-                                    <span class="badge bg-secondary">Pending</span>
+                                    @if (item.Status == InvoiceItemStatus.Processed && item.ActionType.HasValue)
+                                    {
+                                        @switch (item.ActionType.Value)
+                                        {
+                                            case ShelvingActionType.AddedToStorage:
+                                                <span class="badge bg-info">Added to Storage</span>
+                                                break;
+                                            case ShelvingActionType.AddedToShelf:
+                                                <span class="badge bg-success">Added to Shelf</span>
+                                                break;
+                                            case ShelvingActionType.Consumed:
+                                                <span class="badge bg-warning text-dark">Consumed</span>
+                                                break;
+                                            default:
+                                                <span class="badge bg-success">@item.ActionType.Value.ToString()</span>
+                                                break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Pending</span>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -387,6 +440,31 @@
         height: 1.25rem;
         cursor: pointer;
     }
+
+    .form-check-lg:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    tr.row-processed {
+        opacity: 0.5;
+        background-color: #f8f9fa;
+    }
+
+    tr.row-processed td {
+        color: #6c757d;
+    }
+
+    .product-link {
+        color: #0d6efd;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .product-link:hover {
+        text-decoration: underline;
+        color: #0a58ca;
+    }
 </style>
 
 @code {
@@ -409,6 +487,9 @@
     private bool _isAddingToStock = false;
     private string? _addToStockError;
     private string? _addToStockSuccess;
+    private int? _editingItemId;
+    private DateTime? _editingBestBeforeDate;
+    private bool _isSavingDate = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -425,8 +506,11 @@
             _invoice = await InvoicesApi.GetByIdAsync(InvoiceId);
             if (_invoice != null)
             {
-                // Select all items by default
-                _selectedItems = _invoice.Items.Select(i => i.Id).ToHashSet();
+                // Select only pending (not processed) items by default
+                _selectedItems = _invoice.Items
+                    .Where(i => i.Status == InvoiceItemStatus.Pending)
+                    .Select(i => i.Id)
+                    .ToHashSet();
             }
         }
         catch (Exception ex)
@@ -446,7 +530,11 @@
         {
             if (_selectAll)
             {
-                _selectedItems = _invoice.Items.Select(i => i.Id).ToHashSet();
+                // Only select pending (not processed) items
+                _selectedItems = _invoice.Items
+                    .Where(i => i.Status == InvoiceItemStatus.Pending)
+                    .Select(i => i.Id)
+                    .ToHashSet();
             }
             else
             {
@@ -457,6 +545,16 @@
 
     private void ToggleItem(int itemId)
     {
+        // Don't allow toggling processed items
+        if (_invoice != null)
+        {
+            var item = _invoice.Items.FirstOrDefault(i => i.Id == itemId);
+            if (item?.Status == InvoiceItemStatus.Processed)
+            {
+                return;
+            }
+        }
+
         if (_selectedItems.Contains(itemId))
         {
             _selectedItems.Remove(itemId);
@@ -466,7 +564,9 @@
             _selectedItems.Add(itemId);
         }
 
-        _selectAll = _invoice != null && _selectedItems.Count == _invoice.Items.Count;
+        // Update select all state based on pending items only
+        var pendingItemsCount = _invoice?.Items.Count(i => i.Status == InvoiceItemStatus.Pending) ?? 0;
+        _selectAll = _invoice != null && pendingItemsCount > 0 && _selectedItems.Count == pendingItemsCount;
     }
 
     private void AddItemsToStock()
@@ -550,7 +650,7 @@
                         BestBeforeDate = item.BestBeforeDate,
                         Quantity = item.Quantity,
                         Type = actionType,
-                        InvoiceItemId = item.Id
+                        InvoiceItemId = item.Id,
                     };
 
                     var result = await ShelvingActionsApi.CreateAsync(shelvingAction);
@@ -558,13 +658,29 @@
                 }
                 catch (ApiException ex)
                 {
-                    var errorMessage = await ex.GetContentAsAsync<string>() ?? ex.Message;
-                    errors.Add($"{item.ProductName}: {errorMessage}");
+                    string errorMessage = ex.Message;
+                    try
+                    {
+                        // Try to get the error message from the response body
+                        if (!string.IsNullOrEmpty(ex.Content))
+                        {
+                            var errorResponse = await ex.GetContentAsAsync<ErrorResponse>();
+                            if (!string.IsNullOrEmpty(errorResponse?.Message))
+                            {
+                                errorMessage = errorResponse.Message;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Keep the original ex.Message if parsing fails
+                    }
+                    errors.Add($"{item.MatchedProductName ?? item.ProductName}: {errorMessage}");
                     errorCount++;
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"{item.ProductName}: {ex.Message}");
+                    errors.Add($"{item.MatchedProductName ?? item.ProductName}: {ex.Message}");
                     errorCount++;
                 }
             }
@@ -615,6 +731,60 @@
     private void GoBack()
     {
         Navigation.NavigateTo("/admin/invoices");
+    }
+
+    private void StartEditBestBeforeDate(int itemId, DateTime? currentDate)
+    {
+        _editingItemId = itemId;
+        _editingBestBeforeDate = currentDate ?? DateTime.Today;
+    }
+
+    private void CancelEditBestBeforeDate()
+    {
+        _editingItemId = null;
+        _editingBestBeforeDate = null;
+    }
+
+    private async Task SaveBestBeforeDate(int itemId)
+    {
+        if (_editingBestBeforeDate == null)
+        {
+            _errorMessage = "Please select a best before date";
+            return;
+        }
+
+        _isSavingDate = true;
+        try
+        {
+            var updateDto = new UpdateInvoiceItemDto
+            {
+                BestBeforeDate = _editingBestBeforeDate
+            };
+
+            await InvoicesApi.UpdateItemAsync(itemId, updateDto);
+
+            // Update the local invoice data
+            if (_invoice != null)
+            {
+                var item = _invoice.Items.FirstOrDefault(i => i.Id == itemId);
+                if (item != null)
+                {
+                    item.BestBeforeDate = _editingBestBeforeDate;
+                }
+            }
+
+            _editingItemId = null;
+            _editingBestBeforeDate = null;
+            _errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to update best before date: {ex.Message}";
+        }
+        finally
+        {
+            _isSavingDate = false;
+        }
     }
 
     private bool confirm(string message)

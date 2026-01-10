@@ -17,6 +17,7 @@ public class InvoiceDto
     public int CreatedByUserId { get; set; }
     public string? CreatedByUsername { get; set; }
     public List<InvoiceItemDto> Items { get; set; } = new();
+    public bool HasUnprocessedItems { get; set; }
 }
 
 public class InvoiceItemDto
@@ -32,6 +33,8 @@ public class InvoiceItemDto
     public DateTime? BestBeforeDate { get; set; }
     public string? Notes { get; set; }
     public string? ArticleNumber { get; set; }
+    public InvoiceItemStatus Status { get; set; }
+    public ShelvingActionType? ActionType { get; set; }
 }
 
 public class CreateInvoiceDto
@@ -105,6 +108,7 @@ public class InvoiceMetadata
     public decimal? TotalAmount { get; set; }
     public decimal? AdditionalCosts { get; set; }
     public decimal? PriceReduction { get; set; }
+    public string? Notes { get; set; }
 }
 
 public class CreateInvoiceFromParsedDto
@@ -124,4 +128,9 @@ public class AddInvoiceItemToStockDto
     public int? ProductId { get; set; }
     public string? ProductBarcode { get; set; }
     public bool AddToShelf { get; set; }
+}
+
+public class UpdateInvoiceItemDto
+{
+    public DateTime? BestBeforeDate { get; set; }
 }

@@ -37,8 +37,11 @@ public class ShelvingActionsController : ControllerBase
 
         if (productId.HasValue)
         {
-            query = query.Where(sa => sa.ProductBatch.ProductId == productId.Value);
+            query = query.Where(sa => sa.ProductBatch != null && sa.ProductBatch.ProductId == productId.Value);
         }
+
+        // Exclude consumed items without product batches from general queries
+        query = query.Where(sa => sa.ProductBatch != null);
 
         query = query.OrderByDescending(sa => sa.ActionAt);
 
@@ -52,10 +55,10 @@ public class ShelvingActionsController : ControllerBase
             {
                 Id = sa.Id,
                 ProductBatchId = sa.ProductBatchId,
-                ProductId = sa.ProductBatch.ProductId,
-                ProductName = sa.ProductBatch.Product.Name,
-                ProductBarcode = sa.ProductBatch.Product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
-                BestBeforeDate = sa.ProductBatch.BestBeforeDate,
+                ProductId = sa.ProductBatch!.ProductId,
+                ProductName = sa.ProductBatch!.Product.Name,
+                ProductBarcode = sa.ProductBatch!.Product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
+                BestBeforeDate = sa.ProductBatch!.BestBeforeDate,
                 Quantity = sa.Quantity,
                 Type = sa.Type,
                 ActionAt = sa.ActionAt,
@@ -145,10 +148,50 @@ public class ShelvingActionsController : ControllerBase
                     continue;
                 }
 
-                // Skip batch creation for consumed items
+                // Check if this is for an invoice item and if it's already processed
+                if (action.InvoiceItemId.HasValue)
+                {
+                    var invoiceItem = await _context.InvoiceItems.FindAsync(action.InvoiceItemId.Value);
+                    if (invoiceItem != null && (invoiceItem.Status == InvoiceItemStatus.Processed ||
+                        await _context.ShelvingActions.AnyAsync(sa => sa.InvoiceItemId == action.InvoiceItemId.Value)))
+                    {
+                        response.Errors.Add($"Invoice item {action.InvoiceItemId} has already been processed");
+                        continue;
+                    }
+                }
+
+                // Handle consumed items separately - no batch needed
                 if (action.Type == ShelvingActionType.Consumed)
                 {
+                    // Create a consumed shelving action without a batch
+                    var consumedAction = new ShelvingAction
+                    {
+                        ProductBatchId = null, // No batch for consumed items
+                        Quantity = action.Quantity,
+                        Type = action.Type,
+                        ActionAt = DateTime.UtcNow,
+                        InvoiceItemId = action.InvoiceItemId
+                    };
+
+                    _context.ShelvingActions.Add(consumedAction);
+
+                    // Update invoice item status to Processed if applicable
+                    if (action.InvoiceItemId.HasValue)
+                    {
+                        var invoiceItem = await _context.InvoiceItems.FindAsync(action.InvoiceItemId.Value);
+                        if (invoiceItem != null)
+                        {
+                            invoiceItem.Status = InvoiceItemStatus.Processed;
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+
                     _logger.LogInformation("Marking {Quantity} of {ProductName} as consumed", action.Quantity, product.Name);
+
+                    // Add to response
+                    consumedAction.ProductBatch = new ProductBatch { Product = product, BestBeforeDate = DateTime.UtcNow };
+                    response.Results.Add(consumedAction.ToDtoWithBarcode(barcode ?? ""));
                     continue;
                 }
 
@@ -201,6 +244,17 @@ public class ShelvingActionsController : ControllerBase
                 var shelvingAction = action.ToEntity(batch.Id);
 
                 _context.ShelvingActions.Add(shelvingAction);
+
+                // Update invoice item status to Processed if applicable
+                if (action.InvoiceItemId.HasValue)
+                {
+                    var invoiceItem = await _context.InvoiceItems.FindAsync(action.InvoiceItemId.Value);
+                    if (invoiceItem != null)
+                    {
+                        invoiceItem.Status = InvoiceItemStatus.Processed;
+                    }
+                }
+
                 await _context.SaveChangesAsync();
 
                 // Track product for best before date update
@@ -278,31 +332,56 @@ public class ShelvingActionsController : ControllerBase
             return BadRequest(new { message = "Either ProductId or ProductBarcode must be provided" });
         }
 
+        // Check if this is for an invoice item and if it's already processed
+        if (dto.InvoiceItemId.HasValue)
+        {
+            var invoiceItem = await _context.InvoiceItems.FindAsync(dto.InvoiceItemId.Value);
+            if (invoiceItem != null && (invoiceItem.Status == InvoiceItemStatus.Processed ||
+                await _context.ShelvingActions.AnyAsync(sa => sa.InvoiceItemId == dto.InvoiceItemId.Value)))
+            {
+                return BadRequest(new { message = "Invoice item has already been processed. Cannot add to stock again." });
+            }
+        }
+
         // Validate best before date is provided for storage/shelf actions
-        if ((dto.Type == ShelvingActionType.AddedToStorage || dto.Type == ShelvingActionType.AddedToShelf || dto.Type == ShelvingActionType.MovedToShelf) 
+        if ((dto.Type == ShelvingActionType.AddedToStorage || dto.Type == ShelvingActionType.AddedToShelf || dto.Type == ShelvingActionType.MovedToShelf)
             && !dto.BestBeforeDate.HasValue)
         {
             return BadRequest(new { message = "Best before date is required for adding to storage or shelf" });
         }
 
-        // For consumed items, don't create a batch
+        // For consumed items, create a shelving action but no batch
         if (dto.Type == ShelvingActionType.Consumed)
         {
-            // Just mark invoice item as consumed, no batch needed
+            // Create a consumed shelving action without a batch
+            var consumedAction = new ShelvingAction
+            {
+                ProductBatchId = null, // No batch for consumed items
+                Quantity = dto.Quantity,
+                Type = dto.Type,
+                ActionAt = DateTime.UtcNow,
+                InvoiceItemId = dto.InvoiceItemId
+            };
+
+            _context.ShelvingActions.Add(consumedAction);
+
+            // Update invoice item status to Processed if applicable
             if (dto.InvoiceItemId.HasValue)
             {
                 var invoiceItem = await _context.InvoiceItems.FindAsync(dto.InvoiceItemId.Value);
                 if (invoiceItem != null)
                 {
-                    // Add a note or status field if needed
+                    invoiceItem.Status = InvoiceItemStatus.Processed;
                     _logger.LogInformation("Invoice item {InvoiceItemId} marked as consumed without creating stock", dto.InvoiceItemId);
                 }
             }
 
+            await _context.SaveChangesAsync();
+
             // Return a response indicating the item was marked as consumed
             return Ok(new ShelvingActionDto
             {
-                Id = 0,
+                Id = consumedAction.Id,
                 ProductBatchId = 0,
                 ProductId = product.Id,
                 ProductName = product.Name,
@@ -353,6 +432,17 @@ public class ShelvingActionsController : ControllerBase
         var shelvingAction = dto.ToEntity(batch.Id);
 
         _context.ShelvingActions.Add(shelvingAction);
+
+        // Update invoice item status to Processed if applicable
+        if (dto.InvoiceItemId.HasValue)
+        {
+            var invoiceItem = await _context.InvoiceItems.FindAsync(dto.InvoiceItemId.Value);
+            if (invoiceItem != null)
+            {
+                invoiceItem.Status = InvoiceItemStatus.Processed;
+            }
+        }
+
         await _context.SaveChangesAsync();
 
         // Update product best before dates

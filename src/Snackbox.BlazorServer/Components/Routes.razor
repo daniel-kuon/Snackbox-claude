@@ -4,4 +4,10 @@
         <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(MainLayout)">
+            <h1>Page Not Found</h1>
+            <p>Sorry, the page you're looking for doesn't exist.</p>
+        </LayoutView>
+    </NotFound>
 </Router>

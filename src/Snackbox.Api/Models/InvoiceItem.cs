@@ -1,3 +1,5 @@
+using Snackbox.Api.Dtos;
+
 namespace Snackbox.Api.Models;
 
 public class InvoiceItem
@@ -12,6 +14,7 @@ public class InvoiceItem
     public DateTime? BestBeforeDate { get; set; }
     public string? Notes { get; set; }
     public string? ArticleNumber { get; set; }
+    public InvoiceItemStatus Status { get; set; } = InvoiceItemStatus.Pending;
 
     // Navigation properties
     public Invoice Invoice { get; set; } = null!;

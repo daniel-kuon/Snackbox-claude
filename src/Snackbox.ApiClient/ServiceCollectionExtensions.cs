@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Refit;
 
@@ -20,7 +22,17 @@ public static class ServiceCollectionExtensions
         string baseUrl,
         Action<HttpClient>? configureClient = null)
     {
-        var refitSettings = new RefitSettings();
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
+        jsonOptions.Converters.Add(new JsonStringEnumConverter());
+
+        var refitSettings = new RefitSettings
+        {
+            ContentSerializer = new SystemTextJsonContentSerializer(jsonOptions)
+        };
 
         void AddRefitClient<TApi>() where TApi : class
         {

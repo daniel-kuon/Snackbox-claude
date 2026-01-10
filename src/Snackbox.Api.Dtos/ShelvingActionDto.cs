@@ -3,7 +3,7 @@ namespace Snackbox.Api.Dtos;
 public class ShelvingActionDto
 {
     public int Id { get; set; }
-    public int ProductBatchId { get; set; }
+    public int? ProductBatchId { get; set; }
     public int ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string ProductBarcode { get; set; } = string.Empty;
