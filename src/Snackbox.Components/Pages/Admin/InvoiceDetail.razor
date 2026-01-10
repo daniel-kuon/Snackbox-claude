@@ -1,0 +1,795 @@
+@page "/admin/invoices/{InvoiceId:int}"
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject IInvoicesApi InvoicesApi
+@inject IShelvingActionsApi ShelvingActionsApi
+@inject IProductsApi ProductsApi
+@inject NavigationManager Navigation
+
+<PageTitle>Invoice Details - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <div>
+            <button class="btn btn-secondary btn-sm" @onclick="GoBack">
+                <span class="icon">←</span> Back
+            </button>
+            <h2 class="mt-2">Invoice @_invoice?.InvoiceNumber</h2>
+        </div>
+        @if (_invoice != null)
+        {
+            <button class="btn btn-danger" @onclick="DeleteInvoice">
+                Delete Invoice
+            </button>
+        }
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading invoice...</p>
+        </div>
+    }
+    else if (_errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @_errorMessage
+        </div>
+    }
+    else if (_invoice != null)
+    {
+        <div class="row">
+            <div class="col-md-6">
+                <div class="info-card">
+                    <h5>Invoice Information</h5>
+                    <table class="table table-borderless">
+                        <tbody>
+                            <tr>
+                                <th>Invoice Number:</th>
+                                <td>@_invoice.InvoiceNumber</td>
+                            </tr>
+                            <tr>
+                                <th>Date:</th>
+                                <td>@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                            </tr>
+                            <tr>
+                                <th>Supplier:</th>
+                                <td>@_invoice.Supplier</td>
+                            </tr>
+                            <tr>
+                                <th>Created By:</th>
+                                <td>@_invoice.CreatedByUsername</td>
+                            </tr>
+                            <tr>
+                                <th>Created At:</th>
+                                <td>@_invoice.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="info-card">
+                    <h5>Financial Summary</h5>
+                    <table class="table table-borderless">
+                        <tbody>
+                            <tr>
+                                <th>Items Total:</th>
+                                <td>€@(_invoice.TotalAmount - _invoice.AdditionalCosts).ToString("F2")</td>
+                            </tr>
+                            <tr>
+                                <th>Additional Costs:</th>
+                                <td>€@_invoice.AdditionalCosts.ToString("F2")</td>
+                            </tr>
+                            <tr class="total-row">
+                                <th>Total Amount:</th>
+                                <td><strong>€@_invoice.TotalAmount.ToString("F2")</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_invoice.Notes))
+        {
+            <div class="info-card">
+                <h5>Notes</h5>
+                <p>@_invoice.Notes</p>
+            </div>
+        }
+
+        <div class="info-card">
+            <div class="card-header-actions">
+                <h5>Invoice Items (@_invoice.Items.Count)</h5>
+                <button class="btn btn-primary btn-sm" @onclick="AddItemsToStock" disabled="@(!_selectedItems.Any())">
+                    <span class="icon">📦</span> Add Selected to Stock
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">
+                                <input type="checkbox" class="form-check-lg" checked="@_selectAll"
+                                       @onchange="ToggleSelectAll" />
+                            </th>
+                            <th>Product Name</th>
+                            <th>Article #</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total Price</th>
+                            <th>Best Before</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _invoice.Items)
+                        {
+                            var isSelected = _selectedItems.Contains(item.Id);
+                            var isEditing = _editingItemId == item.Id;
+                            var isProcessed = item.Status == InvoiceItemStatus.Processed;
+                            var rowClass = isProcessed ? "row-processed" : (isSelected ? "" : "text-muted");
+                            <tr class="@rowClass">
+                                <td>
+                                    <input type="checkbox" class="form-check-lg" checked="@isSelected"
+                                           @onchange="() => ToggleItem(item.Id)"
+                                           disabled="@isProcessed" />
+                                </td>
+                                <td>
+                                    @if (item.ProductId.HasValue)
+                                    {
+                                        <a href="/admin/products/@item.ProductId" class="product-link">@item.MatchedProductName</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-danger">⚠ @item.ProductName (No match)</span>
+                                    }
+                                </td>
+                                <td><small class="text-muted">@item.ArticleNumber</small></td>
+                                <td>@item.Quantity</td>
+                                <td>€@item.UnitPrice.ToString("F2")</td>
+                                <td>€@item.TotalPrice.ToString("F2")</td>
+                                <td>
+                                    @if (isEditing)
+                                    {
+                                        <div class="d-flex align-items-center gap-1">
+                                            <input type="date" class="form-control form-control-sm" style="width: 140px;"
+                                                   value="@_editingBestBeforeDate?.ToString("yyyy-MM-dd")"
+                                                   @onchange="e => _editingBestBeforeDate = DateTime.Parse(e.Value?.ToString() ?? DateTime.Today.ToString())" />
+                                            <button class="btn btn-sm btn-success" @onclick="() => SaveBestBeforeDate(item.Id)" disabled="@_isSavingDate">
+                                                @if (_isSavingDate)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm"></span>
+                                                }
+                                                else
+                                                {
+                                                    <span>✓</span>
+                                                }
+                                            </button>
+                                            <button class="btn btn-sm btn-secondary" @onclick="CancelEditBestBeforeDate">✕</button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex align-items-center gap-1">
+                                            @if (item.BestBeforeDate.HasValue)
+                                            {
+                                                <span>@item.BestBeforeDate.Value.ToString("dd.MM.yyyy")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Not set</span>
+                                            }
+                                            @if (!isProcessed)
+                                            {
+                                                <button class="btn btn-sm btn-link p-0" @onclick="() => StartEditBestBeforeDate(item.Id, item.BestBeforeDate)">
+                                                    <span>✏️</span>
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (item.Status == InvoiceItemStatus.Processed && item.ActionType.HasValue)
+                                    {
+                                        @switch (item.ActionType.Value)
+                                        {
+                                            case ShelvingActionType.AddedToStorage:
+                                                <span class="badge bg-info">Added to Storage</span>
+                                                break;
+                                            case ShelvingActionType.AddedToShelf:
+                                                <span class="badge bg-success">Added to Shelf</span>
+                                                break;
+                                            case ShelvingActionType.Consumed:
+                                                <span class="badge bg-warning text-dark">Consumed</span>
+                                                break;
+                                            default:
+                                                <span class="badge bg-success">@item.ActionType.Value.ToString()</span>
+                                                break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Pending</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (_showAddToStockModal)
+        {
+            <div class="modal-backdrop" @onclick="CloseAddToStockModal"></div>
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5>Add Items to Stock</h5>
+                        <button class="btn-close" @onclick="CloseAddToStockModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Review and confirm adding @_selectedItems.Count item(s) to stock.</p>
+
+                        @{
+                            var unmatchedCount = _invoice.Items.Where(i => _selectedItems.Contains(i.Id) && !i.ProductId.HasValue).Count();
+                        }
+
+                        @if (unmatchedCount > 0)
+                        {
+                            <div class="alert alert-danger">
+                                <strong>Error:</strong> @unmatchedCount item(s) are not matched to products. All items must be matched before adding to stock.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                <strong>Note:</strong> Items will be added to stock. Article numbers will be added as barcodes to matched products.
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label class="form-label fw-bold">Stock Destination</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stockDestination" id="destStorage"
+                                           checked="@(_stockDestination == StockDestination.Storage)"
+                                           @onchange="@(() => _stockDestination = StockDestination.Storage)" />
+                                    <label class="form-check-label" for="destStorage">
+                                        Add to Storage
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stockDestination" id="destShelf"
+                                           checked="@(_stockDestination == StockDestination.Shelf)"
+                                           @onchange="@(() => _stockDestination = StockDestination.Shelf)" />
+                                    <label class="form-check-label" for="destShelf">
+                                        Add to Shelf
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stockDestination" id="destConsumed"
+                                           checked="@(_stockDestination == StockDestination.Consumed)"
+                                           @onchange="@(() => _stockDestination = StockDestination.Consumed)" />
+                                    <label class="form-check-label" for="destConsumed">
+                                        Mark as Consumed (for old invoices)
+                                    </label>
+                                    @if (_stockDestination == StockDestination.Consumed)
+                                    {
+                                        <small class="text-muted d-block mt-1">
+                                            Items will be added to stock and immediately marked as consumed.
+                                        </small>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (_addToStockError != null)
+                        {
+                            <div class="alert alert-danger">@_addToStockError</div>
+                        }
+                        @if (_addToStockSuccess != null)
+                        {
+                            <div class="alert alert-success">@_addToStockSuccess</div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="CloseAddToStockModal">Cancel</button>
+                        @{
+                            var canConfirm = _invoice != null && _invoice.Items.Where(i => _selectedItems.Contains(i.Id)).All(i => i.ProductId.HasValue);
+                        }
+                        <button class="btn btn-success" @onclick="ConfirmAddToStock" disabled="@(_isAddingToStock || !canConfirm)">
+                            @if (_isAddingToStock)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .info-card {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-card h5 {
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .card-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .card-header-actions h5 {
+        margin: 0;
+        border: none;
+        padding: 0;
+    }
+
+    .total-row {
+        border-top: 2px solid #dee2e6;
+        font-size: 1.1rem;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .icon {
+        margin-right: 0.5rem;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1040;
+    }
+
+    .modal-dialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1050;
+        max-height: 90vh;
+        overflow-y: auto;
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        width: 600px;
+        max-width: 90vw;
+    }
+
+    .modal-dialog.modal-lg {
+        width: 900px;
+    }
+
+    .modal-content {
+        padding: 0;
+    }
+
+    .modal-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    .btn-close {
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        opacity: 0.5;
+    }
+
+    .btn-close:hover {
+        opacity: 1;
+    }
+
+    .form-check-lg {
+        width: 1.25rem;
+        height: 1.25rem;
+        cursor: pointer;
+    }
+
+    .form-check-lg:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    tr.row-processed {
+        opacity: 0.5;
+        background-color: #f8f9fa;
+    }
+
+    tr.row-processed td {
+        color: #6c757d;
+    }
+
+    .product-link {
+        color: #0d6efd;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .product-link:hover {
+        text-decoration: underline;
+        color: #0a58ca;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int InvoiceId { get; set; }
+
+    private InvoiceDto? _invoice;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private HashSet<int> _selectedItems = new();
+    private bool _selectAll = true;
+    private bool _showAddToStockModal = false;
+    private enum StockDestination
+    {
+        Storage,
+        Shelf,
+        Consumed
+    }
+    private StockDestination _stockDestination = StockDestination.Storage;
+    private bool _isAddingToStock = false;
+    private string? _addToStockError;
+    private string? _addToStockSuccess;
+    private int? _editingItemId;
+    private DateTime? _editingBestBeforeDate;
+    private bool _isSavingDate = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInvoice();
+    }
+
+    private async Task LoadInvoice()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _invoice = await InvoicesApi.GetByIdAsync(InvoiceId);
+            if (_invoice != null)
+            {
+                // Select only pending (not processed) items by default
+                _selectedItems = _invoice.Items
+                    .Where(i => i.Status == InvoiceItemStatus.Pending)
+                    .Select(i => i.Id)
+                    .ToHashSet();
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load invoice: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        _selectAll = (bool)e.Value!;
+        if (_invoice != null)
+        {
+            if (_selectAll)
+            {
+                // Only select pending (not processed) items
+                _selectedItems = _invoice.Items
+                    .Where(i => i.Status == InvoiceItemStatus.Pending)
+                    .Select(i => i.Id)
+                    .ToHashSet();
+            }
+            else
+            {
+                _selectedItems.Clear();
+            }
+        }
+    }
+
+    private void ToggleItem(int itemId)
+    {
+        // Don't allow toggling processed items
+        if (_invoice != null)
+        {
+            var item = _invoice.Items.FirstOrDefault(i => i.Id == itemId);
+            if (item?.Status == InvoiceItemStatus.Processed)
+            {
+                return;
+            }
+        }
+
+        if (_selectedItems.Contains(itemId))
+        {
+            _selectedItems.Remove(itemId);
+        }
+        else
+        {
+            _selectedItems.Add(itemId);
+        }
+
+        // Update select all state based on pending items only
+        var pendingItemsCount = _invoice?.Items.Count(i => i.Status == InvoiceItemStatus.Pending) ?? 0;
+        _selectAll = _invoice != null && pendingItemsCount > 0 && _selectedItems.Count == pendingItemsCount;
+    }
+
+    private void AddItemsToStock()
+    {
+        if (!_selectedItems.Any())
+        {
+            _errorMessage = "Please select at least one item";
+            return;
+        }
+
+        _showAddToStockModal = true;
+        _addToStockError = null;
+        _addToStockSuccess = null;
+    }
+
+    private void CloseAddToStockModal()
+    {
+        _showAddToStockModal = false;
+    }
+
+    private async Task ConfirmAddToStock()
+    {
+        _isAddingToStock = true;
+        _addToStockError = null;
+        _addToStockSuccess = null;
+
+        if (_invoice == null) return;
+
+        try
+        {
+            var selectedInvoiceItems = _invoice.Items.Where(i => _selectedItems.Contains(i.Id)).ToList();
+
+            // Validate all items have ProductId
+            if (selectedInvoiceItems.Any(i => !i.ProductId.HasValue))
+            {
+                _addToStockError = "All selected items must be matched to products.";
+                _isAddingToStock = false;
+                return;
+            }
+
+            // Validate best before dates for non-consumed items
+            if (_stockDestination != StockDestination.Consumed)
+            {
+                var itemsWithoutDate = selectedInvoiceItems.Where(i => !i.BestBeforeDate.HasValue).ToList();
+                if (itemsWithoutDate.Any())
+                {
+                    _addToStockError = $"Best before date is required for {itemsWithoutDate.Count} item(s) when adding to storage or shelf. " +
+                        "Please add best before dates in the invoice detail page first.";
+                    _isAddingToStock = false;
+                    return;
+                }
+            }
+
+            var successCount = 0;
+            var errorCount = 0;
+            var errors = new List<string>();
+
+            foreach (var item in selectedInvoiceItems)
+            {
+                try
+                {
+                    ShelvingActionType actionType;
+                    if (_stockDestination == StockDestination.Consumed)
+                    {
+                        actionType = ShelvingActionType.Consumed;
+                    }
+                    else if (_stockDestination == StockDestination.Shelf)
+                    {
+                        actionType = ShelvingActionType.AddedToShelf;
+                    }
+                    else
+                    {
+                        actionType = ShelvingActionType.AddedToStorage;
+                    }
+
+                    // Create shelving action using ProductId
+                    var shelvingAction = new CreateShelvingActionDto
+                    {
+                        ProductId = item.ProductId,
+                        ProductBarcode = null, // Not needed when ProductId is provided
+                        BestBeforeDate = item.BestBeforeDate,
+                        Quantity = item.Quantity,
+                        Type = actionType,
+                        InvoiceItemId = item.Id,
+                    };
+
+                    var result = await ShelvingActionsApi.CreateAsync(shelvingAction);
+                    successCount++;
+                }
+                catch (ApiException ex)
+                {
+                    string errorMessage = ex.Message;
+                    try
+                    {
+                        // Try to get the error message from the response body
+                        if (!string.IsNullOrEmpty(ex.Content))
+                        {
+                            var errorResponse = await ex.GetContentAsAsync<ErrorResponse>();
+                            if (!string.IsNullOrEmpty(errorResponse?.Message))
+                            {
+                                errorMessage = errorResponse.Message;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Keep the original ex.Message if parsing fails
+                    }
+                    errors.Add($"{item.MatchedProductName ?? item.ProductName}: {errorMessage}");
+                    errorCount++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"{item.MatchedProductName ?? item.ProductName}: {ex.Message}");
+                    errorCount++;
+                }
+            }
+
+            if (errorCount > 0)
+            {
+                _addToStockError = $"Completed with errors: {successCount} succeeded, {errorCount} failed.\n" +
+                    string.Join("\n", errors);
+            }
+            else
+            {
+                _addToStockSuccess = _stockDestination == StockDestination.Consumed
+                                         ? $"Successfully marked {successCount} item(s) as consumed."
+                                         : $"Successfully added {successCount} item(s) to {(_stockDestination == StockDestination.Shelf ? "shelf" : "storage")}.";
+
+                // Reload invoice to update status
+                await Task.Delay(2000);
+                await LoadInvoice();
+                _showAddToStockModal = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _addToStockError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isAddingToStock = false;
+        }
+    }
+
+    private async Task DeleteInvoice()
+    {
+        if (!confirm("Are you sure you want to delete this invoice?"))
+            return;
+
+        try
+        {
+            await InvoicesApi.DeleteAsync(InvoiceId);
+            GoBack();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to delete invoice: {ex.Message}";
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/admin/invoices");
+    }
+
+    private void StartEditBestBeforeDate(int itemId, DateTime? currentDate)
+    {
+        _editingItemId = itemId;
+        _editingBestBeforeDate = currentDate ?? DateTime.Today;
+    }
+
+    private void CancelEditBestBeforeDate()
+    {
+        _editingItemId = null;
+        _editingBestBeforeDate = null;
+    }
+
+    private async Task SaveBestBeforeDate(int itemId)
+    {
+        if (_editingBestBeforeDate == null)
+        {
+            _errorMessage = "Please select a best before date";
+            return;
+        }
+
+        _isSavingDate = true;
+        try
+        {
+            var updateDto = new UpdateInvoiceItemDto
+            {
+                BestBeforeDate = _editingBestBeforeDate
+            };
+
+            await InvoicesApi.UpdateItemAsync(itemId, updateDto);
+
+            // Update the local invoice data
+            if (_invoice != null)
+            {
+                var item = _invoice.Items.FirstOrDefault(i => i.Id == itemId);
+                if (item != null)
+                {
+                    item.BestBeforeDate = _editingBestBeforeDate;
+                }
+            }
+
+            _editingItemId = null;
+            _editingBestBeforeDate = null;
+            _errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to update best before date: {ex.Message}";
+        }
+        finally
+        {
+            _isSavingDate = false;
+        }
+    }
+
+    private bool confirm(string message)
+    {
+        // In a real app, use a proper confirmation dialog
+        return true;
+    }
+}

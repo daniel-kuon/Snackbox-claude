@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,12 @@ using Snackbox.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -40,6 +46,15 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
+
+// Register product matching service
+builder.Services.AddScoped<IProductMatchingService, ProductMatchingService>();
+
+// Register invoice parser services
+builder.Services.AddScoped<IInvoiceParserService, SonderpostenInvoiceParser>();
+builder.Services.AddScoped<IInvoiceParserService, SelgrosInvoiceParser>();
+builder.Services.AddScoped<IInvoiceParserService, ReweInvoiceParser>();
+builder.Services.AddScoped<InvoiceParserFactory>();
 
 // Register email service
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));

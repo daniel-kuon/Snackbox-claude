@@ -20,6 +20,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<ShelvingAction> ShelvingActions => Set<ShelvingAction>();
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
     public DbSet<Deposit> Deposits => Set<Deposit>();
     public DbSet<CashRegister> CashRegister => Set<CashRegister>();
@@ -92,6 +94,58 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Withdrawal>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<Invoice>(entity =>
+        {
+            entity.Property(e => e.InvoiceNumber).HasMaxLength(100);
+            entity.Property(e => e.Supplier).HasMaxLength(200);
+            entity.Property(e => e.TotalAmount).HasPrecision(10, 2);
+            entity.Property(e => e.AdditionalCosts).HasPrecision(10, 2);
+            entity.Property(e => e.PriceReduction).HasPrecision(10, 2);
+            
+            // Map CreatedByUserId to created_by_id column (which has the FK constraint)
+            entity.Property(e => e.CreatedByUserId)
+                .HasColumnName("created_by_id");
+            
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            entity.HasOne(e => e.PaidBy)
+                .WithMany()
+                .HasForeignKey(e => e.PaidByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            entity.HasOne(e => e.Payment)
+                .WithOne(p => p.Invoice)
+                .HasForeignKey<Invoice>(e => e.PaymentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InvoiceItem>(entity =>
+        {
+            entity.Property(e => e.ProductName).HasMaxLength(500);
+            entity.Property(e => e.ArticleNumber).HasMaxLength(100);
+            entity.Property(e => e.UnitPrice).HasPrecision(10, 2);
+            entity.Property(e => e.TotalPrice).HasPrecision(10, 2);
+            entity.HasOne(ii => ii.Invoice)
+                .WithMany(i => i.Items)
+                .HasForeignKey(ii => ii.InvoiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(ii => ii.Product)
+                .WithMany()
+                .HasForeignKey(ii => ii.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ShelvingAction>(entity =>
+        {
+            entity.HasOne(sa => sa.InvoiceItem)
+                .WithMany(ii => ii.ShelvingActions)
+                .HasForeignKey(sa => sa.InvoiceItemId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Deposit>(entity =>

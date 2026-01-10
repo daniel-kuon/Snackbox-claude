@@ -1,0 +1,1178 @@
+@page "/admin/invoices"
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IProductsApi ProductsApi
+
+<PageTitle>Invoices - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Invoice Management</h2>
+        <div class="header-actions">
+            <button class="btn btn-primary" @onclick="ShowParseInvoice">
+                <span class="icon">📄</span> Parse Invoice
+            </button>
+        </div>
+    </div>
+
+    @if (_showParseModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseParseModal"></div>
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>Parse Invoice</h5>
+                    <button class="btn-close" @onclick="CloseParseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Invoice Format (optional - will auto-detect if not specified)</label>
+                        <select class="form-control" @bind="_parseFormat">
+                            <option value="">Auto-detect format</option>
+                            <option value="sonderposten">Lebensmittel-Sonderposten</option>
+                            <option value="selgros">Selgros</option>
+                            <option value="rewe">REWE</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Paste Invoice Text</label>
+                        <textarea class="form-control" rows="10" @bind="_invoiceText"
+                                  placeholder="Paste the invoice text here..."></textarea>
+                    </div>
+                    @if (_parseError != null)
+                    {
+                        <div class="alert alert-danger">@_parseError</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseParseModal">Cancel</button>
+                    <button class="btn btn-primary" @onclick="ParseInvoice" disabled="@_isParsing">
+                        @if (_isParsing)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        Parse
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_parsedInvoice != null)
+    {
+        <div class="modal-backdrop"></div>
+        <div class="modal-dialog modal-xl modal-fullheight">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>Review Parsed Invoice</h5>
+                    <button class="btn-close" @onclick="CloseParsedModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Invoice Number *</label>
+                                <input type="text" class="form-control" @bind="_parsedInvoice!.Metadata!.InvoiceNumber" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Invoice Date *</label>
+                                <input type="date" class="form-control" value="@_parsedInvoiceDate"
+                                       @oninput="@(e => _parsedInvoiceDate = e.Value?.ToString() ?? DateTime.Now.ToString("yyyy-MM-dd"))" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Supplier *</label>
+                                <input type="text" class="form-control" @bind="_parsedInvoice!.Metadata!.Supplier" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Paid By *</label>
+                                <select class="form-control" @bind="_paidByUserId">
+                                    <option value="0">Select user...</option>
+                                    @if (_users != null)
+                                    {
+                                        @foreach (var user in _users)
+                                        {
+                                            <option value="@user.Id">@user.Username</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Additional Costs (Shipping, etc.)</label>
+                                <input type="number" step="0.01" class="form-control" @bind="_additionalCosts" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Price Reduction</label>
+                                <input type="number" step="0.01" class="form-control" @bind="_priceReduction" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Notes</label>
+                                <textarea class="form-control" rows="3" @bind="_invoiceNotes" placeholder="Optional notes..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="mt-4">Items (@_parsedInvoice.Items.Count(i => i.Selected) selected)</h6>
+                    <div class="mb-2">
+                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="SelectOnlyMatched">
+                            Select Only Matched
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">
+                                        <input type="checkbox" class="form-check-input-lg" checked="@_selectAll"
+                                               @onchange="ToggleSelectAll" />
+                                    </th>
+                                    <th>Product Name</th>
+                                    <th style="width: 80px;">Qty</th>
+                                    <th style="width: 100px;">Unit Price</th>
+                                    <th style="width: 100px;">Total</th>
+                                    <th style="width: 120px;">Best Before</th>
+                                    <th style="width: 350px;">Product Match *</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < _parsedInvoice.Items.Count; i++)
+                                {
+                                    var item = _parsedInvoice.Items[i];
+                                    var itemIndex = i;
+                                    var hasMatch = _selectedProductIds.ContainsKey(itemIndex) && _selectedProductIds[itemIndex].HasValue;
+                                    var matchedName = GetSelectedProductName(itemIndex);
+                                    var isApprovedMatch = _approvedMatches.Contains(itemIndex);
+
+                                    <tr class="@(item.Selected ? "" : "text-muted")">
+                                        <td>
+                                            <input type="checkbox" class="form-check-input-lg" @bind="item.Selected" />
+                                        </td>
+                                        <td>
+                                            <div>@item.ProductName</div>
+                                            @if (!string.IsNullOrEmpty(item.ArticleNumber))
+                                            {
+                                                <small class="text-muted">@item.ArticleNumber</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm"
+                                                   @bind="item.Quantity"
+                                                   @oninput="@(e => UpdateItemQuantity(item, e.Value?.ToString()))"
+                                                   min="1" style="width: 80px;" />
+                                        </td>
+                                        <td>€@item.UnitPrice.ToString("F2")</td>
+                                        <td>€@item.TotalPrice.ToString("F2")</td>
+                                        <td>
+                                            <input type="date" class="form-control form-control-sm"
+                                                   value="@(item.BestBeforeDate?.ToString("yyyy-MM-dd") ?? "")"
+                                                   @oninput="@(e => UpdateBestBeforeDate(item, e.Value?.ToString()))"
+                                                   style="width: 120px;" />
+                                        </td>
+                                        <td>
+                                            <div class="product-match-control">
+                                                @if (hasMatch && isApprovedMatch)
+                                                {
+                                                    <div class="match-display">
+                                                        <span class="badge bg-success">✓</span>
+                                                        <span>@matchedName</span>
+                                                    </div>
+                                                }
+                                                else if (item.MatchedProductId.HasValue && item.MatchType == "ExactBarcode")
+                                                {
+                                                    <!-- Auto-approved exact barcode match -->
+                                                    <div class="match-display">
+                                                        <span class="badge bg-success">✓</span>
+                                                        <span>@item.MatchedProductName (Barcode)</span>
+                                                    </div>
+                                                }
+                                                else if (item.MatchedProductId.HasValue)
+                                                {
+                                                    <!-- Show dropdown for partial matches -->
+                                                    <div class="btn-group" role="group">
+                                                        <select class="form-control form-control-sm"
+                                                                @bind="_tempSelectedProducts[itemIndex]">
+                                                            <option value="0">-- Select product --</option>
+                                                            <option value="@item.MatchedProductId">@item.MatchedProductName (@item.MatchConfidence% match)</option>
+                                                        </select>
+                                                        <button class="btn btn-sm btn-success"
+                                                                @onclick="() => ApproveMatch(itemIndex)"
+                                                                disabled="@(_tempSelectedProducts.GetValueOrDefault(itemIndex) == 0)"
+                                                                title="Approve match">
+                                                            ✓
+                                                        </button>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">No match</span>
+                                                }
+
+                                                <div class="btn-group ms-2" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary"
+                                                            @onclick="() => ToggleSearch(itemIndex)"
+                                                            title="Search for product">
+                                                        🔍
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-success"
+                                                            @onclick="() => ShowCreateProduct(itemIndex)"
+                                                            title="Create new product">
+                                                        ➕
+                                                    </button>
+                                                </div>
+
+                                                @if (_showingSearch.ContainsKey(itemIndex) && _showingSearch[itemIndex])
+                                                {
+                                                    <div class="search-box mt-2">
+                                                        <input type="text" class="form-control form-control-sm"
+                                                               placeholder="Search products..."
+                                                               @bind="_searchTerms[itemIndex]"
+                                                               @oninput="@(e => SearchProducts(itemIndex, e.Value?.ToString() ?? ""))" />
+                                                        @if (_itemSuggestions.ContainsKey(itemIndex) && _itemSuggestions[itemIndex].Any())
+                                                        {
+                                                            <div class="suggestions-list">
+                                                                @foreach (var product in _itemSuggestions[itemIndex])
+                                                                {
+                                                                    <div class="suggestion-item" @onclick="() => SelectProductFromSearch(itemIndex, product.Id)">
+                                                                        @product.Name
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (_createError != null)
+                    {
+                        <div class="alert alert-danger">@_createError</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <div class="footer-left">
+                        <strong>Total: €@CalculateGrandTotal().ToString("F2")</strong>
+                        <small class="text-muted ms-2">
+                            (Items: €@_parsedInvoice.Items.Where(i => i.Selected).Sum(i => i.TotalPrice).ToString("F2")
+                            + Additional: €@_additionalCosts.ToString("F2")
+                            - Reduction: €@_priceReduction.ToString("F2"))
+                        </small>
+                    </div>
+                    <div class="footer-right">
+                        <button class="btn btn-secondary" @onclick="CloseParsedModal">Cancel</button>
+                        <button class="btn btn-success" @onclick="CreateFromParsed" disabled="@_isCreating">
+                            @if (_isCreating)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Create Invoice
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading invoices...</p>
+        </div>
+    }
+    else if (_errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @_errorMessage
+        </div>
+    }
+    else if (_invoices != null && _invoices.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Date</th>
+                        <th>Supplier</th>
+                        <th>Items</th>
+                        <th>Total Amount</th>
+                        <th>Created By</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var invoice in _invoices)
+                    {
+                        <tr @onclick="() => ViewInvoice(invoice.Id)" style="cursor: pointer;">
+                            <td>@invoice.InvoiceNumber</td>
+                            <td>@invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                            <td>@invoice.Supplier</td>
+                            <td>@invoice.Items.Count</td>
+                            <td>€@invoice.TotalAmount.ToString("F2")</td>
+                            <td>@invoice.CreatedByUsername</td>
+                            <td>
+                                @if (invoice.HasUnprocessedItems)
+                                {
+                                    <span class="badge bg-warning text-dark">⚠ Pending Items</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">✓ Complete</span>
+                                }
+                            </td>
+                            <td @onclick:stopPropagation="true">
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteInvoice(invoice.Id)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <p>No invoices found. Create one to get started!</p>
+        </div>
+    }
+</div>
+
+@* Product Creation Modal *@
+@if (_showProductCreateModal)
+{
+    <div class="modal-backdrop" @onclick="CloseProductCreateModal"></div>
+    <div class="modal-dialog" style="width: 500px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>Create New Product</h5>
+                <button class="btn-close" @onclick="CloseProductCreateModal">×</button>
+            </div>
+            <div class="modal-body">
+                @if (_productCreateError != null)
+                {
+                    <div class="alert alert-danger">@_productCreateError</div>
+                }
+                <div class="form-group">
+                    <label>Product Name</label>
+                    <input type="text" class="form-control" @bind="_newProductName"
+                           placeholder="Enter product name..." />
+                    <small class="form-text text-muted">
+                        This product will be created and automatically assigned to the invoice item.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseProductCreateModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="CreateProductForInvoiceItem"
+                        disabled="@(_isCreatingProduct || string.IsNullOrWhiteSpace(_newProductName))">
+                    @if (_isCreatingProduct)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Create & Assign
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1040;
+    }
+
+    .modal-dialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1050;
+        max-height: 90vh;
+        overflow-y: auto;
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        width: 600px;
+        max-width: 90vw;
+    }
+
+    .modal-dialog.modal-xl {
+        width: 1200px;
+        max-width: 95vw;
+    }
+
+    .modal-content {
+        padding: 0;
+    }
+
+    .modal-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    .modal-footer {
+        padding: 0.75rem 1.5rem;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+
+    .icon {
+        margin-right: 0.5rem;
+    }
+
+    .btn-close {
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        opacity: 0.5;
+    }
+
+    .btn-close:hover {
+        opacity: 1;
+    }
+
+    /* Full height modal */
+    .modal-fullheight {
+        height: 95vh;
+        max-height: 95vh;
+    }
+
+    .modal-fullheight .modal-content {
+        height: 95vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-fullheight .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+    }
+
+    .modal-fullheight .modal-footer {
+        flex-shrink: 0;
+    }
+
+    /* Product matching UI */
+    .match-display {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .search-box {
+        position: relative;
+        margin-top: 0.5rem;
+    }
+
+    .suggestions-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .suggestion-item {
+        padding: 0.5rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f1f1;
+    }
+
+    .suggestion-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    /* Footer layout */
+    .modal-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .footer-left {
+        flex: 1;
+        text-align: left;
+    }
+
+    .footer-right {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    /* Larger checkboxes */
+    .form-check-input-lg {
+        width: 1.5rem;
+        height: 1.5rem;
+        cursor: pointer;
+    }
+
+    /* Product match control group */
+    .product-match-control {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .product-match-control .btn-group {
+        display: inline-flex;
+    }
+</style>
+
+@code {
+    private List<InvoiceDto>? _invoices;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private bool _showParseModal = false;
+    private bool _isParsing = false;
+    private string _parseFormat = "";
+    private string _invoiceText = "";
+    private string? _parseError;
+    private ParseInvoiceResponse? _parsedInvoice;
+    private string _parsedInvoiceDate = DateTime.Now.ToString("yyyy-MM-dd");
+    private decimal _additionalCosts = 0;
+    private decimal _priceReduction = 0;
+    private string _invoiceNotes = "";
+    private bool _selectAll = true;
+    private bool _isCreating = false;
+    private string? _createError;
+
+    // User selection
+    private List<UserDto>? _users;
+    private int _paidByUserId = 0;
+    private int _currentUserId = 0;
+
+    // Product search and matching
+    private List<ProductDto>? _allProducts;
+    private Dictionary<int, List<ProductDto>> _itemSuggestions = new();
+    private Dictionary<int, string> _searchTerms = new();
+    private Dictionary<int, bool> _showingSearch = new();
+    private Dictionary<int, int?> _selectedProductIds = new();
+    private HashSet<int> _approvedMatches = new(); // Track which matches have been manually approved
+    private Dictionary<int, int> _tempSelectedProducts = new(); // Temp storage for dropdown selection before approval
+    private int? _creatingProductForIndex = null; // Track which item is creating a product
+    private string _newProductName = "";
+
+    // Product creation modal
+    private bool _showProductCreateModal = false;
+    private bool _isCreatingProduct = false;
+    private string? _productCreateError = null;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInvoices();
+        await LoadUsers();
+        await LoadProducts();
+    }
+
+    private async Task LoadInvoices()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _invoices = await Http.GetFromJsonAsync<List<InvoiceDto>>("api/invoices");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load invoices: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            _users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+            // Get current user ID from the first admin user or first user
+            var currentUser = _users?.FirstOrDefault(u => u.IsAdmin);
+            if (currentUser != null)
+            {
+                _currentUserId = currentUser.Id;
+                _paidByUserId = currentUser.Id; // Default to current user
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load users: {ex.Message}";
+        }
+    }
+
+    private async Task LoadProducts()
+    {
+        try
+        {
+            _allProducts = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load products: {ex.Message}";
+        }
+    }
+
+    private void ShowParseInvoice()
+    {
+        _showParseModal = true;
+        _invoiceText = "";
+        _parseError = null;
+    }
+
+    private void CloseParseModal()
+    {
+        _showParseModal = false;
+    }
+
+    private async Task ParseInvoice()
+    {
+        _isParsing = true;
+        _parseError = null;
+
+        try
+        {
+            var request = new ParseInvoiceRequest
+            {
+                InvoiceText = _invoiceText,
+                Format = _parseFormat
+            };
+
+            var response = await Http.PostAsJsonAsync("api/invoices/parse", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _parsedInvoice = await response.Content.ReadFromJsonAsync<ParseInvoiceResponse>();
+
+                if (_parsedInvoice?.Success == true)
+                {
+                    if (_parsedInvoice.Metadata?.InvoiceDate.HasValue == true)
+                    {
+                        _parsedInvoiceDate = _parsedInvoice.Metadata.InvoiceDate.Value.ToString("yyyy-MM-dd");
+                    }
+
+                    // Set price reduction if detected
+                    if (_parsedInvoice.Metadata?.PriceReduction.HasValue == true)
+                    {
+                        _priceReduction = _parsedInvoice.Metadata.PriceReduction.Value;
+                    }
+
+                    // Set additional costs if detected
+                    if (_parsedInvoice.Metadata?.AdditionalCosts.HasValue == true)
+                    {
+                        _additionalCosts = _parsedInvoice.Metadata.AdditionalCosts.Value;
+                    }
+
+                    // Set notes if detected
+                    if (!string.IsNullOrEmpty(_parsedInvoice.Metadata?.Notes))
+                    {
+                        _invoiceNotes = _parsedInvoice.Metadata.Notes;
+                    }
+
+                    // Initialize product selections for each item
+                    _selectedProductIds.Clear();
+                    _searchTerms.Clear();
+                    _showingSearch.Clear();
+                    _itemSuggestions.Clear();
+                    _approvedMatches.Clear();
+                    _tempSelectedProducts.Clear();
+
+                    for (int i = 0; i < _parsedInvoice.Items.Count; i++)
+                    {
+                        var item = _parsedInvoice.Items[i];
+                        if (item.MatchedProductId.HasValue)
+                        {
+                            // Only auto-approve exact barcode matches
+                            if (item.MatchType == "ExactBarcode")
+                            {
+                                _selectedProductIds[i] = item.MatchedProductId.Value;
+                                _approvedMatches.Add(i);
+                            }
+                            else
+                            {
+                                // For partial matches, store in temp for dropdown
+                                _tempSelectedProducts[i] = item.MatchedProductId.Value;
+                            }
+                        }
+                    }
+
+                    _showParseModal = false;
+                }
+                else
+                {
+                    _parseError = _parsedInvoice?.ErrorMessage ?? "Failed to parse invoice";
+                }
+            }
+            else
+            {
+                _parseError = "Failed to parse invoice";
+            }
+        }
+        catch (Exception ex)
+        {
+            _parseError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isParsing = false;
+        }
+    }
+
+    private void CloseParsedModal()
+    {
+        _parsedInvoice = null;
+        _additionalCosts = 0;
+        _priceReduction = 0;
+        _invoiceNotes = "";
+        _paidByUserId = _currentUserId; // Reset to current user
+    }
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        _selectAll = (bool)e.Value!;
+        if (_parsedInvoice != null)
+        {
+            foreach (var item in _parsedInvoice.Items)
+            {
+                item.Selected = _selectAll;
+            }
+        }
+    }
+
+    private async Task CreateFromParsed()
+    {
+        if (_parsedInvoice?.Metadata == null) return;
+
+        _isCreating = true;
+        _createError = null;
+
+        // Validate that all selected items have a product match
+        var selectedItems = _parsedInvoice.Items.Where((item, index) => item.Selected).ToList();
+        var unmatchedItems = selectedItems.Where((item, index) => {
+            var idx = _parsedInvoice.Items.IndexOf(item);
+            return !_selectedProductIds.ContainsKey(idx) || !_selectedProductIds[idx].HasValue;
+        }).ToList();
+
+        if (unmatchedItems.Any())
+        {
+            _createError = $"Cannot create invoice: {unmatchedItems.Count} item(s) have no product match. Please match all items before saving.";
+            _isCreating = false;
+            return;
+        }
+
+        if (_paidByUserId == 0)
+        {
+            _createError = "Please select who paid this invoice.";
+            _isCreating = false;
+            return;
+        }
+
+        try
+        {
+            var dto = new CreateInvoiceFromParsedDto
+            {
+                InvoiceNumber = _parsedInvoice.Metadata.InvoiceNumber ?? "UNKNOWN",
+                InvoiceDate = DateTime.Parse(_parsedInvoiceDate),
+                Supplier = _parsedInvoice.Metadata.Supplier ?? "Unknown",
+                AdditionalCosts = _additionalCosts,
+                PriceReduction = _priceReduction,
+                PaidByUserId = _paidByUserId,
+                Notes = _invoiceNotes,
+                SelectedItems = _parsedInvoice.Items
+            };
+
+            var response = await Http.PostAsJsonAsync("api/invoices/from-parsed", dto);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var created = await response.Content.ReadFromJsonAsync<InvoiceDto>();
+                CloseParsedModal();
+                await LoadInvoices();
+                if (created != null)
+                {
+                    ViewInvoice(created.Id);
+                }
+            }
+            else
+            {
+                _createError = "Failed to create invoice";
+            }
+        }
+        catch (Exception ex)
+        {
+            _createError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
+
+    private void ViewInvoice(int id)
+    {
+        Navigation.NavigateTo($"/admin/invoices/{id}");
+    }
+
+    private async Task DeleteInvoice(int id)
+    {
+        if (!confirm("Are you sure you want to delete this invoice?"))
+            return;
+
+        try
+        {
+            await Http.DeleteAsync($"api/invoices/{id}");
+            await LoadInvoices();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to delete invoice: {ex.Message}";
+        }
+    }
+
+    private bool confirm(string message)
+    {
+        // In a real app, use a proper confirmation dialog
+        return true;
+    }
+
+    // Product matching helpers
+    private void ToggleSearch(int itemIndex)
+    {
+        _showingSearch[itemIndex] = !(_showingSearch.ContainsKey(itemIndex) && _showingSearch[itemIndex]);
+        if (_showingSearch[itemIndex])
+        {
+            SearchProducts(itemIndex, _searchTerms.ContainsKey(itemIndex) ? _searchTerms[itemIndex] : "");
+        }
+    }
+
+    private void SearchProducts(int itemIndex, string searchTerm)
+    {
+        _searchTerms[itemIndex] = searchTerm;
+        if (string.IsNullOrWhiteSpace(searchTerm) || _allProducts == null)
+        {
+            _itemSuggestions[itemIndex] = new List<ProductDto>();
+            return;
+        }
+
+        var term = searchTerm.ToLower();
+        _itemSuggestions[itemIndex] = _allProducts
+            .Where(p => p.Name.ToLower().Contains(term))
+            .Take(10)
+            .ToList();
+    }
+
+    private void SelectProduct(int itemIndex, int productId)
+    {
+        _selectedProductIds[itemIndex] = productId;
+        _showingSearch[itemIndex] = false;
+
+        // Update the item's matched product info
+        if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
+        {
+            var item = _parsedInvoice.Items[itemIndex];
+            var product = _allProducts?.FirstOrDefault(p => p.Id == productId);
+            if (product != null)
+            {
+                item.MatchedProductId = productId;
+                item.MatchedProductName = product.Name;
+                item.MatchType = "Manual";
+                item.MatchConfidence = 1.0m;
+            }
+        }
+    }
+
+    private string? GetSelectedProductName(int itemIndex)
+    {
+        if (_selectedProductIds.ContainsKey(itemIndex) && _selectedProductIds[itemIndex].HasValue)
+        {
+            var productId = _selectedProductIds[itemIndex]!.Value;
+            return _allProducts?.FirstOrDefault(p => p.Id == productId)?.Name;
+        }
+        return null;
+    }
+
+    private void ApproveMatch(int itemIndex)
+    {
+        if (_tempSelectedProducts.ContainsKey(itemIndex) && _tempSelectedProducts[itemIndex] > 0)
+        {
+            var productId = _tempSelectedProducts[itemIndex];
+            _selectedProductIds[itemIndex] = productId;
+            _approvedMatches.Add(itemIndex);
+
+            // Update the item's matched product info
+            if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
+            {
+                var item = _parsedInvoice.Items[itemIndex];
+                var product = _allProducts?.FirstOrDefault(p => p.Id == productId);
+                if (product != null)
+                {
+                    item.MatchedProductId = productId;
+                    item.MatchedProductName = product.Name;
+                    item.MatchType = "Manual";
+                    item.MatchConfidence = 1.0m;
+                }
+            }
+        }
+    }
+
+    private void SelectProductFromSearch(int itemIndex, int productId)
+    {
+        _selectedProductIds[itemIndex] = productId;
+        _approvedMatches.Add(itemIndex); // Auto-approve search selections
+        _showingSearch[itemIndex] = false;
+
+        // Update the item's matched product info
+        if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
+        {
+            var item = _parsedInvoice.Items[itemIndex];
+            var product = _allProducts?.FirstOrDefault(p => p.Id == productId);
+            if (product != null)
+            {
+                item.MatchedProductId = productId;
+                item.MatchedProductName = product.Name;
+                item.MatchType = "Manual";
+                item.MatchConfidence = 1.0m;
+            }
+        }
+    }
+
+    private void SelectOnlyMatched()
+    {
+        if (_parsedInvoice == null) return;
+
+        for (int i = 0; i < _parsedInvoice.Items.Count; i++)
+        {
+            var item = _parsedInvoice.Items[i];
+            // Select if: exact barcode match OR manually approved
+            var isExactMatch = item.MatchedProductId.HasValue && item.MatchType == "ExactBarcode";
+            var isApproved = _approvedMatches.Contains(i);
+            item.Selected = isExactMatch || isApproved;
+        }
+    }
+
+    private void ShowCreateProduct(int itemIndex)
+    {
+        _creatingProductForIndex = itemIndex;
+        if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
+        {
+            _newProductName = _parsedInvoice.Items[itemIndex].ProductName;
+        }
+        _productCreateError = null;
+        _showProductCreateModal = true;
+    }
+
+    private void CloseProductCreateModal()
+    {
+        _showProductCreateModal = false;
+        _creatingProductForIndex = null;
+        _newProductName = "";
+        _productCreateError = null;
+    }
+
+    private async Task CreateProductForInvoiceItem()
+    {
+        if (string.IsNullOrWhiteSpace(_newProductName))
+        {
+            _productCreateError = "Product name is required.";
+            return;
+        }
+
+        // Check for duplicate product name
+        var existingProduct = _allProducts?.FirstOrDefault(p =>
+            p.Name.Equals(_newProductName.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (existingProduct != null)
+        {
+            _productCreateError = "A product with this name already exists.";
+            return;
+        }
+
+        _isCreatingProduct = true;
+        _productCreateError = null;
+
+        try
+        {
+            var createDto = new CreateProductDto
+            {
+                Name = _newProductName.Trim()
+            };
+
+            var createdProduct = await ProductsApi.CreateAsync(createDto);
+
+            // Assign the newly created product to the invoice item
+            if (_creatingProductForIndex.HasValue && _parsedInvoice != null)
+            {
+                var itemIndex = _creatingProductForIndex.Value;
+                var item = _parsedInvoice.Items[itemIndex];
+
+                // Add barcode if article number exists
+                if (!string.IsNullOrEmpty(item.ArticleNumber))
+                {
+                    try
+                    {
+                        var barcodeDto = new CreateProductBarcodeDto
+                        {
+                            Barcode = item.ArticleNumber,
+                            Quantity = 1
+                        };
+                        await ProductsApi.AddBarcodeAsync(createdProduct.Id, barcodeDto);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error but don't fail product creation
+                        Console.WriteLine($"Failed to add barcode: {ex.Message}");
+                    }
+                }
+
+                // Set the matched product
+                _selectedProductIds[itemIndex] = createdProduct.Id;
+                item.MatchedProductId = createdProduct.Id;
+                item.MatchedProductName = createdProduct.Name;
+                item.MatchType = "Manual";
+                item.MatchConfidence = 100;
+
+                // Mark as approved
+                _approvedMatches.Add(itemIndex);
+
+                // Reload products to include the new one
+                await LoadProducts();
+            }
+
+            CloseProductCreateModal();
+        }
+        catch (ApiException ex)
+        {
+            _productCreateError = $"Error creating product: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _productCreateError = $"Unexpected error: {ex.Message}";
+        }
+        finally
+        {
+            _isCreatingProduct = false;
+        }
+    }
+
+    private decimal CalculateGrandTotal()
+    {
+        if (_parsedInvoice == null) return 0;
+
+        var selectedItemsTotal = _parsedInvoice.Items
+            .Where(i => i.Selected)
+            .Sum(i => i.TotalPrice);
+
+        return selectedItemsTotal + _additionalCosts - _priceReduction;
+    }
+
+    private void UpdateItemQuantity(ParsedInvoiceItem item, string? quantityStr)
+    {
+        if (int.TryParse(quantityStr, out int newQuantity) && newQuantity > 0)
+        {
+            item.Quantity = newQuantity;
+            item.TotalPrice = item.Quantity * item.UnitPrice;
+        }
+    }
+
+    private void UpdateBestBeforeDate(ParsedInvoiceItem item, string? dateStr)
+    {
+        if (!string.IsNullOrWhiteSpace(dateStr) && DateTime.TryParse(dateStr, out DateTime date))
+        {
+            item.BestBeforeDate = date;
+        }
+        else
+        {
+            item.BestBeforeDate = null;
+        }
+    }
+}
