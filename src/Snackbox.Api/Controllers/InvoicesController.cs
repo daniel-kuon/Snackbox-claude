@@ -20,7 +20,7 @@ public class InvoicesController : ControllerBase
     private readonly IProductMatchingService _productMatching;
 
     public InvoicesController(
-        ApplicationDbContext context, 
+        ApplicationDbContext context,
         ILogger<InvoicesController> logger,
         InvoiceParserFactory parserFactory,
         IProductMatchingService productMatching)
@@ -157,8 +157,8 @@ public class InvoicesController : ControllerBase
                 Quantity = itemDto.Quantity,
                 UnitPrice = itemDto.UnitPrice,
                 TotalPrice = itemDto.Quantity * itemDto.UnitPrice,
-                BestBeforeDate = itemDto.BestBeforeDate.HasValue 
-                    ? DateTime.SpecifyKind(itemDto.BestBeforeDate.Value, DateTimeKind.Utc) 
+                BestBeforeDate = itemDto.BestBeforeDate.HasValue
+                    ? DateTime.SpecifyKind(itemDto.BestBeforeDate.Value, DateTimeKind.Utc)
                     : null,
                 Notes = itemDto.Notes,
                 ArticleNumber = itemDto.ArticleNumber
@@ -189,7 +189,7 @@ public class InvoicesController : ControllerBase
         invoice.PaymentId = payment.Id;
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Invoice created: {InvoiceNumber} with {ItemCount} items and payment {PaymentId}", 
+        _logger.LogInformation("Invoice created: {InvoiceNumber} with {ItemCount} items and payment {PaymentId}",
             invoice.InvoiceNumber, invoice.Items.Count, payment.Id);
 
         // Load the created by and paid by users for the response
@@ -275,7 +275,7 @@ public class InvoicesController : ControllerBase
                 Id = item.Id,
                 InvoiceId = item.InvoiceId,
                 ProductId = item.ProductId,
-                    MatchedProductName = item.Product != null ? item.Product.Name : null,
+                    MatchedProductName = item.Product?.Name,
                     ProductName = item.ProductName,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
@@ -293,9 +293,6 @@ public class InvoicesController : ControllerBase
     public async Task<ActionResult> Delete(int id)
     {
         var invoice = await _context.Invoices
-            .Include(i => i.Items)
-            .ThenInclude(item => item.Product)
-            .ThenInclude(item => item.ShelvingActions)
             .FirstOrDefaultAsync(i => i.Id == id);
 
         if (invoice == null)
@@ -321,7 +318,7 @@ public class InvoicesController : ControllerBase
     public async Task<ActionResult<ParseInvoiceResponse>> ParseInvoice([FromBody] ParseInvoiceRequest request)
     {
         IInvoiceParserService? parser = null;
-        
+
         // If no format specified, try to auto-detect
         if (string.IsNullOrWhiteSpace(request.Format))
         {
@@ -350,14 +347,14 @@ public class InvoicesController : ControllerBase
         }
 
         var result = parser.Parse(request.InvoiceText);
-        
+
         // Try to match each item to existing products
         foreach (var item in result.Items)
         {
             var match = await _productMatching.FindMatchingProduct(
-                item.ArticleNumber ?? string.Empty, 
+                item.ArticleNumber ?? string.Empty,
                 item.ProductName);
-            
+
             if (match != null)
             {
                 item.MatchedProductId = match.ProductId;
@@ -366,8 +363,8 @@ public class InvoicesController : ControllerBase
                 item.MatchConfidence = match.Confidence;
             }
         }
-        
-        _logger.LogInformation("Invoice parsed: Format={Format}, Success={Success}, Items={ItemCount}, Matched={MatchedCount}", 
+
+        _logger.LogInformation("Invoice parsed: Format={Format}, Success={Success}, Items={ItemCount}, Matched={MatchedCount}",
             parser.Format, result.Success, result.Items.Count, result.Items.Count(i => i.MatchedProductId.HasValue));
 
         return Ok(result);
@@ -405,8 +402,8 @@ public class InvoicesController : ControllerBase
                 Quantity = itemDto.Quantity,
                 UnitPrice = itemDto.UnitPrice,
                 TotalPrice = itemDto.TotalPrice,
-                BestBeforeDate = itemDto.BestBeforeDate.HasValue 
-                    ? DateTime.SpecifyKind(itemDto.BestBeforeDate.Value, DateTimeKind.Utc) 
+                BestBeforeDate = itemDto.BestBeforeDate.HasValue
+                    ? DateTime.SpecifyKind(itemDto.BestBeforeDate.Value, DateTimeKind.Utc)
                     : null,
                 ArticleNumber = itemDto.ArticleNumber
             };
@@ -455,20 +452,20 @@ public class InvoicesController : ControllerBase
                         CreatedAt = DateTime.UtcNow
                     };
                     _context.ProductBarcodes.Add(productBarcode);
-                    _logger.LogInformation("Auto-added barcode {Barcode} to product {ProductId} from invoice item", 
+                    _logger.LogInformation("Auto-added barcode {Barcode} to product {ProductId} from invoice item",
                         itemDto.ArticleNumber, product.Id);
                 }
             }
             catch (Exception ex)
             {
                 // Log error but don't fail invoice creation
-                _logger.LogWarning(ex, "Failed to add barcode {Barcode} to product {ProductId}", 
+                _logger.LogWarning(ex, "Failed to add barcode {Barcode} to product {ProductId}",
                     itemDto.ArticleNumber, itemDto.MatchedProductId);
             }
         }
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Invoice created from parsed data: {InvoiceNumber} with {ItemCount} items and payment {PaymentId}", 
+        _logger.LogInformation("Invoice created from parsed data: {InvoiceNumber} with {ItemCount} items and payment {PaymentId}",
             invoice.InvoiceNumber, invoice.Items.Count, payment.Id);
 
         // Load the created by and paid by users for the response
@@ -518,7 +515,7 @@ public class InvoicesController : ControllerBase
 
     [HttpPost("items/{itemId}/add-to-stock")]
     public async Task<ActionResult<ShelvingActionDto>> AddInvoiceItemToStock(
-        int itemId, 
+        int itemId,
         [FromBody] AddInvoiceItemToStockDto dto)
     {
         var item = await _context.InvoiceItems
@@ -541,7 +538,7 @@ public class InvoicesController : ControllerBase
             // Find product by barcode
             var productBarcode = await _context.ProductBarcodes
                 .FirstOrDefaultAsync(pb => pb.Barcode == dto.ProductBarcode);
-            
+
             if (productBarcode != null)
             {
                 productId = productBarcode.ProductId;
@@ -561,7 +558,7 @@ public class InvoicesController : ControllerBase
         {
             var existingBarcode = await _context.ProductBarcodes
                 .AnyAsync(pb => pb.Barcode == item.ArticleNumber);
-            
+
             if (!existingBarcode)
             {
                 var newBarcode = new ProductBarcode
@@ -573,8 +570,8 @@ public class InvoicesController : ControllerBase
                 };
                 _context.ProductBarcodes.Add(newBarcode);
                 await _context.SaveChangesAsync();
-                
-                _logger.LogInformation("Added article number {ArticleNumber} as barcode for product {ProductId}", 
+
+                _logger.LogInformation("Added article number {ArticleNumber} as barcode for product {ProductId}",
                     item.ArticleNumber, productId);
             }
         }

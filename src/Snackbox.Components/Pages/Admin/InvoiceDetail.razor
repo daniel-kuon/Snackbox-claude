@@ -106,13 +106,13 @@
                     <span class="icon">📦</span> Add Selected to Stock
                 </button>
             </div>
-            
+
             <div class="table-responsive">
                 <table class="table">
                     <thead>
                         <tr>
                             <th style="width: 50px;">
-                                <input type="checkbox" class="form-check-lg" checked="@_selectAll" 
+                                <input type="checkbox" class="form-check-lg" checked="@_selectAll"
                                        @onchange="ToggleSelectAll" />
                             </th>
                             <th>Product Name</th>
@@ -180,11 +180,11 @@
                     </div>
                     <div class="modal-body">
                         <p>Review and confirm adding @_selectedItems.Count item(s) to stock.</p>
-                        
+
                         @{
                             var unmatchedCount = _invoice.Items.Where(i => _selectedItems.Contains(i.Id) && !i.ProductId.HasValue).Count();
                         }
-                        
+
                         @if (unmatchedCount > 0)
                         {
                             <div class="alert alert-danger">
@@ -461,7 +461,7 @@
         {
             _selectedItems.Add(itemId);
         }
-        
+
         _selectAll = _invoice != null && _selectedItems.Count == _invoice.Items.Count;
     }
 
@@ -494,7 +494,7 @@
         try
         {
             var selectedInvoiceItems = _invoice.Items.Where(i => _selectedItems.Contains(i.Id)).ToList();
-            
+
             // Validate all items have ProductId
             if (selectedInvoiceItems.Any(i => !i.ProductId.HasValue))
             {
@@ -521,9 +521,9 @@
                     }
 
                     var productData = await productResponse.Content.ReadAsStringAsync();
-                    var productDto = System.Text.Json.JsonSerializer.Deserialize<ProductDto>(productData, 
+                    var productDto = System.Text.Json.JsonSerializer.Deserialize<ProductDto>(productData,
                         new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    
+
                     if (productDto == null || !productDto.Barcodes.Any())
                     {
                         errors.Add($"{item.ProductName}: Product has no barcodes");
@@ -540,7 +540,7 @@
                         ProductBarcode = barcode,
                         BestBeforeDate = item.BestBeforeDate ?? DateTime.UtcNow.AddYears(1),
                         Quantity = item.Quantity,
-                        Type = _stockDestination == StockDestination.Shelf ? ShelvingActionType.AddToShelf : ShelvingActionType.AddToStorage,
+                        Type = _stockDestination == StockDestination.Shelf ? ShelvingActionType.AddedToShelf : ShelvingActionType.AddedToStorage,
                         InvoiceItemId = item.Id
                     };
 
@@ -562,7 +562,7 @@
                             Quantity = item.Quantity,
                             UserId = _invoice.PaidByUserId
                         };
-                        
+
                         var purchaseResponse = await Http.PostAsJsonAsync("api/purchases", purchaseDto);
                         if (!purchaseResponse.IsSuccessStatusCode)
                         {
@@ -581,15 +581,15 @@
 
             if (errorCount > 0)
             {
-                _addToStockError = $"Completed with errors: {successCount} succeeded, {errorCount} failed.\n" + 
+                _addToStockError = $"Completed with errors: {successCount} succeeded, {errorCount} failed.\n" +
                     string.Join("\n", errors);
             }
             else
             {
-                _addToStockSuccess = _markAsSold 
-                    ? $"Successfully marked {successCount} item(s) as sold."
-                    : $"Successfully added {successCount} item(s) to {(_addToShelf ? "shelf" : "storage")}.";
-                
+                _addToStockSuccess =  _stockDestination == StockDestination.Consumed
+                                         ? $"Successfully marked {successCount} item(s) as sold."
+                                         : $"Successfully added {successCount} item(s) to {(_stockDestination == StockDestination.Shelf ? "shelf" : "storage")}.";
+
                 // Reload invoice to update status
                 await Task.Delay(2000);
                 await LoadInvoice();

@@ -39,7 +39,7 @@
                     </div>
                     <div class="form-group">
                         <label>Paste Invoice Text</label>
-                        <textarea class="form-control" rows="10" @bind="_invoiceText" 
+                        <textarea class="form-control" rows="10" @bind="_invoiceText"
                                   placeholder="Paste the invoice text here..."></textarea>
                     </div>
                     @if (_parseError != null)
@@ -81,7 +81,7 @@
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label>Invoice Date *</label>
-                                <input type="date" class="form-control" value="@_parsedInvoiceDate" 
+                                <input type="date" class="form-control" value="@_parsedInvoiceDate"
                                        @oninput="@(e => _parsedInvoiceDate = e.Value?.ToString() ?? DateTime.Now.ToString("yyyy-MM-dd"))" />
                             </div>
                         </div>
@@ -139,7 +139,7 @@
                             <thead>
                                 <tr>
                                     <th style="width: 50px;">
-                                        <input type="checkbox" class="form-check-input-lg" checked="@_selectAll" 
+                                        <input type="checkbox" class="form-check-input-lg" checked="@_selectAll"
                                                @onchange="ToggleSelectAll" />
                                     </th>
                                     <th>Product Name</th>
@@ -158,7 +158,7 @@
                                     var hasMatch = _selectedProductIds.ContainsKey(itemIndex) && _selectedProductIds[itemIndex].HasValue;
                                     var matchedName = GetSelectedProductName(itemIndex);
                                     var isApprovedMatch = _approvedMatches.Contains(itemIndex);
-                                    
+
                                     <tr class="@(item.Selected ? "" : "text-muted")">
                                         <td>
                                             <input type="checkbox" class="form-check-input-lg" @bind="item.Selected" />
@@ -171,8 +171,8 @@
                                             }
                                         </td>
                                         <td>
-                                            <input type="number" class="form-control form-control-sm" 
-                                                   @bind="item.Quantity" @bind:event="oninput"
+                                            <input type="number" class="form-control form-control-sm"
+                                                   @bind="item.Quantity"
                                                    @oninput="@(e => UpdateItemQuantity(item, e.Value?.ToString()))"
                                                    min="1" style="width: 80px;" />
                                         </td>
@@ -205,12 +205,12 @@
                                                 {
                                                     <!-- Show dropdown for partial matches -->
                                                     <div class="btn-group" role="group">
-                                                        <select class="form-control form-control-sm" 
+                                                        <select class="form-control form-control-sm"
                                                                 @bind="_tempSelectedProducts[itemIndex]">
                                                             <option value="0">-- Select product --</option>
                                                             <option value="@item.MatchedProductId">@item.MatchedProductName (@item.MatchConfidence% match)</option>
                                                         </select>
-                                                        <button class="btn btn-sm btn-success" 
+                                                        <button class="btn btn-sm btn-success"
                                                                 @onclick="() => ApproveMatch(itemIndex)"
                                                                 disabled="@(_tempSelectedProducts.GetValueOrDefault(itemIndex) == 0)"
                                                                 title="Approve match">
@@ -222,24 +222,24 @@
                                                 {
                                                     <span class="badge bg-danger">No match</span>
                                                 }
-                                                
+
                                                 <div class="btn-group ms-2" role="group">
-                                                    <button class="btn btn-sm btn-outline-primary" 
-                                                            @onclick="() => ToggleSearch(itemIndex)" 
+                                                    <button class="btn btn-sm btn-outline-primary"
+                                                            @onclick="() => ToggleSearch(itemIndex)"
                                                             title="Search for product">
                                                         🔍
                                                     </button>
-                                                    <button class="btn btn-sm btn-outline-success" 
-                                                            @onclick="() => ShowCreateProduct(itemIndex)" 
+                                                    <button class="btn btn-sm btn-outline-success"
+                                                            @onclick="() => ShowCreateProduct(itemIndex)"
                                                             title="Create new product">
                                                         ➕
                                                     </button>
                                                 </div>
-                                                
+
                                                 @if (_showingSearch.ContainsKey(itemIndex) && _showingSearch[itemIndex])
                                                 {
                                                     <div class="search-box mt-2">
-                                                        <input type="text" class="form-control form-control-sm" 
+                                                        <input type="text" class="form-control form-control-sm"
                                                                placeholder="Search products..."
                                                                @bind="_searchTerms[itemIndex]"
                                                                @oninput="@(e => SearchProducts(itemIndex, e.Value?.ToString() ?? ""))" />
@@ -369,7 +369,7 @@
                 }
                 <div class="form-group">
                     <label>Product Name</label>
-                    <input type="text" class="form-control" @bind="_newProductName" 
+                    <input type="text" class="form-control" @bind="_newProductName"
                            placeholder="Enter product name..." />
                     <small class="form-text text-muted">
                         This product will be created and automatically assigned to the invoice item.
@@ -378,7 +378,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="CloseProductCreateModal">Cancel</button>
-                <button type="button" class="btn btn-primary" @onclick="CreateProductForInvoiceItem" 
+                <button type="button" class="btn btn-primary" @onclick="CreateProductForInvoiceItem"
                         disabled="@(_isCreatingProduct || string.IsNullOrWhiteSpace(_newProductName))">
                     @if (_isCreatingProduct)
                     {
@@ -497,7 +497,7 @@
     .btn-close:hover {
         opacity: 1;
     }
-    
+
     /* Full height modal */
     .modal-fullheight {
         height: 95vh;
@@ -509,7 +509,7 @@
         display: flex;
         flex-direction: column;
     }
-    
+
     .modal-fullheight .modal-body {
         flex: 1;
         overflow-y: auto;
@@ -519,19 +519,19 @@
     .modal-fullheight .modal-footer {
         flex-shrink: 0;
     }
-    
+
     /* Product matching UI */
     .match-display {
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
-    
+
     .search-box {
         position: relative;
         margin-top: 0.5rem;
     }
-    
+
     .suggestions-list {
         position: absolute;
         top: 100%;
@@ -545,52 +545,52 @@
         z-index: 1000;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
+
     .suggestion-item {
         padding: 0.5rem;
         cursor: pointer;
         border-bottom: 1px solid #f1f1f1;
     }
-    
+
     .suggestion-item:hover {
         background-color: #f8f9fa;
     }
-    
+
     .suggestion-item:last-child {
         border-bottom: none;
     }
-    
+
     /* Footer layout */
     .modal-footer {
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
-    
+
     .footer-left {
         flex: 1;
         text-align: left;
     }
-    
+
     .footer-right {
         display: flex;
         gap: 0.5rem;
     }
-    
+
     /* Larger checkboxes */
     .form-check-input-lg {
         width: 1.5rem;
         height: 1.5rem;
         cursor: pointer;
     }
-    
+
     /* Product match control group */
     .product-match-control {
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
     }
-    
+
     .product-match-control .btn-group {
         display: inline-flex;
     }
@@ -613,12 +613,12 @@
     private bool _selectAll = true;
     private bool _isCreating = false;
     private string? _createError;
-    
+
     // User selection
     private List<UserDto>? _users;
     private int _paidByUserId = 0;
     private int _currentUserId = 0;
-    
+
     // Product search and matching
     private List<ProductDto>? _allProducts;
     private Dictionary<int, List<ProductDto>> _itemSuggestions = new();
@@ -629,7 +629,7 @@
     private Dictionary<int, int> _tempSelectedProducts = new(); // Temp storage for dropdown selection before approval
     private int? _creatingProductForIndex = null; // Track which item is creating a product
     private string _newProductName = "";
-    
+
     // Product creation modal
     private bool _showProductCreateModal = false;
     private bool _isCreatingProduct = false;
@@ -719,24 +719,24 @@
             };
 
             var response = await Http.PostAsJsonAsync("api/invoices/parse", request);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 _parsedInvoice = await response.Content.ReadFromJsonAsync<ParseInvoiceResponse>();
-                
+
                 if (_parsedInvoice?.Success == true)
                 {
                     if (_parsedInvoice.Metadata?.InvoiceDate.HasValue == true)
                     {
                         _parsedInvoiceDate = _parsedInvoice.Metadata.InvoiceDate.Value.ToString("yyyy-MM-dd");
                     }
-                    
+
                     // Set price reduction if detected
                     if (_parsedInvoice.Metadata?.PriceReduction.HasValue == true)
                     {
                         _priceReduction = _parsedInvoice.Metadata.PriceReduction.Value;
                     }
-                    
+
                     // Initialize product selections for each item
                     _selectedProductIds.Clear();
                     _searchTerms.Clear();
@@ -744,7 +744,7 @@
                     _itemSuggestions.Clear();
                     _approvedMatches.Clear();
                     _tempSelectedProducts.Clear();
-                    
+
                     for (int i = 0; i < _parsedInvoice.Items.Count; i++)
                     {
                         var item = _parsedInvoice.Items[i];
@@ -763,7 +763,7 @@
                             }
                         }
                     }
-                    
+
                     _showParseModal = false;
                 }
                 else
@@ -819,14 +819,14 @@
             var idx = _parsedInvoice.Items.IndexOf(item);
             return !_selectedProductIds.ContainsKey(idx) || !_selectedProductIds[idx].HasValue;
         }).ToList();
-        
+
         if (unmatchedItems.Any())
         {
             _createError = $"Cannot create invoice: {unmatchedItems.Count} item(s) have no product match. Please match all items before saving.";
             _isCreating = false;
             return;
         }
-        
+
         if (_paidByUserId == 0)
         {
             _createError = "Please select who paid this invoice.";
@@ -849,7 +849,7 @@
             };
 
             var response = await Http.PostAsJsonAsync("api/invoices/from-parsed", dto);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var created = await response.Content.ReadFromJsonAsync<InvoiceDto>();
@@ -901,7 +901,7 @@
         // In a real app, use a proper confirmation dialog
         return true;
     }
-    
+
     // Product matching helpers
     private void ToggleSearch(int itemIndex)
     {
@@ -911,7 +911,7 @@
             SearchProducts(itemIndex, _searchTerms.ContainsKey(itemIndex) ? _searchTerms[itemIndex] : "");
         }
     }
-    
+
     private void SearchProducts(int itemIndex, string searchTerm)
     {
         _searchTerms[itemIndex] = searchTerm;
@@ -920,19 +920,19 @@
             _itemSuggestions[itemIndex] = new List<ProductDto>();
             return;
         }
-        
+
         var term = searchTerm.ToLower();
         _itemSuggestions[itemIndex] = _allProducts
             .Where(p => p.Name.ToLower().Contains(term))
             .Take(10)
             .ToList();
     }
-    
+
     private void SelectProduct(int itemIndex, int productId)
     {
         _selectedProductIds[itemIndex] = productId;
         _showingSearch[itemIndex] = false;
-        
+
         // Update the item's matched product info
         if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
         {
@@ -947,7 +947,7 @@
             }
         }
     }
-    
+
     private string? GetSelectedProductName(int itemIndex)
     {
         if (_selectedProductIds.ContainsKey(itemIndex) && _selectedProductIds[itemIndex].HasValue)
@@ -957,7 +957,7 @@
         }
         return null;
     }
-    
+
     private void ApproveMatch(int itemIndex)
     {
         if (_tempSelectedProducts.ContainsKey(itemIndex) && _tempSelectedProducts[itemIndex] > 0)
@@ -965,7 +965,7 @@
             var productId = _tempSelectedProducts[itemIndex];
             _selectedProductIds[itemIndex] = productId;
             _approvedMatches.Add(itemIndex);
-            
+
             // Update the item's matched product info
             if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
             {
@@ -981,13 +981,13 @@
             }
         }
     }
-    
+
     private void SelectProductFromSearch(int itemIndex, int productId)
     {
         _selectedProductIds[itemIndex] = productId;
         _approvedMatches.Add(itemIndex); // Auto-approve search selections
         _showingSearch[itemIndex] = false;
-        
+
         // Update the item's matched product info
         if (_parsedInvoice != null && itemIndex < _parsedInvoice.Items.Count)
         {
@@ -1002,11 +1002,11 @@
             }
         }
     }
-    
+
     private void SelectOnlyMatched()
     {
         if (_parsedInvoice == null) return;
-        
+
         for (int i = 0; i < _parsedInvoice.Items.Count; i++)
         {
             var item = _parsedInvoice.Items[i];
@@ -1016,7 +1016,7 @@
             item.Selected = isExactMatch || isApproved;
         }
     }
-    
+
     private void ShowCreateProduct(int itemIndex)
     {
         _creatingProductForIndex = itemIndex;
@@ -1027,7 +1027,7 @@
         _productCreateError = null;
         _showProductCreateModal = true;
     }
-    
+
     private void CloseProductCreateModal()
     {
         _showProductCreateModal = false;
@@ -1035,7 +1035,7 @@
         _newProductName = "";
         _productCreateError = null;
     }
-    
+
     private async Task CreateProductForInvoiceItem()
     {
         if (string.IsNullOrWhiteSpace(_newProductName))
@@ -1043,34 +1043,34 @@
             _productCreateError = "Product name is required.";
             return;
         }
-        
+
         // Check for duplicate product name
-        var existingProduct = _allProducts?.FirstOrDefault(p => 
+        var existingProduct = _allProducts?.FirstOrDefault(p =>
             p.Name.Equals(_newProductName.Trim(), StringComparison.OrdinalIgnoreCase));
         if (existingProduct != null)
         {
             _productCreateError = "A product with this name already exists.";
             return;
         }
-        
+
         _isCreatingProduct = true;
         _productCreateError = null;
-        
+
         try
         {
             var createDto = new CreateProductDto
             {
                 Name = _newProductName.Trim()
             };
-            
+
             var createdProduct = await ProductsApi.CreateAsync(createDto);
-            
+
             // Assign the newly created product to the invoice item
             if (_creatingProductForIndex.HasValue && _parsedInvoice != null)
             {
                 var itemIndex = _creatingProductForIndex.Value;
                 var item = _parsedInvoice.Items[itemIndex];
-                
+
                 // Add barcode if article number exists
                 if (!string.IsNullOrEmpty(item.ArticleNumber))
                 {
@@ -1089,21 +1089,21 @@
                         Console.WriteLine($"Failed to add barcode: {ex.Message}");
                     }
                 }
-                
+
                 // Set the matched product
                 _selectedProductIds[itemIndex] = createdProduct.Id;
                 item.MatchedProductId = createdProduct.Id;
                 item.MatchedProductName = createdProduct.Name;
                 item.MatchType = "Manual";
                 item.MatchConfidence = 100;
-                
+
                 // Mark as approved
                 _approvedMatches.Add(itemIndex);
-                
+
                 // Reload products to include the new one
                 await LoadProducts();
             }
-            
+
             CloseProductCreateModal();
         }
         catch (ApiException ex)
@@ -1119,18 +1119,18 @@
             _isCreatingProduct = false;
         }
     }
-    
+
     private decimal CalculateGrandTotal()
     {
         if (_parsedInvoice == null) return 0;
-        
+
         var selectedItemsTotal = _parsedInvoice.Items
             .Where(i => i.Selected)
             .Sum(i => i.TotalPrice);
-        
+
         return selectedItemsTotal + _additionalCosts - _priceReduction;
     }
-    
+
     private void UpdateItemQuantity(ParsedInvoiceItem item, string? quantityStr)
     {
         if (int.TryParse(quantityStr, out int newQuantity) && newQuantity > 0)
@@ -1139,7 +1139,7 @@
             item.TotalPrice = item.Quantity * item.UnitPrice;
         }
     }
-    
+
     private void UpdateBestBeforeDate(ParsedInvoiceItem item, string? dateStr)
     {
         if (!string.IsNullOrWhiteSpace(dateStr) && DateTime.TryParse(dateStr, out DateTime date))
