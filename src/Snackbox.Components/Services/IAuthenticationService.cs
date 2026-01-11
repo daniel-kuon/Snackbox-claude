@@ -8,6 +8,7 @@ public interface IAuthenticationService
     Task LogoutAsync();
     Task<bool> IsAuthenticatedAsync();
     Task<string?> GetTokenAsync();
+    Task<UserInfo?> GetCurrentUserInfoAsync();
 }
 
 public class LoginResult
@@ -19,4 +20,12 @@ public class LoginResult
     public bool IsAdmin { get; set; }
     public int UserId { get; set; }
     public string? ErrorMessage { get; set; }
+}
+
+public class UserInfo
+{
+    public int UserId { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public bool IsAdmin { get; set; }
 }

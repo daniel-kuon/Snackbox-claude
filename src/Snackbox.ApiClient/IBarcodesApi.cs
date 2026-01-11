@@ -11,6 +11,9 @@ public interface IBarcodesApi
     [Get("/api/barcodes")]
     Task<IEnumerable<BarcodeDto>> GetAllAsync();
     
+    [Get("/api/barcodes/my-barcodes")]
+    Task<IEnumerable<BarcodeDto>> GetMyBarcodesAsync();
+    
     [Get("/api/barcodes/user/{userId}")]
     Task<IEnumerable<BarcodeDto>> GetByUserIdAsync(int userId);
     
