@@ -43,6 +43,23 @@ public class ApplicationDbContext : DbContext
             }
         }
 
+        // Configure DateTime properties to handle UTC conversion
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(
+                        new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+                            v => v.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(v, DateTimeKind.Utc) : v.ToUniversalTime(),
+                            v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                        )
+                    );
+                }
+            }
+        }
+
         // Only configure what differs from convention
         modelBuilder.Entity<User>(entity =>
         {

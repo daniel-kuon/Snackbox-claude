@@ -309,6 +309,45 @@ public class ProductBatchesController : ControllerBase
         return Ok(new { message = $"Added {dto.Quantity} items to shelf" });
     }
 
+    [HttpPost("{id}/consume")]
+    public async Task<ActionResult> ConsumeFromShelf(int id, [FromBody] MoveStockDto dto)
+    {
+        var batch = await _context.ProductBatches
+            .Include(pb => pb.ShelvingActions)
+            .FirstOrDefaultAsync(pb => pb.Id == id);
+
+        if (batch == null)
+        {
+            return NotFound(new { message = "Product batch not found" });
+        }
+
+        var shelfQty = batch.ShelvingActions
+            .Where(sa => sa.Type == ShelvingActionType.MovedToShelf || sa.Type == ShelvingActionType.AddedToShelf)
+            .Sum(sa => sa.Quantity) - batch.ShelvingActions
+            .Where(sa => sa.Type == ShelvingActionType.MovedFromShelf || sa.Type == ShelvingActionType.RemovedFromShelf || sa.Type == ShelvingActionType.Consumed)
+            .Sum(sa => sa.Quantity);
+
+        if (dto.Quantity > shelfQty)
+        {
+            return BadRequest(new { message = $"Not enough stock on shelf. Available: {shelfQty}" });
+        }
+
+        var shelvingAction = new ShelvingAction
+        {
+            ProductBatchId = batch.Id,
+            Quantity = dto.Quantity,
+            Type = ShelvingActionType.Consumed,
+            ActionAt = DateTime.UtcNow
+        };
+
+        _context.ShelvingActions.Add(shelvingAction);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Marked {Quantity} items as consumed from shelf for batch {BatchId}", dto.Quantity, batch.Id);
+
+        return Ok(new { message = $"Marked {dto.Quantity} items as consumed" });
+    }
+
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(int id)
     {

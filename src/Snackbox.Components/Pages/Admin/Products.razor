@@ -65,7 +65,7 @@
                 </div>
                 <div class="control-group flex-grow">
                     <label>Scan Barcode</label>
-                    <BarcodeInput Value="@_batchBarcode" 
+                    <BarcodeInput Value="@_batchBarcode"
                                   ValueChanged="@OnBarcodeChanged"
                                   Placeholder="Scan or enter barcode..." />
                 </div>
@@ -180,11 +180,37 @@
                 <tbody>
                     @foreach (var product in _filteredProducts)
                     {
-                        <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;">
+                        var hasExpiredInStock = product.BestBeforeInStock.HasValue && product.BestBeforeInStock.Value < DateTime.UtcNow;
+                        var hasExpiringInStock = product.BestBeforeInStock.HasValue && product.BestBeforeInStock.Value >= DateTime.UtcNow && product.BestBeforeInStock.Value < DateTime.UtcNow.AddDays(30);
+                        var hasExpiredOnShelf = product.BestBeforeOnShelf.HasValue && product.BestBeforeOnShelf.Value < DateTime.UtcNow;
+                        var hasExpiringOnShelf = product.BestBeforeOnShelf.HasValue && product.BestBeforeOnShelf.Value >= DateTime.UtcNow && product.BestBeforeOnShelf.Value < DateTime.UtcNow.AddDays(30);
+                        var rowClass = (hasExpiredInStock || hasExpiredOnShelf) ? "expired-row" : (hasExpiringInStock || hasExpiringOnShelf) ? "expiring-row" : "";
+
+                        <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;" class="@rowClass">
                             <td>@product.Name</td>
                             <td>@product.AverageProductsShelvedPerWeek.ToString("F1")</td>
-                            <td>@(product.BestBeforeInStock?.ToString("yyyy-MM-dd") ?? "-")</td>
-                            <td>@(product.BestBeforeOnShelf?.ToString("yyyy-MM-dd") ?? "-")</td>
+                            <td class="@(hasExpiredInStock ? "expired-cell" : hasExpiringInStock ? "expiring-cell" : "")">
+                                @(product.BestBeforeInStock?.ToString("yyyy-MM-dd") ?? "-")
+                                @if (hasExpiredInStock)
+                                {
+                                    <span class="badge badge-danger">Expired</span>
+                                }
+                                else if (hasExpiringInStock)
+                                {
+                                    <span class="badge badge-warning">Soon</span>
+                                }
+                            </td>
+                            <td class="@(hasExpiredOnShelf ? "expired-cell" : hasExpiringOnShelf ? "expiring-cell" : "")">
+                                @(product.BestBeforeOnShelf?.ToString("yyyy-MM-dd") ?? "-")
+                                @if (hasExpiredOnShelf)
+                                {
+                                    <span class="badge badge-danger">Expired</span>
+                                }
+                                else if (hasExpiringOnShelf)
+                                {
+                                    <span class="badge badge-warning">Soon</span>
+                                }
+                            </td>
                             <td>
                                 <button class="btn btn-sm btn-outline-secondary" @onclick:stopPropagation="true" @onclick="() => ShowEditProduct(product)">
                                     Edit
@@ -334,6 +360,45 @@
     .table td {
         padding: 0.75rem;
         border-bottom: 1px solid #dee2e6;
+    }
+
+    .table tr.expired-row {
+        background-color: #fff5f5;
+        border-left: 4px solid #dc3545;
+    }
+
+    .table tr.expiring-row {
+        background-color: #fffbeb;
+        border-left: 4px solid #ffc107;
+    }
+
+    .table td.expired-cell {
+        font-weight: 600;
+        color: #dc3545;
+    }
+
+    .table td.expiring-cell {
+        font-weight: 600;
+        color: #856404;
+    }
+
+    .badge {
+        padding: 0.25em 0.5em;
+        border-radius: 0.25rem;
+        font-size: 0.75em;
+        font-weight: 500;
+        margin-left: 0.5rem;
+        display: inline-block;
+    }
+
+    .badge-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .badge-warning {
+        background-color: #ffc107;
+        color: #212529;
     }
 
     .loading-container {
@@ -820,7 +885,7 @@
     private async Task OnBarcodeChanged(string newValue)
     {
         _batchBarcode = newValue;
-        
+
         if (!string.IsNullOrWhiteSpace(_batchBarcode))
         {
             await LookupAndAddBatchProduct(_batchBarcode.Trim());
