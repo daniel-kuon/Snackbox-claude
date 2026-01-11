@@ -195,4 +195,32 @@ public class UsersController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpGet("{id}/achievements")]
+    public async Task<ActionResult<IEnumerable<AchievementDto>>> GetUserAchievements(int id)
+    {
+        var userExists = await _context.Users.AnyAsync(u => u.Id == id);
+        if (!userExists)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        var achievements = await _context.UserAchievements
+            .Include(ua => ua.Achievement)
+            .Where(ua => ua.UserId == id)
+            .OrderByDescending(ua => ua.EarnedAt)
+            .Select(ua => new AchievementDto
+            {
+                Id = ua.Achievement.Id,
+                Code = ua.Achievement.Code,
+                Name = ua.Achievement.Name,
+                Description = ua.Achievement.Description,
+                Category = ua.Achievement.Category.ToString(),
+                ImageUrl = ua.Achievement.ImageUrl,
+                EarnedAt = ua.EarnedAt
+            })
+            .ToListAsync();
+
+        return Ok(achievements);
+    }
 }

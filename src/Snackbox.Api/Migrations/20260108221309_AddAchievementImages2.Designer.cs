@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snackbox.Api.Data;
@@ -11,9 +12,11 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260108221309_AddAchievementImages2")]
+    partial class AddAchievementImages2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -758,141 +761,6 @@ namespace Snackbox.Api.Migrations
                     b.ToTable("deposits");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.Invoice", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("AdditionalCosts")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("additional_costs");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<int>("CreatedByUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("created_by_id");
-
-                    b.Property<DateTime>("InvoiceDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("invoice_date");
-
-                    b.Property<string>("InvoiceNumber")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("invoice_number");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text")
-                        .HasColumnName("notes");
-
-                    b.Property<int>("PaidByUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("paid_by_user_id");
-
-                    b.Property<int?>("PaymentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("payment_id");
-
-                    b.Property<decimal>("PriceReduction")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("price_reduction");
-
-                    b.Property<string>("Supplier")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("supplier");
-
-                    b.Property<decimal>("TotalAmount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("total_amount");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("PaidByUserId");
-
-                    b.HasIndex("PaymentId")
-                        .IsUnique();
-
-                    b.ToTable("invoices");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.InvoiceItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ArticleNumber")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("article_number");
-
-                    b.Property<DateTime?>("BestBeforeDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("best_before_date");
-
-                    b.Property<int>("InvoiceId")
-                        .HasColumnType("integer")
-                        .HasColumnName("invoice_id");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text")
-                        .HasColumnName("notes");
-
-                    b.Property<int?>("ProductId")
-                        .HasColumnType("integer")
-                        .HasColumnName("product_id");
-
-                    b.Property<string>("ProductName")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("product_name");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("integer")
-                        .HasColumnName("quantity");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<decimal>("TotalPrice")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("total_price");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("unit_price");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InvoiceId");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("invoice_items");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
                 {
                     b.Property<int>("Id")
@@ -910,10 +778,6 @@ namespace Snackbox.Api.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("amount");
-
-                    b.Property<int?>("InvoiceId")
-                        .HasColumnType("integer")
-                        .HasColumnName("invoice_id");
 
                     b.Property<int?>("LinkedDepositId")
                         .HasColumnType("integer")
@@ -1248,11 +1112,7 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("action_at");
 
-                    b.Property<int?>("InvoiceItemId")
-                        .HasColumnType("integer")
-                        .HasColumnName("invoice_item_id");
-
-                    b.Property<int?>("ProductBatchId")
+                    b.Property<int>("ProductBatchId")
                         .HasColumnType("integer")
                         .HasColumnName("product_batch_id");
 
@@ -1265,8 +1125,6 @@ namespace Snackbox.Api.Migrations
                         .HasColumnName("type");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("InvoiceItemId");
 
                     b.HasIndex("ProductBatchId");
 
@@ -1538,50 +1396,6 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.Invoice", b =>
-                {
-                    b.HasOne("Snackbox.Api.Models.User", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Snackbox.Api.Models.User", "PaidBy")
-                        .WithMany()
-                        .HasForeignKey("PaidByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Snackbox.Api.Models.Payment", "Payment")
-                        .WithOne("Invoice")
-                        .HasForeignKey("Snackbox.Api.Models.Invoice", "PaymentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("PaidBy");
-
-                    b.Navigation("Payment");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.InvoiceItem", b =>
-                {
-                    b.HasOne("Snackbox.Api.Models.Invoice", "Invoice")
-                        .WithMany("Items")
-                        .HasForeignKey("InvoiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Snackbox.Api.Models.Product", "Product")
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Invoice");
-
-                    b.Navigation("Product");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.User", "AdminUser")
@@ -1648,16 +1462,11 @@ namespace Snackbox.Api.Migrations
 
             modelBuilder.Entity("Snackbox.Api.Models.ShelvingAction", b =>
                 {
-                    b.HasOne("Snackbox.Api.Models.InvoiceItem", "InvoiceItem")
-                        .WithMany("ShelvingActions")
-                        .HasForeignKey("InvoiceItemId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Snackbox.Api.Models.ProductBatch", "ProductBatch")
                         .WithMany("ShelvingActions")
-                        .HasForeignKey("ProductBatchId");
-
-                    b.Navigation("InvoiceItem");
+                        .HasForeignKey("ProductBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("ProductBatch");
                 });
@@ -1705,21 +1514,6 @@ namespace Snackbox.Api.Migrations
             modelBuilder.Entity("Snackbox.Api.Models.Deposit", b =>
                 {
                     b.Navigation("LinkedPayment");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.Invoice", b =>
-                {
-                    b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.InvoiceItem", b =>
-                {
-                    b.Navigation("ShelvingActions");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.Payment", b =>
-                {
-                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Product", b =>
