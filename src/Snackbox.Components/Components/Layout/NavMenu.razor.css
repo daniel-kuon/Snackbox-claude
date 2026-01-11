@@ -130,6 +130,36 @@
     display: block;
 }
 
+.nav-exit-section {
+    margin-top: auto;
+    padding: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-exit-button {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 4px;
+    color: #ff6b6b;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+    .nav-exit-button:hover {
+        background-color: rgba(220, 53, 69, 0.2);
+        border-color: rgba(220, 53, 69, 0.5);
+        color: #ff8787;
+    }
+
+    .nav-exit-button .bi {
+        margin-right: 0.75rem;
+    }
+
 @media (min-width: 641px) {
     .navbar-toggler {
         display: none;
@@ -141,5 +171,11 @@
         /* Allow sidebar to scroll for tall menus */
         height: calc(100vh - 3.5rem);
         overflow-y: auto;
+    }
+
+    .nav-scrollable nav {
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
     }
 }

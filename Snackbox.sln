@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snackbox.Api.Dtos", "src\Sn
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snackbox.ApiClient", "src\Snackbox.ApiClient\Snackbox.ApiClient.csproj", "{E819FEAD-93C2-41E0-AED9-45B006FBD7B1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Snackbox.Migrator", "tools\Snackbox.Migrator\Snackbox.Migrator.csproj", "{DEFFFE60-8346-4D23-AB19-471BE72EA339}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -127,6 +129,18 @@ Global
 		{E819FEAD-93C2-41E0-AED9-45B006FBD7B1}.Release|x64.Build.0 = Release|Any CPU
 		{E819FEAD-93C2-41E0-AED9-45B006FBD7B1}.Release|x86.ActiveCfg = Release|Any CPU
 		{E819FEAD-93C2-41E0-AED9-45B006FBD7B1}.Release|x86.Build.0 = Release|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Debug|x64.Build.0 = Debug|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Debug|x86.Build.0 = Debug|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Release|x64.ActiveCfg = Release|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Release|x64.Build.0 = Release|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Release|x86.ActiveCfg = Release|Any CPU
+		{DEFFFE60-8346-4D23-AB19-471BE72EA339}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

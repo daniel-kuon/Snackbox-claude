@@ -1,4 +1,5 @@
-﻿using Nextended.Aspire;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Nextended.Aspire;
 using Projects;
 
 var builder = DistributedApplication.CreateBuilder(args);

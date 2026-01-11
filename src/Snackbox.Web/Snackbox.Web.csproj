@@ -45,6 +45,9 @@
 
         <!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
         <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+
+        <!-- Embed appsettings.json as resource for configuration -->
+        <EmbeddedResource Include="Resources\Raw\appsettings.json" />
     </ItemGroup>
 
     <!-- Compile MAUI files only for Windows target -->

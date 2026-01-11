@@ -3,8 +3,10 @@
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
 @using Refit
+@using Snackbox.Components.Components.Shared
 @inject IProductsApi ProductsApi
 @inject IShelvingActionsApi ShelvingActionsApi
+@inject HttpClient Http
 @inject NavigationManager Navigation
 
 <PageTitle>Product Management - Snackbox Admin</PageTitle>
@@ -31,27 +33,41 @@
             <option value="created">Sort by Created Date</option>
             <option value="average">Sort by Most Sold (Avg/Week)</option>
         </select>
-        <button class="btn @(_batchMode ? "btn-primary" : "btn-outline-primary")" @onclick="ToggleBatchMode">
-            @(_batchMode ? "Exit Batch Mode" : "Batch Scan Mode")
-        </button>
+        @if (!_batchMode)
+        {
+            <button class="btn btn-outline-primary" @onclick="StartBatchMode">
+                <i class="bi bi-upc-scan icon" aria-hidden="true"></i> Start Batch
+            </button>
+        }
     </div>
 
     @if (_batchMode)
     {
         <div class="batch-mode-section">
+            <div class="batch-mode-header">
+                <div>
+                    <h3>Batch Scan Mode</h3>
+                    <p class="text-muted">Scan product barcodes continuously to add items to the batch</p>
+                </div>
+                <button class="btn btn-secondary" @onclick="ExitBatchMode">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i> Exit Batch Mode
+                </button>
+            </div>
+
             <div class="batch-controls">
                 <div class="control-group">
                     <label>Action Type</label>
                     <select class="form-control" @bind="_batchActionType">
                         <option value="AddedToStorage">Add to Storage</option>
                         <option value="AddedToShelf">Add Directly to Shelf</option>
-                        <option value="MovedToShelf">Move Stock to Shelf</option>
+                        <option value="MovedToShelf">Move from Storage to Shelf</option>
                     </select>
                 </div>
-                <div class="control-group">
+                <div class="control-group flex-grow">
                     <label>Scan Barcode</label>
-                    <input type="text" class="form-control" @bind="_batchBarcode" @bind:event="oninput"
-                           @onkeyup="HandleBatchBarcodeInput" placeholder="Scan or enter barcode..." autofocus />
+                    <BarcodeInput Value="@_batchBarcode"
+                                  ValueChanged="@OnBarcodeChanged"
+                                  Placeholder="Scan or enter barcode..." />
                 </div>
             </div>
 
@@ -62,12 +78,12 @@
                         <h4>Scanned Items (@_batchScannedItems.Count)</h4>
                         <div class="batch-actions">
                             <button class="btn btn-outline-secondary btn-sm" @onclick="ClearBatchItems">Clear All</button>
-                            <button class="btn btn-primary btn-sm" @onclick="ProcessBatchItems" disabled="@_isBatchProcessing">
+                            <button class="btn btn-success btn-sm" @onclick="ProcessBatchItems" disabled="@_isBatchProcessing">
                                 @if (_isBatchProcessing)
                                 {
                                     <span class="spinner-border spinner-border-sm"></span>
                                 }
-                                Process (@_batchScannedItems.Count)
+                                Finish Batch (@_batchScannedItems.Count)
                             </button>
                         </div>
                     </div>
@@ -164,11 +180,37 @@
                 <tbody>
                     @foreach (var product in _filteredProducts)
                     {
-                        <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;">
+                        var hasExpiredInStock = product.BestBeforeInStock.HasValue && product.BestBeforeInStock.Value < DateTime.UtcNow;
+                        var hasExpiringInStock = product.BestBeforeInStock.HasValue && product.BestBeforeInStock.Value >= DateTime.UtcNow && product.BestBeforeInStock.Value < DateTime.UtcNow.AddDays(30);
+                        var hasExpiredOnShelf = product.BestBeforeOnShelf.HasValue && product.BestBeforeOnShelf.Value < DateTime.UtcNow;
+                        var hasExpiringOnShelf = product.BestBeforeOnShelf.HasValue && product.BestBeforeOnShelf.Value >= DateTime.UtcNow && product.BestBeforeOnShelf.Value < DateTime.UtcNow.AddDays(30);
+                        var rowClass = (hasExpiredInStock || hasExpiredOnShelf) ? "expired-row" : (hasExpiringInStock || hasExpiringOnShelf) ? "expiring-row" : "";
+
+                        <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;" class="@rowClass">
                             <td>@product.Name</td>
                             <td>@product.AverageProductsShelvedPerWeek.ToString("F1")</td>
-                            <td>@(product.BestBeforeInStock?.ToString("yyyy-MM-dd") ?? "-")</td>
-                            <td>@(product.BestBeforeOnShelf?.ToString("yyyy-MM-dd") ?? "-")</td>
+                            <td class="@(hasExpiredInStock ? "expired-cell" : hasExpiringInStock ? "expiring-cell" : "")">
+                                @(product.BestBeforeInStock?.ToString("yyyy-MM-dd") ?? "-")
+                                @if (hasExpiredInStock)
+                                {
+                                    <span class="badge badge-danger">Expired</span>
+                                }
+                                else if (hasExpiringInStock)
+                                {
+                                    <span class="badge badge-warning">Soon</span>
+                                }
+                            </td>
+                            <td class="@(hasExpiredOnShelf ? "expired-cell" : hasExpiringOnShelf ? "expiring-cell" : "")">
+                                @(product.BestBeforeOnShelf?.ToString("yyyy-MM-dd") ?? "-")
+                                @if (hasExpiredOnShelf)
+                                {
+                                    <span class="badge badge-danger">Expired</span>
+                                }
+                                else if (hasExpiringOnShelf)
+                                {
+                                    <span class="badge badge-warning">Soon</span>
+                                }
+                            </td>
                             <td>
                                 <button class="btn btn-sm btn-outline-secondary" @onclick:stopPropagation="true" @onclick="() => ShowEditProduct(product)">
                                     Edit
@@ -320,6 +362,45 @@
         border-bottom: 1px solid #dee2e6;
     }
 
+    .table tr.expired-row {
+        background-color: #fff5f5;
+        border-left: 4px solid #dc3545;
+    }
+
+    .table tr.expiring-row {
+        background-color: #fffbeb;
+        border-left: 4px solid #ffc107;
+    }
+
+    .table td.expired-cell {
+        font-weight: 600;
+        color: #dc3545;
+    }
+
+    .table td.expiring-cell {
+        font-weight: 600;
+        color: #856404;
+    }
+
+    .badge {
+        padding: 0.25em 0.5em;
+        border-radius: 0.25rem;
+        font-size: 0.75em;
+        font-weight: 500;
+        margin-left: 0.5rem;
+        display: inline-block;
+    }
+
+    .badge-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .badge-warning {
+        background-color: #ffc107;
+        color: #212529;
+    }
+
     .loading-container {
         text-align: center;
         padding: 3rem;
@@ -411,10 +492,22 @@
         border-radius: 4px;
         cursor: pointer;
         font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .icon {
+        font-size: 1rem;
     }
 
     .btn-primary {
         background-color: #007bff;
+        color: white;
+    }
+
+    .btn-success {
+        background-color: #28a745;
         color: white;
     }
 
@@ -500,6 +593,26 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         padding: 1.5rem;
         margin-bottom: 1.5rem;
+        border: 2px solid #007bff;
+    }
+
+    .batch-mode-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .batch-mode-header h3 {
+        margin: 0 0 0.25rem 0;
+        color: #007bff;
+    }
+
+    .batch-mode-header p {
+        margin: 0;
+        font-size: 0.875rem;
     }
 
     .batch-controls {
@@ -510,8 +623,12 @@
     }
 
     .control-group {
-        flex: 1;
+        flex: 0 0 auto;  /* Fixed width control groups */
         min-width: 200px;
+    }
+
+    .control-group.flex-grow {
+        flex: 1 1 auto;  /* Allow barcode input to grow and fill remaining space */
     }
 
     .control-group label {
@@ -752,12 +869,27 @@
         await LoadProducts();
     }
 
-    private void ToggleBatchMode()
+    private void StartBatchMode()
     {
-        _batchMode = !_batchMode;
-        if (!_batchMode)
+        _batchMode = true;
+        _batchActionType = "AddedToStorage";
+        ClearBatchItems();
+    }
+
+    private void ExitBatchMode()
+    {
+        _batchMode = false;
+        ClearBatchItems();
+    }
+
+    private async Task OnBarcodeChanged(string newValue)
+    {
+        _batchBarcode = newValue;
+
+        if (!string.IsNullOrWhiteSpace(_batchBarcode))
         {
-            ClearBatchItems();
+            await LookupAndAddBatchProduct(_batchBarcode.Trim());
+            _batchBarcode = string.Empty;
         }
     }
 
@@ -803,7 +935,8 @@
                 Barcode = barcode,
                 Quantity = barcodeQuantity,
                 ActionType = _batchActionType,
-                BestBeforeDate = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
+                // Only set default date for AddedToStorage and AddedToShelf
+                BestBeforeDate = (_batchActionType == "MovedToShelf") ? "" : DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
             };
 
             // For MovedToShelf, populate available dates with storage stock
@@ -855,7 +988,7 @@
 
         try
         {
-            var actions = new List<CreateShelvingActionDto>();
+            var actions = new List<object>();
 
             foreach (var item in _batchScannedItems)
             {
@@ -876,32 +1009,43 @@
                     return;
                 }
 
-                actions.Add(new CreateShelvingActionDto
+                actions.Add(new
                 {
-                    ProductBarcode = item.Barcode,
-                    Quantity = item.Quantity,
-                    BestBeforeDate = parsedDate,
-                    Type = Enum.Parse<ShelvingActionType>(item.ActionType)
+                    productBarcode = item.Barcode,
+                    bestBeforeDate = parsedDate,
+                    quantity = item.Quantity,
+                    type = item.ActionType
                 });
             }
 
-            var request = new BatchShelvingRequest { Actions = actions };
-            var result = await ShelvingActionsApi.CreateBatchAsync(request);
+            var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", new { actions });
 
-            if (result.Success)
+            if (response.IsSuccessStatusCode)
             {
-                _batchSuccess = $"Successfully processed {_batchScannedItems.Count} items.";
-                _batchScannedItems.Clear();
-                await LoadProducts(); // Refresh product list
+                var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
+
+                if (result?.Errors.Any() == true)
+                {
+                    _batchError = string.Join(", ", result.Errors);
+                    if (result.Results.Any())
+                    {
+                        _batchSuccess = $"Successfully processed {result.Results.Count} items.";
+                    }
+                }
+                else
+                {
+                    _batchSuccess = $"Successfully processed {_batchScannedItems.Count} items.";
+                    _batchScannedItems.Clear();
+                    await LoadProducts(); // Refresh product list
+                }
             }
             else
             {
-                _batchError = string.Join(", ", result.Errors);
+                var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
+                _batchError = result?.Errors.Any() == true
+                    ? string.Join(", ", result.Errors)
+                    : "Failed to process batch items.";
             }
-        }
-        catch (ApiException ex)
-        {
-            _batchError = ex.Content ?? "Failed to process batch items.";
         }
         catch (Exception ex)
         {

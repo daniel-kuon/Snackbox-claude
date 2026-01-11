@@ -70,7 +70,7 @@
             </div>
         </div>
 
-        <div class="quick-actions-section">
+        <div class="quick-actions-section" style="display: none;">
             <h3>Quick Actions</h3>
             <div class="quick-actions-grid">
                 <!-- Add to Storage -->
@@ -164,7 +164,9 @@
         <div class="tab-content">
             @if (_activeTab == "batches")
             {
-                @if (_productStock.Batches.Any())
+                    // Hide batches with no items on shelf or in storage
+                    var visibleBatches = _productStock.Batches.Where(b => b.QuantityInStorage > 0 || b.QuantityOnShelf > 0).ToList();
+                @if (visibleBatches.Any())
                 {
                     <div class="table-container">
                         <table class="table">
@@ -178,16 +180,18 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var batch in _productStock.Batches.OrderBy(b => b.BestBeforeDate))
+                                @foreach (var batch in visibleBatches.OrderBy(b => b.BestBeforeDate))
                                 {
-                                    <tr class="@(batch.BestBeforeDate < DateTime.UtcNow ? "expired" : batch.BestBeforeDate < DateTime.UtcNow.AddDays(30) ? "expiring-soon" : "")">
+                                    var rowClass = batch.BestBeforeDate < DateTime.UtcNow ? "expired" : batch.BestBeforeDate >= DateTime.UtcNow && batch.BestBeforeDate < DateTime.UtcNow.AddDays(30) ? "expiring-soon" : "";
+
+                                    <tr class="@rowClass">
                                         <td>
                                             @batch.BestBeforeDate.ToString("yyyy-MM-dd")
                                             @if (batch.BestBeforeDate < DateTime.UtcNow)
                                             {
                                                 <span class="badge badge-danger">Expired</span>
                                             }
-                                            else if (batch.BestBeforeDate < DateTime.UtcNow.AddDays(30))
+                                            else if (batch.BestBeforeDate >= DateTime.UtcNow && batch.BestBeforeDate < DateTime.UtcNow.AddDays(30))
                                             {
                                                 <span class="badge badge-warning">Expiring Soon</span>
                                             }
@@ -206,6 +210,12 @@
                                             {
                                                 <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowMoveToStorage(batch)">
                                                     Move to Storage
+                                                </button>
+                                            }
+                                            @if (batch.QuantityOnShelf > 0)
+                                            {
+                                                <button class="btn btn-sm btn-success" @onclick="() => ShowMarkAsConsumed(batch)">
+                                                    Mark as Consumed
                                                 </button>
                                             }
                                         </td>
@@ -296,24 +306,34 @@
                 <div class="quick-actions">
                     <label>Quick adjust:</label>
                     <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-10)">-10</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-5)">-5</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-1)">-1</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(1)">+1</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(5)">+5</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(10)">+10</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-10)" disabled="@(!CanAdjustMoveQuantity(-10))">-10</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-5)" disabled="@(!CanAdjustMoveQuantity(-5))">-5</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-1)" disabled="@(!CanAdjustMoveQuantity(-1))">-1</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(1)" disabled="@(!CanAdjustMoveQuantity(1))">+1</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(5)" disabled="@(!CanAdjustMoveQuantity(5))">+5</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(10)" disabled="@(!CanAdjustMoveQuantity(10))">+10</button>
                     </div>
                 </div>
                 @if (GetBarcodeQuantities().Any())
                 {
                     <div class="barcode-quantities mt-3">
-                        <label>Set to barcode quantity:</label>
+                        <label>Adjust by barcode quantity:</label>
                         <div class="btn-group" role="group">
                             @foreach (var qty in GetBarcodeQuantities())
                             {
-                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => _moveQuantity = qty">@qty</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustMoveQuantity(-qty)" disabled="@(!CanAdjustMoveQuantity(-qty))">-@qty</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => AdjustMoveQuantity(qty)" disabled="@(!CanAdjustMoveQuantity(qty))">+@qty</button>
                             }
                         </div>
+                    </div>
+                }
+                @if (_moveToShelf && _selectedBatch?.QuantityOnShelf > 0)
+                {
+                    <div class="form-group mt-3">
+                        <label class="checkbox-label">
+                            <input type="checkbox" @bind="_markExistingAsConsumed" />
+                            <span>Mark all @_selectedBatch.QuantityOnShelf items currently on shelf as consumed</span>
+                        </label>
                     </div>
                 }
             </div>
@@ -363,6 +383,70 @@
                         <span class="spinner-border spinner-border-sm"></span>
                     }
                     Add Barcode
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showConsumeModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Mark as Consumed</h3>
+                <button class="btn-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+                <p>
+                    Marking items from batch with best before date: <strong>@_selectedBatch?.BestBeforeDate.ToString("yyyy-MM-dd")</strong>
+                </p>
+                <p>
+                    Available on shelf: <strong>@_selectedBatch?.QuantityOnShelf</strong>
+                </p>
+                <div class="form-group">
+                    <label>Quantity to mark as consumed</label>
+                    <input type="number" class="form-control" @bind="_consumeQuantity" @bind:event="oninput" min="0"
+                           max="@_selectedBatch?.QuantityOnShelf" />
+                </div>
+                <div class="quick-actions">
+                    <label>Quick adjust:</label>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustConsumeQuantity(-10)" disabled="@(!CanAdjustConsumeQuantity(-10))">-10</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustConsumeQuantity(-5)" disabled="@(!CanAdjustConsumeQuantity(-5))">-5</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustConsumeQuantity(-1)" disabled="@(!CanAdjustConsumeQuantity(-1))">-1</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustConsumeQuantity(1)" disabled="@(!CanAdjustConsumeQuantity(1))">+1</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustConsumeQuantity(5)" disabled="@(!CanAdjustConsumeQuantity(5))">+5</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustConsumeQuantity(10)" disabled="@(!CanAdjustConsumeQuantity(10))">+10</button>
+                    </div>
+                </div>
+                @if (GetBarcodeQuantities().Any())
+                {
+                    <div class="barcode-quantities mt-3">
+                        <label>Adjust by barcode quantity:</label>
+                        <div class="btn-group" role="group">
+                            @foreach (var qty in GetBarcodeQuantities())
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => AdjustConsumeQuantity(-qty)" disabled="@(!CanAdjustConsumeQuantity(-qty))">-@qty</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => AdjustConsumeQuantity(qty)" disabled="@(!CanAdjustConsumeQuantity(qty))">+@qty</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                <button type="button" class="btn btn-success" @onclick="ExecuteConsume" disabled="@_isSaving">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    Mark as Consumed
                 </button>
             </div>
         </div>
@@ -577,6 +661,18 @@
         background-color: #fffbeb;
     }
 
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        cursor: pointer;
+    }
+
     .badge {
         padding: 0.35em 0.65em;
         border-radius: 0.25rem;
@@ -723,6 +819,11 @@
         border: 1px solid #6c757d;
     }
 
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+
     .btn-sm {
         padding: 0.25rem 0.5rem;
         font-size: 0.875rem;
@@ -787,7 +888,36 @@
     .btn-group {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.25rem;
+        gap: 0;
+    }
+
+    .btn-group .btn {
+        border-radius: 0;
+        border-right-width: 0;
+    }
+
+    .btn-group .btn:first-child {
+        border-top-left-radius: 4px;
+        border-bottom-left-radius: 4px;
+    }
+
+    .btn-group .btn:last-child {
+        border-top-right-radius: 4px;
+        border-bottom-right-radius: 4px;
+        border-right-width: 1px;
+    }
+
+    .btn-group .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        background-color: #e9ecef;
+        color: #6c757d;
+        border-color: #ced4da;
+    }
+
+    .btn-group .btn:not(:disabled):hover {
+        z-index: 1;
+        background-color: #e9ecef;
     }
 </style>
 
@@ -803,9 +933,12 @@
 
     private bool _showMoveModal;
     private bool _showAddBarcodeModal;
+    private bool _showConsumeModal;
     private BatchStockInfo? _selectedBatch;
     private bool _moveToShelf = true;
     private int _moveQuantity = 1;
+    private int _consumeQuantity = 1;
+    private bool _markExistingAsConsumed = false;
     private string? _modalError;
     private bool _isSaving;
 
@@ -909,13 +1042,20 @@
         _moveQuantity = Math.Max(0, Math.Min(_moveQuantity + delta, maxQuantity));
     }
 
+    private bool CanAdjustMoveQuantity(int delta)
+    {
+        var maxQuantity = _moveToShelf ? (_selectedBatch?.QuantityInStorage ?? 0) : (_selectedBatch?.QuantityOnShelf ?? 0);
+        var newQuantity = _moveQuantity + delta;
+        return newQuantity >= 0 && newQuantity <= maxQuantity;
+    }
+
     private IEnumerable<int> GetBarcodeQuantities()
     {
         if (_productStock?.Barcodes == null) return Enumerable.Empty<int>();
-        
+
         return _productStock.Barcodes
             .Select(b => b.Quantity)
-            .Where(q => q > 0)
+            .Where(q => q > 1) // Exclude quantity 1
             .Distinct()
             .OrderBy(q => q);
     }
@@ -937,6 +1077,22 @@
 
             if (response.IsSuccessStatusCode)
             {
+                // If moving to shelf and checkbox is checked, mark existing items as consumed
+                if (_moveToShelf && _markExistingAsConsumed && _selectedBatch.QuantityOnShelf > 0)
+                {
+                    var consumeResponse = await Http.PostAsJsonAsync($"api/productbatches/{_selectedBatch.BatchId}/consume", new
+                    {
+                        quantity = _selectedBatch.QuantityOnShelf
+                    });
+
+                    if (!consumeResponse.IsSuccessStatusCode)
+                    {
+                        var error = await consumeResponse.Content.ReadFromJsonAsync<ErrorResponse>();
+                        _modalError = error?.Message ?? "Failed to mark items as consumed. Please try again.";
+                        return;
+                    }
+                }
+
                 CloseModal();
                 _shelvingActions = null;
                 await LoadProductStock();
@@ -961,8 +1117,11 @@
     {
         _showMoveModal = false;
         _showAddBarcodeModal = false;
+        _showConsumeModal = false;
         _selectedBatch = null;
         _moveQuantity = 1;
+        _consumeQuantity = 1;
+        _markExistingAsConsumed = false;
         _modalError = null;
         _newBarcodeCode = string.Empty;
         _newBarcodeQuantity = 1;
@@ -1216,23 +1375,83 @@
     private string FormatActionType(ShelvingActionType type) => type switch
     {
         ShelvingActionType.AddedToStorage => "Added to Storage",
+        ShelvingActionType.AddedToShelf => "Added to Shelf",
         ShelvingActionType.MovedToShelf => "Moved to Shelf",
         ShelvingActionType.MovedFromShelf => "Moved from Shelf",
         ShelvingActionType.RemovedFromStorage => "Removed from Storage",
         ShelvingActionType.RemovedFromShelf => "Removed from Shelf",
+        ShelvingActionType.Consumed => "Consumed",
         _ => type.ToString()
     };
 
     private string GetActionBadgeClass(ShelvingActionType type) => type switch
                                                                    {
                                                                        ShelvingActionType.AddedToStorage => "success",
+                                                                       ShelvingActionType.AddedToShelf => "success",
                                                                        ShelvingActionType.MovedToShelf => "info",
                                                                        ShelvingActionType.MovedFromShelf => "warning",
                                                                        ShelvingActionType.RemovedFromStorage => "danger",
                                                                        ShelvingActionType.RemovedFromShelf => "danger",
+                                                                       ShelvingActionType.Consumed => "secondary",
                                                                        _ => "secondary"
                                                                    };
 
+    private void ShowMarkAsConsumed(BatchStockInfo batch)
+    {
+        _selectedBatch = batch;
+        _consumeQuantity = batch.QuantityOnShelf > 0 ? batch.QuantityOnShelf : 1;
+        _modalError = null;
+        _showConsumeModal = true;
+    }
+
+    private void AdjustConsumeQuantity(int delta)
+    {
+        var maxQuantity = _selectedBatch?.QuantityOnShelf ?? 0;
+        _consumeQuantity = Math.Max(0, Math.Min(_consumeQuantity + delta, maxQuantity));
+    }
+
+    private bool CanAdjustConsumeQuantity(int delta)
+    {
+        var maxQuantity = _selectedBatch?.QuantityOnShelf ?? 0;
+        var newQuantity = _consumeQuantity + delta;
+        return newQuantity >= 0 && newQuantity <= maxQuantity;
+    }
+
+    private async Task ExecuteConsume()
+    {
+        if (_selectedBatch == null) return;
+
+        _isSaving = true;
+        _modalError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"api/productbatches/{_selectedBatch.BatchId}/consume", new
+            {
+                quantity = _consumeQuantity
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModal();
+                _shelvingActions = null;
+                await LoadProductStock();
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                _modalError = error?.Message ?? "Failed to mark items as consumed. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
 
     private class ProductBatchDto
     {
