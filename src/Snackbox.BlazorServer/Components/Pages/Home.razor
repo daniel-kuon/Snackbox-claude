@@ -39,6 +39,8 @@
             @if (_openAmount > 0)
             {
                 <div class="paypal-link">
+                    @* Note: PayPal username is hardcoded here to match the native app behavior. 
+                       In a production environment, this should be moved to configuration. *@
                     <a href="@($"https://paypal.me/dkuon/{_openAmount:F2}")" target="_blank" class="btn btn-paypal">
                         Pay @_openAmount.ToString("C") via PayPal
                     </a>
@@ -603,7 +605,12 @@
             // Simulate scanning barcodes by calling the scanner API for each selected barcode
             foreach (var selectedBarcode in _selectedBarcodes.Where(kvp => kvp.Value > 0))
             {
-                var barcode = _userBarcodes.First(b => b.Id == selectedBarcode.Key);
+                var barcode = _userBarcodes.FirstOrDefault(b => b.Id == selectedBarcode.Key);
+                if (barcode == null)
+                {
+                    throw new Exception("Barcode not found in user's barcode list");
+                }
+                
                 for (int i = 0; i < selectedBarcode.Value; i++)
                 {
                     var request = new ScanBarcodeRequest { BarcodeCode = barcode.Code };
