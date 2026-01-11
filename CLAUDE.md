@@ -59,6 +59,15 @@ Snackbox is an employee snack purchasing and inventory management system that st
   - Batch-level stock tracking
   - Removal of expired batches
 
+#### 6. Achievement System
+- **Gamification**: Fun achievements awarded based on purchasing behavior
+- **Categories**: Single purchase, daily activity, streaks, comebacks, debt levels, total spending
+- **Automatic Awards**: Achievements earned automatically when criteria met
+- **Visual Notifications**: Animated overlays with celebration effects
+- **Humor**: Lighthearted names and descriptions (e.g., "Living on the Edge" for high debt)
+- **One-Time Only**: Each achievement can only be earned once per user
+- See [Achievement System Documentation](docs/achievement-system.md) for full details
+
 ### Key Business Rules
 1. Stock quantities must be manually updated by admins; purchases do not automatically reduce shelf stock counts
 2. Each employee has an account balance (payments minus purchases)
@@ -73,6 +82,8 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Payment**: A record of a user adding money to their account
 - **Stock Level**: Quantity available (storage vs. shelf)
 - **Balance**: User's financial standing (payments - purchases)
+- **Achievement**: A reward earned for specific purchasing behaviors
+- **UserAchievement**: Record of an achievement earned by a user with timestamp
 
 ## Technical Overview
 

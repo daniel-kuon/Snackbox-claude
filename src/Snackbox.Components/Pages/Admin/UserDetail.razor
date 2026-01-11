@@ -62,6 +62,9 @@
             <button class="tab-button @(_activeTab == "barcodes" ? "active" : "")" @onclick='() => SwitchTab("barcodes")'>
                 Barcodes
             </button>
+            <button class="tab-button @(_activeTab == "achievements" ? "active" : "")" @onclick='() => SwitchTab("achievements")'>
+                Achievements
+            </button>
         </div>
 
         <div class="tab-content">
@@ -349,6 +352,54 @@
                 {
                     <div class="empty-state">
                         <p>No barcodes assigned yet.</p>
+                    </div>
+                }
+            }
+            else if (_activeTab == "achievements")
+            {
+                <div class="section-header">
+                    <h3>Achievements</h3>
+                </div>
+
+                @if (_achievements == null)
+                {
+                    <div class="loading-container">
+                        <div class="spinner-border spinner-border-sm"></div>
+                        <span>Loading achievements...</span>
+                    </div>
+                }
+                else if (_achievements.Any())
+                {
+                    <div class="achievements-grid">
+                        @foreach (var achievement in _achievements.OrderByDescending(a => a.EarnedAt))
+                        {
+                            <div class="achievement-card">
+                                <div class="achievement-icon">
+                                    @if (!string.IsNullOrEmpty(achievement.ImageUrl))
+                                    {
+                                        @((MarkupString)achievement.ImageUrl)
+                                    }
+                                    else
+                                    {
+                                        <span class="achievement-emoji">🏆</span>
+                                    }
+                                </div>
+                                <div class="achievement-info">
+                                    <h4 class="achievement-name">@achievement.Name</h4>
+                                    <p class="achievement-description">@achievement.Description</p>
+                                    <div class="achievement-meta">
+                                        <span class="achievement-category badge">@achievement.Category</span>
+                                        <span class="achievement-date">Earned @achievement.EarnedAt.ToString("MMM d, yyyy")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <p>No achievements earned yet. Start making purchases to unlock achievements!</p>
                     </div>
                 }
             }
@@ -982,6 +1033,96 @@
         border-radius: 3px;
         font-family: monospace;
     }
+
+    .achievements-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .achievement-card {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .achievement-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .achievement-icon {
+        flex-shrink: 0;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: transparent;
+    }
+
+    .achievement-icon svg {
+        width: 80px;
+        height: 80px;
+        display: block;
+    }
+
+    .achievement-icon img {
+        max-width: 70px;
+        max-height: 70px;
+        border-radius: 8px;
+    }
+
+    .achievement-emoji {
+        font-size: 2.5rem;
+    }
+
+    .achievement-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .achievement-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+        color: #212529;
+    }
+
+    .achievement-description {
+        font-size: 0.9rem;
+        color: #495057;
+        margin: 0 0 0.75rem 0;
+        font-weight: 500;
+    }
+
+    .achievement-meta {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .achievement-category {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background: #667eea;
+        color: white;
+        font-weight: 600;
+    }
+
+    .achievement-date {
+        font-size: 0.75rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
 </style>
 
 @code {
@@ -992,6 +1133,7 @@
     private List<PaymentDto>? _payments;
     private List<PurchaseDto>? _purchases;
     private List<BarcodeDto>? _barcodes;
+    private List<AchievementDto>? _achievements;
     private List<UserDto>? _adminUsers;
     private bool _isLoading = true;
     private string? _errorMessage;
@@ -1033,6 +1175,10 @@
         {
             await LoadBarcodes();
         }
+        else if (_activeTab == "achievements" && _achievements == null)
+        {
+            await LoadAchievements();
+        }
     }
 
     private async Task SwitchTab(string tab)
@@ -1051,6 +1197,10 @@
         else if (tab == "barcodes" && _barcodes == null)
         {
             await LoadBarcodes();
+        }
+        else if (tab == "achievements" && _achievements == null)
+        {
+            await LoadAchievements();
         }
     }
 
@@ -1136,6 +1286,18 @@
         catch (Exception ex)
         {
             _errorMessage = $"Failed to load barcodes: {ex.Message}";
+        }
+    }
+
+    private async Task LoadAchievements()
+    {
+        try
+        {
+            _achievements = await Http.GetFromJsonAsync<List<AchievementDto>>($"api/users/{UserId}/achievements");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load achievements: {ex.Message}";
         }
     }
 
@@ -1460,7 +1622,7 @@
         public decimal Amount { get; set; }
 
         public bool IsActive { get; set; } = true;
-        
+
         [Required]
         public string BarcodeType { get; set; } = "Payment"; // "Login" or "Payment"
     }

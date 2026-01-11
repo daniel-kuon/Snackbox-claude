@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
 
@@ -12,12 +13,14 @@ public class ScannerController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IAchievementService _achievementService;
     private const int DefaultTimeoutSeconds = 60;
 
-    public ScannerController(ApplicationDbContext context, IConfiguration configuration)
+    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService)
     {
         _context = context;
         _configuration = configuration;
+        _achievementService = achievementService;
     }
 
     [HttpPost("scan")]
@@ -55,27 +58,26 @@ public class ScannerController : ControllerBase
             });
         }
 
-        // Check if this is a login-only barcode
+        var user = barcode.User;
+
+        // Check if this is a login-only barcode - return success with user info but don't create a purchase
         if (barcode.IsLoginOnly)
         {
-            // Login-only barcodes - return success with special flag for frontend to handle login redirect
             return Ok(new ScanBarcodeResponse
             {
                 Success = true,
-                UserId = barcode.UserId,
-                Username = barcode.User.Username,
-                IsAdmin = barcode.User.IsAdmin,
-                IsLoginOnly = true  // Special flag indicating this is a login barcode
+                UserId = user.Id,
+                Username = user.Username,
+                IsAdmin = user.IsAdmin,
+                IsLoginOnly = true
             });
         }
 
-        var user = barcode.User;
-
-        // Find the last purchase for this user that is still active (within timeout window)
+        // Find the last incomplete purchase for this user
         var lastPurchase = await _context.Purchases
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .Where(p => p.UserId == user.Id && p.CompletedAt >= timeoutThreshold)
+            .Where(p => p.UserId == user.Id)
             .OrderByDescending(p => p.CreatedAt)
             .FirstOrDefaultAsync();
 
@@ -96,11 +98,17 @@ public class ScannerController : ControllerBase
             }
             else
             {
-                // Timeout expired - update completion time of old purchase and create a new one
+                // Timeout expired - complete the old purchase and create a new one
                 if (lastPurchase.Scans.Any())
                 {
                     // Use the last scan time as the completion time (more accurate than "now")
                     lastPurchase.CompletedAt = lastScan?.ScannedAt ?? DateTime.UtcNow;
+
+                    // Save the completion first
+                    await _context.SaveChangesAsync();
+
+                    // Check for achievements earned from the completed purchase
+                    await _achievementService.CheckAndAwardAchievementsAsync(user.Id, lastPurchase.Id);
                 }
                 else
                 {
@@ -108,12 +116,10 @@ public class ScannerController : ControllerBase
                     _context.Purchases.Remove(lastPurchase);
                 }
 
-                var now = DateTime.UtcNow;
                 currentPurchase = new Purchase
                 {
                     UserId = user.Id,
-                    CreatedAt = now,
-                    CompletedAt = now
+                    CreatedAt = DateTime.UtcNow
                 };
                 _context.Purchases.Add(currentPurchase);
                 isNewPurchase = true;
@@ -121,31 +127,25 @@ public class ScannerController : ControllerBase
         }
         else
         {
-            // No existing active purchase, create new one
-            var now = DateTime.UtcNow;
+            // No existing incomplete purchase, create new one
             currentPurchase = new Purchase
             {
                 UserId = user.Id,
-                CreatedAt = now,
-                CompletedAt = now
+                CreatedAt = DateTime.UtcNow
             };
             _context.Purchases.Add(currentPurchase);
             isNewPurchase = true;
         }
 
         // Add the barcode scan to the purchase
-        var scanTime = DateTime.UtcNow;
         var barcodeScan = new BarcodeScan
         {
             Purchase = currentPurchase,
             BarcodeId = barcode.Id,
             Amount = barcode.Amount,
-            ScannedAt = scanTime
+            ScannedAt = DateTime.UtcNow
         };
         _context.BarcodeScans.Add(barcodeScan);
-        
-        // Update the purchase's CompletedAt to the time of this scan
-        currentPurchase.CompletedAt = scanTime;
 
         await _context.SaveChangesAsync();
 
@@ -158,6 +158,10 @@ public class ScannerController : ControllerBase
                 .Include(s => s.Barcode)
                 .LoadAsync();
         }
+
+        // Check for immediate achievements (single purchase amount, high debt, total spent)
+        // These can be checked on every scan, not just when the purchase completes
+        await _achievementService.CheckImmediateAchievementsAsync(user.Id, currentPurchase.Id);
 
         // Calculate user's balance (total spent - total paid)
         var totalSpent = await _context.BarcodeScans
@@ -185,7 +189,7 @@ public class ScannerController : ControllerBase
             .Select(p => new RecentPurchaseDto
             {
                 PurchaseId = p.Id,
-                TotalAmount = p.ManualAmount ?? p.Scans.Sum(s => s.Amount),
+                TotalAmount = p.Scans.Sum(s => s.Amount),
                 CompletedAt = p.CompletedAt,
                 ItemCount = p.Scans.Count
             })
@@ -193,6 +197,40 @@ public class ScannerController : ControllerBase
 
         // Log for debugging
         Console.WriteLine($"User {user.Id} - Found {recentPurchases.Count} recent purchases");
+
+        // Get newly earned achievements (not yet shown to user)
+        var newAchievements = await _context.UserAchievements
+            .Include(ua => ua.Achievement)
+            .Where(ua => ua.UserId == user.Id && !ua.HasBeenShown)
+            .Select(ua => new AchievementDto
+            {
+                Id = ua.Achievement.Id,
+                Code = ua.Achievement.Code,
+                Name = ua.Achievement.Name,
+                Description = ua.Achievement.Description,
+                Category = ua.Achievement.Category.ToString(),
+                ImageUrl = ua.Achievement.ImageUrl,
+                EarnedAt = ua.EarnedAt
+            })
+            .ToListAsync();
+
+        Console.WriteLine($"User {user.Id} - Found {newAchievements.Count} new achievements to show");
+
+        // Mark achievements as shown
+        if (newAchievements.Any())
+        {
+            var achievementIds = newAchievements.Select(a => a.Id).ToList();
+            var userAchievementsToUpdate = await _context.UserAchievements
+                .Where(ua => ua.UserId == user.Id && achievementIds.Contains(ua.AchievementId))
+                .ToListAsync();
+
+            foreach (var ua in userAchievementsToUpdate)
+            {
+                ua.HasBeenShown = true;
+            }
+            await _context.SaveChangesAsync();
+            Console.WriteLine($"User {user.Id} - Marked {userAchievementsToUpdate.Count} achievements as shown");
+        }
 
         // Build response
         var response = new ScanBarcodeResponse
@@ -215,7 +253,8 @@ public class ScannerController : ControllerBase
             Balance = balance,
             LastPaymentAmount = lastPayment?.Amount ?? 0,
             LastPaymentDate = lastPayment?.PaidAt,
-            RecentPurchases = recentPurchases
+            RecentPurchases = recentPurchases,
+            NewAchievements = newAchievements
         };
 
         return Ok(response);

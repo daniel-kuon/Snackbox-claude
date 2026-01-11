@@ -13,8 +13,7 @@ public interface IScannerService
     bool IsSessionActive { get; }
     int TimeoutSeconds { get; }
 
-    Task<ScanResult> ScanBarcodeAsync(string barcode);
-    Task ProcessBarcodeAsync(string barcode);
+    Task<ScanResult> ProcessBarcodeAsync(string barcode);
 }
 
 public class ScanResult
