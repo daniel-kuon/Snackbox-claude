@@ -14,6 +14,7 @@ public interface IScannerService
     int TimeoutSeconds { get; }
 
     Task<ScanResult> ProcessBarcodeAsync(string barcode);
+    void ResetSession();
 }
 
 public class ScanResult
