@@ -34,7 +34,6 @@ public class BarcodesController : ControllerBase
     }
 
     [HttpGet("my-barcodes")]
-    [AllowAnonymous]
     [Authorize]
     public async Task<ActionResult<IEnumerable<BarcodeDto>>> GetMyBarcodes()
     {
