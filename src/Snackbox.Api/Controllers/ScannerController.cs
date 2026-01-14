@@ -232,6 +232,51 @@ public class ScannerController : ControllerBase
             Console.WriteLine($"User {user.Id} - Marked {userAchievementsToUpdate.Count} achievements as shown");
         }
 
+        // Calculate total amount before discounts
+        var totalAmount = currentPurchase.Scans.Sum(s => s.Amount);
+
+        // Find applicable discounts
+        var now = DateTime.UtcNow;
+        var applicableDiscounts = await _context.Discounts
+            .Where(d => d.IsActive 
+                && d.ValidFrom <= now 
+                && d.ValidTo >= now
+                && d.MinimumPurchaseAmount <= totalAmount)
+            .OrderByDescending(d => d.Type == DiscountType.Percentage ? (totalAmount * d.Value / 100) : d.Value)
+            .ToListAsync();
+
+        // Apply discounts and calculate discount amount
+        var appliedDiscounts = new List<AppliedDiscountDto>();
+        var discountedAmount = totalAmount;
+
+        foreach (var discount in applicableDiscounts)
+        {
+            decimal discountAmount = 0;
+            if (discount.Type == DiscountType.FixedAmount)
+            {
+                discountAmount = Math.Min(discount.Value, discountedAmount);
+            }
+            else // Percentage
+            {
+                discountAmount = discountedAmount * (discount.Value / 100);
+            }
+
+            discountedAmount -= discountAmount;
+
+            appliedDiscounts.Add(new AppliedDiscountDto
+            {
+                DiscountId = discount.Id,
+                Name = discount.Name,
+                Type = discount.Type.ToString(),
+                Value = discount.Value,
+                DiscountAmount = discountAmount
+            });
+
+            // For now, only apply the best (first) discount
+            // In the future, multiple discounts could be stacked
+            break;
+        }
+
         // Build response
         var response = new ScanBarcodeResponse
         {
@@ -249,12 +294,14 @@ public class ScannerController : ControllerBase
                     ScannedAt = s.ScannedAt
                 })
                 .ToList(),
-            TotalAmount = currentPurchase.Scans.Sum(s => s.Amount),
+            TotalAmount = totalAmount,
             Balance = balance,
             LastPaymentAmount = lastPayment?.Amount ?? 0,
             LastPaymentDate = lastPayment?.PaidAt,
             RecentPurchases = recentPurchases,
-            NewAchievements = newAchievements
+            NewAchievements = newAchievements,
+            ApplicableDiscounts = appliedDiscounts,
+            DiscountedAmount = discountedAmount
         };
 
         return Ok(response);

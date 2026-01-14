@@ -27,6 +27,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
     public DbSet<Deposit> Deposits => Set<Deposit>();
     public DbSet<CashRegister> CashRegister => Set<CashRegister>();
+    public DbSet<Discount> Discounts => Set<Discount>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -194,6 +195,13 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<CashRegister>(entity =>
         {
             entity.Property(e => e.CurrentBalance).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<Discount>(entity =>
+        {
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.MinimumPurchaseAmount).HasPrecision(10, 2);
+            entity.Property(e => e.Value).HasPrecision(10, 2);
         });
 
         // Seed data
