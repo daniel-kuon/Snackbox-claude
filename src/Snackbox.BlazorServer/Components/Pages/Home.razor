@@ -1,5 +1,6 @@
 @page "/home"
 @using Snackbox.Api.Dtos
+@using Snackbox.Components.Components.History
 @using Snackbox.ApiClient
 @inject IAuthenticationService AuthService
 @inject IBarcodesApi BarcodesApi
@@ -52,8 +53,8 @@
         <!-- Last Payment -->
         @if (_lastPayment != null)
         {
-            <div class="info-card">
-                <h3>Last Payment</h3>
+            <div class="info-card" @onclick="OpenPaymentsModal" style="cursor: pointer;">
+                <h3>Last Payment <small style="font-weight:normal; color:#666;">(click to view all)</small></h3>
                 <div class="payment-details">
                     <span class="payment-amount">@_lastPayment.Amount.ToString("C")</span>
                     <span class="payment-date">@_lastPayment.PaidAt.ToString("dd MMM yyyy")</span>
@@ -62,8 +63,8 @@
         }
 
         <!-- Recent Purchases -->
-        <div class="info-card">
-            <h3>Recent Purchases (@_recentPurchases.Count)</h3>
+        <div class="info-card" @onclick="OpenPurchasesModal" style="cursor: pointer;">
+            <h3>Recent Purchases (@_recentPurchases.Count) <small style="font-weight:normal; color:#666;">(click to view all)</small></h3>
             @if (_recentPurchases.Any())
             {
                 <div class="purchases-list">
@@ -142,6 +143,15 @@
         </div>
     }
 </div>
+
+<!-- History Modals -->
+<PurchasesHistoryModal IsOpen="@_showPurchasesModal"
+                      Purchases="@_allPurchases"
+                      OnClose="ClosePurchasesModal" />
+
+<PaymentsHistoryModal IsOpen="@_showPaymentsModal"
+                     Payments="@_allPayments"
+                     OnClose="ClosePaymentsModal" />
 
 <style>
     .home-container {
@@ -496,12 +506,16 @@
     private List<BarcodeDto> _userBarcodes = new();
     private List<PurchaseDto> _recentPurchases = new();
     private PaymentDto? _lastPayment;
+    private List<PurchaseDto>? _allPurchases;
+    private List<PaymentDto>? _allPayments;
     private decimal _openAmount;
     private bool _isLoading = true;
     private bool _isProcessing = false;
     private string? _errorMessage;
     private string? _purchaseMessage;
     private bool _purchaseSuccess;
+    private bool _showPurchasesModal;
+    private bool _showPaymentsModal;
 
     private Dictionary<int, int> _selectedBarcodes = new();
     private decimal _currentPurchaseTotal => _selectedBarcodes.Sum(kvp =>
@@ -569,6 +583,48 @@
         {
             _isLoading = false;
         }
+    }
+
+    private async Task EnsureAllPurchasesLoadedAsync()
+    {
+        if (_allPurchases == null)
+        {
+            var list = await PurchasesApi.GetMyPurchasesAsync();
+            _allPurchases = list.OrderByDescending(p => p.CompletedAt ?? p.CreatedAt).ToList();
+        }
+    }
+
+    private async Task EnsureAllPaymentsLoadedAsync()
+    {
+        if (_allPayments == null)
+        {
+            var list = await PaymentsApi.GetMyPaymentsAsync();
+            _allPayments = list.OrderByDescending(p => p.PaidAt).ToList();
+        }
+    }
+
+    private async Task OpenPurchasesModal()
+    {
+        await EnsureAllPurchasesLoadedAsync();
+        _showPurchasesModal = true;
+    }
+
+    private async Task OpenPaymentsModal()
+    {
+        await EnsureAllPaymentsLoadedAsync();
+        _showPaymentsModal = true;
+    }
+
+    private Task ClosePurchasesModal()
+    {
+        _showPurchasesModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task ClosePaymentsModal()
+    {
+        _showPaymentsModal = false;
+        return Task.CompletedTask;
     }
 
     private void IncrementBarcode(int barcodeId)

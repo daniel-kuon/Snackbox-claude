@@ -133,6 +133,26 @@ public class ScannerService : IScannerService
         OnPurchaseTimeout?.Invoke();
     }
 
+    public void SignalActivity()
+    {
+        if (IsSessionActive)
+        {
+            ResetTimeoutTimer();
+        }
+    }
+
+    public async Task<IEnumerable<PurchaseDto>> GetMyPurchasesAsync()
+    {
+        var list = await _httpClient.GetFromJsonAsync<IEnumerable<PurchaseDto>>("api/purchases/my-purchases");
+        return list ?? Array.Empty<PurchaseDto>();
+    }
+
+    public async Task<IEnumerable<PaymentDto>> GetMyPaymentsAsync()
+    {
+        var list = await _httpClient.GetFromJsonAsync<IEnumerable<PaymentDto>>("api/payments/my-payments");
+        return list ?? Array.Empty<PaymentDto>();
+    }
+
     public Task CompletePurchaseAsync()
     {
         // Complete the current purchase session

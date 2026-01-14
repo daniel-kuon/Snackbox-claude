@@ -5,6 +5,8 @@
 @inject NavigationManager Navigation
 @using System.Timers
 @using Snackbox.Components.Components
+@using Snackbox.Components.Components.History
+@using Snackbox.Api.Dtos
 @using Snackbox.Components.Models
 @using Snackbox.Web.Services
 @implements IDisposable
@@ -42,7 +44,7 @@
         var session = ScannerService.CurrentSession;
 
         <!-- Active Purchase Session -->
-        <div class="scanner-active" @key="session.UserId">
+        <div class="scanner-active" @key="session.UserId" @onmousemove="HandleUserMouse" @onmousedown="HandleUserMouse" @onwheel="HandleUserMouse">
             <!-- Main content area -->
             <div class="scanner-content">
                 <!-- Left side: Purchase items and totals -->
@@ -81,7 +83,7 @@
                     <!-- Last payment info -->
                     @if (session.LastPaymentDate.HasValue)
                     {
-                        <div class="last-payment">
+                        <div class="last-payment" @onclick="OpenPaymentsModal" style="cursor: pointer;">
                             <div class="payment-label">Last Payment:</div>
                             <div class="payment-details">
                                 <span class="payment-amount">@session.LastPaymentAmount.ToString("C")</span>
@@ -91,8 +93,8 @@
                     }
 
                     <!-- Recent purchases -->
-                    <div class="recent-purchases">
-                        <h4 class="recent-title">Recent Purchases (@session.RecentPurchases.Count)</h4>
+                    <div class="recent-purchases" @onclick="OpenPurchasesModal" style="cursor: pointer;">
+                        <h4 class="recent-title">Recent Purchases (@session.RecentPurchases.Count) <small style="font-weight:normal;color:#666;">(click to view all)</small></h4>
                         @if (session.RecentPurchases.Any())
                         {
                             <div class="recent-list">
@@ -250,6 +252,15 @@
         </div>
     }
 </div>
+
+<!-- History Modals -->
+<PurchasesHistoryModal IsOpen="@_showPurchasesModal"
+                      Purchases="@_allPurchases"
+                      OnClose="ClosePurchasesModal" />
+
+<PaymentsHistoryModal IsOpen="@_showPaymentsModal"
+                     Payments="@_allPayments"
+                     OnClose="ClosePaymentsModal" />
 
 <style>
     .scanner-container {
@@ -700,6 +711,10 @@
     private Timer? _countdownTimer;
     private string? _errorMessage;
     private Timer? _errorTimer;
+    private bool _showPurchasesModal;
+    private bool _showPaymentsModal;
+    private List<PurchaseDto>? _allPurchases;
+    private List<PaymentDto>? _allPayments;
 
     protected override void OnInitialized()
     {
@@ -804,6 +819,57 @@
             _countdownTimer.Dispose();
             _countdownTimer = null;
         }
+    }
+
+    private void HandleUserMouse()
+    {
+        // Reset UI countdown and service timeout when mouse is used
+        ResetCountdownTimer();
+        ScannerService.SignalActivity();
+    }
+
+    private async Task EnsureAllPurchasesLoadedAsync()
+    {
+        if (_allPurchases == null)
+        {
+            var list = await ScannerService.GetMyPurchasesAsync();
+            _allPurchases = list.OrderByDescending(p => (p.CompletedAt ?? p.CreatedAt)).ToList();
+        }
+    }
+
+    private async Task EnsureAllPaymentsLoadedAsync()
+    {
+        if (_allPayments == null)
+        {
+            var list = await ScannerService.GetMyPaymentsAsync();
+            _allPayments = list.OrderByDescending(p => p.PaidAt).ToList();
+        }
+    }
+
+    private async Task OpenPurchasesModal()
+    {
+        await EnsureAllPurchasesLoadedAsync();
+        _showPurchasesModal = true;
+        StateHasChanged();
+    }
+
+    private async Task OpenPaymentsModal()
+    {
+        await EnsureAllPaymentsLoadedAsync();
+        _showPaymentsModal = true;
+        StateHasChanged();
+    }
+
+    private Task ClosePurchasesModal()
+    {
+        _showPurchasesModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task ClosePaymentsModal()
+    {
+        _showPaymentsModal = false;
+        return Task.CompletedTask;
     }
 
     private void ShowError(string message)
