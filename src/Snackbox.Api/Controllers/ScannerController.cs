@@ -242,39 +242,36 @@ public class ScannerController : ControllerBase
                 && d.ValidFrom <= now 
                 && d.ValidTo >= now
                 && d.MinimumPurchaseAmount <= totalAmount)
-            .OrderByDescending(d => d.Type == DiscountType.Percentage ? (totalAmount * d.Value / 100) : d.Value)
             .ToListAsync();
 
-        // Apply discounts and calculate discount amount
+        // Calculate discount amounts and find the best discount
+        var bestDiscount = applicableDiscounts
+            .Select(d => new
+            {
+                Discount = d,
+                DiscountAmount = d.Type == DiscountType.FixedAmount 
+                    ? Math.Min(d.Value, totalAmount)
+                    : totalAmount * (d.Value / 100)
+            })
+            .OrderByDescending(d => d.DiscountAmount)
+            .FirstOrDefault();
+
+        // Apply the best discount
         var appliedDiscounts = new List<AppliedDiscountDto>();
         var discountedAmount = totalAmount;
 
-        foreach (var discount in applicableDiscounts)
+        if (bestDiscount != null)
         {
-            decimal discountAmount = 0;
-            if (discount.Type == DiscountType.FixedAmount)
-            {
-                discountAmount = Math.Min(discount.Value, discountedAmount);
-            }
-            else // Percentage
-            {
-                discountAmount = discountedAmount * (discount.Value / 100);
-            }
-
-            discountedAmount -= discountAmount;
+            discountedAmount -= bestDiscount.DiscountAmount;
 
             appliedDiscounts.Add(new AppliedDiscountDto
             {
-                DiscountId = discount.Id,
-                Name = discount.Name,
-                Type = discount.Type.ToString(),
-                Value = discount.Value,
-                DiscountAmount = discountAmount
+                DiscountId = bestDiscount.Discount.Id,
+                Name = bestDiscount.Discount.Name,
+                Type = bestDiscount.Discount.Type.ToString(),
+                Value = bestDiscount.Discount.Value,
+                DiscountAmount = bestDiscount.DiscountAmount
             });
-
-            // For now, only apply the best (first) discount
-            // In the future, multiple discounts could be stacked
-            break;
         }
 
         // Build response

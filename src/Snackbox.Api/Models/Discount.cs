@@ -15,6 +15,6 @@ public class Discount
 
 public enum DiscountType
 {
-    FixedAmount, // Reduces by a fixed cent amount
+    FixedAmount, // Reduces by a fixed amount
     Percentage   // Reduces by a percentage
 }
