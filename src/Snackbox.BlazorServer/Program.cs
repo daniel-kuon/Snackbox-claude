@@ -6,6 +6,13 @@ using Snackbox.Components.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render/Container runtime: bind to PORT on 0.0.0.0 if provided
+var portEnv = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(portEnv) && int.TryParse(portEnv, out var port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Add services to the container.
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
@@ -17,8 +24,11 @@ builder.Services.AddSingleton<IStorageService, WebStorageService>()
 builder.Services.AddTransient<AuthenticationHeaderHandler>();
 
 // Register HttpClient for API calls
-var apiUrl = builder.Configuration["API_HTTPS"] ??
-             builder.Configuration["API_HTTP"] ?? throw new InvalidOperationException("API URL is not configured.");
+// Prefer a unified API_URL (if provided), otherwise support legacy API_HTTPS / API_HTTP variables
+var apiUrl = builder.Configuration["API_URL"] ??
+             builder.Configuration["API_HTTPS"] ??
+             builder.Configuration["API_HTTP"]
+             ?? throw new InvalidOperationException("API URL is not configured.");
 
 // Register all Snackbox API clients with authentication
 builder.Services.AddSnackboxApiClientWithAuth<AuthenticationHeaderHandler>(apiUrl);
@@ -49,12 +59,20 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
+    // Avoid enforcing HSTS when running behind a platform proxy (optional); keep it enabled by default.
+    if (string.IsNullOrWhiteSpace(portEnv))
+    {
+        // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+        app.UseHsts();
+    }
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
+// Avoid HTTPS redirection when running behind a platform proxy (e.g., when PORT is set)
+if (string.IsNullOrWhiteSpace(portEnv))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAntiforgery();
 

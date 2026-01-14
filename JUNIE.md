@@ -158,3 +158,37 @@ Snackbox is a modern full-stack application built with .NET technologies, featur
 - [Blazor MAUI Hybrid](https://learn.microsoft.com/en-us/aspnet/core/blazor/hybrid/)
 - [PostgreSQL with EF Core](https://www.npgsql.org/efcore/)
 - [Localization in Blazor](https://learn.microsoft.com/en-us/aspnet/core/blazor/globalization-localization)
+
+---
+
+## Render Deployment (Kurzüberblick)
+
+Deploybare Projekte auf Render:
+- API: src/Snackbox.Api
+- Blazor Server Frontend: src/Snackbox.BlazorServer
+
+Nicht deployen:
+- Aspire AppHost (src/Snackbox.AppHost)
+- Native MAUI App (src/Snackbox.Web)
+
+Blueprint-Datei: render.yaml im Repository-Wurzelverzeichnis.
+
+Wichtige Environment Variables auf Render:
+- DATABASE_URL (vom Render PostgreSQL Service verlinken)
+- ALLOWED_ORIGINS (Comma-separated; z. B. https://<dein-web-service>.onrender.com)
+- API_HTTPS (wird im Blueprint vom API-Service referenziert; alternativ API_URL)
+- ASPNETCORE_ENVIRONMENT = Production (Standard)
+- JWT und weitere Secrets (im Render-Dashboard setzen, keine Werte im Repo):
+  - JwtSettings__SecretKey
+  - JwtSettings__Issuer
+  - JwtSettings__Audience
+  - BarcodeLookup__ApiKey
+  - EmailSettings__Username / EmailSettings__Password (falls E-Mail aktiviert)
+  - EmailSettings__SmtpServer / EmailSettings__SmtpPort / EmailSettings__EnableSsl / EmailSettings__FromEmail / EmailSettings__FromName
+
+Laufzeit-Anpassungen (bereits im Code hinterlegt):
+- Beide Webdienste binden an http://0.0.0.0:$PORT (PORT wird von Render gesetzt)
+- Keine HTTPS-Bindings erzwungen; HTTPS-Redirection wird nur lokal (ohne PORT) aktiviert
+- PostgreSQL-Connection: bevorzugt DATABASE_URL, ansonsten ConnectionStrings:snackboxdb (für Aspire lokal)
+
+Lokale Entwicklung mit Aspire bleibt unverändert: AppHost starten und wie gewohnt über das Dashboard auf Dienste zugreifen.

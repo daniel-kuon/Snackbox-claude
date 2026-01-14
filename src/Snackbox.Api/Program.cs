@@ -10,6 +10,13 @@ using Snackbox.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render/Container runtime: bind to PORT on 0.0.0.0 if provided
+var portEnv = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(portEnv) && int.TryParse(portEnv, out var port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -32,8 +39,10 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddOpenApi("v1");
 
 // Configure PostgreSQL
-var connectionString = builder.Configuration.GetConnectionString("snackboxdb")
-    ?? throw new InvalidOperationException("Database connection string 'snackboxdb' is not configured.");
+// Prefer DATABASE_URL (e.g. provided by Render), otherwise fall back to ConnectionStrings:snackboxdb (e.g. provided by Aspire/AppHost)
+var connectionString = builder.Configuration["DATABASE_URL"]
+                      ?? builder.Configuration.GetConnectionString("snackboxdb")
+                      ?? throw new InvalidOperationException("Database connection string is not configured (DATABASE_URL or ConnectionStrings:snackboxdb).");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
@@ -105,10 +114,24 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorApp", policy =>
     {
-        policy.WithOrigins("https://localhost:7001", "http://localhost:5001")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        var allowedOriginsEnv = builder.Configuration["ALLOWED_ORIGINS"]; // comma-separated list
+        if (!string.IsNullOrWhiteSpace(allowedOriginsEnv))
+        {
+            var origins = allowedOriginsEnv
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            policy.WithOrigins(origins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            // Development defaults
+            policy.WithOrigins("https://localhost:7001", "http://localhost:5001")
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
     });
 });
 
@@ -148,7 +171,11 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseHttpsRedirection();
+// Avoid HTTPS redirection when running behind a platform proxy (e.g., when PORT is set)
+if (string.IsNullOrWhiteSpace(portEnv))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowBlazorApp");
 app.UseAuthentication();
 app.UseAuthorization();
