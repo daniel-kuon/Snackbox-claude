@@ -10,6 +10,13 @@ using Snackbox.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render/Container: if PORT is set, bind Kestrel to 0.0.0.0:PORT (HTTP only)
+var portEnv = Environment.GetEnvironmentVariable("PORT");
+if (int.TryParse(portEnv, out var port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -32,8 +39,21 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddOpenApi("v1");
 
 // Configure PostgreSQL
-var connectionString = builder.Configuration.GetConnectionString("snackboxdb")
-    ?? throw new InvalidOperationException("Database connection string 'snackboxdb' is not configured.");
+// Prefer DATABASE_URL (e.g., from Render Managed Postgres), fallback to Aspire connection string
+string ResolveConnectionString()
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        return Snackbox.Api.ProgramHelpers.ConvertDatabaseUrlToNpgsql(databaseUrl);
+    }
+
+    return builder.Configuration.GetConnectionString("snackboxdb")
+           ?? throw new InvalidOperationException("Database connection string 'snackboxdb' is not configured.");
+}
+
+var connectionString = ResolveConnectionString();
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
@@ -105,10 +125,23 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorApp", policy =>
     {
-        policy.WithOrigins("https://localhost:7001", "http://localhost:5001")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        var allowedOriginsEnv = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS");
+        if (!string.IsNullOrWhiteSpace(allowedOriginsEnv))
+        {
+            var origins = allowedOriginsEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            policy.WithOrigins(origins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            // Development defaults
+            policy.WithOrigins("https://localhost:7001", "http://localhost:5001")
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
     });
 });
 
@@ -148,7 +181,11 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseHttpsRedirection();
+// Avoid HTTPS redirection when running on platforms that provide only HTTP (e.g., Render with PORT)
+if (string.IsNullOrEmpty(portEnv))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowBlazorApp");
 app.UseAuthentication();
 app.UseAuthorization();
@@ -168,4 +205,47 @@ app.Run();
 namespace Snackbox.Api
 {
     public class Program { }
+
+    internal static class ProgramHelpers
+    {
+        internal static string ConvertDatabaseUrlToNpgsql(string databaseUrl)
+        {
+            // Accept formats like: postgres://user:pass@host:port/dbname?sslmode=require
+            // Build an Npgsql connection string with SSL settings if present
+            var uri = new Uri(databaseUrl);
+
+            var userInfo = uri.UserInfo.Split(':', 2);
+            var username = Uri.UnescapeDataString(userInfo[0]);
+            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty;
+            var host = uri.Host;
+            var port = uri.Port > 0 ? uri.Port : 5432;
+            var database = uri.AbsolutePath.Trim('/');
+
+            // Parse query for sslmode
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var sslMode = query["sslmode"] ?? query["sslmode".ToLowerInvariant()];
+
+            var parts = new List<string>
+            {
+                $"Host={host}",
+                $"Port={port}",
+                $"Database={database}",
+                $"Username={username}",
+                $"Password={password}"
+            };
+
+            if (!string.IsNullOrEmpty(sslMode))
+            {
+                // Map typical values (require, verify-ca, verify-full, disable)
+                parts.Add($"SSL Mode={sslMode}");
+                // Render often requires trusting server certs on managed PG
+                if (sslMode.Equals("require", StringComparison.OrdinalIgnoreCase))
+                {
+                    parts.Add("Trust Server Certificate=true");
+                }
+            }
+
+            return string.Join(";", parts);
+        }
+    }
 }
