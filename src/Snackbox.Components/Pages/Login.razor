@@ -225,7 +225,15 @@
 
             if (result.Success)
             {
-                Navigation.NavigateTo("/admin/users", forceLoad: true);
+                // Redirect based on user role
+                if (result.IsAdmin)
+                {
+                    Navigation.NavigateTo("/admin/users", forceLoad: true);
+                }
+                else
+                {
+                    Navigation.NavigateTo("/home", forceLoad: true);
+                }
             }
             else
             {

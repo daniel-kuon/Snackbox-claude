@@ -173,6 +173,36 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
+    public async Task<UserInfo?> GetCurrentUserInfoAsync()
+    {
+        try
+        {
+            var userInfoJson = await _storageService.GetAsync(UserInfoKey);
+            if (string.IsNullOrEmpty(userInfoJson))
+            {
+                return null;
+            }
+
+            var loginResponse = JsonSerializer.Deserialize<LoginResponse>(userInfoJson);
+            if (loginResponse == null)
+            {
+                return null;
+            }
+
+            return new UserInfo
+            {
+                UserId = loginResponse.UserId,
+                Username = loginResponse.Username,
+                Email = loginResponse.Email,
+                IsAdmin = loginResponse.IsAdmin
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private class LoginResponse
     {
         public string Token { get; set; } = string.Empty;
