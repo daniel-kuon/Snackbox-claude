@@ -48,7 +48,7 @@ public class PurchasesController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
-        
+
         var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
         var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
 
@@ -81,7 +81,7 @@ public class PurchasesController : ControllerBase
     }
 
     [HttpGet("user/{userId}")]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetByUserId(int userId)
     {
         var purchases = await _context.Purchases
