@@ -28,6 +28,11 @@ public class BackupController : ControllerBase
     {
         try
         {
+            // Proactively check for PostgreSQL tools to provide a clear error instead of a generic failure
+            if (!await _backupService.ArePostgresToolsAvailableAsync())
+            {
+                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install pg_dump and psql or run scripts/Install-PostgresTools.ps1 (Windows)." });
+            }
             var backup = await _backupService.CreateBackupAsync(BackupType.Manual);
             return Ok(ToDto(backup));
         }
@@ -64,6 +69,11 @@ public class BackupController : ControllerBase
     {
         try
         {
+            // Proactively check for PostgreSQL tools to provide a clear error instead of a generic failure
+            if (!await _backupService.ArePostgresToolsAvailableAsync())
+            {
+                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install pg_dump and psql or run scripts/Install-PostgresTools.ps1 (Windows)." });
+            }
             await _backupService.RestoreBackupAsync(id);
             return Ok(new { message = "Backup restored successfully" });
         }

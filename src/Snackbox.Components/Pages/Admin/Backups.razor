@@ -14,7 +14,7 @@
     <div class="page-header">
         <h2>Backup Management</h2>
         <div class="button-group">
-            <button class="btn btn-primary" @onclick="CreateBackup" disabled="@_isCreatingBackup">
+            <button class="btn btn-primary" @onclick="CreateBackup" disabled="@(_isCreatingBackup || _checkingTools || !_toolsAvailable)" title="@(!_toolsAvailable ? "PostgreSQL tools not available" : null)">
                 <span class="icon">💾</span> @(_isCreatingBackup ? "Creating Backup..." : "Create Backup")
             </button>
             <label class="btn btn-secondary" for="importBackupFile">
@@ -36,6 +36,11 @@
                 <a href="https://github.com/daniel-kuon/Snackbox-claude/blob/main/docs/BACKUP.md#prerequisites" target="_blank" class="alert-link">documentation</a>
                 for installation instructions.
             </p>
+            <div class="mt-2">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="CheckToolsAvailability" disabled="@_checkingTools">
+                    @_checkingTools ? "Checking..." : "Re-check tools"
+                </button>
+            </div>
         </div>
     }
 
@@ -158,6 +163,13 @@
         try
         {
             _isCreatingBackup = true;
+
+            // Guard: if tools are not available, provide a friendly message and skip the call
+            if (!_toolsAvailable)
+            {
+                Snackbar.Error("PostgreSQL tools are not available. Please install pg_dump/psql (see documentation above) and try again.");
+                return;
+            }
 
             var backup = await BackupApi.CreateBackupAsync();
             Snackbar.Success($"Backup created successfully: {backup.FileName}");
