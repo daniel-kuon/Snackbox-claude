@@ -143,13 +143,19 @@ public class ScannerService : IScannerService
 
     public async Task<IEnumerable<PurchaseDto>> GetMyPurchasesAsync()
     {
-        var list = await _httpClient.GetFromJsonAsync<IEnumerable<PurchaseDto>>("api/purchases/my-purchases");
+        if (CurrentSession == null)
+            return Array.Empty<PurchaseDto>();
+
+        var list = await _httpClient.GetFromJsonAsync<IEnumerable<PurchaseDto>>($"api/purchases/user/{CurrentSession.UserId}");
         return list ?? Array.Empty<PurchaseDto>();
     }
 
     public async Task<IEnumerable<PaymentDto>> GetMyPaymentsAsync()
     {
-        var list = await _httpClient.GetFromJsonAsync<IEnumerable<PaymentDto>>("api/payments/my-payments");
+        if (CurrentSession == null)
+            return Array.Empty<PaymentDto>();
+
+        var list = await _httpClient.GetFromJsonAsync<IEnumerable<PaymentDto>>($"api/payments/user/{CurrentSession.UserId}");
         return list ?? Array.Empty<PaymentDto>();
     }
 
