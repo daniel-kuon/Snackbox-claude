@@ -1,0 +1,34 @@
+@page "/"
+@inject NavigationManager Navigation
+@inject IAuthenticationService AuthService
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Check if user is authenticated
+            var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (isAuthenticated)
+            {
+                var userInfo = await AuthService.GetCurrentUserInfoAsync();
+                if (userInfo != null)
+                {
+                    // Redirect based on user role
+                    if (userInfo.IsAdmin)
+                    {
+                        Navigation.NavigateTo("/admin/users", replace: true);
+                    }
+                    else
+                    {
+                        Navigation.NavigateTo("/home", replace: true);
+                    }
+                    return;
+                }
+            }
+            
+            // Not authenticated, redirect to login
+            Navigation.NavigateTo("/login", replace: true);
+        }
+    }
+}

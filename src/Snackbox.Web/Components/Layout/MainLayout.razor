@@ -2,9 +2,13 @@
 @using Snackbox.Components.Components
 
 <div class="page">
-        <div class="sidebar">
-            <NavMenu />
-        </div>
+    <div class="sidebar">
+        <Snackbox.Components.Components.Layout.NavMenu
+            ShowExitButton="true"
+            HomeLink=""
+            HomeLinkText="Home"
+            ExitUrl="/scan" />
+    </div>
 
     <main>
         <article class="content px-4">

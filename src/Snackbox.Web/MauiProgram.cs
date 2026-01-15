@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Snackbox.ApiClient;
 using Snackbox.Components.Services;
 using Snackbox.Web.Services;
+using System.Reflection;
 
 namespace Snackbox.Web;
 
@@ -13,7 +15,21 @@ public static class MauiProgram
         builder.UseMauiApp<App>()
                .ConfigureFonts(fonts => { fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular"); });
 
+        // Load configuration from appsettings.json in Resources/Raw folder
+        var assembly = Assembly.GetExecutingAssembly();
+        using var stream = assembly.GetManifestResourceStream("Snackbox.Web.Resources.Raw.appsettings.json");
+        if (stream != null)
+        {
+            var config = new ConfigurationBuilder()
+                .AddJsonStream(stream)
+                .Build();
+            builder.Configuration.AddConfiguration(config);
+        }
+
         builder.Services.AddMauiBlazorWebView();
+
+        // Register window service
+        builder.Services.AddSingleton<IWindowService, WindowsWindowService>();
 
         builder.Services.AddSingleton<WindowsScannerListener>()
                .AddSingleton<IScannerListener>(p => p.GetRequiredService<WindowsScannerListener>());

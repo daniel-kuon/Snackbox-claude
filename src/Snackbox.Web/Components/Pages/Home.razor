@@ -1,16 +1,26 @@
 @page "/scan"
-@layout EmptyLayout
+@layout Snackbox.Components.Components.Layout.EmptyLayout
 @inject WindowsScannerListener ScannerListener
 @inject IScannerService ScannerService
 @inject NavigationManager Navigation
 @using System.Timers
 @using Snackbox.Components.Components
+@using Snackbox.Components.Components.History
+@using Snackbox.Api.Dtos
 @using Snackbox.Components.Models
-@using Snackbox.Web.Components.Layout
 @using Snackbox.Web.Services
 @implements IDisposable
 
 <PageTitle>Snackbox Scanner</PageTitle>
+
+<!-- Achievement Notification Overlay -->
+@if (ScannerService.CurrentSession?.NewAchievements.Any() == true)
+{
+    <AchievementNotification
+        Achievements="@ScannerService.CurrentSession.NewAchievements"
+        CurrentScanInfo="@GetCurrentScanInfo()"
+        OnAllAchievementsShown="@ClearAchievements"/>
+}
 
 <div class="scanner-container">
     @if (_errorMessage != null)
@@ -34,7 +44,7 @@
         var session = ScannerService.CurrentSession;
 
         <!-- Active Purchase Session -->
-        <div class="scanner-active" @key="session.UserId">
+        <div class="scanner-active" @key="session.UserId" @onmousemove="HandleUserMouse" @onmousedown="HandleUserMouse" @onwheel="HandleUserMouse">
             <!-- Main content area -->
             <div class="scanner-content">
                 <!-- Left side: Purchase items and totals -->
@@ -73,8 +83,8 @@
                     <!-- Last payment info -->
                     @if (session.LastPaymentDate.HasValue)
                     {
-                        <div class="last-payment">
-                            <div class="payment-label">Last Payment:</div>
+                        <div class="last-payment" @onclick="OpenPaymentsModal" style="cursor: pointer;">
+                            <div class="payment-label">Last Payment <small style="font-weight:normal;color:#ddd">(tap to view all)</small>:</div>
                             <div class="payment-details">
                                 <span class="payment-amount">@session.LastPaymentAmount.ToString("C")</span>
                                 <span class="payment-date">@session.LastPaymentDate.Value.ToString("dd MMM yyyy")</span>
@@ -83,8 +93,8 @@
                     }
 
                     <!-- Recent purchases -->
-                    <div class="recent-purchases">
-                        <h4 class="recent-title">Recent Purchases (@session.RecentPurchases.Count)</h4>
+                    <div class="recent-purchases" @onclick="OpenPurchasesModal" style="cursor: pointer;">
+                        <h4 class="recent-title">Recent Purchases (@session.RecentPurchases.Count) <small style="font-weight:normal;color:#666;">(click to view all)</small></h4>
                         @if (session.RecentPurchases.Any())
                         {
                             <div class="recent-list">
@@ -92,8 +102,10 @@
                                 {
                                     <div class="recent-item">
                                         <div class="recent-info">
-                                            <span class="recent-date">@purchase.CompletedAt.ToString("dd MMM HH:mm")</span>
-                                            <span class="recent-items">@purchase.ItemCount item@(purchase.ItemCount != 1 ? "s" : "")</span>
+                                            <span
+                                                class="recent-date">@purchase.CompletedAt.ToString("dd MMM HH:mm")</span>
+                                            <span
+                                                class="recent-items">@purchase.ItemCount item@(purchase.ItemCount != 1 ? "s" : "")</span>
                                         </div>
                                         <span class="recent-amount">@purchase.TotalAmount.ToString("C")</span>
                                     </div>
@@ -111,42 +123,111 @@
                 <div class="qr-section">
                     <!-- User info at top -->
                     <div class="user-info-box">
-                        <h2 class="user-name">@session.UserName</h2>
-                        <div class="user-balance">
-                            <span class="balance-label">@(session.OpenAmount > 0 ? "Open Payment:" : "Deposit:")</span>
-                            <span class="balance-amount @(session.OpenAmount > 0 ? "positive" : "negative")">
-                                @Math.Abs(session.OpenAmount).ToString("C")
-                            </span>
+                        <div class="user-info-left">
+                            <h2 class="user-name">@session.UserName</h2>
+                            <div class="user-balance">
+                                <span
+                                    class="balance-label">@(session.OpenAmount > 0 ? "Open Payment:" : "Deposit:")</span>
+                                <span class="balance-amount @(session.OpenAmount > 0 ? "positive" : "negative")">
+                                    @Math.Abs(session.OpenAmount).ToString("C")
+                                </span>
+                            </div>
                         </div>
 
                         @* Balance-based payment reminders *@
-                        @if (session.OpenAmount >= 30)
+                        @if (session.OpenAmount >= 40)
                         {
+                            var title = Pick([
+                                                 "FINAL NOTICE (Things Have Escalated)",
+                                                 "We’re Way Past Friendly Now",
+                                                 "This Is Where the Serious Music Starts Playing"
+                                             ]);
+
+                            var message = Pick([
+                                                   $"Your outstanding balance has reached {session.OpenAmount:C}. At this level, we’re no longer joking — internal meetings are happening, emails are being CC’d, and someone has mentioned *external partners*. You really don’t want to meet our friends at MOSKVA INКΛЅЅØ. Please pay immediately via PayPal.",
+
+                                                   $"Balance due: {session.OpenAmount:C}. This is the point where spreadsheets turn red and MOSKVA  INКΛЅЅØ’s contact card starts hovering over the keyboard. Let’s all agree to avoid that and settle this via PayPal right now.",
+
+                                                   $"We regret to inform you that your balance of {session.OpenAmount:C} has entered the \"Find Out\" phase. Payment now avoids awkward conversations involving our 'payment enforcement specialists'. Act fast. Seriously."
+                                               ]);
+
                             <div class="balance-notification danger">
-                                <span class="notification-icon">🔴</span>
+                                <span class="notification-icon">☠️📞</span>
                                 <div class="notification-content">
-                                    <strong>Urgent Payment Required</strong>
-                                    <p>Your balance has reached @Math.Abs(session.OpenAmount).ToString("C"). We kindly but firmly request immediate payment to keep your account in good standing. Please use PayPal below or contact an admin.</p>
+                                    <strong>@title</strong>
+                                    <p>@message</p>
+                                </div>
+                            </div>
+                        }
+                        else if (session.OpenAmount >= 30)
+                        {
+                            var title = Pick([
+                                                 "PAYMENT APOCALYPSE IMMINENT",
+                                                 "🚨 Maximum Urgency Mode Activated",
+                                                 "This Is Not a Drill"
+                                             ]);
+
+                            var message = Pick([
+                                                   $"Your balance has reached {session.OpenAmount:C}. At this stage, this is no longer a reminder — it’s a plea. Failure to pay may result in dramatic sighing, cancelled lunches, and existential despair. Please pay immediately via PayPal.",
+
+                                                   $"Outstanding balance: {session.OpenAmount:C}. If this remains unpaid, this business may collapse, dreams will be crushed, and a very sad meal will go unfunded. Save us. Pay now.",
+
+                                                   $"You currently owe {session.OpenAmount:C}. Time is an illusion, money is not. Please resolve this immediately before the situation becomes… administrative."
+                                               ]);
+
+                            <div class="balance-notification danger">
+                                <span class="notification-icon">🚨🔥</span>
+                                <div class="notification-content">
+                                    <strong>@title</strong>
+                                    <p>@message</p>
                                 </div>
                             </div>
                         }
                         else if (session.OpenAmount >= 20)
                         {
+                            var title = Pick([
+                                                 "Payment Requested (Before Things Get Weird)",
+                                                 "⚠️ Accountant Stress Detected",
+                                                 "Let’s Handle This Like Adults"
+                                             ]);
+
+                            var message = Pick([
+                                                   $"Your balance is {session.OpenAmount:C}. This is the phase where polite reminders are sent but concern is quietly growing. Please make a payment soon via PayPal.",
+
+                                                   $"Outstanding amount: {session.OpenAmount:C}. Nothing terrible has happened yet, but this is how stories *start*. Pay soon to keep things chill.",
+
+                                                   $"You owe {session.OpenAmount:C}. We’re still smiling — but it’s becoming forced. Please scan the PayPal QR code below."
+                                               ]);
+
                             <div class="balance-notification warning">
-                                <span class="notification-icon">⚠️</span>
+                                <span class="notification-icon">⚠️😬</span>
                                 <div class="notification-content">
-                                    <strong>Payment Requested</strong>
-                                    <p>Your balance is @Math.Abs(session.OpenAmount).ToString("C"). Please make a payment soon using the PayPal QR code below.</p>
+                                    <strong>@title</strong>
+                                    <p>@message</p>
                                 </div>
                             </div>
                         }
                         else if (session.OpenAmount >= 10)
                         {
+                            var title = Pick([
+                                                 "Friendly Nudge™",
+                                                 "A Gentle Financial Whisper",
+                                                 "No Pressure, Just Vibes"
+                                             ]);
+
+                            var message = Pick([
+                                                   $"Your balance is {session.OpenAmount:C}. No rush, no panic — just a friendly reminder that PayPal exists and Future You will appreciate this.",
+
+                                                   $"You currently owe {session.OpenAmount:C}. The vibes are still good. Let’s keep them that way by settling up when convenient.",
+
+                                                   $"Balance due: {session.OpenAmount:C}. Think of this as a digital sticky note saying “hey, don’t forget about me.”"
+                                               ]);
+
                             <div class="balance-notification info">
-                                <span class="notification-icon">💡</span>
+                                <span class="notification-icon">💡🙂</span>
                                 <div class="notification-content">
-                                    <strong>Friendly Reminder</strong>
-                                    <p>Your balance is @Math.Abs(session.OpenAmount).ToString("C"). When convenient, feel free to settle up using PayPal below.</p>
+                                    <strong>@title</strong>
+                                    <p>@message</p>
                                 </div>
                             </div>
                         }
@@ -155,10 +236,12 @@
                     <!-- QR Code -->
                     <h3 class="section-title" style="margin-bottom: -2rem; z-index: 10">Pay via PayPal</h3>
                     <div class="qr-code-wrapper">
-                        <QRCodeComponent PayPalUrl="@($"https://paypal.me/dkuon/{Math.Abs(session.OpenAmount):F2}")" Size="250" />
+                        <QRCodeComponent PayPalUrl="@($"https://paypal.me/dkuon/{Math.Abs(session.OpenAmount):F2}")"
+                                         Size="250"/>
                     </div>
-                    <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C") or go to https://paypal.me/dkuon/@(Math.Abs(session.OpenAmount).ToString("F2"))<br />
-                    Payments will not show up instantly.</p>
+                    <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C") or go to
+                        https://paypal.me/dkuon/@(Math.Abs(session.OpenAmount).ToString("F2"))<br/>
+                        Payments will not show up instantly.</p>
 
                     <!-- Scan instruction -->
                     <div class="scan-instruction-box">
@@ -169,6 +252,15 @@
         </div>
     }
 </div>
+
+<!-- History Modals -->
+<PurchasesHistoryModal IsOpen="@_showPurchasesModal"
+                      Purchases="@_allPurchases"
+                      OnClose="ClosePurchasesModal" />
+
+<PaymentsHistoryModal IsOpen="@_showPaymentsModal"
+                     Payments="@_allPayments"
+                     OnClose="ClosePaymentsModal" />
 
 <style>
     .scanner-container {
@@ -186,7 +278,7 @@
         color: white;
         padding: 1rem 1.5rem;
         border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         z-index: 1000;
         animation: slideIn 0.3s ease-out;
     }
@@ -226,7 +318,7 @@
         font-size: 3rem;
         font-weight: 600;
         margin-bottom: 1rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     .scan-instruction {
@@ -292,7 +384,7 @@
         background: white;
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -302,7 +394,7 @@
         background: white;
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         display: flex;
         flex-direction: column;
     }
@@ -394,6 +486,14 @@
         background: #f8f9fa;
         border-radius: 8px;
         margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .user-info-left {
+        flex: 1;
     }
 
     .user-name {
@@ -424,13 +524,15 @@
     }
 
     .balance-notification {
-        margin-top: 1rem;
-        padding: 1rem;
-        border-radius: 8px;
         display: flex;
+        align-items: center;
         gap: 0.75rem;
-        align-items: flex-start;
-        animation: slideIn 0.3s ease-out;
+        padding: 0.75rem 1rem;
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        border-radius: 8px;
+        max-width: 400px;
+        animation: pulseReminder 2s ease-in-out infinite;
     }
 
     .balance-notification.info {
@@ -492,14 +594,38 @@
         }
     }
 
-    .balance-amount.negative {
-        color: #28a745;
+
+    .reminder-text strong {
+        color: #856404;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    .reminder-text span {
+        color: #856404;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    @@keyframes pulseReminder {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        }
+        50% {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5);
+        }
     }
 
     .qr-code-wrapper {
         display: flex;
         justify-content: center;
         margin: 0;
+    }
+
+    .qr-code-image {
+        height: 600px;
     }
 
     .qr-instruction {
@@ -585,10 +711,13 @@
     private Timer? _countdownTimer;
     private string? _errorMessage;
     private Timer? _errorTimer;
+    private bool _showPurchasesModal;
+    private bool _showPaymentsModal;
+    private List<PurchaseDto>? _allPurchases;
+    private List<PaymentDto>? _allPayments;
 
     protected override void OnInitialized()
     {
-
         // Subscribe to scanner events
         ScannerListener.CodeReceived += HandleCodeScanned;
 
@@ -606,33 +735,30 @@
     {
         try
         {
-            // First check if this is a login or admin barcode
-            var scanResult = await ScannerService.ScanBarcodeAsync(code);
+            // Process the barcode through the service - it handles everything
+            var scanResult = await ScannerService.ProcessBarcodeAsync(code);
 
-            if (scanResult is { IsSuccess: true, IsLoginOnly: true })
+            if (!scanResult.IsSuccess)
             {
-                // Login barcode detected - redirect to barcode login page with barcode pre-filled
-                await InvokeAsync(() =>
-                {
-                    Navigation.NavigateTo($"/barcode-login?barcode={Uri.EscapeDataString(code)}");
-                });
+                ShowError(scanResult.ErrorMessage ?? "Barcode not recognized");
                 return;
             }
 
-            if (scanResult is { IsSuccess: true, IsAdmin: true })
+            // Admin code detected - redirect to the barcode login page with barcode pre-filled
+            if (scanResult.IsAdmin)
             {
-                // Admin code detected - redirect to barcode login page with barcode pre-filled
-                await InvokeAsync(() =>
-                {
-                    Navigation.NavigateTo($"/barcode-login?barcode={Uri.EscapeDataString(code)}");
-                });
+                await InvokeAsync(() => { Navigation.NavigateTo($"/barcode-login?barcode={Uri.EscapeDataString(code)}"); });
                 return;
             }
 
-            // Process the barcode through the service for regular users
-            await ScannerService.ProcessBarcodeAsync(code);
+            // Login-only barcode - redirect to barcode login page
+            if (scanResult.IsLoginOnly)
+            {
+                await InvokeAsync(() => { Navigation.NavigateTo($"/barcode-login?barcode={Uri.EscapeDataString(code)}"); });
+            }
         }
-        catch {
+        catch
+        {
             ShowError("Barcode not recognized");
         }
     }
@@ -666,15 +792,15 @@
     {
         _countdownTimer = new Timer(1000);
         _countdownTimer.Elapsed += (_, _) =>
-        {
-            _remainingSeconds--;
-            InvokeAsync(StateHasChanged);
+                                   {
+                                       _remainingSeconds--;
+                                       InvokeAsync(StateHasChanged);
 
-            if (_remainingSeconds <= 0)
-            {
-                StopCountdownTimer();
-            }
-        };
+                                       if (_remainingSeconds <= 0)
+                                       {
+                                           StopCountdownTimer();
+                                       }
+                                   };
         _countdownTimer.Start();
     }
 
@@ -695,6 +821,57 @@
         }
     }
 
+    private void HandleUserMouse()
+    {
+        // Reset UI countdown and service timeout when mouse is used
+        ResetCountdownTimer();
+        ScannerService.SignalActivity();
+    }
+
+    private async Task EnsureAllPurchasesLoadedAsync()
+    {
+        if (_allPurchases == null)
+        {
+            var list = await ScannerService.GetMyPurchasesAsync();
+            _allPurchases = list.OrderByDescending(p => (p.CompletedAt ?? p.CreatedAt)).ToList();
+        }
+    }
+
+    private async Task EnsureAllPaymentsLoadedAsync()
+    {
+        if (_allPayments == null)
+        {
+            var list = await ScannerService.GetMyPaymentsAsync();
+            _allPayments = list.OrderByDescending(p => p.PaidAt).ToList();
+        }
+    }
+
+    private async Task OpenPurchasesModal()
+    {
+        await EnsureAllPurchasesLoadedAsync();
+        _showPurchasesModal = true;
+        StateHasChanged();
+    }
+
+    private async Task OpenPaymentsModal()
+    {
+        await EnsureAllPaymentsLoadedAsync();
+        _showPaymentsModal = true;
+        StateHasChanged();
+    }
+
+    private Task ClosePurchasesModal()
+    {
+        _showPurchasesModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task ClosePaymentsModal()
+    {
+        _showPaymentsModal = false;
+        return Task.CompletedTask;
+    }
+
     private void ShowError(string message)
     {
         _errorMessage = message;
@@ -704,13 +881,37 @@
         _errorTimer?.Dispose();
         _errorTimer = new Timer(5000);
         _errorTimer.Elapsed += (_, _) =>
-        {
-            _errorMessage = null;
-            InvokeAsync(StateHasChanged);
-            _errorTimer?.Dispose();
-        };
+                               {
+                                   _errorMessage = null;
+                                   InvokeAsync(StateHasChanged);
+                                   _errorTimer?.Dispose();
+                               };
         _errorTimer.AutoReset = false;
         _errorTimer.Start();
+    }
+
+    private string GetCurrentScanInfo()
+    {
+        if (ScannerService.CurrentSession == null)
+            return string.Empty;
+
+        var session = ScannerService.CurrentSession;
+        if (session.ScannedBarcodes.Any())
+        {
+            var lastScan = session.ScannedBarcodes.Last();
+            return $"{lastScan.Amount:C}";
+        }
+
+        return $"Total: {session.TotalAmount:C}";
+    }
+
+    private void ClearAchievements()
+    {
+        if (ScannerService.CurrentSession != null)
+        {
+            ScannerService.CurrentSession.NewAchievements.Clear();
+            StateHasChanged();
+        }
     }
 
     public void Dispose()
@@ -724,4 +925,13 @@
         StopCountdownTimer();
         _errorTimer?.Dispose();
     }
+
+    private T Pick<T>(IList<T> items)
+    {
+        long startTimeTicks = ScannerService.CurrentSession?.StartTime.Ticks ?? 0;
+        var rand = new Random((int)startTimeTicks);
+        int index = rand.Next(items.Count);
+        return items[index];
+    }
+
 }

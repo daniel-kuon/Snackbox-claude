@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 using Snackbox.Components.Services;
+using Snackbox.Web.Configuration;
 using Timer = System.Timers.Timer;
 
 namespace Snackbox.Web.Services;
@@ -16,15 +18,21 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
     private readonly Timer _resetTimer;
     private string? _lastCode;
     private DateTime? _lastCodeTime;
+    private readonly bool _autoFocusOnScan;
+    private readonly IWindowService _windowService;
 
     public event Action<string>? CodeReceived;
 
-    public WindowsScannerListener()
+    public WindowsScannerListener(IConfiguration configuration, IWindowService windowService)
     {
         _proc = HookCallback;
         _resetTimer = new Timer(200);
         _resetTimer.Elapsed += (_, _) => ResetBuffer();
         _resetTimer.AutoReset = false;
+        _windowService = windowService;
+        
+        var windowConfig = configuration.GetSection("Window").Get<WindowConfiguration>() ?? new WindowConfiguration();
+        _autoFocusOnScan = windowConfig.AutoFocusOnScan;
     }
 
     public void Start() => _hookId = SetHook(_proc);
@@ -73,8 +81,11 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
                 {
                     _resetTimer.Stop();
 
-                    // Bring window to foreground
-                    BringWindowToForeground();
+                    // Bring window to foreground if enabled
+                    if (_autoFocusOnScan)
+                    {
+                        _windowService.BringToFront();
+                    }
 
                     // Invoke on UI thread if needed, or handle in component
                     // Ignore duplicate code within 500ms to prevent accidental scanning
@@ -108,34 +119,6 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
         return (char)('0' + (key - VirtualKeys.Number0));
     }
 
-    private void BringWindowToForeground()
-    {
-        try
-        {
-            var handle = GetForegroundWindow();
-            if (handle == IntPtr.Zero)
-            {
-                // Get the main window handle of current process
-                var process = Process.GetCurrentProcess();
-                handle = process.MainWindowHandle;
-            }
-
-            if (handle != IntPtr.Zero)
-            {
-                // Restore window if minimized
-                ShowWindow(handle, SwRestore);
-                // Bring to foreground
-                SetForegroundWindow(handle);
-                // Flash window to get attention
-                FlashWindow(handle, true);
-            }
-        }
-        catch
-        {
-            // Silently fail if we can't bring window to foreground
-        }
-    }
-
     public void Dispose()
     {
         Stop();
@@ -143,8 +126,6 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
     }
 
     #region Win32 API
-    private const int SwRestore = 9;
-
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
 
@@ -157,21 +138,6 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
 
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr GetModuleHandle(string lpModuleName);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool FlashWindow(IntPtr hWnd, bool bInvert);
 
     private enum VirtualKeys
     {

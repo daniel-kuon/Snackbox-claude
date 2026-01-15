@@ -1,5 +1,8 @@
-﻿namespace Snackbox.Api.Dtos;
+﻿using System.Text.Json.Serialization;
 
+namespace Snackbox.Api.Dtos;
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ShelvingActionType
 {
     AddedToStorage,
@@ -7,5 +10,6 @@ public enum ShelvingActionType
     MovedToShelf,
     MovedFromShelf,
     RemovedFromStorage,
-    RemovedFromShelf
+    RemovedFromShelf,
+    Consumed
 }

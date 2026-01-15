@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,21 @@ public class BarcodesController : ControllerBase
     {
         var barcodes = await _context.Barcodes
             .Include(b => b.User)
+            .ToListAsync();
+
+        return Ok(barcodes.ToDtoListWithUser());
+    }
+
+    [HttpGet("my-barcodes")]
+    [Authorize]
+    public async Task<ActionResult<IEnumerable<BarcodeDto>>> GetMyBarcodes()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var barcodes = await _context.Barcodes
+            .Include(b => b.User)
+            .Where(b => b.UserId == userId.Value && b.IsActive && !b.IsLoginOnly)
             .ToListAsync();
 
         return Ok(barcodes.ToDtoListWithUser());
@@ -145,5 +161,15 @@ public class BarcodesController : ControllerBase
         _logger.LogInformation("Barcode deleted: {BarcodeId} - {Code}", barcode.Id, barcode.Code);
 
         return NoContent();
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
+        {
+            return null;
+        }
+        return userId;
     }
 }

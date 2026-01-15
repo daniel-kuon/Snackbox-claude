@@ -1,0 +1,83 @@
+@* Shared MainLayout Component - NOT a layout itself, but a component used by layouts *@
+
+<div class="page">
+    <div class="sidebar">
+        <Snackbox.Components.Components.Layout.NavMenu
+            ShowExitButton="@ShowExitButton"
+            HomeLink="@HomeLink"
+            HomeLinkText="@HomeLinkText"
+            ExitUrl="@ExitUrl" />
+    </div>
+
+    <main>
+        @if (ShowTopRow)
+        {
+            <div class="top-row px-4">
+                @TopRowContent
+            </div>
+        }
+
+        <article class="content px-4">
+            @ChildContent
+        </article>
+    </main>
+</div>
+
+@if (ShowErrorUI)
+{
+    <div id="blazor-error-ui" data-nosnippet>
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss">🗙</span>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Whether to show the Exit button in the NavMenu (typically for native/MAUI apps)
+    /// </summary>
+    [Parameter]
+    public bool ShowExitButton { get; set; } = false;
+
+    /// <summary>
+    /// The URL for the Home link in the NavMenu
+    /// </summary>
+    [Parameter]
+    public string HomeLink { get; set; } = "";
+
+    /// <summary>
+    /// The text for the Home link in the NavMenu
+    /// </summary>
+    [Parameter]
+    public string HomeLinkText { get; set; } = "Home";
+
+    /// <summary>
+    /// The URL to navigate to when Exit is clicked in the NavMenu
+    /// </summary>
+    [Parameter]
+    public string ExitUrl { get; set; } = "/scan";
+
+    /// <summary>
+    /// Whether to show the top row above the content
+    /// </summary>
+    [Parameter]
+    public bool ShowTopRow { get; set; } = false;
+
+    /// <summary>
+    /// Content to render in the top row (e.g., About link)
+    /// </summary>
+    [Parameter]
+    public RenderFragment? TopRowContent { get; set; }
+
+    /// <summary>
+    /// Content to render in the main area (typically @Body from the layout)
+    /// </summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Whether to show the Blazor error UI (for server-side Blazor)
+    /// </summary>
+    [Parameter]
+    public bool ShowErrorUI { get; set; } = false;
+}

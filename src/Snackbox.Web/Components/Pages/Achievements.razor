@@ -1,0 +1,131 @@
+@page "/achievements"
+@using Snackbox.Api.Dtos
+@inject HttpClient Http
+
+<PageTitle>All Achievements</PageTitle>
+
+<div class="achievements-page">
+    <h1>🏆 All Achievements</h1>
+
+    @if (_loading)
+    {
+        <p>Loading achievements...</p>
+    }
+    else if (_achievements.Any())
+    {
+        <div class="achievements-grid">
+            @foreach (var achievement in _achievements)
+            {
+                <div class="achievement-card">
+                    <div class="achievement-badge">
+                        @if (!string.IsNullOrEmpty(achievement.ImageUrl))
+                        {
+                            @((MarkupString)achievement.ImageUrl)
+                        }
+                        else
+                        {
+                            <div class="no-image">🏆</div>
+                        }
+                    </div>
+                    <h3>@achievement.Name</h3>
+                    <p class="description">@achievement.Description</p>
+                    <p class="category">@achievement.Category</p>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <p>No achievements found.</p>
+    }
+</div>
+
+<style>
+    .achievements-page {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .achievements-page h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 2rem;
+    }
+
+    .achievements-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .achievement-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .achievement-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .achievement-badge {
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .achievement-badge svg {
+        width: 120px;
+        height: 120px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    .no-image {
+        font-size: 4rem;
+    }
+
+    .achievement-card h3 {
+        font-size: 1.1rem;
+        color: #333;
+        margin: 0.5rem 0;
+    }
+
+    .description {
+        font-size: 0.9rem;
+        color: #666;
+        margin: 0.5rem 0;
+    }
+
+    .category {
+        font-size: 0.8rem;
+        color: #999;
+        font-style: italic;
+        margin: 0;
+    }
+</style>
+
+@code {
+    private List<AchievementDto> _achievements = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // You'll need to create an API endpoint to get all achievements
+            // For now, this is a placeholder
+            _loading = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading achievements: {ex.Message}");
+            _loading = false;
+        }
+    }
+}

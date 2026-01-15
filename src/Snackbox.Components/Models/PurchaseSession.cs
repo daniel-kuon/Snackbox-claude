@@ -11,6 +11,7 @@ public class PurchaseSession
     public decimal TotalAmount => ScannedBarcodes.Sum(i => i.Amount);
     public DateTime StartTime { get; set; } = DateTime.UtcNow;
     public List<RecentPurchase> RecentPurchases { get; set; } = new();
+    public List<Achievement> NewAchievements { get; set; } = new();
 }
 
 public class ScannedBarcode
@@ -26,4 +27,15 @@ public class RecentPurchase
     public decimal TotalAmount { get; set; }
     public DateTime CompletedAt { get; set; }
     public int ItemCount { get; set; }
+}
+
+public class Achievement
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
+    public DateTime EarnedAt { get; set; }
 }

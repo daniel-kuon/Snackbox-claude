@@ -1,0 +1,145 @@
+@inject NavigationManager Navigation
+@inject IScannerService ScannerService
+@inject IAuthenticationService AuthService
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Snackbox</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="@HomeLink" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> @HomeLinkText
+            </NavLink>
+        </div>
+
+        @if (_showAdminSection)
+        {
+            <div class="nav-section">
+                <div class="nav-section-title">Administration</div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/users">
+                        <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Users
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/products">
+                        <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span> Products
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/invoices">
+                        <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Invoices
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/cash-register">
+                        <span class="bi bi-cash-stack-nav-menu" aria-hidden="true"></span> Cash Register
+                    </NavLink>
+                </div>
+            </div>
+        }
+
+        @if (ShowExitButton)
+        {
+            <div class="nav-exit-section">
+                <button class="nav-exit-button" @onclick="ExitToScanScreen">
+                    <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Exit to Scan Screen
+                </button>
+            </div>
+        }
+
+        @if (_showLogoutButton)
+        {
+            <div class="nav-exit-section">
+                <button class="nav-exit-button" @onclick="LogoutAsync">
+                    <span class="bi bi-box-arrow-right" aria-hidden="true"></span> Logout
+                </button>
+            </div>
+        }
+    </nav>
+</div>
+
+@code {
+    /// <summary>
+    /// Whether to show the Exit button (typically for native/MAUI apps)
+    /// </summary>
+    [Parameter]
+    public bool ShowExitButton { get; set; } = false;
+
+    /// <summary>
+    /// The URL for the Home link
+    /// </summary>
+    [Parameter]
+    public string HomeLink { get; set; } = "";
+
+    /// <summary>
+    /// The text for the Home link
+    /// </summary>
+    [Parameter]
+    public string HomeLinkText { get; set; } = "Home";
+
+    /// <summary>
+    /// The URL to navigate to when Exit is clicked
+    /// </summary>
+    [Parameter]
+    public string ExitUrl { get; set; } = "/scan";
+
+    /// <summary>
+    /// Whether to show the logout button (for web apps)
+    /// </summary>
+    [Parameter]
+    public bool ShowLogoutButton { get; set; } = false;
+
+    private bool _showAdminSection = false;
+    private bool _showLogoutButton = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await UpdateMenuVisibility();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await UpdateMenuVisibility();
+    }
+
+    private async Task UpdateMenuVisibility()
+    {
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (isAuthenticated)
+        {
+            var userInfo = await AuthService.GetCurrentUserInfoAsync();
+            _showAdminSection = userInfo?.IsAdmin ?? false;
+            _showLogoutButton = ShowLogoutButton && userInfo != null;
+        }
+        else
+        {
+            _showAdminSection = false;
+            _showLogoutButton = false;
+        }
+    }
+
+    private async Task ExitToScanScreen()
+    {
+        // Reset scanner session before navigating
+        ScannerService.ResetSession();
+
+        // Navigate without force reload to maintain service state
+        Navigation.NavigateTo(ExitUrl, forceLoad: false);
+
+        // Small delay to ensure navigation completes
+        await Task.Delay(100);
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}
