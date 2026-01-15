@@ -134,6 +134,18 @@
                             </div>
                         </div>
 
+                        @* Inactive user alert - shown before payment reminders *@
+                        @if (session.IsUserInactive)
+                        {
+                            <div class="balance-notification danger" style="margin-bottom: 1rem;">
+                                <span class="notification-icon">⚠️🔒</span>
+                                <div class="notification-content">
+                                    <strong>Account Setup Required</strong>
+                                    <p>Your card has not been fully activated yet. You can continue scanning, but please contact <a href="mailto:daniel.kuon@cargonerds.com" style="color: inherit; text-decoration: underline;">daniel.kuon@cargonerds.com</a> to complete your account setup.</p>
+                                </div>
+                            </div>
+                        }
+
                         @* Balance-based payment reminders *@
                         @if (session.OpenAmount >= 40)
                         {

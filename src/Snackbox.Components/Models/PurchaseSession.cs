@@ -12,6 +12,7 @@ public class PurchaseSession
     public DateTime StartTime { get; set; } = DateTime.UtcNow;
     public List<RecentPurchase> RecentPurchases { get; set; } = new();
     public List<Achievement> NewAchievements { get; set; } = new();
+    public bool IsUserInactive { get; set; }
 }
 
 public class ScannedBarcode
