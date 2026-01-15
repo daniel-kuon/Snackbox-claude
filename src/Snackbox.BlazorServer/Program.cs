@@ -6,6 +6,13 @@ using Snackbox.Components.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render/Container: if PORT is set, bind Kestrel to 0.0.0.0:PORT (HTTP only)
+var portEnv = Environment.GetEnvironmentVariable("PORT");
+if (int.TryParse(portEnv, out var port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Add services to the container.
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
@@ -17,8 +24,10 @@ builder.Services.AddSingleton<IStorageService, WebStorageService>()
 builder.Services.AddTransient<AuthenticationHeaderHandler>();
 
 // Register HttpClient for API calls
-var apiUrl = builder.Configuration["API_HTTPS"] ??
-             builder.Configuration["API_HTTP"] ?? throw new InvalidOperationException("API URL is not configured.");
+var apiUrl = builder.Configuration["API_URL"] ??
+             builder.Configuration["API_HTTPS"] ??
+             builder.Configuration["API_HTTP"] ??
+             throw new InvalidOperationException("API URL is not configured. Set API_URL or API_HTTPS/API_HTTP.");
 
 // Register all Snackbox API clients with authentication
 builder.Services.AddSnackboxApiClientWithAuth<AuthenticationHeaderHandler>(apiUrl);
@@ -49,12 +58,20 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
+    // Avoid HSTS on platforms that terminate TLS and expose HTTP internally (e.g., Render with PORT)
+    if (string.IsNullOrEmpty(portEnv))
+    {
+        // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+        app.UseHsts();
+    }
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
+// Avoid HTTPS redirection when running on platforms that provide only HTTP (e.g., Render with PORT)
+if (string.IsNullOrEmpty(portEnv))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAntiforgery();
 

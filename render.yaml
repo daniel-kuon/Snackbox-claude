@@ -1,0 +1,46 @@
+# Render Blueprint for Snackbox
+# Deploys:
+# - PostgreSQL managed database
+# - Snackbox API (ASP.NET Core)
+# - Snackbox Blazor Server frontend
+
+databases:
+  - name: snackbox-postgres
+    databaseName: snackbox
+    plan: free
+
+services:
+  - type: web
+    name: snackbox-api
+    runtime: dotnet
+    plan: free
+    buildCommand: dotnet publish ./src/Snackbox.Api/Snackbox.Api.csproj -c Release -o out
+    startCommand: dotnet ./out/Snackbox.Api.dll
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: snackbox-postgres
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        fromService:
+          name: snackbox-web
+          type: web
+          property: url
+    healthCheckPath: /health/ready
+
+  - type: web
+    name: snackbox-web
+    runtime: dotnet
+    plan: free
+    buildCommand: dotnet publish ./src/Snackbox.BlazorServer/Snackbox.BlazorServer.csproj -c Release -o out
+    startCommand: dotnet ./out/Snackbox.BlazorServer.dll
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: API_URL
+        fromService:
+          name: snackbox-api
+          type: web
+          property: url

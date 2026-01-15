@@ -158,3 +158,40 @@ Snackbox is a modern full-stack application built with .NET technologies, featur
 - [Blazor MAUI Hybrid](https://learn.microsoft.com/en-us/aspnet/core/blazor/hybrid/)
 - [PostgreSQL with EF Core](https://www.npgsql.org/efcore/)
 - [Localization in Blazor](https://learn.microsoft.com/en-us/aspnet/core/blazor/globalization-localization)
+
+---
+
+## Render Deployment
+
+Hinweis: Dieses Repo ist für Deployment auf Render vorbereitet, ohne Aspire-basierte lokale Entwicklung zu beschädigen.
+
+Deploybare Projekte:
+- API: src/Snackbox.Api (ASP.NET Core Web API)
+- Web: src/Snackbox.BlazorServer (Blazor Server Frontend)
+
+Nicht deployen (explizit ignorieren):
+- Aspire AppHost (src/Snackbox.AppHost)
+- Native MAUI/Blazor Hybrid App (src/Snackbox.Web)
+
+Benötigte Environment Variables auf Render:
+- Snackbox.Api (Web Service "snackbox-api"):
+  - DATABASE_URL (wird automatisch von der Render-Postgres-DB gesetzt/verlinkt)
+  - ALLOWED_ORIGINS (z. B. https://<dein-web-service>.onrender.com – wird im Blueprint vom Web-Service referenziert)
+  - ASPNETCORE_ENVIRONMENT = Production (im Blueprint gesetzt)
+  - JwtSettings__SecretKey, JwtSettings__Issuer, JwtSettings__Audience (im Dashboard setzen, falls Auth aktiv)
+  - BarcodeLookup__ApiKey (falls BarcodeLookup genutzt wird)
+  - EmailSettings__… (falls E-Mail-Versand genutzt wird)
+- Snackbox.BlazorServer (Web Service "snackbox-web"):
+  - API_URL (wird im Blueprint automatisch auf die URL des API-Services gesetzt)
+
+Runtime-Anpassungen (provider-neutral):
+- Beide Apps binden bei gesetzter PORT-Variable auf http://0.0.0.0:${PORT} (kein HTTPS-Binding).
+- API liest PostgreSQL-Connection aus DATABASE_URL; Fallback auf Aspire-ConnectionStrings:snackboxdb.
+- CORS: ALLOWED_ORIGINS (kommagetrennt). Ohne EnvVar gelten Dev-Defaults (localhost-Origins).
+
+Lokale Entwicklung mit Aspire bleibt funktionsfähig:
+- AppHost provisioniert PostgreSQL und setzt ConnectionStrings:snackboxdb; Code fällt korrekt zurück, wenn keine DATABASE_URL gesetzt ist.
+- Dev-Origins für CORS bleiben bestehen.
+
+Blueprint-Datei:
+- render.yaml im Repository-Wurzelverzeichnis definiert eine Postgres-Datenbank sowie zwei Web Services (API und Blazor Server) und führt dotnet publish im Build aus.
