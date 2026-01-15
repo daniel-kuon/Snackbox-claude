@@ -2,6 +2,9 @@
 using Microsoft.Extensions.Configuration;
 using Snackbox.Api.Dtos;
 using Snackbox.Components.Models;
+using Snackbox.Components.Mappers;
+using Refit;
+using Snackbox.ApiClient;
 using Timer = System.Timers.Timer;
 
 namespace Snackbox.Components.Services;
@@ -9,6 +12,9 @@ namespace Snackbox.Components.Services;
 public class ScannerService : IScannerService
 {
     private readonly HttpClient _httpClient;
+    private readonly IScannerApi _scannerApi;
+    private readonly IPurchasesApi _purchasesApi;
+    private readonly IPaymentsApi _paymentsApi;
     private Timer? _timeoutTimer;
 
     public event Action<PurchaseSession>? OnPurchaseStarted;
@@ -24,6 +30,11 @@ public class ScannerService : IScannerService
     {
         _httpClient = httpClient;
         TimeoutSeconds = configuration.GetValue("Scanner:TimeoutSeconds", 60);
+
+        // Use Refit clients backed by the same HttpClient instance (auth headers, base URL etc.)
+        _scannerApi = RestService.For<IScannerApi>(_httpClient);
+        _purchasesApi = RestService.For<IPurchasesApi>(_httpClient);
+        _paymentsApi = RestService.For<IPaymentsApi>(_httpClient);
     }
 
     public async Task<ScanResult> ProcessBarcodeAsync(string barcodeCode)
@@ -33,16 +44,11 @@ public class ScannerService : IScannerService
 
         try
         {
-            // Call the API - it handles everything (auth, purchase creation/update)
-            var response = await _httpClient.PostAsJsonAsync("api/scanner/scan", new
+            // Call the API via Refit - it handles everything (auth, purchase creation/update)
+            var result = await _scannerApi.ScanBarcodeAsync(new ScanBarcodeRequest
             {
                 BarcodeCode = barcodeCode
             });
-
-            if (!response.IsSuccessStatusCode)
-                return new ScanResult { IsSuccess = false, ErrorMessage = "API request failed" };
-
-            var result = await response.Content.ReadFromJsonAsync<ScanBarcodeResponse>();
 
             if (result == null)
                 return new ScanResult { IsSuccess = false, ErrorMessage = "Invalid response" };
@@ -72,30 +78,10 @@ public class ScannerService : IScannerService
                 OpenAmount = result.Balance,
                 LastPaymentAmount = result.LastPaymentAmount,
                 LastPaymentDate = result.LastPaymentDate,
-                ScannedBarcodes = result.ScannedBarcodes.Select(b => new ScannedBarcode
-                {
-                    BarcodeCode = b.BarcodeCode,
-                    Amount = b.Amount,
-                    ScannedAt = b.ScannedAt
-                }).ToList(),
+                ScannedBarcodes = DtoToModelMapper.ToScannedBarcodes(result.ScannedBarcodes),
                 StartTime = result.ScannedBarcodes.FirstOrDefault()?.ScannedAt ?? DateTime.UtcNow,
-                RecentPurchases = result.RecentPurchases.Select(rp => new RecentPurchase
-                {
-                    PurchaseId = rp.PurchaseId,
-                    TotalAmount = rp.TotalAmount,
-                    CompletedAt = rp.CompletedAt,
-                    ItemCount = rp.ItemCount
-                }).ToList(),
-                NewAchievements = result.NewAchievements.Select(a => new Achievement
-                {
-                    Id = a.Id,
-                    Code = a.Code,
-                    Name = a.Name,
-                    Description = a.Description,
-                    Category = a.Category,
-                    ImageUrl = a.ImageUrl,
-                    EarnedAt = a.EarnedAt
-                }).ToList()
+                RecentPurchases = DtoToModelMapper.ToRecentPurchases(result.RecentPurchases),
+                NewAchievements = DtoToModelMapper.ToAchievements(result.NewAchievements)
             };
 
             // Determine if this is a new purchase or update
@@ -146,7 +132,8 @@ public class ScannerService : IScannerService
         if (CurrentSession == null)
             return Array.Empty<PurchaseDto>();
 
-        var list = await _httpClient.GetFromJsonAsync<IEnumerable<PurchaseDto>>($"api/purchases/user/{CurrentSession.UserId}");
+        // Use Refit client for API call
+        var list = await _purchasesApi.GetByUserIdAsync(int.Parse(CurrentSession.UserId));
         return list ?? Array.Empty<PurchaseDto>();
     }
 
@@ -155,7 +142,8 @@ public class ScannerService : IScannerService
         if (CurrentSession == null)
             return Array.Empty<PaymentDto>();
 
-        var list = await _httpClient.GetFromJsonAsync<IEnumerable<PaymentDto>>($"api/payments/user/{CurrentSession.UserId}");
+        // Use Refit client for API call
+        var list = await _paymentsApi.GetByUserIdAsync(int.Parse(CurrentSession.UserId));
         return list ?? Array.Empty<PaymentDto>();
     }
 

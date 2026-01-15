@@ -84,7 +84,7 @@
                     @if (session.LastPaymentDate.HasValue)
                     {
                         <div class="last-payment" @onclick="OpenPaymentsModal" style="cursor: pointer;">
-                            <div class="payment-label">Last Payment:</div>
+                            <div class="payment-label">Last Payment <small style="font-weight:normal;color:#ddd">(tap to view all)</small>:</div>
                             <div class="payment-details">
                                 <span class="payment-amount">@session.LastPaymentAmount.ToString("C")</span>
                                 <span class="payment-date">@session.LastPaymentDate.Value.ToString("dd MMM yyyy")</span>
