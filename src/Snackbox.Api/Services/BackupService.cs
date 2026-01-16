@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
@@ -32,24 +33,40 @@ public class BackupService : IBackupService
         Directory.CreateDirectory(_backupDirectory);
     }
 
-    public async Task<BackupMetadata> CreateBackupAsync(BackupType type)
+    public async Task<BackupMetadata?> CreateBackupAsync(BackupType type, string? customName = null)
     {
         _logger.LogInformation("Creating {Type} backup", type);
 
         var backupId = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{type}";
-        var fileName = $"snackbox_backup_{backupId}.sql";
+        var fileNameBase = $"snackbox_backup_{backupId}";
+
+        if (!string.IsNullOrWhiteSpace(customName))
+        {
+            // Sanitize custom name
+            var sanitizedName = string.Join("_", customName.Split(Path.GetInvalidFileNameChars()));
+            fileNameBase = $"{fileNameBase}_{sanitizedName}";
+        }
+
+        var fileName = $"{fileNameBase}.sql";
         var filePath = Path.Combine(_backupDirectory, fileName);
 
         // Parse connection string to get database connection details
         var connectionParams = ParseConnectionString(_connectionString);
         ValidateConnectionParams(connectionParams);
 
+        // Find pg_dump path
+        var pgDumpPath = FindPostgresToolPath("pg_dump");
+        if (string.IsNullOrEmpty(pgDumpPath))
+        {
+            throw new InvalidOperationException("pg_dump tool not found. Please install PostgreSQL client tools.");
+        }
+
         // Create pg_dump command with properly escaped arguments
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = "pg_dump",
+                FileName = pgDumpPath,
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
@@ -87,13 +104,34 @@ public class BackupService : IBackupService
             }
 
             var fileInfo = new FileInfo(filePath);
+
+            // Calculate MD5 hash
+            var md5Hash = await CalculateMd5HashAsync(filePath);
+
+            // Check if backup with same hash already exists
+            var existingBackups = await LoadAllMetadataAsync();
+            var duplicateBackup = existingBackups.FirstOrDefault(b => b.Md5Hash == md5Hash);
+
+            if (duplicateBackup != null)
+            {
+                _logger.LogInformation("Backup is identical to existing backup {ExistingId}, deleting duplicate", duplicateBackup.Id);
+
+                // Delete the newly created backup file
+                File.Delete(filePath);
+
+                // Return null to indicate duplicate
+                return null;
+            }
+
             var metadata = new BackupMetadata
             {
                 Id = backupId,
                 FileName = fileName,
                 CreatedAt = DateTime.UtcNow,
                 Type = type,
-                FileSizeBytes = fileInfo.Length
+                FileSizeBytes = fileInfo.Length,
+                Md5Hash = md5Hash,
+                CustomName = customName
             };
 
             await SaveMetadataAsync(metadata);
@@ -103,8 +141,8 @@ public class BackupService : IBackupService
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
-            _logger.LogError(ex, "pg_dump tool not found. Please install PostgreSQL client tools or run the setup script (scripts/Install-PostgresTools.ps1)");
-            throw new InvalidOperationException("PostgreSQL tools are not installed. Please install pg_dump or run the setup script.", ex);
+            _logger.LogError(ex, "pg_dump tool not found. Please install PostgreSQL 17 via winget or run scripts/Install-PostgresTools.ps1");
+            throw new InvalidOperationException("PostgreSQL tools are not installed. Run: winget install -e --id PostgreSQL.PostgreSQL.17", ex);
         }
         catch (Exception ex)
         {
@@ -124,7 +162,7 @@ public class BackupService : IBackupService
         return metadataList.OrderByDescending(m => m.CreatedAt).ToList();
     }
 
-    public async Task RestoreBackupAsync(string backupId)
+    public async Task RestoreBackupAsync(string backupId, bool createBackupBeforeRestore = false)
     {
         _logger.LogInformation("Restoring backup: {BackupId}", backupId);
 
@@ -140,6 +178,21 @@ public class BackupService : IBackupService
             throw new FileNotFoundException($"Backup file '{metadata.FileName}' not found on disk");
         }
 
+        // Create backup before restore if requested
+        if (createBackupBeforeRestore)
+        {
+            _logger.LogInformation("Creating backup of current database before restore");
+            try
+            {
+                var preRestoreBackup = await CreateBackupAsync(BackupType.Manual);
+                _logger.LogInformation("Pre-restore backup created: {BackupId}", preRestoreBackup.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to create pre-restore backup, continuing with restore");
+            }
+        }
+
         // Parse connection string
         var connectionParams = ParseConnectionString(_connectionString);
         ValidateConnectionParams(connectionParams);
@@ -147,12 +200,19 @@ public class BackupService : IBackupService
         // Drop and recreate the database
         await DropAndRecreateDatabaseAsync(connectionParams);
 
+        // Find psql path
+        var psqlPath = FindPostgresToolPath("psql");
+        if (string.IsNullOrEmpty(psqlPath))
+        {
+            throw new InvalidOperationException("psql tool not found. Please install PostgreSQL client tools.");
+        }
+
         // Restore from backup using psql with properly escaped arguments
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = "psql",
+                FileName = psqlPath,
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
@@ -190,8 +250,8 @@ public class BackupService : IBackupService
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
-            _logger.LogError(ex, "psql tool not found. Please install PostgreSQL client tools or run the setup script (scripts/Install-PostgresTools.ps1)");
-            throw new InvalidOperationException("PostgreSQL tools are not installed. Please install psql or run the setup script.", ex);
+            _logger.LogError(ex, "psql tool not found. Please install PostgreSQL 17 via winget or run scripts/Install-PostgresTools.ps1");
+            throw new InvalidOperationException("PostgreSQL tools are not installed. Run: winget install -e --id PostgreSQL.PostgreSQL.17", ex);
         }
         catch (Exception ex)
         {
@@ -315,11 +375,63 @@ public class BackupService : IBackupService
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            return await dbContext.Database.CanConnectAsync();
+
+            // First check if we can connect - with retry for Aspire timing issues
+            var canConnect = false;
+            Exception? lastException = null;
+
+            for (int i = 0; i < 5; i++)
+            {
+                try
+                {
+                    canConnect = await dbContext.Database.CanConnectAsync();
+                    if (canConnect)
+                    {
+                        _logger.LogInformation("Database connection successful on attempt {Attempt}", i + 1);
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    _logger.LogWarning("Database connection attempt {Attempt} failed: {Message}", i + 1, ex.Message);
+                    if (i < 4) await Task.Delay(1000);
+                }
+            }
+
+            if (!canConnect)
+            {
+                _logger.LogWarning("Cannot connect to database after 5 attempts. Last error: {Error}",
+                    lastException?.Message ?? "Unknown");
+                return false;
+            }
+
+            // Simply try to query the Users table - if it exists, database is initialized
+            try
+            {
+                var userCount = await dbContext.Users.CountAsync();
+                _logger.LogInformation("Database initialized - Users table exists with {Count} users", userCount);
+                return true;
+            }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P01") // undefined_table
+            {
+                _logger.LogInformation("Users table does not exist - database not initialized");
+                return false;
+            }
+            catch (Exception ex) when (ex.Message.Contains("does not exist") || ex.Message.Contains("relation"))
+            {
+                _logger.LogInformation("Users table does not exist - database not initialized: {Message}", ex.Message);
+                return false;
+            }
+        }
+        catch (Npgsql.NpgsqlException ex) when (ex.Message.Contains("does not exist"))
+        {
+            _logger.LogInformation("Database does not exist: {Message}", ex.Message);
+            return false;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Database connection check failed");
+            _logger.LogWarning(ex, "Database connection check failed: {Message}", ex.Message);
             return false;
         }
     }
@@ -329,26 +441,71 @@ public class BackupService : IBackupService
         _logger.LogInformation("Creating empty database");
 
         var connectionParams = ParseConnectionString(_connectionString);
-        
+
         // Drop and recreate database
         await DropAndRecreateDatabaseAsync(connectionParams);
 
-        // Apply migrations
-        using var scope = _serviceProvider.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await dbContext.Database.MigrateAsync();
+        // Wait a moment for the database to be fully created
+        await Task.Delay(1000);
 
-        _logger.LogInformation("Empty database created successfully");
+        // Apply migrations with retry logic (includes achievements from OnModelCreating)
+        const int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                await dbContext.Database.MigrateAsync();
+
+                _logger.LogInformation("Empty database created successfully with achievements");
+                return;
+            }
+            catch (Npgsql.NpgsqlException ex) when (i < maxRetries - 1)
+            {
+                _logger.LogWarning(ex, "Failed to apply migrations (attempt {Attempt}/{MaxRetries}), retrying...", i + 1, maxRetries);
+                await Task.Delay(2000); // Wait 2 seconds before retry
+            }
+        }
     }
 
     public async Task CreateSeededDatabaseAsync()
     {
         _logger.LogInformation("Creating seeded database");
 
-        await CreateEmptyDatabaseAsync();
-        // Migrations already include seed data
-        
-        _logger.LogInformation("Seeded database created successfully");
+        var connectionParams = ParseConnectionString(_connectionString);
+
+        // Drop and recreate database
+        await DropAndRecreateDatabaseAsync(connectionParams);
+
+        // Wait a moment for the database to be fully created
+        await Task.Delay(1000);
+
+        // Apply migrations with retry logic
+        const int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                // Apply migrations (includes achievements from OnModelCreating)
+                await dbContext.Database.MigrateAsync();
+
+                // Seed sample data using the seeder service
+                var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+                await seeder.SeedSampleDataAsync();
+
+                _logger.LogInformation("Seeded database created successfully with all sample data");
+                return;
+            }
+            catch (Npgsql.NpgsqlException ex) when (i < maxRetries - 1)
+            {
+                _logger.LogWarning(ex, "Failed to apply migrations (attempt {Attempt}/{MaxRetries}), retrying...", i + 1, maxRetries);
+                await Task.Delay(2000); // Wait 2 seconds before retry
+            }
+        }
     }
 
     private async Task DropAndRecreateDatabaseAsync(ConnectionParams connectionParams)
@@ -474,12 +631,21 @@ public class BackupService : IBackupService
     {
         try
         {
-            // Check for pg_dump
+            var pgDumpPath = FindPostgresToolPath("pg_dump");
+            var psqlPath = FindPostgresToolPath("psql");
+
+            if (string.IsNullOrEmpty(pgDumpPath) || string.IsNullOrEmpty(psqlPath))
+            {
+                _logger.LogWarning("PostgreSQL tools not found in PATH or standard installation locations");
+                return false;
+            }
+
+            // Verify pg_dump works
             var pgDumpCheck = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "pg_dump",
+                    FileName = pgDumpPath,
                     ArgumentList = { "--version" },
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -493,16 +659,16 @@ public class BackupService : IBackupService
 
             if (pgDumpCheck.ExitCode != 0)
             {
-                _logger.LogWarning("pg_dump is not available");
+                _logger.LogWarning("pg_dump is not working properly");
                 return false;
             }
 
-            // Check for psql
+            // Verify psql works
             var psqlCheck = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "psql",
+                    FileName = psqlPath,
                     ArgumentList = { "--version" },
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -516,11 +682,11 @@ public class BackupService : IBackupService
 
             if (psqlCheck.ExitCode != 0)
             {
-                _logger.LogWarning("psql is not available");
+                _logger.LogWarning("psql is not working properly");
                 return false;
             }
 
-            _logger.LogInformation("PostgreSQL tools are available");
+            _logger.LogInformation("PostgreSQL tools are available at: {PgDumpPath}, {PsqlPath}", pgDumpPath, psqlPath);
             return true;
         }
         catch (Exception ex)
@@ -528,5 +694,76 @@ public class BackupService : IBackupService
             _logger.LogWarning(ex, "PostgreSQL tools are not available. Please install PostgreSQL client tools or run the setup script.");
             return false;
         }
+    }
+
+    private string? FindPostgresToolPath(string toolName)
+    {
+        var toolExe = $"{toolName}.exe";
+
+        // First, check if it's in PATH
+        try
+        {
+            var checkProcess = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = toolName,
+                    ArgumentList = { "--version" },
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            checkProcess.Start();
+            checkProcess.WaitForExit(1000);
+
+            if (checkProcess.ExitCode == 0)
+            {
+                return toolName; // Available in PATH
+            }
+        }
+        catch
+        {
+            // Not in PATH, will check standard locations
+        }
+
+        // Check standard PostgreSQL installation paths (Windows)
+        if (OperatingSystem.IsWindows())
+        {
+            var possiblePaths = new[]
+            {
+                @"C:\Program Files\PostgreSQL\17\bin",
+                @"C:\Program Files\PostgreSQL\16\bin",
+                @"C:\Program Files\PostgreSQL\15\bin",
+                @"C:\Program Files\PostgreSQL\14\bin",
+                @"C:\Program Files (x86)\PostgreSQL\17\bin",
+                @"C:\Program Files (x86)\PostgreSQL\16\bin",
+                @"C:\Program Files (x86)\PostgreSQL\15\bin",
+                @"C:\Program Files (x86)\PostgreSQL\14\bin"
+            };
+
+            foreach (var path in possiblePaths)
+            {
+                var fullPath = Path.Combine(path, toolExe);
+                if (File.Exists(fullPath))
+                {
+                    _logger.LogInformation("Found {Tool} at: {Path}", toolName, fullPath);
+                    return fullPath;
+                }
+            }
+        }
+
+        _logger.LogWarning("{Tool} not found in PATH or standard installation locations", toolName);
+        return null;
+    }
+
+    private async Task<string> CalculateMd5HashAsync(string filePath)
+    {
+        using var md5 = MD5.Create();
+        await using var stream = File.OpenRead(filePath);
+        var hashBytes = await md5.ComputeHashAsync(stream);
+        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
     }
 }

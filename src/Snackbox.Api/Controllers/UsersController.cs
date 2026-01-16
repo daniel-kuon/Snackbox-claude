@@ -67,14 +67,14 @@ public class UsersController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult> Register([FromBody] RegisterUserDto dto)
     {
-        // Check if barcode exists
-        var barcode = await _context.Barcodes
+        // Check if barcode already exists
+        var existingBarcode = await _context.Barcodes
             .Include(b => b.User)
             .FirstOrDefaultAsync(b => b.Code == dto.BarcodeValue);
 
-        if (barcode == null)
+        if (existingBarcode != null && existingBarcode.UserId != 0)
         {
-            return BadRequest(new { message = "Invalid barcode. This barcode does not exist in the system." });
+            return BadRequest(new { message = "This barcode is already registered to another user." });
         }
 
         // Check if email is already used (if provided)
@@ -83,26 +83,54 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Email already exists" });
         }
 
+        // Check if this is the first user - make them admin
+        var isFirstUser = !await _context.Users.AnyAsync();
+
         // Create user
         var user = new User
         {
             Username = dto.Name,
             Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email,
             PasswordHash = string.IsNullOrWhiteSpace(dto.Password) ? null : BCrypt.Net.BCrypt.HashPassword(dto.Password),
-            IsAdmin = false,
+            IsAdmin = isFirstUser, // First user becomes admin
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        // Associate barcode with user
-        barcode.UserId = user.Id;
+        // Create and associate barcode with user
+        var barcode = new Barcode
+        {
+            Code = dto.BarcodeValue,
+            UserId = user.Id,
+            IsActive = true,
+            IsLoginOnly = true, // Default to login-only for registration barcodes
+            Amount = 0m,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Barcodes.Add(barcode);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("User registered: {UserId} - {Username} via barcode {BarcodeId}", user.Id, user.Username, barcode.Id);
+        // Verify the barcode was actually saved
+        var verifyBarcode = await _context.Barcodes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Code == dto.BarcodeValue);
 
-        return Ok(new { message = "Registration successful", userId = user.Id });
+        if (verifyBarcode == null)
+        {
+            _logger.LogError("Barcode verification failed after save! Code: {BarcodeCode}", dto.BarcodeValue);
+        }
+        else
+        {
+            _logger.LogInformation("Barcode verified in database: {BarcodeId}, Code: {BarcodeCode}", verifyBarcode.Id, verifyBarcode.Code);
+        }
+
+        _logger.LogInformation("User registered: {UserId} - {Username} with new barcode {BarcodeId} (IsAdmin: {IsAdmin})",
+            user.Id, user.Username, barcode.Id, user.IsAdmin);
+
+        return Ok(new { message = "Registration successful", userId = user.Id, isAdmin = user.IsAdmin });
     }
 
     [HttpPost]

@@ -82,6 +82,14 @@ public static class ServiceCollectionExtensions
                     .ConfigureHttpClient(c =>
                                          {
                                              c.BaseAddress = new Uri(baseUrl);
+                                             // Disable HTTP caching to avoid stale data
+                                             c.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+                                             {
+                                                 NoCache = true,
+                                                 NoStore = true,
+                                                 MustRevalidate = true
+                                             };
+                                             c.DefaultRequestHeaders.Pragma.Add(new System.Net.Http.Headers.NameValueHeaderValue("no-cache"));
                                              configureClient?.Invoke(c);
                                          })
                     .AddHttpMessageHandler<THandler>();

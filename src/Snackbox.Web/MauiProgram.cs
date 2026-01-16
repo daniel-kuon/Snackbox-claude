@@ -77,6 +77,14 @@ public static class MauiProgram
                                                                         {
                                                                             client.BaseAddress =
                                                                                 new Uri(clientBaseAddress);
+                                                                            // Disable HTTP caching for scanner service
+                                                                            client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+                                                                            {
+                                                                                NoCache = true,
+                                                                                NoStore = true,
+                                                                                MustRevalidate = true
+                                                                            };
+                                                                            client.DefaultRequestHeaders.Pragma.Add(new System.Net.Http.Headers.NameValueHeaderValue("no-cache"));
                                                                         })
                .AddHttpMessageHandler<AuthenticationHeaderHandler>();
 

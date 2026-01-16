@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <!-- Centralized version management -->
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <FileVersion>1.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+
+    <!-- Common project settings -->
+    <LangVersion>latest</LangVersion>
+    <Authors>Snackbox Team</Authors>
+    <Company>Snackbox</Company>
+    <Product>Snackbox</Product>
+    <Copyright>Copyright © 2025</Copyright>
+  </PropertyGroup>
+</Project>
