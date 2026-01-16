@@ -688,7 +688,8 @@
                 {
                     Username = _userForm.Username,
                     Email = _userForm.Email,
-                    IsAdmin = _userForm.Role == "Admin"
+                    IsAdmin = _userForm.Role == "Admin",
+                    IsActive = _userForm.IsActive
                 };
                 await UsersApi.CreateAsync(createDto);
                 CloseModal();
@@ -701,7 +702,8 @@
                 {
                     Username = _userForm.Username,
                     Email = _userForm.Email,
-                    IsAdmin = _userForm.Role == "Admin"
+                    IsAdmin = _userForm.Role == "Admin",
+                    IsActive = _userForm.IsActive
                 };
                 await UsersApi.UpdateAsync(_editingUserId.Value, updateDto);
                 CloseModal();

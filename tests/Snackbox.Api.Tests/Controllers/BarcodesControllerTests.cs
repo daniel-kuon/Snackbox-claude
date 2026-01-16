@@ -58,7 +58,6 @@ public class BarcodesControllerTests : IDisposable
             UserId = 1,
             Code = "USER1BARCODE1",
             Amount = 5.0m,
-            IsActive = true,
             IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
@@ -69,7 +68,6 @@ public class BarcodesControllerTests : IDisposable
             UserId = 1,
             Code = "USER1BARCODE2",
             Amount = 10.0m,
-            IsActive = true,
             IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
@@ -80,7 +78,6 @@ public class BarcodesControllerTests : IDisposable
             UserId = 1,
             Code = "USER1LOGIN",
             Amount = 0.0m,
-            IsActive = true,
             IsLoginOnly = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -91,7 +88,6 @@ public class BarcodesControllerTests : IDisposable
             UserId = 2,
             Code = "USER2BARCODE1",
             Amount = 15.0m,
-            IsActive = true,
             IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
@@ -101,7 +97,7 @@ public class BarcodesControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task GetMyBarcodes_ReturnsOnlyActiveNonLoginBarcodesForCurrentUser()
+    public async Task GetMyBarcodes_ReturnsNonLoginBarcodesForCurrentUser()
     {
         // Arrange
         var claims = new List<Claim>
@@ -127,7 +123,6 @@ public class BarcodesControllerTests : IDisposable
         // Should only return 2 barcodes (excluding login-only barcode)
         Assert.Equal(2, barcodeList.Count);
         Assert.All(barcodeList, b => Assert.False(b.IsLoginOnly));
-        Assert.All(barcodeList, b => Assert.True(b.IsActive));
         Assert.All(barcodeList, b => Assert.Equal(1, b.UserId));
     }
 

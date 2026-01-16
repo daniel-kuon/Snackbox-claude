@@ -42,7 +42,7 @@ public class BarcodesController : ControllerBase
 
         var barcodes = await _context.Barcodes
             .Include(b => b.User)
-            .Where(b => b.UserId == userId.Value && b.IsActive && !b.IsLoginOnly)
+            .Where(b => b.UserId == userId.Value && !b.IsLoginOnly)
             .ToListAsync();
 
         return Ok(barcodes.ToDtoListWithUser());
@@ -93,7 +93,6 @@ public class BarcodesController : ControllerBase
             UserId = dto.UserId,
             Code = dto.Code,
             Amount = dto.Amount,
-            IsActive = dto.IsActive,
             IsLoginOnly = dto.IsLoginOnly,
             CreatedAt = DateTime.UtcNow
         };
@@ -128,7 +127,6 @@ public class BarcodesController : ControllerBase
 
         barcode.Code = dto.Code;
         barcode.Amount = dto.Amount;
-        barcode.IsActive = dto.IsActive;
         barcode.IsLoginOnly = dto.IsLoginOnly;
 
         await _context.SaveChangesAsync();

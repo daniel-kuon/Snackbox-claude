@@ -43,6 +43,7 @@ public static partial class UserMapper
             Username = source.Username,
             Email = string.IsNullOrWhiteSpace(source.Email) ? null : source.Email,
             IsAdmin = source.IsAdmin,
+            IsActive = source.IsActive,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -55,5 +56,6 @@ public static partial class UserMapper
         target.Username = source.Username;
         target.Email = source.Email;
         target.IsAdmin = source.IsAdmin;
+        target.IsActive = source.IsActive;
     }
 }

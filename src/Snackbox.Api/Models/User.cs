@@ -7,6 +7,8 @@ public class User
     public string? Email { get; set; } // Optional - user may not provide email
     public string? PasswordHash { get; set; } // Optional - if null, user can only login with barcode
     public bool IsAdmin { get; set; }
+    public bool IsActive { get; set; } = true;
+    public bool IsRetired { get; set; } = false; // Special flag to mark users as retired
     public DateTime CreatedAt { get; set; }
 
     // Navigation properties
