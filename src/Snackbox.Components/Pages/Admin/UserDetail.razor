@@ -36,6 +36,23 @@
 
         <div class="user-summary">
             <div class="summary-card">
+                <div class="summary-label">Status</div>
+                <div class="summary-value">
+                    @if (_user.IsRetired)
+                    {
+                        <span class="badge bg-secondary">Retired</span>
+                    }
+                    else if (!_user.IsActive)
+                    {
+                        <span class="badge bg-warning text-dark">Inactive</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success">Active</span>
+                    }
+                </div>
+            </div>
+            <div class="summary-card">
                 <div class="summary-label">Balance</div>
                 <div class="summary-value @(_user.Balance < 0 ? "text-danger" : "text-success")">
                     €@_user.Balance.ToString("F2")
@@ -86,15 +103,22 @@
                                         ✉ Send Payment Reminder
                                     </button>
                                 }
-                                <button class="btn btn-outline-danger btn-sm" @onclick="RetireUser" title="Retire this user and move barcodes to a new inactive placeholder">
+                                <button class="btn btn-outline-danger btn-sm" @onclick="RetireUser" title="Retire this user and move barcodes to a new inactive placeholder" disabled="@(!_user.IsActive || _user.IsRetired)">
                                     🪦 Retire
                                 </button>
                                 <button class="btn btn-primary btn-sm" @onclick="StartEditUserInfo">Edit</button>
                             </div>
                         </div>
-                        @if (_emailSuccess != null)
+                        @if (_retireSuccessMessage != null)
                         {
-                            <div class="alert alert-success">@_emailSuccess</div>
+                            <div class="alert alert-success">
+                                @_retireSuccessMessage
+                                @if (_newPlaceholderId.HasValue)
+                                {
+                                    <br />
+                                    <a href="/admin/users/@_newPlaceholderId" class="alert-link">View newly created placeholder user</a>
+                                }
+                            </div>
                         }
                         @if (_emailError != null)
                         {
@@ -1131,6 +1155,8 @@
     private string? _errorMessage;
     private string? _emailSuccess;
     private string? _emailError;
+    private string? _retireSuccessMessage;
+    private int? _newPlaceholderId;
     private string _activeTab = "info";
     private bool _showPaymentModal;
     private bool _showBarcodeModal;
@@ -1643,11 +1669,20 @@
     private async Task RetireUser()
     {
         _editError = null;
+        _retireSuccessMessage = null;
+        _newPlaceholderId = null;
+
         try
         {
             var response = await Http.PostAsync($"api/users/{UserId}/retire", null);
             if (response.IsSuccessStatusCode)
             {
+                var result = await response.Content.ReadFromJsonAsync<RetireResponse>();
+                if (result != null)
+                {
+                    _newPlaceholderId = result.PlaceholderUserId;
+                    _retireSuccessMessage = $"User successfully retired. Barcodes moved to {result.PlaceholderUsername}.";
+                }
                 await LoadUserData();
                 await LoadBarcodes();
             }
@@ -1660,6 +1695,13 @@
         {
             _editError = $"Error: {ex.Message}";
         }
+    }
+
+    private class RetireResponse
+    {
+        public UserDto RetiredUser { get; set; } = null!;
+        public int PlaceholderUserId { get; set; }
+        public string PlaceholderUsername { get; set; } = null!;
     }
 
     private class PaymentFormModel

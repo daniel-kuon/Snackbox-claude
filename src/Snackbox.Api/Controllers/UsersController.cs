@@ -294,9 +294,14 @@ public class UsersController : ControllerBase
         _logger.LogInformation("User retired: {UserId} - {Username}. Moved {BarcodeCount} barcodes to placeholder {PlaceholderId}",
             user.Id, user.Username, user.Barcodes.Count, placeholder.Id);
 
-        // Return the updated user DTO
+        // Return the retired user and the new placeholder info
         var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
-        return Ok(user.ToDtoWithBalance(balance));
+        return Ok(new
+        {
+            RetiredUser = user.ToDtoWithBalance(balance),
+            PlaceholderUserId = placeholder.Id,
+            PlaceholderUsername = placeholder.Username
+        });
     }
 
     [HttpGet("{id}/achievements")]

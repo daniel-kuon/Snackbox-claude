@@ -312,7 +312,7 @@
             // If there's a custom part after the type, return it
             if (match.Groups.Count > 4 && !string.IsNullOrWhiteSpace(match.Groups[4].Value))
             {
-                return match.Groups[4].Value;
+                return match.Groups[4].Value.Replace("_", " ");
             }
 
             // Otherwise return "Auto" for automatic backups

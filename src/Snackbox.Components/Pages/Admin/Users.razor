@@ -4,7 +4,6 @@
 @using Snackbox.Api.Dtos
 @using Refit
 @inject IUsersApi UsersApi
-@inject HttpClient Http
 @inject NavigationManager Navigation
 @inject HttpClient Http
 
@@ -64,8 +63,18 @@
                 <tbody>
                     @foreach (var user in _users)
                     {
-                        <tr @onclick="() => NavigateToUserDetail(user.Id)" style="cursor: pointer;">
-                            <td>@user.Username</td>
+                        <tr @onclick="() => NavigateToUserDetail(user.Id)" style="cursor: pointer;" class="@(!user.IsActive ? "table-light text-muted" : "")">
+                            <td>
+                                @user.Username
+                                @if (user.IsRetired)
+                                {
+                                    <span class="badge bg-secondary ms-1">Retired</span>
+                                }
+                                else if (!user.IsActive)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">Inactive</span>
+                                }
+                            </td>
                             <td>@user.Email</td>
                             <td class="@(user.Balance < 0 ? "text-danger" : "text-success")">
                                 €@user.Balance.ToString("F2")

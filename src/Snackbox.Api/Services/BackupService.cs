@@ -37,13 +37,15 @@ public class BackupService : IBackupService
     {
         _logger.LogInformation("Creating {Type} backup", type);
 
-        var backupId = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{type}";
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+        var backupId = $"{timestamp}_{type}";
         var fileNameBase = $"snackbox_backup_{backupId}";
 
         if (!string.IsNullOrWhiteSpace(customName))
         {
             // Sanitize custom name
-            var sanitizedName = string.Join("_", customName.Split(Path.GetInvalidFileNameChars()));
+            var sanitizedName = string.Join("_", customName.Split(Path.GetInvalidFileNameChars()))
+                .Replace(" ", "_");
             fileNameBase = $"{fileNameBase}_{sanitizedName}";
         }
 
@@ -109,7 +111,7 @@ public class BackupService : IBackupService
             var md5Hash = await CalculateMd5HashAsync(filePath);
 
             // Check if backup with same hash already exists
-            var existingBackups = await LoadAllMetadataAsync();
+            var existingBackups = await ListBackupsAsync();
             var duplicateBackup = existingBackups.FirstOrDefault(b => b.Md5Hash == md5Hash);
 
             if (duplicateBackup != null)
@@ -123,18 +125,12 @@ public class BackupService : IBackupService
                 return null;
             }
 
-            var metadata = new BackupMetadata
+            var metadata = ParseBackupFileName(fileName);
+            if (metadata != null)
             {
-                Id = backupId,
-                FileName = fileName,
-                CreatedAt = DateTime.UtcNow,
-                Type = type,
-                FileSizeBytes = fileInfo.Length,
-                Md5Hash = md5Hash,
-                CustomName = customName
-            };
-
-            await SaveMetadataAsync(metadata);
+                metadata.FileSizeBytes = fileInfo.Length;
+                metadata.Md5Hash = md5Hash;
+            }
 
             _logger.LogInformation("Backup created successfully: {FileName} ({Size} bytes)", fileName, fileInfo.Length);
             return metadata;
@@ -158,8 +154,24 @@ public class BackupService : IBackupService
 
     public async Task<List<BackupMetadata>> ListBackupsAsync()
     {
-        var metadataList = await LoadAllMetadataAsync();
-        return metadataList.OrderByDescending(m => m.CreatedAt).ToList();
+        var backups = new List<BackupMetadata>();
+        if (!Directory.Exists(_backupDirectory)) return backups;
+
+        var files = Directory.GetFiles(_backupDirectory, "snackbox_backup_*.sql");
+        foreach (var file in files)
+        {
+            var fileName = Path.GetFileName(file);
+            var metadata = ParseBackupFileName(fileName);
+            if (metadata != null)
+            {
+                var fileInfo = new FileInfo(file);
+                metadata.FileSizeBytes = fileInfo.Length;
+                metadata.Md5Hash = await CalculateMd5HashAsync(file);
+                backups.Add(metadata);
+            }
+        }
+
+        return backups.OrderByDescending(m => m.CreatedAt).ToList();
     }
 
     public async Task RestoreBackupAsync(string backupId, bool createBackupBeforeRestore = false)
@@ -264,8 +276,9 @@ public class BackupService : IBackupService
     {
         _logger.LogInformation("Importing backup from file: {FileName}", fileName);
 
-        var backupId = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_imported";
-        var newFileName = $"snackbox_backup_{backupId}.sql";
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+        var backupId = $"{timestamp}_Manual";
+        var newFileName = $"snackbox_backup_{backupId}_imported.sql";
         var filePath = Path.Combine(_backupDirectory, newFileName);
 
         try
@@ -276,19 +289,15 @@ public class BackupService : IBackupService
             }
 
             var fileInfo = new FileInfo(filePath);
-            var metadata = new BackupMetadata
+            var metadata = ParseBackupFileName(newFileName);
+            if (metadata != null)
             {
-                Id = backupId,
-                FileName = newFileName,
-                CreatedAt = DateTime.UtcNow,
-                Type = BackupType.Manual,
-                FileSizeBytes = fileInfo.Length
-            };
-
-            await SaveMetadataAsync(metadata);
+                metadata.FileSizeBytes = fileInfo.Length;
+                metadata.Md5Hash = await CalculateMd5HashAsync(filePath);
+            }
 
             _logger.LogInformation("Backup imported successfully: {FileName}", newFileName);
-            return metadata;
+            return metadata ?? throw new Exception("Failed to parse imported backup metadata");
         }
         catch (Exception ex)
         {
@@ -317,8 +326,6 @@ public class BackupService : IBackupService
             File.Delete(filePath);
         }
 
-        await RemoveMetadataAsync(backupId);
-
         _logger.LogInformation("Backup deleted successfully: {BackupId}", backupId);
     }
 
@@ -327,7 +334,7 @@ public class BackupService : IBackupService
         _logger.LogInformation("Running backup cleanup");
 
         var now = DateTime.UtcNow;
-        var allBackups = await LoadAllMetadataAsync();
+        var allBackups = await ListBackupsAsync();
 
         foreach (var backup in allBackups)
         {
@@ -343,7 +350,7 @@ public class BackupService : IBackupService
 
             if (shouldDelete)
             {
-                _logger.LogInformation("Deleting old {Type} backup: {Id} (age: {Days} days)", 
+                _logger.LogInformation("Deleting old {Type} backup: {Id} (age: {Days} days)",
                     backup.Type, backup.Id, (int)age.TotalDays);
                 await DeleteBackupAsync(backup.Id);
             }
@@ -519,9 +526,9 @@ public class BackupService : IBackupService
         using var scope = _serviceProvider.CreateScope();
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         optionsBuilder.UseNpgsql(postgresConnString);
-        
+
         using var tempContext = new ApplicationDbContext(optionsBuilder.Options);
-        
+
         // Terminate existing connections
         // Note: Database name has been validated by ValidateConnectionParams
         #pragma warning disable EF1002
@@ -534,7 +541,7 @@ public class BackupService : IBackupService
 
         // Drop database
         await tempContext.Database.ExecuteSqlRawAsync($"DROP DATABASE IF EXISTS {connectionParams.Database};");
-        
+
         // Create database
         await tempContext.Database.ExecuteSqlRawAsync($"CREATE DATABASE {connectionParams.Database};");
         #pragma warning restore EF1002
@@ -542,45 +549,47 @@ public class BackupService : IBackupService
 
     private async Task<BackupMetadata?> GetBackupMetadataAsync(string backupId)
     {
-        var allMetadata = await LoadAllMetadataAsync();
+        var allMetadata = await ListBackupsAsync();
         return allMetadata.FirstOrDefault(m => m.Id == backupId);
     }
 
-    private async Task<List<BackupMetadata>> LoadAllMetadataAsync()
+    private BackupMetadata? ParseBackupFileName(string fileName)
     {
-        if (!File.Exists(_metadataFile))
+        // Expected format: snackbox_backup_20260115_223652_Manual[_custom_name].sql
+        var pattern = @"snackbox_backup_(\d{8})_(\d{6})_(\w+)(?:_(.+))?\.sql";
+        var match = System.Text.RegularExpressions.Regex.Match(fileName, pattern);
+
+        if (!match.Success) return null;
+
+        var dateStr = match.Groups[1].Value;
+        var timeStr = match.Groups[2].Value;
+        var typeStr = match.Groups[3].Value;
+        var customName = match.Groups.Count > 4 ? match.Groups[4].Value : null;
+
+        if (!Enum.TryParse<BackupType>(typeStr, out var type))
         {
-            return new List<BackupMetadata>();
+            type = BackupType.Manual;
         }
 
+        DateTime createdAt;
         try
         {
-            var json = await File.ReadAllTextAsync(_metadataFile);
-            return JsonSerializer.Deserialize<List<BackupMetadata>>(json) ?? new List<BackupMetadata>();
+            createdAt = DateTime.ParseExact($"{dateStr}_{timeStr}", "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime();
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogError(ex, "Failed to load backup metadata");
-            return new List<BackupMetadata>();
+            createdAt = File.GetCreationTimeUtc(Path.Combine(_backupDirectory, fileName));
         }
-    }
 
-    private async Task SaveMetadataAsync(BackupMetadata metadata)
-    {
-        var allMetadata = await LoadAllMetadataAsync();
-        allMetadata.Add(metadata);
-
-        var json = JsonSerializer.Serialize(allMetadata, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(_metadataFile, json);
-    }
-
-    private async Task RemoveMetadataAsync(string backupId)
-    {
-        var allMetadata = await LoadAllMetadataAsync();
-        allMetadata.RemoveAll(m => m.Id == backupId);
-
-        var json = JsonSerializer.Serialize(allMetadata, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(_metadataFile, json);
+        return new BackupMetadata
+        {
+            Id = $"{dateStr}_{timeStr}_{typeStr}",
+            FileName = fileName,
+            CreatedAt = createdAt,
+            Type = type,
+            CustomName = customName?.Replace("_", " "),
+            FileSizeBytes = File.Exists(Path.Combine(_backupDirectory, fileName)) ? new FileInfo(Path.Combine(_backupDirectory, fileName)).Length : 0
+        };
     }
 
     private ConnectionParams ParseConnectionString(string connectionString)
