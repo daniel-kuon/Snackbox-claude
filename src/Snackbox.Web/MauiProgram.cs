@@ -37,6 +37,9 @@ public static class MauiProgram
         // Register storage service (MAUI secure storage)
         builder.Services.AddSingleton<IStorageService>(_ => new MauiStorageService(SecureStorage.Default));
 
+        // Register Snackbar service
+        builder.Services.AddScoped<SnackbarService>();
+
         // Register delegating handler for authentication
         builder.Services.AddTransient<AuthenticationHeaderHandler>();
 
@@ -74,6 +77,14 @@ public static class MauiProgram
                                                                         {
                                                                             client.BaseAddress =
                                                                                 new Uri(clientBaseAddress);
+                                                                            // Disable HTTP caching for scanner service
+                                                                            client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+                                                                            {
+                                                                                NoCache = true,
+                                                                                NoStore = true,
+                                                                                MustRevalidate = true
+                                                                            };
+                                                                            client.DefaultRequestHeaders.Pragma.Add(new System.Net.Http.Headers.NameValueHeaderValue("no-cache"));
                                                                         })
                .AddHttpMessageHandler<AuthenticationHeaderHandler>();
 

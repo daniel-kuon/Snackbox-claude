@@ -20,6 +20,8 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
     private DateTime? _lastCodeTime;
     private readonly bool _autoFocusOnScan;
     private readonly IWindowService _windowService;
+    private DateTime _lastKeystrokeTime = DateTime.MinValue;
+    private readonly List<DateTime> _keystrokeTimes = new();
 
     public event Action<string>? CodeReceived;
 
@@ -30,14 +32,28 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
         _resetTimer.Elapsed += (_, _) => ResetBuffer();
         _resetTimer.AutoReset = false;
         _windowService = windowService;
-        
+
         var windowConfig = configuration.GetSection("Window").Get<WindowConfiguration>() ?? new WindowConfiguration();
         _autoFocusOnScan = windowConfig.AutoFocusOnScan;
     }
 
-    public void Start() => _hookId = SetHook(_proc);
+    public void Start()
+    {
+        // Only set hook if not already set (prevent multiple hooks)
+        if (_hookId == IntPtr.Zero)
+        {
+            _hookId = SetHook(_proc);
+        }
+    }
 
-    public void Stop() => UnhookWindowsHookEx(_hookId);
+    public void Stop()
+    {
+        if (_hookId != IntPtr.Zero)
+        {
+            UnhookWindowsHookEx(_hookId);
+            _hookId = IntPtr.Zero;
+        }
+    }
 
     private void ResetBuffer()
     {
@@ -73,7 +89,6 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
                 lock (_buffer)
                 {
                     code = _buffer.ToString();
-
                     _buffer.Clear();
                 }
 
@@ -87,7 +102,6 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
                         _windowService.BringToFront();
                     }
 
-                    // Invoke on UI thread if needed, or handle in component
                     // Ignore duplicate code within 500ms to prevent accidental scanning
                     if (code != _lastCode || _lastCodeTime == null ||
                                                 (DateTime.Now - _lastCodeTime.Value).TotalMilliseconds > 500)
