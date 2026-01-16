@@ -23,21 +23,36 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetAll([FromQuery] bool includeRetired = false)
     {
-        var users = await _context.Users
+        var usersQuery = _context.Users
             .Include(u => u.Purchases)
                 .ThenInclude(p => p.Scans)
             .Include(u => u.Payments)
             .Include(u => u.Withdrawals)
-            .Select(u => new UserDto
+            .Select(u => new
             {
-                Id = u.Id,
-                Username = u.Username,
-                Email = u.Email,
-                IsAdmin = u.IsAdmin,
-                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - u.Withdrawals.Sum(w => w.Amount),
-                CreatedAt = u.CreatedAt
+                User = u,
+                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - u.Withdrawals.Sum(w => w.Amount)
+            });
+
+        // Hide retired users by default unless they have a non-zero balance
+        if (!includeRetired)
+        {
+            usersQuery = usersQuery.Where(x => !x.User.IsRetired || x.Balance != 0);
+        }
+
+        var users = await usersQuery
+            .Select(x => new UserDto
+            {
+                Id = x.User.Id,
+                Username = x.User.Username,
+                Email = x.User.Email,
+                IsAdmin = x.User.IsAdmin,
+                IsActive = x.User.IsActive,
+                IsRetired = x.User.IsRetired,
+                Balance = x.Balance,
+                CreatedAt = x.User.CreatedAt
             })
             .ToListAsync();
 
@@ -93,6 +108,7 @@ public class UsersController : ControllerBase
             Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email,
             PasswordHash = string.IsNullOrWhiteSpace(dto.Password) ? null : BCrypt.Net.BCrypt.HashPassword(dto.Password),
             IsAdmin = isFirstUser, // First user becomes admin
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -104,7 +120,6 @@ public class UsersController : ControllerBase
         {
             Code = dto.BarcodeValue,
             UserId = user.Id,
-            IsActive = true,
             IsLoginOnly = true, // Default to login-only for registration barcodes
             Amount = 0m,
             CreatedAt = DateTime.UtcNow
@@ -222,6 +237,66 @@ public class UsersController : ControllerBase
         _logger.LogInformation("User deleted: {UserId} - {Username}", user.Id, user.Username);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Retire a user: mark as retired and inactive, create an inactive placeholder user ("User {count}")
+    /// and move all barcodes from the retired user to the placeholder.
+    /// </summary>
+    [HttpPost("{id}/retire")]
+    public async Task<ActionResult> RetireUser(int id)
+    {
+        var user = await _context.Users
+            .Include(u => u.Barcodes)
+            .Include(u => u.Purchases)
+                .ThenInclude(p => p.Scans)
+            .Include(u => u.Payments)
+            .Include(u => u.Withdrawals)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (user == null)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        if (user.IsRetired)
+        {
+            return BadRequest(new { message = "User is already retired" });
+        }
+
+        // Mark user as retired and inactive
+        user.IsActive = false;
+        user.IsRetired = true;
+
+        // Create placeholder inactive user
+        var userCount = await _context.Users.CountAsync();
+        var placeholder = new User
+        {
+            Username = $"User {userCount + 1}",
+            Email = null,
+            PasswordHash = null,
+            IsAdmin = false,
+            IsActive = false,
+            IsRetired = false,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Users.Add(placeholder);
+        await _context.SaveChangesAsync();
+
+        // Move barcodes to placeholder
+        foreach (var bc in user.Barcodes)
+        {
+            bc.UserId = placeholder.Id;
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("User retired: {UserId} - {Username}. Moved {BarcodeCount} barcodes to placeholder {PlaceholderId}",
+            user.Id, user.Username, user.Barcodes.Count, placeholder.Id);
+
+        // Return the updated user DTO
+        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
+        return Ok(user.ToDtoWithBalance(balance));
     }
 
     [HttpGet("{id}/achievements")]

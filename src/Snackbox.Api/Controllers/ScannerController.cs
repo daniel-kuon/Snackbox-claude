@@ -68,7 +68,7 @@ public class ScannerController : ControllerBase
             barcode.Id, barcode.UserId, barcode.IsLoginOnly);
 
         var user = barcode.User;
-        var isInactive = !barcode.IsActive;
+        var isInactive = !user.IsActive;
 
         // Check if this is a login-only barcode - return success with user info but don't create a purchase
         if (barcode.IsLoginOnly)

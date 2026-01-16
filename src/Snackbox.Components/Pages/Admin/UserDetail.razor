@@ -86,6 +86,9 @@
                                         ✉ Send Payment Reminder
                                     </button>
                                 }
+                                <button class="btn btn-outline-danger btn-sm" @onclick="RetireUser" title="Retire this user and move barcodes to a new inactive placeholder">
+                                    🪦 Retire
+                                </button>
                                 <button class="btn btn-primary btn-sm" @onclick="StartEditUserInfo">Edit</button>
                             </div>
                         </div>
@@ -312,8 +315,8 @@
                                 <th>Code</th>
                                 <th>Amount</th>
                                 <th>Type</th>
-                                <th>Status</th>
                                 <th>Created</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -332,17 +335,13 @@
                                             <span class="badge badge-primary">Payment</span>
                                         }
                                     </td>
-                                    <td>
-                                        @if (barcode.IsActive)
-                                        {
-                                            <span class="badge badge-success">Active</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge badge-secondary">Inactive</span>
-                                        }
-                                    </td>
                                     <td>@barcode.CreatedAt.ToString("yyyy-MM-dd")</td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-secondary" @onclick="() => ShowEditBarcode(barcode)">Edit</button>
+                                            <button class="btn btn-outline-danger" @onclick="() => ConfirmDeleteBarcode(barcode.Id)">Delete</button>
+                                        </div>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -491,7 +490,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Add Barcode</h3>
+                <h3>@(_editingBarcodeId.HasValue ? "Edit Barcode" : "Add Barcode")</h3>
                 <button class="btn-close" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
@@ -538,13 +537,6 @@
                         </div>
                     }
 
-                    <div class="form-check">
-                        <InputCheckbox @bind-Value="_barcodeForm.IsActive" class="form-check-input" id="isActiveCheck" />
-                        <label class="form-check-label" for="isActiveCheck">
-                            Active
-                        </label>
-                    </div>
-
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
                         <button type="submit" class="btn btn-primary" disabled="@_isSaving">
@@ -552,7 +544,7 @@
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
-                            Save Barcode
+                            @(_editingBarcodeId.HasValue ? "Save Changes" : "Save Barcode")
                         </button>
                     </div>
                 </EditForm>
@@ -1337,7 +1329,8 @@
 
     private void ShowAddBarcode()
     {
-        _barcodeForm = new BarcodeFormModel { IsActive = true, BarcodeType = "Payment" };
+        _editingBarcodeId = null;
+        _barcodeForm = new BarcodeFormModel { BarcodeType = "Payment" };
         _modalError = null;
         _showBarcodeModal = true;
     }
@@ -1387,14 +1380,26 @@
 
         try
         {
-            var response = await Http.PostAsJsonAsync("api/barcodes", new
+            HttpResponseMessage response;
+            if (_editingBarcodeId.HasValue)
             {
-                userId = UserId,
-                code = _barcodeForm.Code,
-                amount = _barcodeForm.Amount,
-                isActive = _barcodeForm.IsActive,
-                isLoginOnly = _barcodeForm.BarcodeType == "Login"
-            });
+                response = await Http.PutAsJsonAsync($"api/barcodes/{_editingBarcodeId.Value}", new
+                {
+                    code = _barcodeForm.Code,
+                    amount = _barcodeForm.Amount,
+                    isLoginOnly = _barcodeForm.BarcodeType == "Login"
+                });
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync("api/barcodes", new
+                {
+                    userId = UserId,
+                    code = _barcodeForm.Code,
+                    amount = _barcodeForm.Amount,
+                    isLoginOnly = _barcodeForm.BarcodeType == "Login"
+                });
+            }
 
             if (response.IsSuccessStatusCode)
             {
@@ -1404,7 +1409,7 @@
             }
             else
             {
-                _modalError = "Failed to add barcode. Please try again.";
+                _modalError = "Failed to save barcode. Please try again.";
             }
         }
         catch (Exception ex)
@@ -1414,6 +1419,41 @@
         finally
         {
             _isSaving = false;
+        }
+    }
+
+    private void ShowEditBarcode(BarcodeDto barcode)
+    {
+        _editingBarcodeId = barcode.Id;
+        _barcodeForm = new BarcodeFormModel
+        {
+            Code = barcode.Code,
+            Amount = barcode.Amount,
+            BarcodeType = barcode.IsLoginOnly ? "Login" : "Payment"
+        };
+        _modalError = null;
+        _showBarcodeModal = true;
+    }
+
+    private async Task ConfirmDeleteBarcode(int barcodeId)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/barcodes/{barcodeId}");
+            if (response.IsSuccessStatusCode)
+            {
+                _barcodes = null;
+                await LoadBarcodes();
+            }
+            else
+            {
+                // Surface a temporary error near the table
+                _errorMessage = "Failed to delete barcode.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Delete failed: {ex.Message}";
         }
     }
 
@@ -1600,6 +1640,28 @@
         }
     }
 
+    private async Task RetireUser()
+    {
+        _editError = null;
+        try
+        {
+            var response = await Http.PostAsync($"api/users/{UserId}/retire", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUserData();
+                await LoadBarcodes();
+            }
+            else
+            {
+                _editError = "Failed to retire user.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _editError = $"Error: {ex.Message}";
+        }
+    }
+
     private class PaymentFormModel
     {
         [Required]
@@ -1613,6 +1675,8 @@
         public int? AdminUserId { get; set; }
     }
 
+    private int? _editingBarcodeId;
+
     private class BarcodeFormModel
     {
         [Required]
@@ -1620,8 +1684,6 @@
 
         [Range(0, 10000)]
         public decimal Amount { get; set; }
-
-        public bool IsActive { get; set; } = true;
 
         [Required]
         public string BarcodeType { get; set; } = "Payment"; // "Login" or "Payment"
