@@ -55,8 +55,28 @@ public class BackupBackgroundService : BackgroundService
 
         try
         {
-            // Determine backup type based on day of week and month
+            // Check if database exists before attempting backup
+            var dbExists = await backupService.CheckDatabaseExistsAsync();
+            if (!dbExists)
+            {
+                _logger.LogInformation("Database does not exist, skipping backup");
+                return;
+            }
+
             var now = DateTime.UtcNow;
+
+            // Check if we already created a backup today by looking at existing backups
+            var existingBackups = await backupService.ListBackupsAsync();
+            var todayBackups = existingBackups.Where(b => b.CreatedAt.Date == now.Date).ToList();
+
+            if (todayBackups.Any())
+            {
+                _logger.LogInformation("Backup already created today ({Count} backups found for {Date}), skipping",
+                    todayBackups.Count, now.Date.ToString("yyyy-MM-dd"));
+                return;
+            }
+
+            // Determine backup type based on day of week and month
             var backupType = DetermineBackupType(now);
 
             _logger.LogInformation("Creating {Type} backup", backupType);

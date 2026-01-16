@@ -2,6 +2,8 @@
 @using Snackbox.ApiClient
 @using Microsoft.AspNetCore.Components.Forms
 @using Snackbox.Components.Services
+@using Snackbox.Api.Dtos
+@layout EmptyLayout
 @inject IBackupApi BackupApi
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
@@ -25,6 +27,40 @@
                 <p>@_processingMessage</p>
             </div>
         }
+        else if (_showBackupList)
+        {
+            <div class="backup-list-container">
+                <h3>📦 Available Backups</h3>
+                @if (_backups != null && _backups.Any())
+                {
+                    <p class="text-muted">Select a backup to restore:</p>
+                    <div class="backup-list">
+                        @foreach (var backup in _backups)
+                        {
+                            <div class="backup-item" @onclick="() => RestoreFromExistingBackup(backup.Id)">
+                                <div class="backup-info">
+                                    <strong>@backup.FileName</strong>
+                                    <small>@backup.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") • @FormatFileSize(backup.FileSizeBytes)</small>
+                                </div>
+                                <div class="backup-type">
+                                    <span class="badge bg-@GetBackupTypeBadgeClass(backup.Type)">@backup.Type</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <button class="btn btn-secondary mt-3" @onclick="() => _showBackupList = false">
+                        ← Back to Options
+                    </button>
+                }
+                else
+                {
+                    <p class="alert alert-info">No existing backups found. You can upload a backup file from the main options.</p>
+                    <button class="btn btn-secondary" @onclick="() => _showBackupList = false">
+                        ← Back to Options
+                    </button>
+                }
+            </div>
+        }
         else
         {
             <div class="setup-options">
@@ -32,10 +68,16 @@
                     <div class="option-icon">🔄</div>
                     <h3>Restore from Backup</h3>
                     <p>Restore your database from a previously saved backup file.</p>
-                    <label class="btn btn-primary w-100" for="restoreBackupFile">
-                        <span class="icon">📥</span> Select Backup File
+                    <label class="btn btn-primary w-100 mb-2" for="restoreBackupFile">
+                        <span class="icon">📥</span> Upload Backup File
                     </label>
                     <InputFile id="restoreBackupFile" OnChange="RestoreFromBackup" style="display: none;" accept=".sql" />
+                    @if (_hasExistingBackups)
+                    {
+                        <button class="btn btn-outline-primary w-100" @onclick="ShowBackupList">
+                            <span class="icon">📋</span> Browse Existing Backups
+                        </button>
+                    }
                 </div>
 
                 <div class="option-card">
@@ -143,11 +185,130 @@
         color: #666;
         font-size: 1.1rem;
     }
+
+    .backup-list-container {
+        padding: 1rem;
+    }
+
+    .backup-list-container h3 {
+        margin-bottom: 1rem;
+        color: #333;
+    }
+
+    .backup-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        background: white;
+    }
+
+    .backup-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .backup-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .backup-item:last-child {
+        border-bottom: none;
+    }
+
+    .backup-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .backup-info strong {
+        font-size: 1rem;
+        color: #333;
+    }
+
+    .backup-info small {
+        color: #666;
+        font-size: 0.85rem;
+    }
+
+    .backup-type {
+        margin-left: 1rem;
+    }
 </style>
 
 @code {
     private bool _isProcessing = false;
     private string _processingMessage = "";
+    private bool _showBackupList = false;
+    private bool _hasExistingBackups = false;
+    private List<BackupMetadataDto> _backups = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckExistingBackups();
+    }
+
+    private async Task CheckExistingBackups()
+    {
+        try
+        {
+            var backups = await BackupApi.ListBackupsAsync();
+            _backups = backups.ToList();
+            _hasExistingBackups = _backups.Any();
+        }
+        catch
+        {
+            _hasExistingBackups = false;
+        }
+    }
+
+    private async Task ShowBackupList()
+    {
+        _showBackupList = true;
+        await CheckExistingBackups();
+    }
+
+    private async Task RestoreFromExistingBackup(string backupId)
+    {
+        var backup = _backups.FirstOrDefault(b => b.Id == backupId);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"Restore database from backup '{backup?.FileName}'?");
+
+        if (!confirmed) return;
+
+        try
+        {
+            _isProcessing = true;
+            _showBackupList = false;
+            _processingMessage = "Restoring database from backup...";
+            StateHasChanged();
+
+            await BackupApi.RestoreBackupAsync(backupId, createBackupBeforeRestore: false);
+
+            _processingMessage = "Database restored successfully! Redirecting...";
+            StateHasChanged();
+            Snackbar.Success("Database restored successfully! Redirecting to login...");
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to restore backup: {ex.Message}");
+            _showBackupList = true;
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
 
     private async Task RestoreFromBackup(InputFileChangeEventArgs e)
     {
@@ -157,7 +318,8 @@
         try
         {
             _isProcessing = true;
-            _processingMessage = "Importing and restoring backup...";
+            _processingMessage = "Uploading backup file...";
+            StateHasChanged();
 
             // Import the backup first
             using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
@@ -166,6 +328,10 @@
             memoryStream.Position = 0;
 
             var streamPart = new Refit.StreamPart(memoryStream, file.Name, "application/octet-stream");
+
+            _processingMessage = "Importing backup...";
+            StateHasChanged();
+
             var backup = await BackupApi.ImportBackupAsync(streamPart);
 
             _processingMessage = "Restoring database...";
@@ -174,6 +340,8 @@
             // Restore the backup
             await BackupApi.RestoreBackupAsync(backup.Id);
 
+            _processingMessage = "Database restored successfully! Redirecting...";
+            StateHasChanged();
             Snackbar.Success("Database restored successfully! Redirecting to login...");
 
             await Task.Delay(2000);
@@ -186,6 +354,7 @@
         finally
         {
             _isProcessing = false;
+            StateHasChanged();
         }
     }
 
@@ -200,9 +369,12 @@
         {
             _isProcessing = true;
             _processingMessage = "Creating empty database...";
+            StateHasChanged();
 
             await BackupApi.CreateEmptyDatabaseAsync();
 
+            _processingMessage = "Database created successfully! Redirecting...";
+            StateHasChanged();
             Snackbar.Success("Empty database created successfully! Redirecting to registration...");
 
             await Task.Delay(2000);
@@ -215,6 +387,7 @@
         finally
         {
             _isProcessing = false;
+            StateHasChanged();
         }
     }
 
@@ -229,9 +402,12 @@
         {
             _isProcessing = true;
             _processingMessage = "Creating database with sample data...";
+            StateHasChanged();
 
             await BackupApi.CreateSeededDatabaseAsync();
 
+            _processingMessage = "Database created successfully! Redirecting...";
+            StateHasChanged();
             Snackbar.Success("Database created successfully! Redirecting to login...");
 
             await Task.Delay(2000);
@@ -244,6 +420,32 @@
         finally
         {
             _isProcessing = false;
+            StateHasChanged();
         }
+    }
+
+    private string GetBackupTypeBadgeClass(string type)
+    {
+        return type switch
+        {
+            "Manual" => "primary",
+            "Daily" => "info",
+            "Weekly" => "warning",
+            "Monthly" => "success",
+            _ => "secondary"
+        };
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
     }
 }

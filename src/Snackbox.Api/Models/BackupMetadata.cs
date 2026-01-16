@@ -7,6 +7,8 @@ public class BackupMetadata
     public required DateTime CreatedAt { get; set; }
     public required BackupType Type { get; set; }
     public required long FileSizeBytes { get; set; }
+    public string? Md5Hash { get; set; }
+    public string? CustomName { get; set; }
 }
 
 public enum BackupType

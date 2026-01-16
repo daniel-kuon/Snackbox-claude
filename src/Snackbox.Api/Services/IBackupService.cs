@@ -8,8 +8,9 @@ public interface IBackupService
     /// Creates a backup of the entire database
     /// </summary>
     /// <param name="type">Type of backup (Manual, Daily, Weekly, Monthly)</param>
-    /// <returns>Metadata of the created backup</returns>
-    Task<BackupMetadata> CreateBackupAsync(BackupType type);
+    /// <param name="customName">Optional custom name for the backup</param>
+    /// <returns>Metadata of the created backup, or null if backup is duplicate</returns>
+    Task<BackupMetadata?> CreateBackupAsync(BackupType type, string? customName = null);
 
     /// <summary>
     /// Lists all available backups on disk
@@ -21,7 +22,8 @@ public interface IBackupService
     /// Restores a backup by its ID
     /// </summary>
     /// <param name="backupId">ID of the backup to restore</param>
-    Task RestoreBackupAsync(string backupId);
+    /// <param name="createBackupBeforeRestore">If true, creates a backup of current database before restoring</param>
+    Task RestoreBackupAsync(string backupId, bool createBackupBeforeRestore = false);
 
     /// <summary>
     /// Imports a backup from a file stream

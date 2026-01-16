@@ -9,13 +9,16 @@ namespace Snackbox.ApiClient;
 public interface IBackupApi
 {
     [Post("/api/backup/create")]
-    Task<BackupMetadataDto> CreateBackupAsync();
+    Task<object> CreateBackupAsync([Query] string? customName = null);
 
     [Get("/api/backup/list")]
     Task<IEnumerable<BackupMetadataDto>> ListBackupsAsync();
 
+    [Get("/api/backup/restore/{id}/check")]
+    Task<RestoreImpactResponse> CheckRestoreImpactAsync(string id);
+
     [Post("/api/backup/restore/{id}")]
-    Task RestoreBackupAsync(string id);
+    Task RestoreBackupAsync(string id, [Query] bool createBackupBeforeRestore = false);
 
     [Multipart]
     [Post("/api/backup/import")]
@@ -48,5 +51,13 @@ public class DatabaseCheckResponse
 public class ToolsCheckResponse
 {
     public bool Available { get; set; }
+    public string? Message { get; set; }
+}
+
+public class RestoreImpactResponse
+{
+    public bool BackupExists { get; set; }
+    public bool DatabaseExists { get; set; }
+    public bool RequiresConfirmation { get; set; }
     public string? Message { get; set; }
 }

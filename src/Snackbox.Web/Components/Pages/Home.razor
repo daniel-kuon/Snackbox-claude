@@ -716,7 +716,7 @@
     private List<PurchaseDto>? _allPurchases;
     private List<PaymentDto>? _allPayments;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         // Subscribe to scanner events
         ScannerListener.CodeReceived += HandleCodeScanned;

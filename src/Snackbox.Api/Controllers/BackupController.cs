@@ -24,16 +24,23 @@ public class BackupController : ControllerBase
     /// Creates a manual backup of the database
     /// </summary>
     [HttpPost("create")]
-    public async Task<ActionResult<BackupMetadataDto>> CreateBackup()
+    public async Task<ActionResult<BackupMetadataDto>> CreateBackup([FromQuery] string? customName = null)
     {
         try
         {
             // Proactively check for PostgreSQL tools to provide a clear error instead of a generic failure
             if (!await _backupService.ArePostgresToolsAvailableAsync())
             {
-                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install pg_dump and psql or run scripts/Install-PostgresTools.ps1 (Windows)." });
+                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install PostgreSQL 17 by running: winget install -e --id PostgreSQL.PostgreSQL.17 (or use scripts/Install-PostgresTools.ps1)" });
             }
-            var backup = await _backupService.CreateBackupAsync(BackupType.Manual);
+            var backup = await _backupService.CreateBackupAsync(BackupType.Manual, customName);
+
+            // If backup is null, it means it was a duplicate
+            if (backup == null)
+            {
+                return Ok(new { isDuplicate = true, message = "Backup is identical to an existing backup and was not created." });
+            }
+
             return Ok(ToDto(backup));
         }
         catch (Exception ex)
@@ -62,19 +69,54 @@ public class BackupController : ControllerBase
     }
 
     /// <summary>
+    /// Checks if database exists and would be overwritten by restore
+    /// </summary>
+    [HttpGet("restore/{id}/check")]
+    public async Task<ActionResult> CheckRestoreImpact(string id)
+    {
+        try
+        {
+            var backups = await _backupService.ListBackupsAsync();
+            var backup = backups.FirstOrDefault(b => b.Id == id);
+
+            if (backup == null)
+            {
+                return NotFound(new { error = "Backup not found" });
+            }
+
+            var databaseExists = await _backupService.CheckDatabaseExistsAsync();
+
+            return Ok(new
+            {
+                backupExists = true,
+                databaseExists = databaseExists,
+                requiresConfirmation = databaseExists,
+                message = databaseExists
+                    ? "Warning: This will replace your current database. All existing data will be lost unless you create a backup first."
+                    : "A new database will be created from this backup."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check restore impact: {Id}", id);
+            return StatusCode(500, new { error = "Failed to check restore impact", details = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Restores a backup by ID
     /// </summary>
     [HttpPost("restore/{id}")]
-    public async Task<ActionResult> RestoreBackup(string id)
+    public async Task<ActionResult> RestoreBackup(string id, [FromQuery] bool createBackupBeforeRestore = false)
     {
         try
         {
             // Proactively check for PostgreSQL tools to provide a clear error instead of a generic failure
             if (!await _backupService.ArePostgresToolsAvailableAsync())
             {
-                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install pg_dump and psql or run scripts/Install-PostgresTools.ps1 (Windows)." });
+                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install PostgreSQL 17 by running: winget install -e --id PostgreSQL.PostgreSQL.17 (or use scripts/Install-PostgresTools.ps1)" });
             }
-            await _backupService.RestoreBackupAsync(id);
+            await _backupService.RestoreBackupAsync(id, createBackupBeforeRestore);
             return Ok(new { message = "Backup restored successfully" });
         }
         catch (FileNotFoundException ex)
@@ -235,7 +277,7 @@ public class BackupController : ControllerBase
         try
         {
             var available = await _backupService.ArePostgresToolsAvailableAsync();
-            return Ok(new { available, message = available ? "PostgreSQL tools are available" : "PostgreSQL tools are not installed. Please run scripts/Install-PostgresTools.ps1" });
+            return Ok(new { available, message = available ? "PostgreSQL tools are available" : "PostgreSQL tools are not installed. Run: winget install -e --id PostgreSQL.PostgreSQL.17" });
         }
         catch (Exception ex)
         {
@@ -252,7 +294,9 @@ public class BackupController : ControllerBase
             FileName = metadata.FileName,
             CreatedAt = metadata.CreatedAt,
             Type = metadata.Type.ToString(),
-            FileSizeBytes = metadata.FileSizeBytes
+            FileSizeBytes = metadata.FileSizeBytes,
+            Md5Hash = metadata.Md5Hash,
+            CustomName = metadata.CustomName
         };
     }
 }
