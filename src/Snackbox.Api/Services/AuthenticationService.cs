@@ -32,6 +32,12 @@ public class AuthenticationService : IAuthenticationService
             return null;
         }
 
+        // Only allow login using login-only barcodes
+        if (!barcode.IsLoginOnly)
+        {
+            return null;
+        }
+
         // Generate JWT token
         var token = GenerateJwtToken(barcode.User);
 
@@ -82,6 +88,12 @@ public class AuthenticationService : IAuthenticationService
             .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
 
         if (barcode == null || string.IsNullOrEmpty(barcode.User.PasswordHash))
+        {
+            return null;
+        }
+
+        // Only allow login using login-only barcodes
+        if (!barcode.IsLoginOnly)
         {
             return null;
         }
