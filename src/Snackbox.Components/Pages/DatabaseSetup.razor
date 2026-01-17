@@ -1,0 +1,451 @@
+@page "/database-setup"
+@using Snackbox.ApiClient
+@using Microsoft.AspNetCore.Components.Forms
+@using Snackbox.Components.Services
+@using Snackbox.Api.Dtos
+@layout EmptyLayout
+@inject IBackupApi BackupApi
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject SnackbarService Snackbar
+
+<PageTitle>Database Setup - Snackbox</PageTitle>
+
+<div class="database-setup-container">
+    <div class="setup-card">
+        <div class="setup-header">
+            <h2>⚠️ Database Setup Required</h2>
+            <p>The Snackbox database is not available. Please choose one of the following options to set up the database.</p>
+        </div>
+
+        @if (_isProcessing)
+        {
+            <div class="loading-container">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Processing...</span>
+                </div>
+                <p>@_processingMessage</p>
+            </div>
+        }
+        else if (_showBackupList)
+        {
+            <div class="backup-list-container">
+                <h3>📦 Available Backups</h3>
+                @if (_backups != null && _backups.Any())
+                {
+                    <p class="text-muted">Select a backup to restore:</p>
+                    <div class="backup-list">
+                        @foreach (var backup in _backups)
+                        {
+                            <div class="backup-item" @onclick="() => RestoreFromExistingBackup(backup.Id)">
+                                <div class="backup-info">
+                                    <strong>@backup.FileName</strong>
+                                    <small>@backup.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") • @FormatFileSize(backup.FileSizeBytes)</small>
+                                </div>
+                                <div class="backup-type">
+                                    <span class="badge bg-@GetBackupTypeBadgeClass(backup.Type)">@backup.Type</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <button class="btn btn-secondary mt-3" @onclick="() => _showBackupList = false">
+                        ← Back to Options
+                    </button>
+                }
+                else
+                {
+                    <p class="alert alert-info">No existing backups found. You can upload a backup file from the main options.</p>
+                    <button class="btn btn-secondary" @onclick="() => _showBackupList = false">
+                        ← Back to Options
+                    </button>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="setup-options">
+                <div class="option-card">
+                    <div class="option-icon">🔄</div>
+                    <h3>Restore from Backup</h3>
+                    <p>Restore your database from a previously saved backup file.</p>
+                    <label class="btn btn-primary w-100 mb-2" for="restoreBackupFile">
+                        <span class="icon">📥</span> Upload Backup File
+                    </label>
+                    <InputFile id="restoreBackupFile" OnChange="RestoreFromBackup" style="display: none;" accept=".sql" />
+                    @if (_hasExistingBackups)
+                    {
+                        <button class="btn btn-outline-primary w-100" @onclick="ShowBackupList">
+                            <span class="icon">📋</span> Browse Existing Backups
+                        </button>
+                    }
+                </div>
+
+                <div class="option-card">
+                    <div class="option-icon">📦</div>
+                    <h3>Create Empty Database</h3>
+                    <p>Create a fresh database with no data. You'll need to set up users and products manually.</p>
+                    <button class="btn btn-secondary w-100" @onclick="CreateEmptyDatabase">
+                        <span class="icon">➕</span> Create Empty
+                    </button>
+                </div>
+
+                <div class="option-card">
+                    <div class="option-icon">🌱</div>
+                    <h3>Create with Sample Data</h3>
+                    <p>Create a database with sample users, products, and transactions for testing.</p>
+                    <button class="btn btn-success w-100" @onclick="CreateSeededDatabase">
+                        <span class="icon">🚀</span> Create with Data
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .database-setup-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .setup-card {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        max-width: 900px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .setup-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .setup-header h2 {
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .setup-header p {
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .setup-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .option-card {
+        background: #f8f9fa;
+        border: 2px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .option-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        transform: translateY(-5px);
+    }
+
+    .option-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .option-card h3 {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+        color: #333;
+    }
+
+    .option-card p {
+        color: #666;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .loading-container p {
+        margin-top: 1rem;
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .backup-list-container {
+        padding: 1rem;
+    }
+
+    .backup-list-container h3 {
+        margin-bottom: 1rem;
+        color: #333;
+    }
+
+    .backup-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        background: white;
+    }
+
+    .backup-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .backup-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .backup-item:last-child {
+        border-bottom: none;
+    }
+
+    .backup-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .backup-info strong {
+        font-size: 1rem;
+        color: #333;
+    }
+
+    .backup-info small {
+        color: #666;
+        font-size: 0.85rem;
+    }
+
+    .backup-type {
+        margin-left: 1rem;
+    }
+</style>
+
+@code {
+    private bool _isProcessing = false;
+    private string _processingMessage = "";
+    private bool _showBackupList = false;
+    private bool _hasExistingBackups = false;
+    private List<BackupMetadataDto> _backups = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckExistingBackups();
+    }
+
+    private async Task CheckExistingBackups()
+    {
+        try
+        {
+            var backups = await BackupApi.ListBackupsAsync();
+            _backups = backups.ToList();
+            _hasExistingBackups = _backups.Any();
+        }
+        catch
+        {
+            _hasExistingBackups = false;
+        }
+    }
+
+    private async Task ShowBackupList()
+    {
+        _showBackupList = true;
+        await CheckExistingBackups();
+    }
+
+    private async Task RestoreFromExistingBackup(string backupId)
+    {
+        var backup = _backups.FirstOrDefault(b => b.Id == backupId);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"Restore database from backup '{backup?.FileName}'?");
+
+        if (!confirmed) return;
+
+        try
+        {
+            _isProcessing = true;
+            _showBackupList = false;
+            _processingMessage = "Restoring database from backup...";
+            StateHasChanged();
+
+            await BackupApi.RestoreBackupAsync(backupId, createBackupBeforeRestore: false);
+
+            _processingMessage = "Database restored successfully! Redirecting...";
+            StateHasChanged();
+            Snackbar.Success("Database restored successfully! Redirecting to login...");
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to restore backup: {ex.Message}");
+            _showBackupList = true;
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RestoreFromBackup(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            _isProcessing = true;
+            _processingMessage = "Uploading backup file...";
+            StateHasChanged();
+
+            // Import the backup first
+            using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            var streamPart = new Refit.StreamPart(memoryStream, file.Name, "application/octet-stream");
+
+            _processingMessage = "Importing backup...";
+            StateHasChanged();
+
+            var backup = await BackupApi.ImportBackupAsync(streamPart);
+
+            _processingMessage = "Restoring database...";
+            StateHasChanged();
+
+            // Restore the backup
+            await BackupApi.RestoreBackupAsync(backup.Id);
+
+            _processingMessage = "Database restored successfully! Redirecting...";
+            StateHasChanged();
+            Snackbar.Success("Database restored successfully! Redirecting to login...");
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to restore backup: {ex.Message}");
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CreateEmptyDatabase()
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            "Are you sure you want to create an empty database? You'll need to set up users and products manually.");
+
+        if (!confirmed) return;
+
+        try
+        {
+            _isProcessing = true;
+            _processingMessage = "Creating empty database...";
+            StateHasChanged();
+
+            await BackupApi.CreateEmptyDatabaseAsync();
+
+            _processingMessage = "Database created successfully! Redirecting...";
+            StateHasChanged();
+            Snackbar.Success("Empty database created successfully! Redirecting to registration...");
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/register", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to create empty database: {ex.Message}");
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CreateSeededDatabase()
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            "Create a database with sample data? This is recommended for testing and initial setup.");
+
+        if (!confirmed) return;
+
+        try
+        {
+            _isProcessing = true;
+            _processingMessage = "Creating database with sample data...";
+            StateHasChanged();
+
+            await BackupApi.CreateSeededDatabaseAsync();
+
+            _processingMessage = "Database created successfully! Redirecting...";
+            StateHasChanged();
+            Snackbar.Success("Database created successfully! Redirecting to login...");
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to create seeded database: {ex.Message}");
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetBackupTypeBadgeClass(string type)
+    {
+        return type switch
+        {
+            "Manual" => "primary",
+            "Daily" => "info",
+            "Weekly" => "warning",
+            "Monthly" => "success",
+            _ => "secondary"
+        };
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}

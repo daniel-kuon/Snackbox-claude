@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IScannerApi>();
         AddRefitClient<IBarcodesApi>();
         AddRefitClient<IBarcodeLookupApi>();
+        AddRefitClient<IBackupApi>();
         AddRefitClient<IInvoicesApi>();
 
         return services;
@@ -81,6 +82,14 @@ public static class ServiceCollectionExtensions
                     .ConfigureHttpClient(c =>
                                          {
                                              c.BaseAddress = new Uri(baseUrl);
+                                             // Disable HTTP caching to avoid stale data
+                                             c.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+                                             {
+                                                 NoCache = true,
+                                                 NoStore = true,
+                                                 MustRevalidate = true
+                                             };
+                                             c.DefaultRequestHeaders.Pragma.Add(new System.Net.Http.Headers.NameValueHeaderValue("no-cache"));
                                              configureClient?.Invoke(c);
                                          })
                     .AddHttpMessageHandler<THandler>();
@@ -105,6 +114,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IBarcodesApi>();
         AddRefitClient<IBarcodeLookupApi>();
         AddRefitClient<IInvoicesApi>();
+        AddRefitClient<IBackupApi>();
     }
 
 }

@@ -14,30 +14,47 @@ public class ScannerController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IAchievementService _achievementService;
+    private readonly ILogger<ScannerController> _logger;
     private const int DefaultTimeoutSeconds = 60;
 
-    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService)
+    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, ILogger<ScannerController> logger)
     {
         _context = context;
         _configuration = configuration;
         _achievementService = achievementService;
+        _logger = logger;
     }
 
     [HttpPost("scan")]
     public async Task<ActionResult<ScanBarcodeResponse>> ScanBarcode([FromBody] ScanBarcodeRequest request)
     {
+        _logger.LogInformation("Scanning barcode: {BarcodeCode}", request.BarcodeCode);
+
         // Get timeout from configuration
         var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
         var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
 
-        // Find the barcode
+        // Find the barcode - use AsNoTracking to avoid caching issues
         var barcode = await _context.Barcodes
+            .AsNoTracking()
             .Include(b => b.User)
                 .ThenInclude(u => u.Payments)
             .FirstOrDefaultAsync(b => b.Code == request.BarcodeCode);
 
         if (barcode == null)
         {
+            _logger.LogWarning("Barcode not found in database: {BarcodeCode}", request.BarcodeCode);
+
+            // Check if database has any barcodes at all - log some for debugging
+            var totalBarcodes = await _context.Barcodes.CountAsync();
+            var allBarcodeCodes = await _context.Barcodes
+                .AsNoTracking()
+                .Select(b => b.Code)
+                .Take(10)
+                .ToListAsync();
+            _logger.LogInformation("Total barcodes in database: {Count}. First few: {Codes}",
+                totalBarcodes, string.Join(", ", allBarcodeCodes));
+
             return Ok(new ScanBarcodeResponse
             {
                 Success = false,
@@ -46,6 +63,9 @@ public class ScannerController : ControllerBase
                 Username = string.Empty
             });
         }
+
+        _logger.LogInformation("Barcode found: {BarcodeId}, User: {UserId}, IsLoginOnly: {IsLoginOnly}",
+            barcode.Id, barcode.UserId, barcode.IsLoginOnly);
 
         if (!barcode.IsActive)
         {
