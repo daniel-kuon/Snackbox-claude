@@ -1,0 +1,538 @@
+@page "/admin/discounts"
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject IDiscountsApi DiscountsApi
+@inject NavigationManager Navigation
+
+<PageTitle>Discount Management - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Discount Management</h2>
+        <button class="btn btn-primary" @onclick="ShowCreateDiscount">
+            <span class="icon">+</span> Add Discount
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn @(_filter == "all" ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetFilter("all")'>
+                All Discounts
+            </button>
+            <button type="button" class="btn @(_filter == "active" ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetFilter("active")'>
+                Active Only
+            </button>
+            <button type="button" class="btn @(_filter == "expired" ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetFilter("expired")'>
+                Expired
+            </button>
+            <button type="button" class="btn @(_filter == "inactive" ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetFilter("inactive")'>
+                Inactive
+            </button>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading discounts...</p>
+        </div>
+    }
+    else if (_errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @_errorMessage
+        </div>
+    }
+    else
+    {
+        <div class="discounts-table-container">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Valid Period</th>
+                        <th>Min Purchase</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var discount in _filteredDiscounts)
+                    {
+                        var status = GetDiscountStatus(discount);
+                        <tr>
+                            <td>
+                                <strong>@discount.Name</strong>
+                            </td>
+                            <td>
+                                @if (discount.Type == "FixedAmount")
+                                {
+                                    <span class="badge bg-info">Fixed Amount</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning">Percentage</span>
+                                }
+                            </td>
+                            <td>
+                                @if (discount.Type == "FixedAmount")
+                                {
+                                    <text>@discount.Value.ToString("C")</text>
+                                }
+                                else
+                                {
+                                    <text>@discount.Value%</text>
+                                }
+                            </td>
+                            <td>
+                                <small>
+                                    @discount.ValidFrom.ToLocalTime().ToString("dd MMM yyyy")<br/>
+                                    to @discount.ValidTo.ToLocalTime().ToString("dd MMM yyyy")
+                                </small>
+                            </td>
+                            <td>@discount.MinimumPurchaseAmount.ToString("C")</td>
+                            <td>
+                                @if (status == "Active")
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else if (status == "Expired")
+                                {
+                                    <span class="badge bg-secondary">Expired</span>
+                                }
+                                else if (status == "Scheduled")
+                                {
+                                    <span class="badge bg-primary">Scheduled</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-dark">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowEditDiscount(discount)">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeleteConfirm(discount)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (!_filteredDiscounts.Any())
+            {
+                <div class="no-data">
+                    <p>No discounts found.</p>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Create/Edit Modal -->
+@if (_showModal)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editingDiscount == null ? "Create Discount" : "Edit Discount")</h5>
+                    <button type="button" class="btn-close" @onclick="HideModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (_modalError != null)
+                    {
+                        <div class="alert alert-danger">@_modalError</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Discount Name</label>
+                        <input type="text" class="form-control" @bind="_formModel.Name" placeholder="e.g., Summer Sale" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <select class="form-control" @bind="_formModel.Type">
+                            <option value="FixedAmount">Fixed Amount</option>
+                            <option value="Percentage">Percentage</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Value</label>
+                        <input type="number" step="0.01" class="form-control" @bind="_formModel.Value"
+                               placeholder="@(_formModel.Type == "Percentage" ? "e.g., 10 (for 10%)" : "e.g., 0.50 (for €0.50)")" />
+                        @if (_formModel.Type == "Percentage")
+                        {
+                            <small class="form-text text-muted">Enter a percentage between 0 and 100</small>
+                        }
+                        else
+                        {
+                            <small class="form-text text-muted">Enter the discount amount in euros</small>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Minimum Purchase Amount</label>
+                        <input type="number" step="0.01" class="form-control" @bind="_formModel.MinimumPurchaseAmount" placeholder="e.g., 5.00" />
+                        <small class="form-text text-muted">Minimum purchase required to qualify for discount</small>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Valid From</label>
+                            <input type="datetime-local" class="form-control" @bind="_formModel.ValidFrom" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Valid To</label>
+                            <input type="datetime-local" class="form-control" @bind="_formModel.ValidTo" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="isActiveCheck" @bind="_formModel.IsActive" />
+                        <label class="form-check-label" for="isActiveCheck">
+                            Active (discount can be applied)
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveDiscount" disabled="@_isSaving">
+                        @if (_isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (_showDeleteModal)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="HideDeleteModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the discount "<strong>@_deletingDiscount?.Name</strong>"?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideDeleteModal">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteDiscount" disabled="@_isDeleting">
+                        @if (_isDeleting)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .filter-bar {
+        margin-bottom: 1.5rem;
+    }
+
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+    }
+
+    .discounts-table-container {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 2rem;
+        color: #666;
+    }
+
+    .icon {
+        font-size: 1.2rem;
+        margin-right: 0.25rem;
+    }
+
+    .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+</style>
+
+@code {
+    private List<DiscountDto> _discounts = new();
+    private List<DiscountDto> _filteredDiscounts = new();
+    private string _filter = "all";
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    private bool _showModal;
+    private bool _showDeleteModal;
+    private DiscountDto? _editingDiscount;
+    private DiscountDto? _deletingDiscount;
+    private DiscountFormModel _formModel = new();
+    private bool _isSaving;
+    private bool _isDeleting;
+    private string? _modalError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDiscounts();
+    }
+
+    private async Task LoadDiscounts()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var discounts = await DiscountsApi.GetAllAsync();
+            _discounts = discounts.ToList();
+            FilterDiscounts();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load discounts: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SetFilter(string filter)
+    {
+        _filter = filter;
+        FilterDiscounts();
+    }
+
+    private void FilterDiscounts()
+    {
+        var now = DateTime.UtcNow;
+
+        _filteredDiscounts = _filter switch
+        {
+            "active" => _discounts.Where(d => d.IsActive && d.ValidFrom <= now && d.ValidTo >= now).ToList(),
+            "expired" => _discounts.Where(d => d.ValidTo < now).ToList(),
+            "inactive" => _discounts.Where(d => !d.IsActive).ToList(),
+            _ => _discounts
+        };
+    }
+
+    private string GetDiscountStatus(DiscountDto discount)
+    {
+        var now = DateTime.UtcNow;
+
+        if (!discount.IsActive)
+            return "Inactive";
+
+        if (discount.ValidFrom > now)
+            return "Scheduled";
+
+        if (discount.ValidTo < now)
+            return "Expired";
+
+        return "Active";
+    }
+
+    private void ShowCreateDiscount()
+    {
+        _editingDiscount = null;
+        _formModel = new DiscountFormModel
+        {
+            ValidFrom = DateTime.Now.ToString("yyyy-MM-ddTHH:mm"),
+            ValidTo = DateTime.Now.AddDays(30).ToString("yyyy-MM-ddTHH:mm"),
+            IsActive = true,
+            Type = "FixedAmount"
+        };
+        _modalError = null;
+        _showModal = true;
+    }
+
+    private void ShowEditDiscount(DiscountDto discount)
+    {
+        _editingDiscount = discount;
+        _formModel = new DiscountFormModel
+        {
+            Name = discount.Name,
+            Type = discount.Type,
+            Value = discount.Value,
+            MinimumPurchaseAmount = discount.MinimumPurchaseAmount,
+            ValidFrom = discount.ValidFrom.ToLocalTime().ToString("yyyy-MM-ddTHH:mm"),
+            ValidTo = discount.ValidTo.ToLocalTime().ToString("yyyy-MM-ddTHH:mm"),
+            IsActive = discount.IsActive
+        };
+        _modalError = null;
+        _showModal = true;
+    }
+
+    private void HideModal()
+    {
+        _showModal = false;
+        _editingDiscount = null;
+        _modalError = null;
+    }
+
+    private async Task SaveDiscount()
+    {
+        _modalError = null;
+
+        // Validation
+        if (string.IsNullOrWhiteSpace(_formModel.Name))
+        {
+            _modalError = "Discount name is required.";
+            return;
+        }
+
+        if (!DateTime.TryParse(_formModel.ValidFrom, out var validFrom))
+        {
+            _modalError = "Invalid Valid From date.";
+            return;
+        }
+
+        if (!DateTime.TryParse(_formModel.ValidTo, out var validTo))
+        {
+            _modalError = "Invalid Valid To date.";
+            return;
+        }
+
+        if (validFrom >= validTo)
+        {
+            _modalError = "Valid From must be before Valid To.";
+            return;
+        }
+
+        if (_formModel.Type == "Percentage" && (_formModel.Value < 0 || _formModel.Value > 100))
+        {
+            _modalError = "Percentage must be between 0 and 100.";
+            return;
+        }
+
+        _isSaving = true;
+
+        try
+        {
+            var dto = new DiscountDto
+            {
+                Id = _editingDiscount?.Id ?? 0,
+                Name = _formModel.Name,
+                Type = _formModel.Type,
+                Value = _formModel.Value,
+                MinimumPurchaseAmount = _formModel.MinimumPurchaseAmount,
+                ValidFrom = validFrom.ToUniversalTime(),
+                ValidTo = validTo.ToUniversalTime(),
+                IsActive = _formModel.IsActive
+            };
+
+            if (_editingDiscount == null)
+            {
+                await DiscountsApi.CreateAsync(dto);
+            }
+            else
+            {
+                await DiscountsApi.UpdateAsync(_editingDiscount.Id, dto);
+            }
+
+            HideModal();
+            await LoadDiscounts();
+        }
+        catch (ApiException ex)
+        {
+            _modalError = $"API Error: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void ShowDeleteConfirm(DiscountDto discount)
+    {
+        _deletingDiscount = discount;
+        _showDeleteModal = true;
+    }
+
+    private void HideDeleteModal()
+    {
+        _showDeleteModal = false;
+        _deletingDiscount = null;
+    }
+
+    private async Task DeleteDiscount()
+    {
+        if (_deletingDiscount == null) return;
+
+        _isDeleting = true;
+
+        try
+        {
+            await DiscountsApi.DeleteAsync(_deletingDiscount.Id);
+            HideDeleteModal();
+            await LoadDiscounts();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to delete discount: {ex.Message}";
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
+
+    private class DiscountFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = "FixedAmount";
+        public decimal Value { get; set; }
+        public decimal MinimumPurchaseAmount { get; set; }
+        public string ValidFrom { get; set; } = string.Empty;
+        public string ValidTo { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+    }
+}

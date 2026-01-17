@@ -75,10 +75,40 @@
                         </div>
                     }
 
-                    <div class="purchase-total">
-                        <span class="total-label">Total:</span>
-                        <span class="total-amount">@session.TotalAmount.ToString("C")</span>
-                    </div>
+                    @if (session.AppliedDiscounts.Any())
+                    {
+                        <div class="subtotal-row">
+                            <span class="subtotal-label">Subtotal:</span>
+                            <span class="subtotal-amount">@session.TotalAmount.ToString("C")</span>
+                        </div>
+
+                        @foreach (var discount in session.AppliedDiscounts)
+                        {
+                            <div class="discount-row">
+                                <div class="discount-info">
+                                    <span class="discount-icon">🎉</span>
+                                    <span class="discount-name">@discount.Name</span>
+                                </div>
+                                <span class="discount-amount">-@discount.DiscountAmount.ToString("C")</span>
+                            </div>
+                        }
+
+                        <div class="purchase-total with-discount">
+                            <span class="total-label">Total:</span>
+                            <span class="total-amount">@session.DiscountedAmount.ToString("C")</span>
+                        </div>
+
+                        <div class="savings-badge">
+                            You saved @session.TotalSavings.ToString("C")!
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="purchase-total">
+                            <span class="total-label">Total:</span>
+                            <span class="total-amount">@session.TotalAmount.ToString("C")</span>
+                        </div>
+                    }
 
                     <!-- Last payment info -->
                     @if (session.LastPaymentDate.HasValue)
@@ -447,6 +477,87 @@
         font-size: 1.3rem;
         font-weight: 600;
         margin-bottom: 1rem;
+    }
+
+    .purchase-total.with-discount {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .subtotal-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .subtotal-label {
+        color: #666;
+    }
+
+    .subtotal-amount {
+        color: #666;
+        text-decoration: line-through;
+    }
+
+    .discount-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: #e7f9ed;
+        border-left: 4px solid #28a745;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+
+    .discount-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .discount-icon {
+        font-size: 1.2rem;
+    }
+
+    .discount-name {
+        font-weight: 600;
+        color: #155724;
+    }
+
+    .discount-amount {
+        font-weight: 700;
+        color: #28a745;
+        font-size: 1.1rem;
+    }
+
+    .savings-badge {
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        animation: pulseGlow 2s ease-in-out infinite;
+    }
+
+    @@keyframes pulseGlow {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        }
+        50% {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5);
+        }
     }
 
     .last-payment {
