@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Snackbox.Api.Controllers;
@@ -54,7 +54,7 @@ public class ScannerControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var barcode1 = new Barcode
+        var barcode1 = new PurchaseBarcode
         {
             Id = 1,
             UserId = 1,
@@ -65,7 +65,7 @@ public class ScannerControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var barcode2 = new Barcode
+        var barcode2 = new PurchaseBarcode
         {
             Id = 2,
             UserId = 1,
@@ -76,7 +76,7 @@ public class ScannerControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var loginBarcode = new Barcode
+        var loginBarcode = new LoginBarcode
         {
             Id = 3,
             UserId = 1,
@@ -221,7 +221,7 @@ public class ScannerControllerTests : IDisposable
     public async Task ScanBarcode_InactiveBarcode_ReturnsError()
     {
         // Arrange
-        var inactiveBarcode = new Barcode
+        var inactiveBarcode = new PurchaseBarcode
         {
             Id = 99,
             UserId = 1,

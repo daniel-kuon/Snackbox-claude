@@ -58,7 +58,7 @@ public class AuthControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var loginBarcode = new Barcode
+        var loginBarcode = new LoginBarcode
         {
             Id = 1,
             UserId = 1,
@@ -68,7 +68,7 @@ public class AuthControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var purchaseBarcode = new Barcode
+        var purchaseBarcode = new PurchaseBarcode
         {
             Id = 2,
             UserId = 1,

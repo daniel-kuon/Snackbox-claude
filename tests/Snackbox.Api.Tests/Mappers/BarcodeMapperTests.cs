@@ -11,7 +11,7 @@ public class BarcodeMapperTests
     public void ToDto_Barcode_MapsAllProperties()
     {
         // Arrange
-        var barcode = new Barcode
+        var barcode = new PurchaseBarcode
         {
             Id = 1,
             UserId = 10,
@@ -41,7 +41,7 @@ public class BarcodeMapperTests
     {
         // Arrange
         var user = new User { Id = 10, Username = "testuser", CreatedAt = DateTime.UtcNow };
-        var barcode = new Barcode
+        var barcode = new PurchaseBarcode
         {
             Id = 1,
             UserId = 10,
@@ -70,8 +70,8 @@ public class BarcodeMapperTests
         var user2 = new User { Id = 2, Username = "user2", CreatedAt = DateTime.UtcNow };
         var barcodes = new List<Barcode>
         {
-            new Barcode { Id = 1, UserId = 1, Code = "BC1", Amount = 1m, IsActive = true, CreatedAt = DateTime.UtcNow, User = user1 },
-            new Barcode { Id = 2, UserId = 2, Code = "BC2", Amount = 2m, IsActive = true, CreatedAt = DateTime.UtcNow, User = user2 }
+            new PurchaseBarcode { Id = 1, UserId = 1, Code = "BC1", Amount = 1m, IsActive = true, CreatedAt = DateTime.UtcNow, User = user1 },
+            new PurchaseBarcode { Id = 2, UserId = 2, Code = "BC2", Amount = 2m, IsActive = true, CreatedAt = DateTime.UtcNow, User = user2 }
         };
 
         // Act
@@ -87,7 +87,7 @@ public class BarcodeMapperTests
     public void ToDtoWithUser_NullUser_ReturnsNullUsername()
     {
         // Arrange
-        var barcode = new Barcode
+        var barcode = new PurchaseBarcode
         {
             Id = 1,
             UserId = 10,

@@ -99,8 +99,8 @@ public class UsersController : ControllerBase
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        // Create and associate barcode with user
-        var barcode = new Barcode
+        // Create and associate login barcode with user
+        var barcode = new LoginBarcode
         {
             Code = dto.BarcodeValue,
             UserId = user.Id,

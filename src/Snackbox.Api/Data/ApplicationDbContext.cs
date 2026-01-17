@@ -76,6 +76,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Amount).HasPrecision(10, 2);
         });
 
+        // Configure TPH inheritance for Barcode
+        modelBuilder.Entity<Barcode>()
+            .HasDiscriminator<string>("barcode_type")
+            .HasValue<LoginBarcode>("login")
+            .HasValue<PurchaseBarcode>("purchase");
+
         modelBuilder.Entity<BarcodeScan>(entity =>
         {
             entity.Property(e => e.Amount).HasPrecision(10, 2);

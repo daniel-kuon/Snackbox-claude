@@ -32,8 +32,8 @@ public class AuthenticationService : IAuthenticationService
             return null;
         }
 
-        // Only allow login using login-only barcodes
-        if (!barcode.IsLoginOnly)
+        // Only allow login using login barcodes
+        if (barcode is not LoginBarcode)
         {
             return null;
         }
@@ -92,8 +92,8 @@ public class AuthenticationService : IAuthenticationService
             return null;
         }
 
-        // Only allow login using login-only barcodes
-        if (!barcode.IsLoginOnly)
+        // Only allow login using login barcodes
+        if (barcode is not LoginBarcode)
         {
             return null;
         }

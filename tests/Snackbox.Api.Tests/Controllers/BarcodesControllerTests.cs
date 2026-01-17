@@ -52,7 +52,7 @@ public class BarcodesControllerTests : IDisposable
 
         _context.Users.AddRange(user1, user2);
 
-        var barcode1 = new Barcode
+        var barcode1 = new PurchaseBarcode
         {
             Id = 1,
             UserId = 1,
@@ -63,7 +63,7 @@ public class BarcodesControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var barcode2 = new Barcode
+        var barcode2 = new PurchaseBarcode
         {
             Id = 2,
             UserId = 1,
@@ -74,7 +74,7 @@ public class BarcodesControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var barcode3 = new Barcode
+        var barcode3 = new LoginBarcode
         {
             Id = 3,
             UserId = 1,
@@ -85,7 +85,7 @@ public class BarcodesControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var barcode4 = new Barcode
+        var barcode4 = new PurchaseBarcode
         {
             Id = 4,
             UserId = 2,
