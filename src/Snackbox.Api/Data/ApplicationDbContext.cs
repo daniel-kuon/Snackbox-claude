@@ -27,6 +27,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
     public DbSet<Deposit> Deposits => Set<Deposit>();
     public DbSet<CashRegister> CashRegister => Set<CashRegister>();
+    public DbSet<Discount> Discounts => Set<Discount>();
+    public DbSet<PurchaseDiscount> PurchaseDiscounts => Set<PurchaseDiscount>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -176,6 +178,26 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<CashRegister>();
 
+        modelBuilder.Entity<Discount>(entity =>
+        {
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.MinimumPurchaseAmount).HasPrecision(10, 2);
+            entity.Property(e => e.Value).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<PurchaseDiscount>(entity =>
+        {
+            entity.Property(e => e.DiscountAmount).HasPrecision(10, 2);
+            entity.HasOne(pd => pd.Purchase)
+                .WithMany(p => p.AppliedDiscounts)
+                .HasForeignKey(pd => pd.PurchaseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(pd => pd.Discount)
+                .WithMany()
+                .HasForeignKey(pd => pd.DiscountId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         // Seed data
         SeedData(modelBuilder);
     }
@@ -247,10 +269,10 @@ public class ApplicationDbContext : DbContext
             new Achievement { Id = 39, Code = "PURCHASE_500", Name = "Snack Overlord", Description = "Made 500 purchases total", Category = AchievementCategory.Milestone, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF4500\" stroke=\"#8B0000\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">👑</text><text x=\"60\" y=\"85\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">500</text></svg>" },
 
             // Fun/quirky achievements
-            new Achievement { Id = 40, Code = "SPEED_DEMON", Name = "Speed Demon", Description = "Made 2 purchases within 1 minute", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF6347\" stroke=\"#DC143C\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">⚡</text><text x=\"60\" y=\"85\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">&lt;1min</text></svg>" },
-            new Achievement { Id = 41, Code = "DOUBLE_TROUBLE", Name = "Double Trouble", Description = "Made exactly 2 purchases in a session", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF69B4\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">2️⃣</text></svg>" },
-            new Achievement { Id = 42, Code = "TRIPLE_THREAT", Name = "Triple Threat", Description = "Made exactly 3 purchases in a session", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#DDA0DD\" stroke=\"#BA55D3\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">3️⃣</text></svg>" },
-            new Achievement { Id = 43, Code = "LUCKY_SEVEN", Name = "Lucky Seven", Description = "Made exactly 7 purchases in a session", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#32CD32\" stroke=\"#228B22\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">7️⃣</text></svg>" },
+            new Achievement { Id = 40, Code = "SPEED_DEMON", Name = "Speed Demon", Description = "Made 2 scans within 3 seconds", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF6347\" stroke=\"#DC143C\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">⚡</text><text x=\"60\" y=\"85\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">&lt;1min</text></svg>" },
+            new Achievement { Id = 41, Code = "DOUBLE_TROUBLE", Name = "Double Trouble", Description = "Made 2 or more scans in a session", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF69B4\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">2️⃣</text></svg>" },
+            new Achievement { Id = 42, Code = "TRIPLE_THREAT", Name = "Triple Threat", Description = "Made 3 or more scans in a session", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#DDA0DD\" stroke=\"#BA55D3\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">3️⃣</text></svg>" },
+            new Achievement { Id = 43, Code = "LUCKY_SEVEN", Name = "Lucky Seven", Description = "Made 7 or more scans in a session", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#32CD32\" stroke=\"#228B22\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">7️⃣</text></svg>" },
             new Achievement { Id = 44, Code = "ROUND_NUMBER", Name = "OCD Approved", Description = "Made a purchase totaling exactly €5 or €10", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#E0FFFF\" stroke=\"#00CED1\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#008B8B\">✔️</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#008B8B\">€5/€10</text></svg>" },
             new Achievement { Id = 45, Code = "SAME_AGAIN", Name = "Same Again, Please", Description = "Made 3 identical purchases in a row", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FAFAD2\" stroke=\"#BDB76B\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B7355\">🔁</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B7355\">x3</text></svg>" },
             new Achievement { Id = 46, Code = "PAID_UP", Name = "Debt Free!", Description = "Paid off your entire balance", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#90EE90\" stroke=\"#32CD32\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">✅</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">€0</text></svg>" },

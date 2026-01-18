@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IBarcodeLookupApi>();
         AddRefitClient<IBackupApi>();
         AddRefitClient<IInvoicesApi>();
+        AddRefitClient<IDiscountsApi>();
         AddRefitClient<ISettingsApi>();
 
         return services;
@@ -126,6 +127,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IBarcodeLookupApi>();
         AddRefitClient<IInvoicesApi>();
         AddRefitClient<IBackupApi>();
+        AddRefitClient<IDiscountsApi>();
         AddRefitClient<ISettingsApi>();
     }
 

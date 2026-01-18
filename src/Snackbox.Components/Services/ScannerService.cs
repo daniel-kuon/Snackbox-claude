@@ -80,7 +80,9 @@ public class ScannerService : IScannerService
                 ScannedBarcodes = DtoToModelMapper.ToScannedBarcodes(result.ScannedBarcodes),
                 StartTime = result.ScannedBarcodes.FirstOrDefault()?.ScannedAt ?? DateTime.UtcNow,
                 RecentPurchases = DtoToModelMapper.ToRecentPurchases(result.RecentPurchases),
-                NewAchievements = DtoToModelMapper.ToAchievements(result.NewAchievements)
+                NewAchievements = DtoToModelMapper.ToAchievements(result.NewAchievements),
+                AppliedDiscounts = DtoToModelMapper.ToAppliedDiscounts(result.ApplicableDiscounts),
+                DiscountedAmount = result.DiscountedAmount
             };
 
             // Determine if this is a new purchase or update

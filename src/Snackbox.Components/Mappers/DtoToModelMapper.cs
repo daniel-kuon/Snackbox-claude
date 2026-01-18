@@ -13,4 +13,5 @@ public static partial class DtoToModelMapper
     public static partial List<ScannedBarcode> ToScannedBarcodes(IEnumerable<ScannedBarcodeDto> source);
     public static partial List<RecentPurchase> ToRecentPurchases(IEnumerable<RecentPurchaseDto> source);
     public static partial List<Achievement> ToAchievements(IEnumerable<AchievementDto> source);
+    public static partial List<AppliedDiscount> ToAppliedDiscounts(IEnumerable<AppliedDiscountDto> source);
 }
