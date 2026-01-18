@@ -10,6 +10,9 @@ using Snackbox.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load secrets file if it exists
+builder.Configuration.AddJsonFile("appsettings.secrets.json", optional: true, reloadOnChange: true);
+
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -90,6 +93,9 @@ builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()
 
 // Register backup service
 builder.Services.AddScoped<IBackupService, BackupService>();
+
+// Register settings service
+builder.Services.AddScoped<ISettingsService, SettingsService>();
 
 // Register database seeder service
 builder.Services.AddScoped<DatabaseSeeder>();

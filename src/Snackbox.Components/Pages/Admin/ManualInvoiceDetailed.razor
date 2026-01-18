@@ -1,0 +1,927 @@
+@page "/admin/invoices/manual/detailed"
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Snackbox.Components.Components
+@using Snackbox.Components.Components.Shared
+@inject IInvoicesApi InvoicesApi
+@inject IProductsApi ProductsApi
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<PageTitle>Create Detailed Invoice - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <div>
+            <button class="btn btn-secondary btn-sm" @onclick="GoBack">
+                <span class="icon">←</span> Back
+            </button>
+            <h2 class="mt-2">Create Detailed Invoice</h2>
+        </div>
+    </div>
+
+    <div class="form-card">
+        @if (_errorMessage != null)
+        {
+            <div class="alert alert-danger">@_errorMessage</div>
+        }
+
+        <h4>Invoice Details</h4>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>Invoice Date *</label>
+                    <input type="date" class="form-control" @bind="_invoiceDate" />
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>Supplier *</label>
+                    <input type="text" class="form-control" @bind="_supplier" placeholder="Enter supplier name" />
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>Paid By *</label>
+                    <select class="form-control" @bind="_paidByUserId">
+                        <option value="0">Select user...</option>
+                        @if (_users != null)
+                        {
+                            @foreach (var user in _users)
+                            {
+                                <option value="@user.Id">@user.Username</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>Additional Costs (€)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" @bind="_additionalCosts" placeholder="0.00" />
+                    <small class="form-text text-muted">Shipping, handling, etc.</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>Price Reduction (€)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" @bind="_priceReduction" placeholder="0.00" />
+                    <small class="form-text text-muted">Discounts, coupons</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>Notes (optional)</label>
+                    <textarea class="form-control" rows="3" @bind="_notes" placeholder="Additional notes"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <hr />
+
+        <h4>Products</h4>
+        <div class="product-entry-section">
+            <div class="form-group">
+                <label>Scan Barcode or Search Product</label>
+                <div class="product-search-container">
+                    <div class="input-group">
+                        <BarcodeInput @bind-Value="_productInput"
+                                      @bind-Value:after="OnProductInputChanged"
+                                      Placeholder="Scan barcode or type to search products"
+                                      Disabled="@_isProcessingProduct" />
+                        <button class="btn btn-primary" @onclick="AddProduct" disabled="@(string.IsNullOrWhiteSpace(_productInput) || _isProcessingProduct)">
+                            @if (_isProcessingProduct)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            else
+                            {
+                                <span>Add</span>
+                            }
+                        </button>
+                    </div>
+                    @if (_showProductSuggestions && _productSuggestions.Any())
+                    {
+                        <div class="suggestions-dropdown" @onmousedown:preventDefault="true">
+                            @foreach (var product in _productSuggestions)
+                            {
+                                <div class="suggestion-item" @onclick="() => SelectProductFromSuggestions(product)">
+                                    <strong>@product.Name</strong>
+                                    @if (product.Barcodes.Any())
+                                    {
+                                        <small class="text-muted ms-2">(@string.Join(", ", product.Barcodes.Take(2).Select(b => b.Barcode)))</small>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (_invoiceItems.Any())
+            {
+                <div class="items-table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th style="width: 100px;">Quantity</th>
+                                <th style="width: 120px;">Unit Price (€)</th>
+                                <th style="width: 120px;">Total (€)</th>
+                                <th style="width: 140px;">Best Before</th>
+                                <th style="width: 60px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < _invoiceItems.Count; i++)
+                            {
+                                var index = i;
+                                var item = _invoiceItems[i];
+                                <tr>
+                                    <td>
+                                        <strong>@item.ProductName</strong>
+                                        @if (!string.IsNullOrWhiteSpace(item.Barcode))
+                                        {
+                                            <br /><small class="text-muted">@item.Barcode</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                               min="1"
+                                               class="form-control form-control-sm"
+                                               @bind="item.Quantity"
+                                               @oninput="@(e => UpdateItemQuantity(index, e.Value?.ToString()))" />
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                               step="0.01"
+                                               min="0"
+                                               class="form-control form-control-sm"
+                                               @bind="item.UnitPrice"
+                                               @bind:event="oninput" />
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                               step="0.01"
+                                               min="0"
+                                               class="form-control form-control-sm"
+                                               @bind="_invoiceItems[index].TotalPriceInput"
+                                               @bind:event="oninput"
+                                               @bind:after="() => UpdateTotalPriceFromInput(index)" />
+                                    </td>
+                                    <td>
+                                        <input type="date"
+                                               class="form-control form-control-sm"
+                                               value="@(item.BestBeforeDate?.ToString("yyyy-MM-dd") ?? "")"
+                                               @onchange="@(e => UpdateItemBestBefore(index, e.Value?.ToString()))" />
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => RemoveItem(index)">✕</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="total-summary">
+                    <div class="summary-row">
+                        <span>Items Subtotal:</span>
+                        <strong>€@_invoiceItems.Sum(i => i.TotalPrice).ToString("F2")</strong>
+                    </div>
+                    @if (_additionalCosts > 0)
+                    {
+                        <div class="summary-row">
+                            <span>Additional Costs:</span>
+                            <strong>€@_additionalCosts.ToString("F2")</strong>
+                        </div>
+                    }
+                    @if (_priceReduction > 0)
+                    {
+                        <div class="summary-row">
+                            <span>Price Reduction:</span>
+                            <strong class="text-danger">-€@_priceReduction.ToString("F2")</strong>
+                        </div>
+                    }
+                    <div class="summary-row total-row">
+                        <span>Grand Total:</span>
+                        <strong>€@GetGrandTotal().ToString("F2")</strong>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <p class="text-muted">No products added yet. Scan a barcode or search for products to add them to the invoice.</p>
+                </div>
+            }
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-secondary" @onclick="GoBack">Cancel</button>
+            <button class="btn btn-primary" @onclick="CreateInvoice" disabled="@_isCreating">
+                @if (_isCreating)
+                {
+                    <span class="spinner-border spinner-border-sm"></span>
+                }
+                Create Invoice
+            </button>
+        </div>
+    </div>
+</div>
+
+<BarcodeLookupModal IsVisible="_showBarcodeLookupModal"
+                    InitialBarcode="@_pendingBarcodeForLookup"
+                    OnClose="CloseBarcodeLookupModal"
+                    OnProductCreated="HandleProductCreated" />
+
+<style>
+    .page-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .form-card {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        max-width: 1200px;
+    }
+
+    .form-card h4 {
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .form-card hr {
+        margin: 2rem 0;
+        border: none;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .form-control-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 0.25rem;
+    }
+
+    .text-muted {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+
+    .input-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .input-group .form-control {
+        flex: 1;
+    }
+
+    .suggestions-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-top: 2px;
+    }
+
+    .suggestion-item {
+        padding: 0.75rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f1f1;
+    }
+
+    .suggestion-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    .product-entry-section {
+        position: relative;
+    }
+
+    .product-search-container {
+        position: relative;
+    }
+
+    .items-table-container {
+        margin-top: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table thead {
+        background-color: #f8f9fa;
+    }
+
+    .table th,
+    .table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .total-summary {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-top: 1rem;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+    }
+
+    .total-row {
+        border-top: 2px solid #dee2e6;
+        margin-top: 0.5rem;
+        padding-top: 0.75rem;
+        font-size: 1.1rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        margin-top: 1rem;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .btn {
+        padding: 0.5rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #0056b3;
+    }
+
+    .btn-primary:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background-color: #545b62;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background-color: #c82333;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.5rem;
+        border-radius: 4px;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .spinner-border {
+        width: 1rem;
+        height: 1rem;
+        border: 0.2em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        animation: spinner-border 0.75s linear infinite;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.2em;
+    }
+
+    @@keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+
+    .icon {
+        margin-right: 0.5rem;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem;
+    }
+
+    .ms-2 {
+        margin-left: 0.5rem;
+    }
+
+    .text-danger {
+        color: #dc3545;
+    }
+
+    .row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 0;
+    }
+
+    .col-md-4 {
+        flex: 1;
+    }
+</style>
+
+@code {
+    private class InvoiceItemModel
+    {
+        public int? ProductId { get; set; }
+        public string? Barcode { get; set; }
+        public string ProductName { get; set; } = "";
+
+        private int _quantity = 1;
+        public int Quantity
+        {
+            get => _quantity;
+            set
+            {
+                _quantity = value;
+                // When quantity changes, recalculate total price input
+                _totalPriceInput = null;
+            }
+        }
+
+        private decimal _unitPrice;
+        public decimal UnitPrice
+        {
+            get => _unitPrice;
+            set
+            {
+                _unitPrice = value;
+                // When unit price changes, recalculate total price input
+                _totalPriceInput = null;
+            }
+        }
+
+        public decimal TotalPrice => Quantity * UnitPrice;
+        public DateTime? BestBeforeDate { get; set; }
+
+        // For two-way binding of total price input
+        private decimal? _totalPriceInput;
+        public decimal TotalPriceInput
+        {
+            get => _totalPriceInput ?? TotalPrice;
+            set => _totalPriceInput = value;
+        }
+
+        public void UpdateUnitPriceFromTotal()
+        {
+            if (_totalPriceInput.HasValue && Quantity > 0)
+            {
+                UnitPrice = _totalPriceInput.Value / Quantity;
+                // Keep the manual input value
+            }
+        }
+
+        public void SyncTotalPriceInput()
+        {
+            _totalPriceInput = TotalPrice;
+        }
+    }
+
+    private DateTime _invoiceDate = DateTime.Today;
+    private string _supplier = "";
+    private int _paidByUserId;
+    private decimal _additionalCosts;
+    private decimal _priceReduction;
+    private string _notes = "";
+
+    private string _productInput = "";
+    private bool _isProcessingProduct;
+    private bool _showProductSuggestions;
+    private System.Threading.CancellationTokenSource? _inputDebounceTokenSource;
+    private List<ProductDto> _productSuggestions = new();
+    private List<ProductDto>? _allProducts;
+
+    private List<InvoiceItemModel> _invoiceItems = new();
+
+    private List<UserDto>? _users;
+    private bool _isCreating;
+    private string? _errorMessage;
+
+    private bool _showBarcodeLookupModal;
+    private string? _pendingBarcodeForLookup;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+        await LoadProducts();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // BarcodeInput component handles its own focus
+        await Task.CompletedTask;
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            _users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+            var currentUser = _users?.FirstOrDefault(u => u.IsAdmin);
+            if (currentUser != null)
+            {
+                _paidByUserId = currentUser.Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load users: {ex.Message}";
+        }
+    }
+
+    private async Task LoadProducts()
+    {
+        try
+        {
+            _allProducts = await ProductsApi.GetAllAsync() as List<ProductDto>;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load products: {ex.Message}";
+        }
+    }
+
+    private async Task OnProductInputChanged()
+    {
+        // Cancel any pending debounce
+        _inputDebounceTokenSource?.Cancel();
+        _inputDebounceTokenSource = new System.Threading.CancellationTokenSource();
+        var token = _inputDebounceTokenSource.Token;
+
+        if (string.IsNullOrWhiteSpace(_productInput))
+        {
+            _showProductSuggestions = false;
+            return;
+        }
+
+        var input = _productInput.Trim();
+
+        // If input looks like a complete barcode (8-14 digits), automatically trigger search after short delay
+        if (System.Text.RegularExpressions.Regex.IsMatch(input, @"^\d{8,14}$"))
+        {
+            try
+            {
+                // Wait 300ms to ensure barcode scan is complete
+                await Task.Delay(300, token);
+                if (!token.IsCancellationRequested)
+                {
+                    await AddProduct();
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // User is still typing, ignore
+            }
+        }
+        else
+        {
+            // For text search, show suggestions immediately
+            UpdateProductSuggestions();
+        }
+    }
+
+    private void UpdateProductSuggestions()
+    {
+        if (string.IsNullOrWhiteSpace(_productInput) || _allProducts == null)
+        {
+            _showProductSuggestions = false;
+            _productSuggestions.Clear();
+            return;
+        }
+
+        var searchTerm = _productInput.Trim().ToLower();
+        _productSuggestions = _allProducts
+            .Where(p => p.Name.ToLower().Contains(searchTerm))
+            .Take(10)
+            .ToList();
+
+        _showProductSuggestions = _productSuggestions.Any();
+    }
+
+    private async Task AddProduct()
+    {
+        if (string.IsNullOrWhiteSpace(_productInput)) return;
+
+        _isProcessingProduct = true;
+        _showProductSuggestions = false;
+        _errorMessage = null;
+
+        try
+        {
+            var input = _productInput.Trim();
+
+            // Check if input is a barcode (digits only)
+            if (System.Text.RegularExpressions.Regex.IsMatch(input, @"^\d+$"))
+            {
+                await AddProductByBarcode(input);
+            }
+            else
+            {
+                // Try to find product by name
+                var product = _allProducts?.FirstOrDefault(p => p.Name.Equals(input, StringComparison.OrdinalIgnoreCase));
+                if (product != null)
+                {
+                    AddProductToList(product.Id, null, product.Name, 1, 0);
+                }
+                else
+                {
+                    _errorMessage = $"Product not found: {input}";
+                }
+            }
+
+            // Clear input
+            _productInput = "";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error adding product: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessingProduct = false;
+        }
+    }
+
+    private async Task AddProductByBarcode(string barcode)
+    {
+        try
+        {
+            // Look up the barcode
+            var product = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{Uri.EscapeDataString(barcode)}");
+
+            if (product != null)
+            {
+                // Find the ProductBarcode record to get the quantity
+                var barcodeRecord = product.Barcodes.FirstOrDefault(b => b.Barcode == barcode);
+                var quantity = barcodeRecord?.Quantity ?? 1;
+
+                // Check if this product is already in the list
+                var existingItem = _invoiceItems.FirstOrDefault(i => i.ProductId == product.Id);
+                if (existingItem != null)
+                {
+                    // Increment by barcode quantity
+                    existingItem.Quantity += quantity;
+                }
+                else
+                {
+                    AddProductToList(product.Id, barcode, product.Name, quantity, 0);
+                }
+            }
+            else
+            {
+                // Product not found, open barcode lookup modal
+                _pendingBarcodeForLookup = barcode;
+                _showBarcodeLookupModal = true;
+            }
+        }
+        catch
+        {
+            // If API call fails, assume barcode not found
+            _pendingBarcodeForLookup = barcode;
+            _showBarcodeLookupModal = true;
+        }
+    }
+
+    private void SelectProductFromSuggestions(ProductDto product)
+    {
+        _productInput = "";
+
+        // Check if already in list (allow multiple adds by incrementing quantity)
+        var existingItem = _invoiceItems.FirstOrDefault(i => i.ProductId == product.Id);
+        if (existingItem != null)
+        {
+            existingItem.Quantity += 1;
+            // Sync the total price input when quantity changes
+            existingItem.SyncTotalPriceInput();
+        }
+        else
+        {
+            AddProductToList(product.Id, null, product.Name, 1, 0);
+        }
+
+        StateHasChanged();
+    }
+
+    private void AddProductToList(int productId, string? barcode, string productName, int quantity, decimal unitPrice)
+    {
+        _invoiceItems.Add(new InvoiceItemModel
+        {
+            ProductId = productId,
+            Barcode = barcode,
+            ProductName = productName,
+            Quantity = quantity,
+            UnitPrice = unitPrice
+        });
+    }
+
+    private void UpdateItemQuantity(int index, string? value)
+    {
+        if (int.TryParse(value, out var quantity) && quantity > 0)
+        {
+            _invoiceItems[index].Quantity = quantity;
+            // Sync total price input when quantity changes
+            _invoiceItems[index].SyncTotalPriceInput();
+        }
+    }
+
+    private void UpdateTotalPriceFromInput(int index)
+    {
+        _invoiceItems[index].UpdateUnitPriceFromTotal();
+    }
+
+    private void UpdateItemBestBefore(int index, string? value)
+    {
+        if (DateTime.TryParse(value, out var date))
+        {
+            _invoiceItems[index].BestBeforeDate = date;
+        }
+        else
+        {
+            _invoiceItems[index].BestBeforeDate = null;
+        }
+    }
+
+    private void RemoveItem(int index)
+    {
+        _invoiceItems.RemoveAt(index);
+    }
+
+    private decimal GetGrandTotal()
+    {
+        return _invoiceItems.Sum(i => i.TotalPrice) + _additionalCosts - _priceReduction;
+    }
+
+    private async Task CreateInvoice()
+    {
+        _errorMessage = null;
+
+        // Validate form and show specific errors
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(_supplier))
+            errors.Add("Supplier is required");
+
+        if (_paidByUserId <= 0)
+            errors.Add("Please select who paid for the invoice");
+
+        if (!_invoiceItems.Any())
+            errors.Add("At least one product must be added to the invoice");
+
+        if (_invoiceItems.Any(i => i.UnitPrice <= 0))
+            errors.Add("All items must have a unit price greater than 0");
+
+        if (errors.Any())
+        {
+            _errorMessage = string.Join(". ", errors) + ".";
+            return;
+        }
+
+        _isCreating = true;
+
+        try
+        {
+            var dto = new CreateManualDetailedInvoiceDto
+            {
+                InvoiceDate = _invoiceDate,
+                Supplier = _supplier,
+                AdditionalCosts = _additionalCosts,
+                PriceReduction = _priceReduction,
+                PaidByUserId = _paidByUserId,
+                Notes = string.IsNullOrWhiteSpace(_notes) ? null : _notes,
+                Items = _invoiceItems.Select(i => new ManualInvoiceItemDto
+                {
+                    ProductId = i.ProductId,
+                    Barcode = i.Barcode,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    BestBeforeDate = i.BestBeforeDate
+                }).ToList()
+            };
+
+            var result = await InvoicesApi.CreateManualDetailedAsync(dto);
+            Navigation.NavigateTo($"/admin/invoices/{result.Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to create invoice: {ex.Message}";
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
+
+    private void CloseBarcodeLookupModal()
+    {
+        _showBarcodeLookupModal = false;
+        _pendingBarcodeForLookup = null;
+    }
+
+    private async Task HandleProductCreated()
+    {
+        // Reload products after new product is created
+        await LoadProducts();
+
+        // If we have a pending barcode, try to add it again
+        if (!string.IsNullOrWhiteSpace(_pendingBarcodeForLookup))
+        {
+            var barcode = _pendingBarcodeForLookup;
+            _pendingBarcodeForLookup = null;
+            await AddProductByBarcode(barcode);
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/admin/invoices");
+    }
+}
