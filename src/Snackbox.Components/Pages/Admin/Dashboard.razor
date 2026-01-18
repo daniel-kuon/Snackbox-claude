@@ -251,7 +251,7 @@
 
         _expiringSoon = products
             .Select(p => new {
-                p.Id, p.Name, 
+                p.Id, p.Name,
                 Date = new[] { p.BestBeforeInStock, p.BestBeforeOnShelf }.Where(d => d.HasValue).Select(d => d!.Value).DefaultIfEmpty(DateTime.MaxValue).Min(),
                 Stock = byProduct.TryGetValue(p.Id, out var s) ? s : null
             })
@@ -295,15 +295,15 @@
         var oneYearAgo = now.AddYears(-1);
 
         _purchasedThisWeek = purchases
-            .Where(p => (p.CompletedAt ?? p.CreatedAt) >= startOfWeek)
+            .Where(p => (p.UpdatedAt ?? p.CreatedAt) >= startOfWeek)
             .Sum(p => p.TotalAmount);
 
         _purchasedThisMonth = purchases
-            .Where(p => (p.CompletedAt ?? p.CreatedAt) >= startOfMonth)
+            .Where(p => (p.UpdatedAt ?? p.CreatedAt) >= startOfMonth)
             .Sum(p => p.TotalAmount);
 
         var lastYearPurchases = purchases
-            .Where(p => (p.CompletedAt ?? p.CreatedAt) >= oneYearAgo)
+            .Where(p => (p.UpdatedAt ?? p.CreatedAt) >= oneYearAgo)
             .ToList();
 
         // Weekly: 52 buckets, each 7-day window ending at now
@@ -312,7 +312,7 @@
         {
             var periodStart = StartOfWeek(now.AddDays(-7 * i), DayOfWeek.Monday);
             var periodEnd = periodStart.AddDays(7);
-            var sum = lastYearPurchases.Where(p => (p.CompletedAt ?? p.CreatedAt) >= periodStart && (p.CompletedAt ?? p.CreatedAt) < periodEnd).Sum(p => p.TotalAmount);
+            var sum = lastYearPurchases.Where(p => (p.UpdatedAt ?? p.CreatedAt) >= periodStart && (p.UpdatedAt ?? p.CreatedAt) < periodEnd).Sum(p => p.TotalAmount);
             _weeklySeries.Add(sum);
         }
         _weeklySeriesMax = _weeklySeries.DefaultIfEmpty(0).Max();
@@ -324,7 +324,7 @@
             var dt = now.AddMonths(-i);
             var mStart = new DateTime(dt.Year, dt.Month, 1, 0, 0, 0, DateTimeKind.Utc);
             var mEnd = mStart.AddMonths(1);
-            var sum = lastYearPurchases.Where(p => (p.CompletedAt ?? p.CreatedAt) >= mStart && (p.CompletedAt ?? p.CreatedAt) < mEnd).Sum(p => p.TotalAmount);
+            var sum = lastYearPurchases.Where(p => (p.UpdatedAt ?? p.CreatedAt) >= mStart && (p.UpdatedAt ?? p.CreatedAt) < mEnd).Sum(p => p.TotalAmount);
             _monthlySeries.Add(sum);
         }
         _monthlySeriesMax = _monthlySeries.DefaultIfEmpty(0).Max();
