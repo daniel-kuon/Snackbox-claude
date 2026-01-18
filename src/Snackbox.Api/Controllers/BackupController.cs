@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Snackbox.Api.Attributes;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 using Snackbox.Api.Services;
@@ -54,6 +55,7 @@ public class BackupController : ControllerBase
     /// Lists all available backups
     /// </summary>
     [HttpGet("list")]
+    [AllowAnonymousIfNoDatabase]
     public async Task<ActionResult<List<BackupMetadataDto>>> ListBackups()
     {
         try
@@ -107,6 +109,7 @@ public class BackupController : ControllerBase
     /// Restores a backup by ID
     /// </summary>
     [HttpPost("restore/{id}")]
+    [AllowAnonymousIfNoDatabase]
     public async Task<ActionResult> RestoreBackup(string id, [FromQuery] bool createBackupBeforeRestore = false)
     {
         try
@@ -136,6 +139,7 @@ public class BackupController : ControllerBase
     /// </summary>
     [HttpPost("import")]
     [RequestSizeLimit(1_000_000_000)] // 1GB limit
+    [AllowAnonymousIfNoDatabase]
     public async Task<ActionResult<BackupMetadataDto>> ImportBackup(IFormFile file)
     {
         if (file == null || file.Length == 0)
@@ -157,6 +161,39 @@ public class BackupController : ControllerBase
     }
 
     /// <summary>
+    /// Restores database directly from an uploaded backup file
+    /// </summary>
+    [HttpPost("restore-from-upload")]
+    [RequestSizeLimit(1_000_000_000)] // 1GB limit
+    [AllowAnonymousIfNoDatabase]
+    public async Task<ActionResult> RestoreFromUpload(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { error = "No file uploaded" });
+        }
+
+        try
+        {
+            // Proactively check for PostgreSQL tools to provide a clear error instead of a generic failure
+            if (!await _backupService.ArePostgresToolsAvailableAsync())
+            {
+                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install PostgreSQL 17 by running: winget install -e --id PostgreSQL.PostgreSQL.17 (or use scripts/Install-PostgresTools.ps1)" });
+            }
+
+            using var stream = file.OpenReadStream();
+            var backup = await _backupService.ImportBackupAsync(stream, file.FileName);
+            await _backupService.RestoreBackupAsync(backup.Id, createBackupBeforeRestore: false);
+            return Ok(new { message = "Backup restored successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to restore backup from upload");
+            return StatusCode(500, new { error = "Failed to restore backup", details = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Downloads a backup file
     /// </summary>
     [HttpGet("download/{id}")]
@@ -166,7 +203,7 @@ public class BackupController : ControllerBase
         {
             var backups = await _backupService.ListBackupsAsync();
             var backup = backups.FirstOrDefault(b => b.Id == id);
-            
+
             if (backup == null)
             {
                 return NotFound(new { error = "Backup not found" });
@@ -233,7 +270,7 @@ public class BackupController : ControllerBase
     /// Creates an empty database
     /// </summary>
     [HttpPost("database/create-empty")]
-    [AllowAnonymous]
+    [AllowAnonymousIfNoDatabase]
     public async Task<ActionResult> CreateEmptyDatabase()
     {
         try
@@ -252,7 +289,7 @@ public class BackupController : ControllerBase
     /// Creates a database with seed data
     /// </summary>
     [HttpPost("database/create-seeded")]
-    [AllowAnonymous]
+    [AllowAnonymousIfNoDatabase]
     public async Task<ActionResult> CreateSeededDatabase()
     {
         try
@@ -271,7 +308,7 @@ public class BackupController : ControllerBase
     /// Checks if PostgreSQL tools are available
     /// </summary>
     [HttpGet("tools/check")]
-    [AllowAnonymous]
+    [AllowAnonymousIfNoDatabase]
     public async Task<ActionResult> CheckPostgresTools()
     {
         try

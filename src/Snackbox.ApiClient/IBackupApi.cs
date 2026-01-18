@@ -24,6 +24,10 @@ public interface IBackupApi
     [Post("/api/backup/import")]
     Task<BackupMetadataDto> ImportBackupAsync([AliasAs("file")] StreamPart file);
 
+    [Multipart]
+    [Post("/api/backup/restore-from-upload")]
+    Task RestoreFromUploadAsync([AliasAs("file")] StreamPart file);
+
     [Get("/api/backup/download/{id}")]
     Task<HttpResponseMessage> DownloadBackupAsync(string id);
 

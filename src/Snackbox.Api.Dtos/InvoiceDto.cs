@@ -1,11 +1,19 @@
 namespace Snackbox.Api.Dtos;
 
+public enum InvoiceType
+{
+    ManualSimple = 0,
+    ManualDetailed = 1,
+    Parsed = 2
+}
+
 public class InvoiceDto
 {
     public int Id { get; set; }
     public required string InvoiceNumber { get; set; }
     public DateTime InvoiceDate { get; set; }
     public required string Supplier { get; set; }
+    public InvoiceType Type { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal AdditionalCosts { get; set; }
     public decimal PriceReduction { get; set; }
@@ -132,5 +140,34 @@ public class AddInvoiceItemToStockDto
 
 public class UpdateInvoiceItemDto
 {
+    public DateTime? BestBeforeDate { get; set; }
+}
+
+public class CreateManualSimpleInvoiceDto
+{
+    public DateTime InvoiceDate { get; set; }
+    public required string Supplier { get; set; }
+    public decimal TotalAmount { get; set; }
+    public int PaidByUserId { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class CreateManualDetailedInvoiceDto
+{
+    public DateTime InvoiceDate { get; set; }
+    public required string Supplier { get; set; }
+    public decimal AdditionalCosts { get; set; }
+    public decimal PriceReduction { get; set; }
+    public int PaidByUserId { get; set; }
+    public string? Notes { get; set; }
+    public List<ManualInvoiceItemDto> Items { get; set; } = new();
+}
+
+public class ManualInvoiceItemDto
+{
+    public int? ProductId { get; set; }
+    public string? Barcode { get; set; }
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
     public DateTime? BestBeforeDate { get; set; }
 }
