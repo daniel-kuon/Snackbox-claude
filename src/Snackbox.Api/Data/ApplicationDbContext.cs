@@ -73,19 +73,14 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasIndex(e => e.Code).IsUnique();
             entity.Property(e => e.Code).HasMaxLength(50);
-            entity.Property(e => e.Amount).HasPrecision(10, 2);
         });
 
         // Configure TPH inheritance for Barcode
-        modelBuilder.Entity<Barcode>()
-            .HasDiscriminator<string>("barcode_type")
-            .HasValue<LoginBarcode>("login")
-            .HasValue<PurchaseBarcode>("purchase");
+        modelBuilder.Entity<Barcode>();
+        modelBuilder.Entity<LoginBarcode>();
+        modelBuilder.Entity<PurchaseBarcode>();
 
-        modelBuilder.Entity<BarcodeScan>(entity =>
-        {
-            entity.Property(e => e.Amount).HasPrecision(10, 2);
-        });
+        modelBuilder.Entity<BarcodeScan>();
 
         modelBuilder.Entity<Product>(entity =>
         {
@@ -104,34 +99,20 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<Payment>(entity =>
         {
-            entity.Property(e => e.Amount).HasPrecision(10, 2);
             entity.HasOne(e => e.AdminUser)
                 .WithMany()
                 .HasForeignKey(e => e.AdminUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<Purchase>(entity =>
-        {
-            entity.Property(e => e.ManualAmount).HasPrecision(10, 2);
-        });
+        modelBuilder.Entity<Purchase>();
 
-        modelBuilder.Entity<Withdrawal>(entity =>
-        {
-            entity.Property(e => e.Amount).HasPrecision(10, 2);
-        });
+        modelBuilder.Entity<Withdrawal>();
 
         modelBuilder.Entity<Invoice>(entity =>
         {
             entity.Property(e => e.InvoiceNumber).HasMaxLength(100);
             entity.Property(e => e.Supplier).HasMaxLength(200);
-            entity.Property(e => e.TotalAmount).HasPrecision(10, 2);
-            entity.Property(e => e.AdditionalCosts).HasPrecision(10, 2);
-            entity.Property(e => e.PriceReduction).HasPrecision(10, 2);
-
-            // Map CreatedByUserId to created_by_id column (which has the FK constraint)
-            entity.Property(e => e.CreatedByUserId)
-                .HasColumnName("created_by_id");
 
             entity.HasOne(e => e.CreatedBy)
                 .WithMany()
@@ -153,8 +134,6 @@ public class ApplicationDbContext : DbContext
         {
             entity.Property(e => e.ProductName).HasMaxLength(500);
             entity.Property(e => e.ArticleNumber).HasMaxLength(100);
-            entity.Property(e => e.UnitPrice).HasPrecision(10, 2);
-            entity.Property(e => e.TotalPrice).HasPrecision(10, 2);
             entity.HasOne(ii => ii.Invoice)
                 .WithMany(i => i.Items)
                 .HasForeignKey(ii => ii.InvoiceId)
@@ -185,25 +164,26 @@ public class ApplicationDbContext : DbContext
         {
             // Remove unique constraint to allow multiple instances of same achievement
             entity.HasIndex(e => new { e.UserId, e.AchievementId, e.EarnedAt });
-            entity.Property(e => e.DebtAtEarning).HasPrecision(10, 2);
         });
 
         modelBuilder.Entity<Deposit>(entity =>
         {
-            entity.Property(e => e.Amount).HasPrecision(10, 2);
             entity.HasOne(e => e.LinkedPayment)
                 .WithOne(p => p.LinkedDeposit)
                 .HasForeignKey<Payment>(p => p.LinkedDepositId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<CashRegister>(entity =>
-        {
-            entity.Property(e => e.CurrentBalance).HasPrecision(10, 2);
-        });
+        modelBuilder.Entity<CashRegister>();
 
         // Seed data
         SeedData(modelBuilder);
+    }
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+        configurationBuilder.Properties<decimal>().HavePrecision(10, 2);
     }
 
     private void SeedData(ModelBuilder modelBuilder)

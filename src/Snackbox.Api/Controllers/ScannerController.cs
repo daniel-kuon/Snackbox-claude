@@ -88,7 +88,6 @@ public class ScannerController : ControllerBase
                 Success = true,
                 UserId = user.Id,
                 Username = user.Username,
-                IsAdmin = user.IsAdmin,
                 IsLoginOnly = true
             });
         }
@@ -258,7 +257,6 @@ public class ScannerController : ControllerBase
             Success = true,
             UserId = user.Id,
             Username = user.Username,
-            IsAdmin = user.IsAdmin,
             PurchaseId = currentPurchase.Id,
             ScannedBarcodes = currentPurchase.Scans
                 .OrderBy(s => s.ScannedAt)

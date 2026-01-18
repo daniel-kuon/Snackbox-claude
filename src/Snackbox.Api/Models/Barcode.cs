@@ -8,8 +8,6 @@ public abstract class Barcode
     public required string Code { get; set; }
     public decimal Amount { get; set; }
     public bool IsActive { get; set; }
-    // Keep IsLoginOnly for DTO/backward compatibility; for new logic prefer type checks (LoginBarcode vs PurchaseBarcode)
-    public bool IsLoginOnly { get; set; }
     public DateTime CreatedAt { get; set; }
 
     // Navigation properties

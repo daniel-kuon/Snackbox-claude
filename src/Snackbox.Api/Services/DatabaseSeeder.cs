@@ -126,13 +126,13 @@ public class DatabaseSeeder
         // Seed user barcodes
         var barcodes = new Barcode[]
         {
-            new PurchaseBarcode { Id = 1, UserId = 2, Code = "4061461764012", Amount = 5.00m, IsActive = true, IsLoginOnly = false, CreatedAt = seedDate },
-            new PurchaseBarcode { Id = 2, UserId = 2, Code = "USER2-10EUR", Amount = 10.00m, IsActive = true, IsLoginOnly = false, CreatedAt = seedDate },
-            new PurchaseBarcode { Id = 3, UserId = 3, Code = "USER3-5EUR", Amount = 5.00m, IsActive = true, IsLoginOnly = false, CreatedAt = seedDate },
-            new PurchaseBarcode { Id = 4, UserId = 3, Code = "USER3-10EUR", Amount = 10.00m, IsActive = true, IsLoginOnly = false, CreatedAt = seedDate },
-            new LoginBarcode { Id = 5, UserId = 1, Code = "4260473313809", Amount = 0m, IsActive = true, IsLoginOnly = true, CreatedAt = seedDate },
-            new LoginBarcode { Id = 6, UserId = 2, Code = "USER2-LOGIN", Amount = 0m, IsActive = true, IsLoginOnly = true, CreatedAt = seedDate },
-            new LoginBarcode { Id = 7, UserId = 3, Code = "USER3-LOGIN", Amount = 0m, IsActive = true, IsLoginOnly = true, CreatedAt = seedDate }
+            new PurchaseBarcode { Id = 1, UserId = 2, Code = "4061461764012", Amount = 5.00m, IsActive = true, CreatedAt = seedDate },
+            new PurchaseBarcode { Id = 2, UserId = 2, Code = "USER2-10EUR", Amount = 10.00m, IsActive = true, CreatedAt = seedDate },
+            new PurchaseBarcode { Id = 3, UserId = 3, Code = "USER3-5EUR", Amount = 5.00m, IsActive = true, CreatedAt = seedDate },
+            new PurchaseBarcode { Id = 4, UserId = 3, Code = "USER3-10EUR", Amount = 10.00m, IsActive = true, CreatedAt = seedDate },
+            new LoginBarcode { Id = 5, UserId = 1, Code = "4260473313809", Amount = 0m, IsActive = true, CreatedAt = seedDate },
+            new LoginBarcode { Id = 6, UserId = 2, Code = "USER2-LOGIN", Amount = 0m, IsActive = true, CreatedAt = seedDate },
+            new LoginBarcode { Id = 7, UserId = 3, Code = "USER3-LOGIN", Amount = 0m, IsActive = true, CreatedAt = seedDate }
         };
 
         _context.Barcodes.AddRange(barcodes);

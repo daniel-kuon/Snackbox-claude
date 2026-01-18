@@ -105,7 +105,6 @@ public class UsersController : ControllerBase
             Code = dto.BarcodeValue,
             UserId = user.Id,
             IsActive = true,
-            IsLoginOnly = true, // Default to login-only for registration barcodes
             Amount = 0m,
             CreatedAt = DateTime.UtcNow
         };

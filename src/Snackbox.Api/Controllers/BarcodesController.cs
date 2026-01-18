@@ -97,7 +97,6 @@ public class BarcodesController : ControllerBase
                 Code = dto.Code,
                 Amount = 0m,
                 IsActive = dto.IsActive,
-                IsLoginOnly = true,
                 CreatedAt = DateTime.UtcNow
             }
             : new PurchaseBarcode
@@ -106,7 +105,6 @@ public class BarcodesController : ControllerBase
                 Code = dto.Code,
                 Amount = dto.Amount,
                 IsActive = dto.IsActive,
-                IsLoginOnly = false,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -146,9 +144,6 @@ public class BarcodesController : ControllerBase
         {
             barcode.Amount = dto.Amount;
         }
-
-        // Keep IsLoginOnly flag aligned with type
-        barcode.IsLoginOnly = barcode is LoginBarcode;
 
         await _context.SaveChangesAsync();
 
