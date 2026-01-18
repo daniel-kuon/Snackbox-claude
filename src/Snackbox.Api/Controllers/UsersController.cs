@@ -309,7 +309,7 @@ public class UsersController : ControllerBase
         // Create placeholder inactive user with timestamp-based unique username
         var placeholder = new User
         {
-            Username = $"Retired-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}",
+            Username = $"User {userCount + 1}",
             Email = null,
             PasswordHash = null,
             IsAdmin = false,
