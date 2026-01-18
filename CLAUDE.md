@@ -40,6 +40,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
   - Manage product inventory
   - Update stock quantities
   - Add/edit/remove products
+  - Create and manage discounts
 
 #### 4. Stock Management
 - **Two-Tier Inventory**:
@@ -68,11 +69,21 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **One-Time Only**: Each achievement can only be earned once per user
 - See [Achievement System Documentation](docs/achievement-system.md) for full details
 
+#### 7. Discount System
+- **Automatic Application**: Discounts are automatically detected and applied during barcode scanning
+- **Two Types**: Fixed amount (e.g., 0.50€ off) or percentage (e.g., 10% off)
+- **Date-Based Validity**: Discounts only active within their date range
+- **Minimum Purchase**: Discounts can require a minimum purchase amount
+- **Admin Management**: Only admins can create, update, or delete discounts
+- **Best Discount Applied**: System automatically selects the discount providing highest savings
+- See [Discount System Documentation](docs/discount-system.md) for full details
+
 ### Key Business Rules
 1. Stock quantities must be manually updated by admins; purchases do not automatically reduce shelf stock counts
 2. Each employee has an account balance (payments minus purchases)
 3. Different batches of the same product are tracked separately by best before date
 4. Users can only see their own financial data, admins can see all users
+5. Only one discount is applied per purchase (the one providing highest savings)
 
 ### Domain Model Concepts
 - **User/Employee**: Person who can purchase snacks
@@ -84,6 +95,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Balance**: User's financial standing (payments - purchases)
 - **Achievement**: A reward earned for specific purchasing behaviors
 - **UserAchievement**: Record of an achievement earned by a user with timestamp
+- **Discount**: A price reduction that can be applied to purchases
 
 ## Technical Overview
 

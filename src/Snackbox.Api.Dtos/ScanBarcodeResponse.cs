@@ -26,6 +26,10 @@ public class ScanBarcodeResponse
 
     // Newly earned achievements (not yet shown to user)
     public List<AchievementDto> NewAchievements { get; set; } = new();
+    
+    // Applicable discounts
+    public List<AppliedDiscountDto> ApplicableDiscounts { get; set; } = new();
+    public decimal DiscountedAmount { get; set; } // Total amount after applying discounts
 }
 
 public class ScannedBarcodeDto
@@ -39,6 +43,6 @@ public class RecentPurchaseDto
 {
     public int PurchaseId { get; set; }
     public decimal TotalAmount { get; set; }
-    public DateTime CompletedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
     public int ItemCount { get; set; }
 }

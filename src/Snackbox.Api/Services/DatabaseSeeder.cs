@@ -147,14 +147,14 @@ public class DatabaseSeeder
                 Id = 1,
                 UserId = 2,
                 CreatedAt = seedDate.AddDays(5),
-                CompletedAt = seedDate.AddDays(5).AddMinutes(5)
+                UpdatedAt = seedDate.AddDays(5).AddMinutes(5)
             },
             new Purchase
             {
                 Id = 2,
                 UserId = 3,
                 CreatedAt = seedDate.AddDays(10),
-                CompletedAt = seedDate.AddDays(10).AddMinutes(3)
+                UpdatedAt = seedDate.AddDays(10).AddMinutes(3)
             }
         };
 

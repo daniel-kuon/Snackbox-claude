@@ -33,7 +33,7 @@ public class AchievementService : IAchievementService
             .Include(p => p.Scans)
             .FirstOrDefaultAsync(p => p.Id == purchaseId);
 
-        if (purchase == null || purchase.CompletedAt == default)
+        if (purchase == null || purchase.UpdatedAt == default)
             return earnedAchievements;
 
         // Get full user achievement history for constraint checking
@@ -54,13 +54,13 @@ public class AchievementService : IAchievementService
         await CheckSinglePurchaseAchievements(userId, purchaseAmount, userAchievements, earnedAchievements, achievementLookup);
 
         // Check daily purchase count achievements
-        await CheckDailyPurchaseAchievements(userId, purchase.CompletedAt, userAchievements, earnedAchievements, achievementLookup);
+        await CheckDailyPurchaseAchievements(userId, purchase.UpdatedAt, userAchievements, earnedAchievements, achievementLookup);
 
         // Check streak achievements
-        await CheckStreakAchievements(userId, purchase.CompletedAt, userAchievements, earnedAchievements, achievementLookup);
+        await CheckStreakAchievements(userId, purchase.UpdatedAt, userAchievements, earnedAchievements, achievementLookup);
 
         // Check comeback achievements
-        await CheckComebackAchievements(userId, purchase.CompletedAt, userAchievements, earnedAchievements, achievementLookup);
+        await CheckComebackAchievements(userId, purchase.UpdatedAt, userAchievements, earnedAchievements, achievementLookup);
 
         // Check high debt achievements
         await CheckHighDebtAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
@@ -69,7 +69,7 @@ public class AchievementService : IAchievementService
         await CheckTotalSpentAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
 
         // Check time-based achievements
-        await CheckTimeBasedAchievements(userId, purchase.CompletedAt, userAchievements, earnedAchievements, achievementLookup);
+        await CheckTimeBasedAchievements(userId, purchase.UpdatedAt, userAchievements, earnedAchievements, achievementLookup);
 
         // Check milestone achievements
         await CheckMilestoneAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
@@ -284,7 +284,7 @@ public class AchievementService : IAchievementService
         var tomorrow = today.AddDays(1);
 
         var todayPurchaseCount = await _context.Purchases
-            .Where(p => p.UserId == userId && p.CompletedAt >= today && p.CompletedAt < tomorrow)
+            .Where(p => p.UserId == userId && p.UpdatedAt >= today && p.UpdatedAt < tomorrow)
             .CountAsync();
 
         if (todayPurchaseCount >= 3 && achievementLookup.TryGetValue("DAILY_BUYER_3", out var achievement3))
@@ -310,9 +310,9 @@ public class AchievementService : IAchievementService
     {
         // Get all completed purchases, ordered by date
         var purchases = await _context.Purchases
-            .Where(p => p.UserId == userId && p.CompletedAt != default && p.CompletedAt <= completedAt)
-            .OrderByDescending(p => p.CompletedAt)
-            .Select(p => p.CompletedAt.Date)
+            .Where(p => p.UserId == userId && p.UpdatedAt != default && p.UpdatedAt <= completedAt)
+            .OrderByDescending(p => p.UpdatedAt)
+            .Select(p => p.UpdatedAt.Date)
             .Distinct()
             .ToListAsync();
 
@@ -388,14 +388,14 @@ public class AchievementService : IAchievementService
     {
         // Get the previous purchase before this one
         var previousPurchase = await _context.Purchases
-            .Where(p => p.UserId == userId && p.CompletedAt != default && p.CompletedAt < completedAt)
-            .OrderByDescending(p => p.CompletedAt)
+            .Where(p => p.UserId == userId && p.UpdatedAt != default && p.UpdatedAt < completedAt)
+            .OrderByDescending(p => p.UpdatedAt)
             .FirstOrDefaultAsync();
 
-        if (previousPurchase == null || previousPurchase.CompletedAt == default)
+        if (previousPurchase == null || previousPurchase.UpdatedAt == default)
             return;
 
-        var daysSinceLastPurchase = (completedAt - previousPurchase.CompletedAt).TotalDays;
+        var daysSinceLastPurchase = (completedAt - previousPurchase.UpdatedAt).TotalDays;
 
         if (daysSinceLastPurchase >= 30 && achievementLookup.TryGetValue("COMEBACK_30", out var achievement30))
         {
@@ -556,7 +556,7 @@ public class AchievementService : IAchievementService
     private async Task CheckMilestoneAchievements(int userId, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
         var totalPurchases = await _context.Purchases
-            .Where(p => p.UserId == userId && p.CompletedAt != default)
+            .Where(p => p.UserId == userId && p.UpdatedAt != default)
             .CountAsync();
 
         // Also count incomplete purchases for first purchase achievement
@@ -635,26 +635,26 @@ public class AchievementService : IAchievementService
                 earned.Add(achievementSeven);
         }
 
-        // OCD Approved - round number totals (€5 or €10)
-        if ((purchaseAmount == 5m || purchaseAmount == 10m) && achievementLookup.TryGetValue("ROUND_NUMBER", out var achievementRound))
-        {
-            if (CanEarnAchievement("ROUND_NUMBER", AchievementCategory.Special, userAchievements))
-                earned.Add(achievementRound);
-        }
+        // // OCD Approved - round number totals (€5 or €10)
+        // if ((purchaseAmount == 5m || purchaseAmount == 10m) && achievementLookup.TryGetValue("ROUND_NUMBER", out var achievementRound))
+        // {
+        //     if (CanEarnAchievement("ROUND_NUMBER", AchievementCategory.Special, userAchievements))
+        //         earned.Add(achievementRound);
+        // }
 
-        // Unlucky 13 - exactly €13
-        if (purchaseAmount == 13m && achievementLookup.TryGetValue("THIRTEENTH", out var achievementThirteen))
-        {
-            if (CanEarnAchievement("THIRTEENTH", AchievementCategory.Special, userAchievements))
-                earned.Add(achievementThirteen);
-        }
-
-        // Nice - exactly €6.90
-        if (purchaseAmount == 6.90m && achievementLookup.TryGetValue("NICE", out var achievementNice))
-        {
-            if (CanEarnAchievement("NICE", AchievementCategory.Special, userAchievements))
-                earned.Add(achievementNice);
-        }
+        // // Unlucky 13 - exactly €13
+        // if (purchaseAmount == 13m && achievementLookup.TryGetValue("THIRTEENTH", out var achievementThirteen))
+        // {
+        //     if (CanEarnAchievement("THIRTEENTH", AchievementCategory.Special, userAchievements))
+        //         earned.Add(achievementThirteen);
+        // }
+        //
+        // // Nice - exactly €6.90
+        // if (purchaseAmount == 6.90m && achievementLookup.TryGetValue("NICE", out var achievementNice))
+        // {
+        //     if (CanEarnAchievement("NICE", AchievementCategory.Special, userAchievements))
+        //         earned.Add(achievementNice);
+        // }
 
         // Speed Demon - 2 purchases within 1 minute
         if (scanCount >= 2 && achievementLookup.TryGetValue("SPEED_DEMON", out var achievementSpeed))
@@ -664,7 +664,7 @@ public class AchievementService : IAchievementService
                 var scans = purchase.Scans.OrderBy(s => s.ScannedAt).ToList();
                 for (int i = 1; i < scans.Count; i++)
                 {
-                    if ((scans[i].ScannedAt - scans[i - 1].ScannedAt).TotalSeconds <= 60)
+                    if ((scans[i].ScannedAt - scans[i - 1].ScannedAt).TotalSeconds <= 3)
                     {
                         earned.Add(achievementSpeed);
                         break;
