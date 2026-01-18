@@ -173,6 +173,13 @@
                                 </InputSelect>
                             </div>
 
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="_userEditForm.IsActive" class="form-check-input" id="isActiveCheckEdit" />
+                                <label class="form-check-label" for="isActiveCheckEdit">
+                                    Active
+                                </label>
+                            </div>
+
                             <div class="info-row">
                                 <span class="info-label">Balance:</span>
                                 <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
@@ -259,16 +266,21 @@
                             <tr>
                                 <th>Date</th>
                                 <th>Type</th>
+                                <th>Items</th>
                                 <th>Total</th>
                                 <th>Reference</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
+                            @foreach (var purchase in _purchases.OrderByDescending(p => p.UpdatedAt))
                             {
+                                var itemsTotal = purchase.Items.Sum(i => i.Amount);
+                                var totalDiscounts = purchase.AppliedDiscounts.Sum(d => d.DiscountAmount);
+                                var hasDiscount = totalDiscounts > 0;
+
                                 <tr>
-                                    <td>@purchase.CompletedAt?.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>@purchase.UpdatedAt?.ToString("yyyy-MM-dd HH:mm")</td>
                                     <td>
                                         @if (purchase.Type == "Manual")
                                         {
@@ -283,6 +295,23 @@
                                             <span class="badge badge-secondary">Normal</span>
                                         }
                                     </td>
+                                    <td>
+                                        @if (purchase.Items.Any())
+                                        {
+                                            <span>@purchase.Items.Count item@(purchase.Items.Count != 1 ? "s" : "")</span>
+                                            @if (hasDiscount)
+                                            {
+                                                <br/>
+                                                <small class="text-muted">
+                                                    Subtotal: <span style="text-decoration: line-through;">€@itemsTotal.ToString("F2")</span>
+                                                </small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
                                     <td class="@(purchase.TotalAmount >= 0 ? "text-danger" : "text-success")">
                                         @if (purchase.TotalAmount < 0)
                                         {
@@ -293,6 +322,23 @@
                                             <span class="badge bg-danger me-1">Debit</span>
                                         }
                                         €@Math.Abs(purchase.TotalAmount).ToString("F2")
+                                        @if (hasDiscount)
+                                        {
+                                            <br/>
+                                            <small class="badge bg-success mt-1">
+                                                🎉 Saved €@(totalDiscounts.ToString("F2"))
+                                            </small>
+                                            @if (purchase.AppliedDiscounts.Count > 0)
+                                            {
+                                                <br/>
+                                                @foreach (var discount in purchase.AppliedDiscounts)
+                                                {
+                                                    <small class="text-muted d-block">
+                                                        @discount.Name: -€@discount.DiscountAmount.ToString("F2")
+                                                    </small>
+                                                }
+                                            }
+                                        }
                                     </td>
                                     <td>
                                         @if (purchase.ReferencePurchaseId.HasValue)
@@ -645,9 +691,9 @@
                             <option value="">-- Select a purchase --</option>
                             @if (_purchases != null)
                             {
-                                @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
+                                @foreach (var purchase in _purchases.OrderByDescending(p => p.UpdatedAt))
                                 {
-                                    <option value="@purchase.Id">#@purchase.Id - @purchase.CompletedAt?.ToString("yyyy-MM-dd") - €@purchase.TotalAmount.ToString("F2")</option>
+                                    <option value="@purchase.Id">#@purchase.Id - @purchase.UpdatedAt?.ToString("yyyy-MM-dd") - €@purchase.TotalAmount.ToString("F2")</option>
                                 }
                             }
                         </InputSelect>
@@ -1617,7 +1663,8 @@
         {
             Username = _user.Username,
             Email = _user.Email ?? string.Empty,
-            Role = _user.IsAdmin ? "Admin" : "User"
+            Role = _user.IsAdmin ? "Admin" : "User",
+            IsActive = _user.IsActive
         };
         _editError = null;
         _isEditingUserInfo = true;
@@ -1643,7 +1690,8 @@
             {
                 username = _userEditForm.Username,
                 email = _userEditForm.Email,
-                isAdmin = _userEditForm.Role == "Admin"
+                isAdmin = _userEditForm.Role == "Admin",
+                isActive = _userEditForm.IsActive
             });
 
             if (response.IsSuccessStatusCode)
@@ -1742,6 +1790,8 @@
 
         [Required]
         public string Role { get; set; } = "User";
+
+        public bool IsActive { get; set; } = true;
     }
 
     private class ManualPurchaseFormModel

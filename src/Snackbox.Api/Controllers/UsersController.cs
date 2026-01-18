@@ -52,7 +52,8 @@ public class UsersController : ControllerBase
                 IsActive = x.User.IsActive,
                 IsRetired = x.User.IsRetired,
                 Balance = x.Balance,
-                CreatedAt = x.User.CreatedAt
+                CreatedAt = x.User.CreatedAt,
+                HasPurchases = x.User.Purchases.Any()
             })
             .ToListAsync();
 
@@ -115,12 +116,11 @@ public class UsersController : ControllerBase
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        // Create and associate barcode with user
-        var barcode = new Barcode
+        // Create and associate login barcode with user
+        var barcode = new LoginBarcode
         {
             Code = dto.BarcodeValue,
             UserId = user.Id,
-            IsLoginOnly = true, // Default to login-only for registration barcodes
             Amount = 0m,
             CreatedAt = DateTime.UtcNow
         };
@@ -161,6 +161,17 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Email already exists" });
         }
 
+        // Check if purchase barcodes already exist
+        if (!string.IsNullOrWhiteSpace(dto.PurchaseBarcode1) && await _context.Barcodes.AnyAsync(b => b.Code == dto.PurchaseBarcode1))
+        {
+            return BadRequest(new { message = "Purchase barcode 1 already exists" });
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.PurchaseBarcode2) && await _context.Barcodes.AnyAsync(b => b.Code == dto.PurchaseBarcode2))
+        {
+            return BadRequest(new { message = "Purchase barcode 2 already exists" });
+        }
+
         // In production, use proper password hashing (BCrypt, Argon2, etc.)
         var passwordHash = !string.IsNullOrWhiteSpace(dto.Password) ? BCrypt.Net.BCrypt.HashPassword(dto.Password) : null;
 
@@ -168,6 +179,33 @@ public class UsersController : ControllerBase
         user.PasswordHash = passwordHash;
 
         _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Create purchase barcodes if provided
+        if (!string.IsNullOrWhiteSpace(dto.PurchaseBarcode1))
+        {
+            var barcode1 = new PurchaseBarcode
+            {
+                Code = dto.PurchaseBarcode1,
+                UserId = user.Id,
+                Amount = 0.50m,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Barcodes.Add(barcode1);
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.PurchaseBarcode2))
+        {
+            var barcode2 = new PurchaseBarcode
+            {
+                Code = dto.PurchaseBarcode2,
+                UserId = user.Id,
+                Amount = 0.30m,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Barcodes.Add(barcode2);
+        }
+
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("User created: {UserId} - {Username}", user.Id, user.Username);

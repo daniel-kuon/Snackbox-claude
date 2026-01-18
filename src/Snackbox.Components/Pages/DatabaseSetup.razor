@@ -315,30 +315,32 @@
         var file = e.File;
         if (file == null) return;
 
+        // Read the file content immediately to avoid WebView lifecycle issues
+        MemoryStream memoryStream = null;
+        try
+        {
+            // Open and read stream immediately before state changes
+            using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
+            memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to read backup file: {ex.Message}");
+            memoryStream?.Dispose();
+            return;
+        }
+
         try
         {
             _isProcessing = true;
-            _processingMessage = "Uploading backup file...";
+            _processingMessage = "Restoring database from backup...";
             StateHasChanged();
 
-            // Import the backup first
-            using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            memoryStream.Position = 0;
-
+            // Restore directly from upload
             var streamPart = new Refit.StreamPart(memoryStream, file.Name, "application/octet-stream");
-
-            _processingMessage = "Importing backup...";
-            StateHasChanged();
-
-            var backup = await BackupApi.ImportBackupAsync(streamPart);
-
-            _processingMessage = "Restoring database...";
-            StateHasChanged();
-
-            // Restore the backup
-            await BackupApi.RestoreBackupAsync(backup.Id);
+            await BackupApi.RestoreFromUploadAsync(streamPart);
 
             _processingMessage = "Database restored successfully! Redirecting...";
             StateHasChanged();
@@ -353,6 +355,7 @@
         }
         finally
         {
+            memoryStream?.Dispose();
             _isProcessing = false;
             StateHasChanged();
         }

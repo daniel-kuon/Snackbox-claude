@@ -259,6 +259,9 @@ public class BackupService : IBackupService
             }
 
             _logger.LogInformation("Backup restored successfully: {BackupId}", backupId);
+
+            // Apply outstanding migrations after restore
+            await ApplyMigrationsAsync();
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
@@ -269,6 +272,30 @@ public class BackupService : IBackupService
         {
             _logger.LogError(ex, "Failed to restore backup");
             throw;
+        }
+    }
+
+    private async Task ApplyMigrationsAsync()
+    {
+        _logger.LogInformation("Applying outstanding migrations...");
+
+        const int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                await dbContext.Database.MigrateAsync();
+
+                _logger.LogInformation("Migrations applied successfully.");
+                return;
+            }
+            catch (Npgsql.NpgsqlException ex) when (i < maxRetries - 1)
+            {
+                _logger.LogWarning(ex, "Failed to apply migrations (attempt {Attempt}/{MaxRetries}), retrying...", i + 1, maxRetries);
+                await Task.Delay(2000); // Wait 2 seconds before retry
+            }
         }
     }
 
@@ -456,24 +483,7 @@ public class BackupService : IBackupService
         await Task.Delay(1000);
 
         // Apply migrations with retry logic (includes achievements from OnModelCreating)
-        const int maxRetries = 3;
-        for (int i = 0; i < maxRetries; i++)
-        {
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                await dbContext.Database.MigrateAsync();
-
-                _logger.LogInformation("Empty database created successfully with achievements");
-                return;
-            }
-            catch (Npgsql.NpgsqlException ex) when (i < maxRetries - 1)
-            {
-                _logger.LogWarning(ex, "Failed to apply migrations (attempt {Attempt}/{MaxRetries}), retrying...", i + 1, maxRetries);
-                await Task.Delay(2000); // Wait 2 seconds before retry
-            }
-        }
+        await ApplyMigrationsAsync();
     }
 
     public async Task CreateSeededDatabaseAsync()
@@ -489,30 +499,14 @@ public class BackupService : IBackupService
         await Task.Delay(1000);
 
         // Apply migrations with retry logic
-        const int maxRetries = 3;
-        for (int i = 0; i < maxRetries; i++)
-        {
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await ApplyMigrationsAsync();
 
-                // Apply migrations (includes achievements from OnModelCreating)
-                await dbContext.Database.MigrateAsync();
+        // Seed sample data using the seeder service
+        using var scope = _serviceProvider.CreateScope();
+        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedSampleDataAsync();
 
-                // Seed sample data using the seeder service
-                var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-                await seeder.SeedSampleDataAsync();
-
-                _logger.LogInformation("Seeded database created successfully with all sample data");
-                return;
-            }
-            catch (Npgsql.NpgsqlException ex) when (i < maxRetries - 1)
-            {
-                _logger.LogWarning(ex, "Failed to apply migrations (attempt {Attempt}/{MaxRetries}), retrying...", i + 1, maxRetries);
-                await Task.Delay(2000); // Wait 2 seconds before retry
-            }
-        }
+        _logger.LogInformation("Seeded database created successfully with all sample data");
     }
 
     private async Task DropAndRecreateDatabaseAsync(ConnectionParams connectionParams)

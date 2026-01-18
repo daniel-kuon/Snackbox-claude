@@ -541,9 +541,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<bool>("IsLoginOnly")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_login_only");
+                    b.Property<string>("Discriminator")
+                        .IsRequired()
+                        .HasMaxLength(21)
+                        .HasColumnType("character varying(21)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
@@ -557,6 +558,10 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("barcodes");
+
+                    b.HasDiscriminator().HasValue("Barcode");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.BarcodeScan", b =>
@@ -656,6 +661,56 @@ namespace Snackbox.Api.Migrations
                     b.ToTable("deposits");
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.Discount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<decimal>("MinimumPurchaseAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("minimum_purchase_amount");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("ValidFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_from");
+
+                    b.Property<DateTime>("ValidTo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_to");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("discounts");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.Invoice", b =>
                 {
                     b.Property<int>("Id")
@@ -676,7 +731,7 @@ namespace Snackbox.Api.Migrations
 
                     b.Property<int>("CreatedByUserId")
                         .HasColumnType("integer")
-                        .HasColumnName("created_by_id");
+                        .HasColumnName("created_by_user_id");
 
                     b.Property<DateTime>("InvoiceDate")
                         .HasColumnType("timestamp with time zone")
@@ -715,6 +770,10 @@ namespace Snackbox.Api.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("total_amount");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
 
                     b.HasKey("Id");
 
@@ -955,10 +1014,6 @@ namespace Snackbox.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -976,6 +1031,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("type");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
@@ -987,6 +1046,37 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("purchases");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.PurchaseDiscount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("discount_amount");
+
+                    b.Property<int>("DiscountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("discount_id");
+
+                    b.Property<int>("PurchaseId")
+                        .HasColumnType("integer")
+                        .HasColumnName("purchase_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiscountId");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.ToTable("purchase_discounts");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.ShelvingAction", b =>
@@ -1154,6 +1244,20 @@ namespace Snackbox.Api.Migrations
                     b.ToTable("withdrawals");
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.LoginBarcode", b =>
+                {
+                    b.HasBaseType("Snackbox.Api.Models.Barcode");
+
+                    b.HasDiscriminator().HasValue("LoginBarcode");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.PurchaseBarcode", b =>
+                {
+                    b.HasBaseType("Snackbox.Api.Models.Barcode");
+
+                    b.HasDiscriminator().HasValue("PurchaseBarcode");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.User", "User")
@@ -1314,6 +1418,25 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.PurchaseDiscount", b =>
+                {
+                    b.HasOne("Snackbox.Api.Models.Discount", "Discount")
+                        .WithMany()
+                        .HasForeignKey("DiscountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Snackbox.Api.Models.Purchase", "Purchase")
+                        .WithMany("AppliedDiscounts")
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Discount");
+
+                    b.Navigation("Purchase");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.ShelvingAction", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.InvoiceItem", "InvoiceItem")
@@ -1404,6 +1527,8 @@ namespace Snackbox.Api.Migrations
 
             modelBuilder.Entity("Snackbox.Api.Models.Purchase", b =>
                 {
+                    b.Navigation("AppliedDiscounts");
+
                     b.Navigation("Scans");
                 });
 

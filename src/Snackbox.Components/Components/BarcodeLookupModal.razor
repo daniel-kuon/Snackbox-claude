@@ -1,6 +1,9 @@
 @using System.Text.RegularExpressions
 @using Snackbox.Api.Dtos
-@inject HttpClient Http
+@using Snackbox.ApiClient
+@using Snackbox.Components.Components.Shared
+@inject IBarcodeLookupApi BarcodeLookupApi
+@inject IProductsApi ProductsApi
 
 @if (IsVisible)
 {
@@ -30,13 +33,11 @@
                     <div class="form-group">
                         <label>Barcode</label>
                         <div class="input-with-button">
-                            <input type="text"
-                                   @bind="_barcodeInput"
-                                   @bind:event="oninput"
-                                   @onkeypress="HandleKeyPress"
-                                   class="form-control"
-                                   placeholder="Enter barcode number"
-                                   disabled="@_isSearching" />
+                            <BarcodeInput
+                                @bind-Value="_barcodeInput"
+                                disabled="@_isSearching"
+                                placeholder="Scan or enter barcode number"
+                            />
                             <button class="btn btn-primary"
                                     @onclick="SearchBarcode"
                                     disabled="@(_isSearching || string.IsNullOrWhiteSpace(_barcodeInput) || !IsBarcodeValid())">
@@ -102,7 +103,7 @@
                     {
                         <div class="similar-products-section">
                             <h4>⚠ Potential Matches Found</h4>
-                            <p class="text-muted">The following existing products may be similar. Consider using one of these instead of creating a duplicate:</p>
+                            <p class="text-muted">The following existing products may be similar. You can assign this barcode to one of them instead of creating a new product:</p>
 
                             <div class="similar-products-list">
                                 @foreach (var similar in _similarProducts)
@@ -110,13 +111,37 @@
                                     <div class="similar-product-item">
                                         <div class="similar-product-info">
                                             <strong>@similar.Name</strong>
+                                            <div class="match-score">@similar.MatchScore% match</div>
                                         </div>
-                                        <div class="match-score">@similar.MatchScore% match</div>
+                                        <button class="btn btn-sm btn-primary"
+                                                @onclick="() => AssignBarcodeToProduct(similar.Id)"
+                                                disabled="@_isSaving">
+                                            @if (_isSaving)
+                                            {
+                                                <span class="spinner-border spinner-border-sm"></span>
+                                            }
+                                            else
+                                            {
+                                                <span>Assign Barcode</span>
+                                            }
+                                        </button>
                                     </div>
                                 }
                             </div>
                         </div>
                     }
+
+                    <!-- Barcode Quantity -->
+                    <div class="form-group">
+                        <label>Barcode Quantity</label>
+                        <input type="number"
+                               @bind="_barcodeQuantity"
+                               @bind:event="oninput"
+                               class="form-control"
+                               min="1"
+                               placeholder="Enter quantity for this barcode" />
+                        <small class="text-muted">How many items does this barcode represent?</small>
+                    </div>
 
                     <!-- Product Name Selection -->
                     <div class="form-group">
@@ -166,28 +191,6 @@
                                    class="form-control mt-2"
                                    placeholder="Enter custom product name" />
                         }
-                    </div>
-
-                    <!-- Price Field -->
-                    <div class="form-group">
-                        <label>Price (€)</label>
-                        <input type="number"
-                               @bind="_productPrice"
-                               @bind:event="oninput"
-                               class="form-control"
-                               step="0.01"
-                               min="0"
-                               placeholder="0.00" />
-                    </div>
-
-                    <!-- Description Field -->
-                    <div class="form-group">
-                        <label>Description (optional)</label>
-                        <textarea @bind="_productDescription"
-                                  @bind:event="oninput"
-                                  class="form-control"
-                                  rows="3"
-                                  placeholder="Enter product description"></textarea>
                     </div>
                 }
             </div>
@@ -273,7 +276,8 @@
         border: 1px solid #ffc107;
         display: flex;
         justify-content: space-between;
-        align-items: start;
+        align-items: center;
+        gap: 1rem;
     }
 
     .similar-product-info {
@@ -300,7 +304,18 @@
     .match-score {
         font-weight: 600;
         color: #856404;
-        white-space: nowrap;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .text-muted {
+        color: #6c757d;
+        font-size: 0.875rem;
     }
 
     .alert-warning {
@@ -503,6 +518,7 @@
 
 @code {
     [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public string? InitialBarcode { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnProductCreated { get; set; }
 
@@ -515,10 +531,20 @@
     private BarcodeLookupProductDto? _lookupResult;
     private string _selectedNameOption = "title";
     private string _customName = "";
-    private decimal _productPrice;
-    private string? _productDescription;
     private string? _existingProductWithBarcode;
+    private int? _existingProductIdWithBarcode;
     private List<SimilarProductDto>? _similarProducts;
+    private int _barcodeQuantity = 1;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // If InitialBarcode is provided and we haven't searched yet, auto-search
+        if (!string.IsNullOrWhiteSpace(InitialBarcode) && string.IsNullOrWhiteSpace(_barcodeInput))
+        {
+            _barcodeInput = InitialBarcode;
+            await SearchBarcode();
+        }
+    }
 
     private bool IsBarcodeValid()
     {
@@ -539,13 +565,12 @@
 
         try
         {
-            var response = await Http.GetFromJsonAsync<BarcodeLookupResponseDto>($"api/barcodelookup/{Uri.EscapeDataString(_barcodeInput.Trim())}");
+            var response = await BarcodeLookupApi.LookupBarcodeAsync(_barcodeInput.Trim());
 
             if (response?.Success == true && response.Product != null)
             {
                 _lookupResult = response.Product;
                 _isProductFound = true;
-                _productDescription = response.Product.Description;
                 _selectedNameOption = "title";
 
                 // Check for existing product with same barcode
@@ -573,20 +598,23 @@
     {
         try
         {
-            var existingProduct = await Http.GetFromJsonAsync<ProductDto>($"api/products/barcode/{Uri.EscapeDataString(barcode)}");
+            var existingProduct = await ProductsApi.GetByBarcodeAsync(barcode);
             if (existingProduct != null)
             {
                 _existingProductWithBarcode = existingProduct.Name;
+                _existingProductIdWithBarcode = existingProduct.Id;
             }
             else
             {
                 _existingProductWithBarcode = null;
+                _existingProductIdWithBarcode = null;
             }
         }
         catch
         {
             // Product not found, which is good
             _existingProductWithBarcode = null;
+            _existingProductIdWithBarcode = null;
         }
     }
 
@@ -594,7 +622,7 @@
     {
         try
         {
-            var allProducts = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
+            var allProducts = await ProductsApi.GetAllAsync();
             if (allProducts == null || !allProducts.Any())
             {
                 _similarProducts = null;
@@ -610,6 +638,7 @@
                 {
                     matches.Add(new SimilarProductDto
                     {
+                        Id = product.Id,
                         Name = product.Name,
                         MatchScore = matchScore
                     });
@@ -738,7 +767,6 @@
     private bool IsFormValid()
     {
         if (_lookupResult == null) return false;
-        if (_productPrice <= 0) return false;
 
         var productName = GetSelectedProductName();
         if (string.IsNullOrWhiteSpace(productName)) return false;
@@ -757,25 +785,27 @@
         {
             var productName = GetSelectedProductName();
 
-            var response = await Http.PostAsJsonAsync("api/products", new
+            var createDto = new CreateProductDto
             {
-                name = productName,
-                barcode = _lookupResult!.Barcode,
-                price = _productPrice,
-                description = _productDescription
-            });
+                Name = productName
+            };
 
-            if (response.IsSuccessStatusCode)
+            var createdProduct = await ProductsApi.CreateAsync(createDto);
+
+            // Add barcode to the newly created product
+            if (createdProduct != null && !string.IsNullOrWhiteSpace(_lookupResult?.Barcode))
             {
-                await OnProductCreated.InvokeAsync();
-                ResetAll();
-                await Cancel();
+                var barcodeDto = new CreateProductBarcodeDto
+                {
+                    Barcode = _lookupResult.Barcode,
+                    Quantity = _barcodeQuantity
+                };
+                await ProductsApi.AddBarcodeAsync(createdProduct.Id, barcodeDto);
             }
-            else
-            {
-                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                _errorMessage = error?.Message ?? "Failed to create product. Please try again.";
-            }
+
+            await OnProductCreated.InvokeAsync();
+            ResetAll();
+            await Cancel();
         }
         catch (Exception ex)
         {
@@ -787,22 +817,12 @@
         }
     }
 
-    private async Task HandleKeyPress(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_barcodeInput) && !_isSearching)
-        {
-            await SearchBarcode();
-        }
-    }
-
     private void ResetSearch()
     {
         _isProductFound = false;
         _lookupResult = null;
         _selectedNameOption = "title";
         _customName = "";
-        _productPrice = 0;
-        _productDescription = null;
         _errorMessage = null;
         _existingProductWithBarcode = null;
         _similarProducts = null;
@@ -820,8 +840,39 @@
         await OnClose.InvokeAsync();
     }
 
+    private async Task AssignBarcodeToProduct(int productId)
+    {
+        if (_lookupResult == null) return;
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var barcodeDto = new CreateProductBarcodeDto
+            {
+                Barcode = _lookupResult.Barcode,
+                Quantity = _barcodeQuantity
+            };
+            await ProductsApi.AddBarcodeAsync(productId, barcodeDto);
+
+            await OnProductCreated.InvokeAsync();
+            ResetAll();
+            await Cancel();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error assigning barcode to product: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
     private class SimilarProductDto
     {
+        public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public int MatchScore { get; set; }
     }

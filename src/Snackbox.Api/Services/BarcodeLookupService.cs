@@ -15,10 +15,10 @@ public class BarcodeLookupService : IBarcodeLookupService
         _httpClient = httpClient;
         _logger = logger;
         
-        var apiKey = configuration["BarcodeLookup:ApiKey"];
+        var apiKey = configuration["SearchUpcData:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey) || string.Equals(apiKey, "YOUR_API_KEY_HERE", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("BarcodeLookup API key is not configured or is invalid. Please set a valid API key.");
+            throw new InvalidOperationException("SearchUpcData API key is not configured or is invalid. Please set a valid API key.");
         }
         _apiKey = apiKey;
     }
@@ -36,11 +36,14 @@ public class BarcodeLookupService : IBarcodeLookupService
 
         try
         {
-            var url = $"https://api.barcodelookup.com/v3/products?barcode={Uri.EscapeDataString(barcode)}&key={Uri.EscapeDataString(_apiKey)}";
+            var url = $"https://searchupcdata.com/api/products/{Uri.EscapeDataString(barcode)}";
             
             _logger.LogInformation("Looking up barcode: {Barcode}", barcode);
             
-            var response = await _httpClient.GetAsync(url);
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Authorization", $"Bearer {_apiKey}");
+            
+            var response = await _httpClient.SendAsync(request);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -49,14 +52,11 @@ public class BarcodeLookupService : IBarcodeLookupService
                 
                 var errorMessage = response.StatusCode switch
                 {
-                    HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden 
-                        => "Invalid API key. Please check your configuration.",
-                    HttpStatusCode.TooManyRequests 
-                        => "API rate limit exceeded. Please try again later.",
-                    HttpStatusCode.NotFound 
-                        => "Product not found for this barcode.",
-                    HttpStatusCode.BadRequest 
-                        => "Invalid barcode format.",
+                    HttpStatusCode.Unauthorized => "Invalid API key. Please check your configuration.",
+                    HttpStatusCode.Forbidden => "Your API key has been deactivated. Contact support for assistance.",
+                    HttpStatusCode.NotFound => "Product not found for this barcode.",
+                    (HttpStatusCode)429 => "Monthly quota exceeded. Upgrade your plan or wait for next month's reset.",
+                    HttpStatusCode.InternalServerError => "An unexpected error occurred. Please try again later.",
                     _ => $"API request failed with status {response.StatusCode}"
                 };
                 
@@ -67,11 +67,11 @@ public class BarcodeLookupService : IBarcodeLookupService
                 };
             }
 
-            var apiResponse = await response.Content.ReadFromJsonAsync<BarcodeLookupApiResponse>();
+            var apiResponse = await response.Content.ReadFromJsonAsync<SearchUpcDataApiResponse>();
             
-            if (apiResponse?.Products == null || !apiResponse.Products.Any())
+            if (apiResponse == null)
             {
-                _logger.LogInformation("No products found for barcode: {Barcode}", barcode);
+                _logger.LogInformation("No product found for barcode: {Barcode}", barcode);
                 
                 return new BarcodeLookupResponseDto
                 {
@@ -79,20 +79,18 @@ public class BarcodeLookupService : IBarcodeLookupService
                     ErrorMessage = "No product found for this barcode"
                 };
             }
-
-            var product = apiResponse.Products.First();
             
             return new BarcodeLookupResponseDto
             {
                 Success = true,
                 Product = new BarcodeLookupProductDto
                 {
-                    Title = product.Title ?? "Unknown Product",
-                    Manufacturer = product.Manufacturer,
-                    Brand = product.Brand,
-                    Description = product.Description,
-                    Category = product.Category,
-                    Barcode = barcode
+                    Title = apiResponse.Name ?? "Unknown Product",
+                    Manufacturer = null, // searchupcdata.com doesn't provide manufacturer field
+                    Brand = apiResponse.Brand,
+                    Description = apiResponse.Description,
+                    Category = apiResponse.Category,
+                    Barcode = apiResponse.Upc ?? barcode
                 }
             };
         }

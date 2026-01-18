@@ -1,3 +1,5 @@
+using Snackbox.Api.Dtos;
+
 namespace Snackbox.Api.Models;
 
 public class Invoice
@@ -6,6 +8,7 @@ public class Invoice
     public required string InvoiceNumber { get; set; }
     public DateTime InvoiceDate { get; set; }
     public required string Supplier { get; set; }
+    public InvoiceType Type { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal AdditionalCosts { get; set; }
     public decimal PriceReduction { get; set; }

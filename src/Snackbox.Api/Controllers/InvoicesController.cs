@@ -48,6 +48,7 @@ public class InvoicesController : ControllerBase
                 InvoiceNumber = i.InvoiceNumber,
                 InvoiceDate = i.InvoiceDate,
                 Supplier = i.Supplier,
+                Type = i.Type,
                 TotalAmount = i.TotalAmount,
                 AdditionalCosts = i.AdditionalCosts,
                 PriceReduction = i.PriceReduction,
@@ -104,6 +105,7 @@ public class InvoicesController : ControllerBase
             InvoiceNumber = invoice.InvoiceNumber,
             InvoiceDate = invoice.InvoiceDate,
             Supplier = invoice.Supplier,
+            Type = invoice.Type,
             TotalAmount = invoice.TotalAmount,
             AdditionalCosts = invoice.AdditionalCosts,
             PriceReduction = invoice.PriceReduction,
@@ -212,6 +214,7 @@ public class InvoicesController : ControllerBase
             InvoiceNumber = invoice.InvoiceNumber,
             InvoiceDate = invoice.InvoiceDate,
             Supplier = invoice.Supplier,
+            Type = invoice.Type,
             TotalAmount = invoice.TotalAmount,
             AdditionalCosts = invoice.AdditionalCosts,
             PriceReduction = invoice.PriceReduction,
@@ -277,6 +280,7 @@ public class InvoicesController : ControllerBase
             InvoiceNumber = invoice.InvoiceNumber,
             InvoiceDate = invoice.InvoiceDate,
             Supplier = invoice.Supplier,
+            Type = invoice.Type,
             TotalAmount = invoice.TotalAmount,
             AdditionalCosts = invoice.AdditionalCosts,
             Notes = invoice.Notes,
@@ -400,6 +404,7 @@ public class InvoicesController : ControllerBase
             InvoiceNumber = dto.InvoiceNumber,
             InvoiceDate = DateTime.SpecifyKind(dto.InvoiceDate, DateTimeKind.Utc),
             Supplier = dto.Supplier,
+            Type = InvoiceType.Parsed,
             AdditionalCosts = dto.AdditionalCosts,
             PriceReduction = dto.PriceReduction,
             PaidByUserId = dto.PaidByUserId,
@@ -494,6 +499,7 @@ public class InvoicesController : ControllerBase
             InvoiceNumber = invoice.InvoiceNumber,
             InvoiceDate = invoice.InvoiceDate,
             Supplier = invoice.Supplier,
+            Type = invoice.Type,
             TotalAmount = invoice.TotalAmount,
             AdditionalCosts = invoice.AdditionalCosts,
             PriceReduction = invoice.PriceReduction,
@@ -708,5 +714,260 @@ public class InvoicesController : ControllerBase
         };
 
         return Ok(result);
+    }
+
+    [HttpPost("manual/simple")]
+    public async Task<ActionResult<InvoiceDto>> CreateManualSimple([FromBody] CreateManualSimpleInvoiceDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { message = "Invalid user" });
+        }
+
+        // Generate invoice number
+        var invoiceNumber = $"MANUAL-SIMPLE-{DateTime.UtcNow:yyyyMMddHHmmss}";
+
+        var invoice = new Invoice
+        {
+            InvoiceNumber = invoiceNumber,
+            InvoiceDate = DateTime.SpecifyKind(dto.InvoiceDate, DateTimeKind.Utc),
+            Supplier = dto.Supplier,
+            Type = InvoiceType.ManualSimple,
+            TotalAmount = dto.TotalAmount,
+            AdditionalCosts = 0,
+            PriceReduction = 0,
+            PaidByUserId = dto.PaidByUserId,
+            Notes = dto.Notes,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = userId
+        };
+
+        // Simple invoices do not have line items
+
+        _context.Invoices.Add(invoice);
+        await _context.SaveChangesAsync();
+
+        // Create payment for the invoice
+        var payment = new Payment
+        {
+            UserId = invoice.PaidByUserId,
+            Amount = invoice.TotalAmount,
+            PaidAt = invoice.InvoiceDate,
+            Notes = $"Payment for invoice {invoice.InvoiceNumber}",
+            Type = PaymentType.CashRegister,
+            InvoiceId = invoice.Id
+        };
+        _context.Payments.Add(payment);
+        await _context.SaveChangesAsync();
+
+        // Update invoice with payment reference
+        invoice.PaymentId = payment.Id;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Manual simple invoice created: {InvoiceNumber} with payment {PaymentId}",
+            invoice.InvoiceNumber, payment.Id);
+
+        // Load navigation properties
+        await _context.Entry(invoice).Reference(i => i.CreatedBy).LoadAsync();
+        await _context.Entry(invoice).Reference(i => i.PaidBy).LoadAsync();
+
+        var result = new InvoiceDto
+        {
+            Id = invoice.Id,
+            InvoiceNumber = invoice.InvoiceNumber,
+            InvoiceDate = invoice.InvoiceDate,
+            Supplier = invoice.Supplier,
+            Type = invoice.Type,
+            TotalAmount = invoice.TotalAmount,
+            AdditionalCosts = invoice.AdditionalCosts,
+            PriceReduction = invoice.PriceReduction,
+            PaidByUserId = invoice.PaidByUserId,
+            PaidByUsername = invoice.PaidBy.Username,
+            PaymentId = invoice.PaymentId,
+            Notes = invoice.Notes,
+            CreatedAt = invoice.CreatedAt,
+            CreatedByUserId = invoice.CreatedByUserId,
+            CreatedByUsername = invoice.CreatedBy.Username,
+            Items = invoice.Items.Select(it => new InvoiceItemDto
+            {
+                Id = it.Id,
+                InvoiceId = it.InvoiceId,
+                ProductId = it.ProductId,
+                MatchedProductName = it.Product?.Name,
+                ProductName = it.ProductName,
+                Quantity = it.Quantity,
+                UnitPrice = it.UnitPrice,
+                TotalPrice = it.TotalPrice,
+                BestBeforeDate = it.BestBeforeDate,
+                Notes = it.Notes,
+                ArticleNumber = it.ArticleNumber,
+                Status = it.Status,
+                ActionType = it.ShelvingActions.FirstOrDefault()?.Type
+            }).ToList(),
+            HasUnprocessedItems = invoice.Items.Any(it => it.Status == InvoiceItemStatus.Pending)
+        };
+
+        return CreatedAtAction(nameof(GetById), new { id = invoice.Id }, result);
+    }
+
+    [HttpPost("manual/detailed")]
+    public async Task<ActionResult<InvoiceDto>> CreateManualDetailed([FromBody] CreateManualDetailedInvoiceDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { message = "Invalid user" });
+        }
+
+        if (dto.Items == null || !dto.Items.Any())
+        {
+            return BadRequest(new { message = "At least one item is required" });
+        }
+
+        // Generate invoice number
+        var invoiceNumber = $"MANUAL-DETAILED-{DateTime.UtcNow:yyyyMMddHHmmss}";
+
+        var invoice = new Invoice
+        {
+            InvoiceNumber = invoiceNumber,
+            InvoiceDate = DateTime.SpecifyKind(dto.InvoiceDate, DateTimeKind.Utc),
+            Supplier = dto.Supplier,
+            Type = InvoiceType.ManualDetailed,
+            AdditionalCosts = dto.AdditionalCosts,
+            PriceReduction = dto.PriceReduction,
+            PaidByUserId = dto.PaidByUserId,
+            Notes = dto.Notes,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = userId
+        };
+
+        // Process items and resolve products from barcodes
+        foreach (var itemDto in dto.Items)
+        {
+            int? productId = itemDto.ProductId;
+            string? productName = null;
+            string? articleNumber = itemDto.Barcode;
+
+            // If barcode provided, look up the product
+            if (!productId.HasValue && !string.IsNullOrWhiteSpace(itemDto.Barcode))
+            {
+                var productBarcode = await _context.ProductBarcodes
+                    .Include(pb => pb.Product)
+                    .FirstOrDefaultAsync(pb => pb.Barcode == itemDto.Barcode);
+
+                if (productBarcode != null)
+                {
+                    productId = productBarcode.ProductId;
+                    productName = productBarcode.Product.Name;
+                }
+                else
+                {
+                    return BadRequest(new { message = $"Product not found for barcode: {itemDto.Barcode}" });
+                }
+            }
+            else if (productId.HasValue)
+            {
+                var product = await _context.Products.FindAsync(productId.Value);
+                if (product == null)
+                {
+                    return BadRequest(new { message = $"Product not found: {productId.Value}" });
+                }
+                productName = product.Name;
+            }
+            else
+            {
+                return BadRequest(new { message = "Each item must have either ProductId or Barcode" });
+            }
+
+            var item = new InvoiceItem
+            {
+                ProductId = productId,
+                ProductName = productName!,
+                Quantity = itemDto.Quantity,
+                UnitPrice = itemDto.UnitPrice,
+                TotalPrice = itemDto.Quantity * itemDto.UnitPrice,
+                BestBeforeDate = itemDto.BestBeforeDate.HasValue
+                    ? DateTime.SpecifyKind(itemDto.BestBeforeDate.Value, DateTimeKind.Utc)
+                    : null,
+                ArticleNumber = articleNumber
+            };
+            invoice.Items.Add(item);
+        }
+
+        // Calculate total amount
+        invoice.TotalAmount = invoice.Items.Sum(i => i.TotalPrice) + invoice.AdditionalCosts - invoice.PriceReduction;
+
+        _context.Invoices.Add(invoice);
+        await _context.SaveChangesAsync();
+
+        // Create payment for the invoice
+        var payment = new Payment
+        {
+            UserId = invoice.PaidByUserId,
+            Amount = invoice.TotalAmount,
+            PaidAt = invoice.InvoiceDate,
+            Notes = $"Payment for invoice {invoice.InvoiceNumber}",
+            Type = PaymentType.CashRegister,
+            InvoiceId = invoice.Id
+        };
+        _context.Payments.Add(payment);
+        await _context.SaveChangesAsync();
+
+        // Update invoice with payment reference
+        invoice.PaymentId = payment.Id;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Manual detailed invoice created: {InvoiceNumber} with {ItemCount} items and payment {PaymentId}",
+            invoice.InvoiceNumber, invoice.Items.Count, payment.Id);
+
+        // Load navigation properties
+        await _context.Entry(invoice).Reference(i => i.CreatedBy).LoadAsync();
+        await _context.Entry(invoice).Reference(i => i.PaidBy).LoadAsync();
+        foreach (var item in invoice.Items)
+        {
+            if (item.ProductId.HasValue)
+            {
+                await _context.Entry(item).Reference(i => i.Product).LoadAsync();
+            }
+        }
+
+        var result = new InvoiceDto
+        {
+            Id = invoice.Id,
+            InvoiceNumber = invoice.InvoiceNumber,
+            InvoiceDate = invoice.InvoiceDate,
+            Supplier = invoice.Supplier,
+            Type = invoice.Type,
+            TotalAmount = invoice.TotalAmount,
+            AdditionalCosts = invoice.AdditionalCosts,
+            PriceReduction = invoice.PriceReduction,
+            PaidByUserId = invoice.PaidByUserId,
+            PaidByUsername = invoice.PaidBy.Username,
+            PaymentId = invoice.PaymentId,
+            Notes = invoice.Notes,
+            CreatedAt = invoice.CreatedAt,
+            CreatedByUserId = invoice.CreatedByUserId,
+            CreatedByUsername = invoice.CreatedBy.Username,
+            Items = invoice.Items.Select(it => new InvoiceItemDto
+            {
+                Id = it.Id,
+                InvoiceId = it.InvoiceId,
+                ProductId = it.ProductId,
+                MatchedProductName = it.Product?.Name,
+                ProductName = it.ProductName,
+                Quantity = it.Quantity,
+                UnitPrice = it.UnitPrice,
+                TotalPrice = it.TotalPrice,
+                BestBeforeDate = it.BestBeforeDate,
+                Notes = it.Notes,
+                ArticleNumber = it.ArticleNumber,
+                Status = it.Status,
+                ActionType = it.ShelvingActions.FirstOrDefault()?.Type
+            }).ToList(),
+            HasUnprocessedItems = invoice.Items.Any(it => it.Status == InvoiceItemStatus.Pending)
+        };
+
+        return CreatedAtAction(nameof(GetById), new { id = invoice.Id }, result);
     }
 }
