@@ -173,6 +173,13 @@
                                 </InputSelect>
                             </div>
 
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="_userEditForm.IsActive" class="form-check-input" id="isActiveCheckEdit" />
+                                <label class="form-check-label" for="isActiveCheckEdit">
+                                    Active
+                                </label>
+                            </div>
+
                             <div class="info-row">
                                 <span class="info-label">Balance:</span>
                                 <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
@@ -1617,7 +1624,8 @@
         {
             Username = _user.Username,
             Email = _user.Email ?? string.Empty,
-            Role = _user.IsAdmin ? "Admin" : "User"
+            Role = _user.IsAdmin ? "Admin" : "User",
+            IsActive = _user.IsActive
         };
         _editError = null;
         _isEditingUserInfo = true;
@@ -1643,7 +1651,8 @@
             {
                 username = _userEditForm.Username,
                 email = _userEditForm.Email,
-                isAdmin = _userEditForm.Role == "Admin"
+                isAdmin = _userEditForm.Role == "Admin",
+                isActive = _userEditForm.IsActive
             });
 
             if (response.IsSuccessStatusCode)
@@ -1742,6 +1751,8 @@
 
         [Required]
         public string Role { get; set; } = "User";
+
+        public bool IsActive { get; set; } = true;
     }
 
     private class ManualPurchaseFormModel

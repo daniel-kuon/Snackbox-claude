@@ -10,6 +10,7 @@ public class UserDto
     public bool IsRetired { get; set; }
     public decimal Balance { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool HasPurchases { get; set; }
 }
 
 public class RegisterUserDto
@@ -27,6 +28,8 @@ public class CreateUserDto
     public string? Password { get; set; }
     public bool IsAdmin { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? PurchaseBarcode1 { get; set; } // 0.50€ barcode
+    public string? PurchaseBarcode2 { get; set; } // 0.30€ barcode
 }
 
 public class UpdateUserDto

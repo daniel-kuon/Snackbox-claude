@@ -17,6 +17,7 @@ public static partial class UserMapper
     [MapperIgnoreSource(nameof(User.Payments))]
     [MapperIgnoreSource(nameof(User.Withdrawals))]
     [MapperIgnoreTarget(nameof(UserDto.Balance))]
+    [MapperIgnoreTarget(nameof(UserDto.HasPurchases))]
     [MapperIgnoreSource(nameof(User.UserAchievements))]
     public static partial UserDto ToDto(this User source);
 
