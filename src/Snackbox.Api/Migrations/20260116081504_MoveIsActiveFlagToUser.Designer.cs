@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snackbox.Api.Data;
@@ -11,9 +12,11 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260116081504_MoveIsActiveFlagToUser")]
+    partial class MoveIsActiveFlagToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -421,7 +424,7 @@ namespace Snackbox.Api.Migrations
                             Id = 40,
                             Category = 8,
                             Code = "SPEED_DEMON",
-                            Description = "Made 2 scans within 3 seconds",
+                            Description = "Made 2 purchases within 1 minute",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF6347\" stroke=\"#DC143C\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">⚡</text><text x=\"60\" y=\"85\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">&lt;1min</text></svg>",
                             Name = "Speed Demon"
                         },
@@ -430,7 +433,7 @@ namespace Snackbox.Api.Migrations
                             Id = 41,
                             Category = 8,
                             Code = "DOUBLE_TROUBLE",
-                            Description = "Made 2 or more scans in a session",
+                            Description = "Made exactly 2 purchases in a session",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF69B4\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">2️⃣</text></svg>",
                             Name = "Double Trouble"
                         },
@@ -439,7 +442,7 @@ namespace Snackbox.Api.Migrations
                             Id = 42,
                             Category = 8,
                             Code = "TRIPLE_THREAT",
-                            Description = "Made 3 or more scans in a session",
+                            Description = "Made exactly 3 purchases in a session",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#DDA0DD\" stroke=\"#BA55D3\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">3️⃣</text></svg>",
                             Name = "Triple Threat"
                         },
@@ -448,7 +451,7 @@ namespace Snackbox.Api.Migrations
                             Id = 43,
                             Category = 8,
                             Code = "LUCKY_SEVEN",
-                            Description = "Made 7 or more scans in a session",
+                            Description = "Made exactly 7 purchases in a session",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#32CD32\" stroke=\"#228B22\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">7️⃣</text></svg>",
                             Name = "Lucky Seven"
                         },
@@ -541,10 +544,9 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("Discriminator")
-                        .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("character varying(21)");
+                    b.Property<bool>("IsLoginOnly")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_login_only");
 
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
@@ -558,10 +560,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("barcodes");
-
-                    b.HasDiscriminator().HasValue("Barcode");
-
-                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.BarcodeScan", b =>
@@ -661,56 +659,6 @@ namespace Snackbox.Api.Migrations
                     b.ToTable("deposits");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.Discount", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<decimal>("MinimumPurchaseAmount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("minimum_purchase_amount");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("name");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.Property<DateTime>("ValidFrom")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("valid_from");
-
-                    b.Property<DateTime>("ValidTo")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("valid_to");
-
-                    b.Property<decimal>("Value")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("value");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("discounts");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Invoice", b =>
                 {
                     b.Property<int>("Id")
@@ -731,7 +679,7 @@ namespace Snackbox.Api.Migrations
 
                     b.Property<int>("CreatedByUserId")
                         .HasColumnType("integer")
-                        .HasColumnName("created_by_user_id");
+                        .HasColumnName("created_by_id");
 
                     b.Property<DateTime>("InvoiceDate")
                         .HasColumnType("timestamp with time zone")
@@ -770,10 +718,6 @@ namespace Snackbox.Api.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("total_amount");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
 
                     b.HasKey("Id");
 
@@ -1014,6 +958,10 @@ namespace Snackbox.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1031,10 +979,6 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("type");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
@@ -1046,37 +990,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("purchases");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.PurchaseDiscount", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("DiscountAmount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("discount_amount");
-
-                    b.Property<int>("DiscountId")
-                        .HasColumnType("integer")
-                        .HasColumnName("discount_id");
-
-                    b.Property<int>("PurchaseId")
-                        .HasColumnType("integer")
-                        .HasColumnName("purchase_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DiscountId");
-
-                    b.HasIndex("PurchaseId");
-
-                    b.ToTable("purchase_discounts");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.ShelvingAction", b =>
@@ -1244,20 +1157,6 @@ namespace Snackbox.Api.Migrations
                     b.ToTable("withdrawals");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.LoginBarcode", b =>
-                {
-                    b.HasBaseType("Snackbox.Api.Models.Barcode");
-
-                    b.HasDiscriminator().HasValue("LoginBarcode");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.PurchaseBarcode", b =>
-                {
-                    b.HasBaseType("Snackbox.Api.Models.Barcode");
-
-                    b.HasDiscriminator().HasValue("PurchaseBarcode");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.User", "User")
@@ -1418,25 +1317,6 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Snackbox.Api.Models.PurchaseDiscount", b =>
-                {
-                    b.HasOne("Snackbox.Api.Models.Discount", "Discount")
-                        .WithMany()
-                        .HasForeignKey("DiscountId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Snackbox.Api.Models.Purchase", "Purchase")
-                        .WithMany("AppliedDiscounts")
-                        .HasForeignKey("PurchaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Discount");
-
-                    b.Navigation("Purchase");
-                });
-
             modelBuilder.Entity("Snackbox.Api.Models.ShelvingAction", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.InvoiceItem", "InvoiceItem")
@@ -1527,8 +1407,6 @@ namespace Snackbox.Api.Migrations
 
             modelBuilder.Entity("Snackbox.Api.Models.Purchase", b =>
                 {
-                    b.Navigation("AppliedDiscounts");
-
                     b.Navigation("Scans");
                 });
 

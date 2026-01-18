@@ -218,7 +218,7 @@ public class ScannerControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task ScanBarcode_InactiveBarcode_ReturnsError()
+    public async Task ScanBarcode_InactiveBarcode_AllowsScanWithInactiveFlag()
     {
         // Arrange
         var inactiveBarcode = new PurchaseBarcode
@@ -243,8 +243,12 @@ public class ScannerControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
 
-        Assert.False(response.Success);
-        Assert.Equal("Barcode is inactive", response.ErrorMessage);
+        Assert.True(response.Success);
+        Assert.True(response.IsUserInactive);
+        Assert.Equal(1, response.UserId);
+        Assert.Equal("testuser", response.Username);
+        Assert.Single(response.ScannedBarcodes);
+        Assert.Equal(5.00m, response.TotalAmount);
     }
 
     [Fact]

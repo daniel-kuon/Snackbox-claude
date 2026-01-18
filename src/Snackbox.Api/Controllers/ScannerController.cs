@@ -67,18 +67,8 @@ public class ScannerController : ControllerBase
         _logger.LogInformation("Barcode found: {BarcodeId}, User: {UserId}, Type: {Type}",
             barcode.Id, barcode.UserId, barcode is LoginBarcode ? "Login" : "Purchase");
 
-        if (!barcode.IsActive)
-        {
-            return Ok(new ScanBarcodeResponse
-            {
-                Success = false,
-                ErrorMessage = "Barcode is inactive",
-                UserId = 0,
-                Username = string.Empty
-            });
-        }
-
         var user = barcode.User;
+        var isInactive = !user.IsActive;
 
         // Check if this is a login barcode - return success with user info but don't create a purchase
         if (barcode is LoginBarcode)
@@ -88,7 +78,8 @@ public class ScannerController : ControllerBase
                 Success = true,
                 UserId = user.Id,
                 Username = user.Username,
-                IsLoginOnly = true
+                IsLoginOnly = true,
+                IsUserInactive = isInactive
             });
         }
 
@@ -324,6 +315,7 @@ public class ScannerController : ControllerBase
             Success = true,
             UserId = user.Id,
             Username = user.Username,
+            IsUserInactive = isInactive,
             PurchaseId = currentPurchase.Id,
             ScannedBarcodes = currentPurchase.Scans
                 .OrderBy(s => s.ScannedAt)

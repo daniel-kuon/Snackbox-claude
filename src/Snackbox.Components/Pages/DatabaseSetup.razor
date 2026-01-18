@@ -39,7 +39,7 @@
                         {
                             <div class="backup-item" @onclick="() => RestoreFromExistingBackup(backup.Id)">
                                 <div class="backup-info">
-                                    <strong>@backup.FileName</strong>
+                                    <strong>@ParseBackupName(backup.FileName, backup.CustomName)</strong>
                                     <small>@backup.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") • @FormatFileSize(backup.FileSizeBytes)</small>
                                 </div>
                                 <div class="backup-type">
@@ -450,5 +450,35 @@
             len /= 1024;
         }
         return $"{len:0.##} {sizes[order]}";
+    }
+
+    private string ParseBackupName(string fileName, string? customName)
+    {
+        // If there's a custom name, display it
+        if (!string.IsNullOrWhiteSpace(customName))
+        {
+            return customName;
+        }
+
+        // Expected format: snackbox_backup_20260115_223652_Manual.sql
+        // Parse: snackbox_backup_{date}_{time}_{type}[_{customName}].sql
+
+        var pattern = @"snackbox_backup_(\d{8})_(\d{6})_(\w+)(?:_(.+))?\.sql";
+        var match = System.Text.RegularExpressions.Regex.Match(fileName, pattern);
+
+        if (match.Success)
+        {
+            // If there's a custom part after the type, return it
+            if (match.Groups.Count > 4 && !string.IsNullOrWhiteSpace(match.Groups[4].Value))
+            {
+                return match.Groups[4].Value.Replace("_", " ");
+            }
+
+            // Otherwise return "Auto" for automatic backups
+            return "Auto";
+        }
+
+        // If format doesn't match, return the full filename
+        return fileName;
     }
 }

@@ -43,7 +43,7 @@ public class BarcodesController : ControllerBase
         var barcodes = await _context.Barcodes
             .OfType<PurchaseBarcode>()
             .Include(b => b.User)
-            .Where(b => b.UserId == userId.Value && b.IsActive)
+            .Where(b => b.UserId == userId.Value)
             .ToListAsync();
 
         return Ok(barcodes.ToDtoListWithUser());
@@ -96,7 +96,6 @@ public class BarcodesController : ControllerBase
                 UserId = dto.UserId,
                 Code = dto.Code,
                 Amount = 0m,
-                IsActive = dto.IsActive,
                 CreatedAt = DateTime.UtcNow
             }
             : new PurchaseBarcode
@@ -104,7 +103,6 @@ public class BarcodesController : ControllerBase
                 UserId = dto.UserId,
                 Code = dto.Code,
                 Amount = dto.Amount,
-                IsActive = dto.IsActive,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -137,7 +135,6 @@ public class BarcodesController : ControllerBase
         }
 
         barcode.Code = dto.Code;
-        barcode.IsActive = dto.IsActive;
 
         // Update amount for purchase barcodes only
         if (barcode is PurchaseBarcode)

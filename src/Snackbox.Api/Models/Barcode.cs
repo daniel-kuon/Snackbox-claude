@@ -7,7 +7,6 @@ public abstract class Barcode
     public int UserId { get; set; }
     public required string Code { get; set; }
     public decimal Amount { get; set; }
-    public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
 
     // Navigation properties

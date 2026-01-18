@@ -15,6 +15,7 @@ public class PurchaseSession
     public List<AppliedDiscount> AppliedDiscounts { get; set; } = new();
     public decimal DiscountedAmount { get; set; }
     public decimal TotalSavings => AppliedDiscounts.Sum(d => d.DiscountAmount);
+    public bool IsUserInactive { get; set; }
 }
 
 public class ScannedBarcode
