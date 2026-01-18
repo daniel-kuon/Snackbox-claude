@@ -14,11 +14,6 @@
 <div class="container-fluid">
     <div class="page-header">
         <h2>Admin Dashboard</h2>
-        <div class="header-buttons">
-            <button class="btn btn-outline-primary" @onclick="StartBatchProcess">
-                <i class="bi bi-upc-scan icon" aria-hidden="true"></i> Start Batch
-            </button>
-        </div>
     </div>
 
     <div class="scan-bar">
@@ -333,9 +328,9 @@
     private void BuildDebtors(List<UserDto> users)
     {
         _debtors = users
-            .Where(u => u.Balance > _minDebt)
+            .Where(u => u.Balance < -_minDebt)
             .Select(u => new DebtorItem { UserId = u.Id, Username = u.Username, Email = u.Email ?? "", Balance = u.Balance })
-            .OrderByDescending(d => d.Balance)
+            .OrderBy(d => d.Balance)
             .ToList();
     }
 
@@ -371,8 +366,6 @@
 
     private void GoToProduct(int productId) => Navigation.NavigateTo($"/admin/products/{productId}");
     private void GoToUser(int userId) => Navigation.NavigateTo($"/admin/users/{userId}");
-
-    private void StartBatchProcess() => Navigation.NavigateTo("/admin/batch-scan");
 
     private async Task SendReminders()
     {

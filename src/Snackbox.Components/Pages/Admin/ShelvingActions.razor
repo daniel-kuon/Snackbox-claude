@@ -8,9 +8,6 @@
 <div class="container-fluid">
     <div class="page-header">
         <h2>Shelving Actions History</h2>
-        <button class="btn btn-primary" @onclick="NavigateToBatchScan">
-            <span class="icon">📦</span> New Batch Scan
-        </button>
     </div>
 
     <!-- Filter Controls -->
@@ -331,11 +328,6 @@
     private void NavigateToProduct(int productId)
     {
         Navigation.NavigateTo($"/admin/products/{productId}");
-    }
-
-    private void NavigateToBatchScan()
-    {
-        Navigation.NavigateTo("/admin/batch-scan");
     }
 
     private string FormatActionType(ShelvingActionType type) => type switch
