@@ -19,7 +19,7 @@ namespace Snackbox.Api.Migrations
                 table: "users",
                 type: "boolean",
                 nullable: false,
-                defaultValue: false);
+                defaultValue: true);
 
             migrationBuilder.AddColumn<bool>(
                 name: "is_retired",
@@ -45,7 +45,7 @@ namespace Snackbox.Api.Migrations
                 table: "barcodes",
                 type: "boolean",
                 nullable: false,
-                defaultValue: false);
+                defaultValue: true);
         }
     }
 }

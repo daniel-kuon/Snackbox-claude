@@ -120,6 +120,10 @@
                                 }
                             </div>
                         }
+                        @if (_emailSuccess != null)
+                        {
+                            <div class="alert alert-success">@_emailSuccess</div>
+                        }
                         @if (_emailError != null)
                         {
                             <div class="alert alert-danger">@_emailError</div>
@@ -1452,26 +1456,20 @@
 
         try
         {
-            HttpResponseMessage response;
-            if (_editingBarcodeId.HasValue)
-            {
-                response = await Http.PutAsJsonAsync($"api/barcodes/{_editingBarcodeId.Value}", new
+            var response = _editingBarcodeId.HasValue
+                ? await Http.PutAsJsonAsync($"api/barcodes/{_editingBarcodeId.Value}", new
                 {
                     code = _barcodeForm.Code,
                     amount = _barcodeForm.Amount,
                     isLoginOnly = _barcodeForm.BarcodeType == "Login"
-                });
-            }
-            else
-            {
-                response = await Http.PostAsJsonAsync("api/barcodes", new
+                })
+                : await Http.PostAsJsonAsync("api/barcodes", new
                 {
                     userId = UserId,
                     code = _barcodeForm.Code,
                     amount = _barcodeForm.Amount,
                     isLoginOnly = _barcodeForm.BarcodeType == "Login"
                 });
-            }
 
             if (response.IsSuccessStatusCode)
             {
