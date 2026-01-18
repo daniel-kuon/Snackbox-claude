@@ -1,0 +1,438 @@
+@page "/admin/dashboard"
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Snackbox.Components.Components.Shared
+@inject IProductsApi ProductsApi
+@inject IPurchasesApi PurchasesApi
+@inject IUsersApi UsersApi
+@inject IBarcodesApi BarcodesApi
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Admin Dashboard - Snackbox</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Admin Dashboard</h2>
+        <div class="header-buttons">
+            <button class="btn btn-outline-primary" @onclick="StartBatchProcess">
+                <i class="bi bi-upc-scan icon" aria-hidden="true"></i> Start Batch
+            </button>
+        </div>
+    </div>
+
+    <div class="scan-bar">
+        <div class="scan-input">
+            <label>Scan Barcode (Product or User)</label>
+            <BarcodeInput Value="@_scanValue" ValueChanged="@OnBarcodeScanned" Placeholder="Scan a product or user barcode..." />
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading dashboard…</div>
+    }
+    else if (_error != null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    else
+    {
+        <div class="grid">
+            <section class="card">
+                <h3>Expiring Soon</h3>
+                <p class="muted">Next @_expiryThresholdDays days</p>
+                @if (_expiringSoon.Any())
+                {
+                    <ul class="list">
+                        @foreach (var item in _expiringSoon)
+                        {
+                            <li class="list-item" @onclick="() => GoToProduct(item.ProductId)">
+                                <div class="li-title">@item.ProductName</div>
+                                <div class="li-sub">@item.EarliestBestBefore?.ToString("yyyy-MM-dd")</div>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="empty">No products expiring soon.</div>
+                }
+            </section>
+
+            <section class="card">
+                <h3>Likely Empty Soon</h3>
+                <p class="muted">Projected from shelf stock and avg. weekly shelf additions</p>
+                @if (_emptySoon.Any())
+                {
+                    <ul class="list">
+                        @foreach (var item in _emptySoon)
+                        {
+                            <li class="list-item" @onclick="() => GoToProduct(item.ProductId)">
+                                <div class="li-title">@item.ProductName</div>
+                                <div class="li-sub">On shelf: @item.TotalOnShelf • ETA: @item.DaysLeft days</div>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="empty">No products predicted to be empty soon.</div>
+                }
+            </section>
+
+            <section class="card wide">
+                <h3>Purchases</h3>
+                <div class="stats-row">
+                    <div class="stat">
+                        <div class="stat-value">€@_purchasedThisWeek.ToString("0.00")</div>
+                        <div class="stat-label">This week</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">€@_purchasedThisMonth.ToString("0.00")</div>
+                        <div class="stat-label">This month</div>
+                    </div>
+                </div>
+                <div class="charts">
+                    <div>
+                        <h4>Weekly (last 52 weeks)</h4>
+                        <div class="bar-chart">
+                            @foreach (var v in _weeklySeries)
+                            {
+                                var h = ScaleBar(v, _weeklySeriesMax);
+                                <div class="bar" style="height:@h%" title="€@v.ToString("0.00")"></div>
+                            }
+                        </div>
+                    </div>
+                    <div>
+                        <h4>Monthly (last 12 months)</h4>
+                        <div class="bar-chart">
+                            @foreach (var v in _monthlySeries)
+                            {
+                                var h = ScaleBar(v, _monthlySeriesMax);
+                                <div class="bar" style="height:@h%" title="€@v.ToString("0.00")"></div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card wide">
+                <div class="list-header">
+                    <h3>Users owing > €@_minDebt</h3>
+                    <div class="actions">
+                        <label><input type="checkbox" @bind="_allSelected" @bind:after="ToggleSelectAllAfter" /> Select all</label>
+                        <button class="btn btn-primary" @onclick="SendReminders" disabled="@(!_debtors.Any(d => d.Selected))">Send Reminders</button>
+                    </div>
+                </div>
+                @if (_debtors.Any())
+                {
+                    <table class="table table-sm">
+                        <thead>
+                        <tr>
+                            <th></th>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Balance</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var d in _debtors)
+                        {
+                            <tr>
+                                <td><input type="checkbox" @bind="d.Selected" /></td>
+                                <td><a href="javascript:void(0)" @onclick="() => GoToUser(d.UserId)">@d.Username</a></td>
+                                <td>@d.Email</td>
+                                <td>€@d.Balance.ToString("0.00")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="empty">No users above threshold.</div>
+                }
+                @if (!string.IsNullOrEmpty(_reminderStatus))
+                {
+                    <div class="alert alert-info" style="margin-top: 0.5rem;">@_reminderStatus</div>
+                }
+            </section>
+        </div>
+    }
+</div>
+
+<style>
+    .page-header { display:flex; justify-content: space-between; align-items:center; margin-bottom:1rem; }
+    .header-buttons { display:flex; gap:.5rem; }
+    .scan-bar { margin-bottom: 1rem; }
+    .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    .card { background:#fff; border-radius:8px; padding:1rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .card.wide { grid-column: 1 / -1; }
+    .list { list-style:none; margin:0; padding:0; max-height: 320px; overflow:auto; }
+    .list-item { display:flex; justify-content: space-between; padding:.5rem .25rem; border-bottom:1px solid #eee; cursor:pointer; }
+    .list-item:hover { background:#fafafa; }
+    .li-title { font-weight:600; }
+    .li-sub { color:#666; }
+    .muted { color:#6c757d; margin-top:-.5rem; margin-bottom:.5rem; }
+    .empty { color:#888; font-style: italic; }
+    .stats-row { display:flex; gap:2rem; margin-bottom:.5rem; }
+    .stat-value { font-size:1.4rem; font-weight:700; }
+    .charts { display:grid; grid-template-columns: 1fr 1fr; gap:1rem; }
+    .bar-chart { display:flex; align-items:flex-end; gap:4px; height:120px; background:linear-gradient(to top, #f8f9fa, transparent); padding:6px; border-radius:4px; }
+    .bar { width:8px; background:#0d6efd; border-radius:2px 2px 0 0; }
+    .list-header { display:flex; justify-content: space-between; align-items:center; margin-bottom:.5rem; }
+    .actions { display:flex; gap:.75rem; align-items:center; }
+    @@media (max-width: 992px) { .grid { grid-template-columns: 1fr; } .charts { grid-template-columns: 1fr; } }
+</style>
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+
+    private int _expiryThresholdDays = 14;
+    private string _scanValue = string.Empty;
+
+    // Sections data
+    private List<ExpiringItem> _expiringSoon = new();
+    private List<EmptySoonItem> _emptySoon = new();
+
+    // Purchases
+    private decimal _purchasedThisWeek;
+    private decimal _purchasedThisMonth;
+    private List<decimal> _weeklySeries = new();
+    private List<decimal> _monthlySeries = new();
+    private decimal _weeklySeriesMax;
+    private decimal _monthlySeriesMax;
+
+    // Debtors
+    private decimal _minDebt = 10m;
+    private List<DebtorItem> _debtors = new();
+    private bool _allSelected;
+    private string? _reminderStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Fetch products data
+            var productsTask = ProductsApi.GetAllAsync();
+            var stockTask = ProductsApi.GetAllProductStockAsync();
+            var purchasesTask = PurchasesApi.GetAllAsync();
+            var usersTask = UsersApi.GetAllAsync();
+
+            await Task.WhenAll(productsTask, stockTask, purchasesTask, usersTask);
+
+            var products = (await productsTask).ToList();
+            var stock = (await stockTask).ToList();
+            var purchases = (await purchasesTask).ToList();
+            var users = (await usersTask).ToList();
+
+            BuildExpiringSoon(products, stock);
+            BuildEmptySoon(products, stock);
+            BuildPurchases(purchases);
+            BuildDebtors(users);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BuildExpiringSoon(List<ProductDto> products, List<ProductStockDto> stock)
+    {
+        var now = DateTime.UtcNow.Date;
+        var limit = now.AddDays(_expiryThresholdDays);
+        var byProduct = stock.ToDictionary(s => s.ProductId, s => s);
+
+        _expiringSoon = products
+            .Select(p => new {
+                p.Id, p.Name,
+                Date = new[] { p.BestBeforeInStock, p.BestBeforeOnShelf }.Where(d => d.HasValue).Select(d => d!.Value).DefaultIfEmpty(DateTime.MaxValue).Min(),
+                Stock = byProduct.TryGetValue(p.Id, out var s) ? s : null
+            })
+            .Where(x => x.Stock != null && (x.Stock!.TotalInStorage + x.Stock!.TotalOnShelf) > 0)
+            .Where(x => x.Date != DateTime.MaxValue && x.Date.Date <= limit)
+            .OrderBy(x => x.Date)
+            .Select(x => new ExpiringItem { ProductId = x.Id, ProductName = x.Name, EarliestBestBefore = x.Date })
+            .ToList();
+    }
+
+    private void BuildEmptySoon(List<ProductDto> products, List<ProductStockDto> stock)
+    {
+        // Heuristic: if on-shelf stock divided by avg weekly shelving < 1 week -> empty soon
+        var pById = products.ToDictionary(p => p.Id, p => p);
+        _emptySoon = stock
+            .Select(s => new {
+                s.ProductId, s.ProductName, s.TotalOnShelf,
+                AvgPerWeek = pById.TryGetValue(s.ProductId, out var p) ? Math.Max(0.1, p.AverageProductsShelvedPerWeek) : 0.1
+            })
+            .Where(x => x.TotalOnShelf > 0)
+            .Select(x => new {
+                x.ProductId, x.ProductName, x.TotalOnShelf,
+                WeeksLeft = x.TotalOnShelf / x.AvgPerWeek
+            })
+            .Where(x => x.WeeksLeft <= 1.0)
+            .OrderBy(x => x.WeeksLeft)
+            .Select(x => new EmptySoonItem {
+                ProductId = x.ProductId,
+                ProductName = x.ProductName,
+                TotalOnShelf = x.TotalOnShelf,
+                DaysLeft = (int)Math.Round(x.WeeksLeft * 7)
+            })
+            .ToList();
+    }
+
+    private void BuildPurchases(List<PurchaseDto> purchases)
+    {
+        var now = DateTime.UtcNow;
+        var startOfWeek = StartOfWeek(now, DayOfWeek.Monday);
+        var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var oneYearAgo = now.AddYears(-1);
+
+        _purchasedThisWeek = purchases
+            .Where(p => (p.UpdatedAt ?? p.CreatedAt) >= startOfWeek)
+            .Sum(p => p.TotalAmount);
+
+        _purchasedThisMonth = purchases
+            .Where(p => (p.UpdatedAt ?? p.CreatedAt) >= startOfMonth)
+            .Sum(p => p.TotalAmount);
+
+        var lastYearPurchases = purchases
+            .Where(p => (p.UpdatedAt ?? p.CreatedAt) >= oneYearAgo)
+            .ToList();
+
+        // Weekly: 52 buckets, each 7-day window ending at now
+        _weeklySeries = new List<decimal>();
+        for (int i = 51; i >= 0; i--)
+        {
+            var periodStart = StartOfWeek(now.AddDays(-7 * i), DayOfWeek.Monday);
+            var periodEnd = periodStart.AddDays(7);
+            var sum = lastYearPurchases.Where(p => (p.UpdatedAt ?? p.CreatedAt) >= periodStart && (p.UpdatedAt ?? p.CreatedAt) < periodEnd).Sum(p => p.TotalAmount);
+            _weeklySeries.Add(sum);
+        }
+        _weeklySeriesMax = _weeklySeries.DefaultIfEmpty(0).Max();
+
+        // Monthly: last 12 months
+        _monthlySeries = new List<decimal>();
+        for (int i = 11; i >= 0; i--)
+        {
+            var dt = now.AddMonths(-i);
+            var mStart = new DateTime(dt.Year, dt.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var mEnd = mStart.AddMonths(1);
+            var sum = lastYearPurchases.Where(p => (p.UpdatedAt ?? p.CreatedAt) >= mStart && (p.UpdatedAt ?? p.CreatedAt) < mEnd).Sum(p => p.TotalAmount);
+            _monthlySeries.Add(sum);
+        }
+        _monthlySeriesMax = _monthlySeries.DefaultIfEmpty(0).Max();
+    }
+
+    private void BuildDebtors(List<UserDto> users)
+    {
+        _debtors = users
+            .Where(u => u.Balance > _minDebt)
+            .Select(u => new DebtorItem { UserId = u.Id, Username = u.Username, Email = u.Email ?? "", Balance = u.Balance })
+            .OrderByDescending(d => d.Balance)
+            .ToList();
+    }
+
+    private async Task OnBarcodeScanned(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return;
+
+        // Try product first
+        try
+        {
+            var product = await ProductsApi.GetByBarcodeAsync(code);
+            if (product != null)
+            {
+                GoToProduct(product.Id);
+                return;
+            }
+        }
+        catch { /* not a product code */ }
+
+        // Try user barcode by looking up known barcodes
+        try
+        {
+            var barcodes = await BarcodesApi.GetAllAsync();
+            var match = barcodes.FirstOrDefault(b => b.Code == code);
+            if (match != null && match.UserId != 0)
+            {
+                GoToUser(match.UserId);
+                return;
+            }
+        }
+        catch { }
+    }
+
+    private void GoToProduct(int productId) => Navigation.NavigateTo($"/admin/products/{productId}");
+    private void GoToUser(int userId) => Navigation.NavigateTo($"/admin/users/{userId}");
+
+    private void StartBatchProcess() => Navigation.NavigateTo("/admin/batch-scan");
+
+    private async Task SendReminders()
+    {
+        _reminderStatus = null;
+        var selected = _debtors.Where(d => d.Selected).ToList();
+        if (!selected.Any()) return;
+
+        int ok = 0, fail = 0;
+        foreach (var d in selected)
+        {
+            try
+            {
+                var resp = await Http.PostAsync($"api/email/send-payment-reminder/{d.UserId}", null);
+                if (resp.IsSuccessStatusCode) ok++; else fail++;
+            }
+            catch { fail++; }
+        }
+        _reminderStatus = $"Sent {ok} reminder(s), {fail} failed.";
+    }
+
+    private void ToggleSelectAllAfter()
+    {
+        foreach (var d in _debtors) d.Selected = _allSelected;
+    }
+
+    private static DateTime StartOfWeek(DateTime dt, DayOfWeek startOfWeek)
+    {
+        int diff = (7 + (dt.DayOfWeek - startOfWeek)) % 7;
+        var date = dt.Date.AddDays(-1 * diff);
+        return new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static decimal ScaleBar(decimal value, decimal max)
+    {
+        if (max <= 0) return 0;
+        var pct = (double)(value / max) * 100.0;
+        return (decimal)Math.Clamp(pct, 2, 100); // keep tiny bars visible
+    }
+
+    private class ExpiringItem
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public DateTime? EarliestBestBefore { get; set; }
+    }
+
+    private class EmptySoonItem
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public int TotalOnShelf { get; set; }
+        public int DaysLeft { get; set; }
+    }
+
+    private class DebtorItem
+    {
+        public int UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public decimal Balance { get; set; }
+        public bool Selected { get; set; }
+    }
+}
