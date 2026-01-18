@@ -62,7 +62,6 @@ public class ScannerService : IScannerService
                 return new ScanResult
                 {
                     IsSuccess = true,
-                    IsAdmin = result.IsAdmin,
                     IsLoginOnly = true
                 };
             }
@@ -101,7 +100,6 @@ public class ScannerService : IScannerService
             return new ScanResult
             {
                 IsSuccess = true,
-                IsAdmin = result.IsAdmin,
                 IsLoginOnly = false
             };
         }

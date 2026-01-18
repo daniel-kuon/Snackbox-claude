@@ -744,13 +744,6 @@
                 return;
             }
 
-            // Admin code detected - redirect to the barcode login page with barcode pre-filled
-            if (scanResult.IsAdmin)
-            {
-                await InvokeAsync(() => { Navigation.NavigateTo($"/barcode-login?barcode={Uri.EscapeDataString(code)}"); });
-                return;
-            }
-
             // Login-only barcode - redirect to barcode login page
             if (scanResult.IsLoginOnly)
             {
@@ -790,6 +783,8 @@
 
     private void StartCountdownTimer()
     {
+        if (_countdownTimer is { Enabled: true })
+            return;
         _countdownTimer = new Timer(1000);
         _countdownTimer.Elapsed += (_, _) =>
                                    {

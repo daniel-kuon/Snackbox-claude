@@ -18,7 +18,8 @@ public class AuthControllerTests : IDisposable
     private readonly AuthController _controller;
     private readonly Mock<ILogger<AuthController>> _loggerMock;
     private readonly string _testPassword = "TestPassword123";
-    private readonly string _testBarcode = "TEST-BARCODE";
+    private readonly string _testBarcode = "TEST-LOGIN";
+    private readonly string _purchaseBarcode = "TEST-PURCHASE";
 
     public AuthControllerTests()
     {
@@ -57,17 +58,28 @@ public class AuthControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var barcode = new Barcode
+        var loginBarcode = new LoginBarcode
         {
             Id = 1,
             UserId = 1,
             Code = _testBarcode,
             IsActive = true,
+            IsLoginOnly = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var purchaseBarcode = new PurchaseBarcode
+        {
+            Id = 2,
+            UserId = 1,
+            Code = _purchaseBarcode,
+            IsActive = true,
+            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Users.Add(user);
-        _context.Barcodes.Add(barcode);
+        _context.Barcodes.AddRange(loginBarcode, purchaseBarcode);
         _context.SaveChanges();
     }
 
@@ -123,6 +135,29 @@ public class AuthControllerTests : IDisposable
 
         // Assert
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Login_WithPurchaseBarcode_ShouldFail_ForBarcodeOnlyAndBarcodeWithPassword()
+    {
+        // 1) Try barcode-only login with a purchase barcode
+        var requestBarcodeOnly = new LoginRequest
+        {
+            BarcodeValue = _purchaseBarcode
+        };
+
+        var result1 = await _controller.Login(requestBarcodeOnly);
+        Assert.IsType<UnauthorizedObjectResult>(result1.Result);
+
+        // 2) Try barcode + password login with a purchase barcode
+        var requestWithPassword = new LoginRequest
+        {
+            BarcodeValue = _purchaseBarcode,
+            Password = _testPassword
+        };
+
+        var result2 = await _controller.Login(requestWithPassword);
+        Assert.IsType<UnauthorizedObjectResult>(result2.Result);
     }
 
     public void Dispose()
