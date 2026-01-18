@@ -1,7 +1,7 @@
 # Barcode Lookup Feature - Implementation Summary
 
 ## Overview
-This implementation adds a barcode lookup feature to the Snackbox admin interface, allowing administrators to search for product information using the barcodelookup.com API and create products directly from the search results.
+This implementation adds a barcode lookup feature to the Snackbox admin interface, allowing administrators to search for product information using the searchupcdata.com API and create products directly from the search results.
 
 ## Implementation Details
 
@@ -39,7 +39,7 @@ This implementation adds a barcode lookup feature to the Snackbox admin interfac
 Configuration structure:
 ```json
 {
-  "BarcodeLookup": {
+  "SearchUpcData": {
     "ApiKey": "YOUR_API_KEY_HERE"
   }
 }
@@ -146,8 +146,8 @@ All tests use Moq for mocking dependencies and follow AAA pattern (Arrange, Act,
 
 ### API Integration
 
-#### External API: barcodelookup.com
-- **Endpoint**: `https://api.barcodelookup.com/v3/products`
+#### External API: searchupcdata.com
+- **Endpoint**: `https://searchupcdata.com/api/products/{upc}`
 - **Method**: GET
 - **Parameters**: 
   - `barcode`: Product barcode number
@@ -169,7 +169,7 @@ The service handles multiple error scenarios:
 2. Clicks "Lookup Barcode" button
 3. Modal opens with barcode input field
 4. Admin enters barcode and clicks "Search" or presses Enter
-5. System queries barcodelookup.com API
+5. System queries searchupcdata.com API
 6. Product information displays (if found)
 7. Admin selects desired product name format
 8. Admin enters price (required)
@@ -228,7 +228,7 @@ The service handles multiple error scenarios:
 ### Deployment Notes
 
 1. **Before Deployment**:
-   - Obtain API key from barcodelookup.com
+   - Obtain API key from searchupcdata.com
    - Configure API key in production settings
    - Consider rate limits of your API plan
 
@@ -236,10 +236,10 @@ The service handles multiple error scenarios:
    ```bash
    # Using user secrets (development)
    cd src/Snackbox.Api
-   dotnet user-secrets set "BarcodeLookup:ApiKey" "your-api-key"
+   dotnet user-secrets set "SearchUpcData:ApiKey" "your-api-key"
    
    # Or set environment variable (production)
-   export BarcodeLookup__ApiKey="your-api-key"
+   export SearchUpcData__ApiKey="your-api-key"
    ```
 
 3. **Verification**:

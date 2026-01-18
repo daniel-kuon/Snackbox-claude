@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IBarcodeLookupApi>();
         AddRefitClient<IBackupApi>();
         AddRefitClient<IInvoicesApi>();
+        AddRefitClient<ISettingsApi>();
 
         return services;
     }
@@ -74,7 +75,17 @@ public static class ServiceCollectionExtensions
         Action<HttpClient>? configureClient = null)
         where THandler : DelegatingHandler
     {
-        var refitSettings = new RefitSettings();
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
+        jsonOptions.Converters.Add(new JsonStringEnumConverter());
+
+        var refitSettings = new RefitSettings
+        {
+            ContentSerializer = new SystemTextJsonContentSerializer(jsonOptions)
+        };
 
         void AddRefitClient<TApi>() where TApi : class
         {
@@ -115,6 +126,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IBarcodeLookupApi>();
         AddRefitClient<IInvoicesApi>();
         AddRefitClient<IBackupApi>();
+        AddRefitClient<ISettingsApi>();
     }
 
 }

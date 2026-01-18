@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snackbox.Api.Data;
@@ -11,9 +12,11 @@ using Snackbox.Api.Data;
 namespace Snackbox.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260117221741_AddInvoiceType")]
+    partial class AddInvoiceType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -541,10 +544,13 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("Discriminator")
-                        .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("character varying(21)");
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsLoginOnly")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_login_only");
 
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
@@ -558,10 +564,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("barcodes");
-
-                    b.HasDiscriminator().HasValue("Barcode");
-
-                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.BarcodeScan", b =>
@@ -681,7 +683,7 @@ namespace Snackbox.Api.Migrations
 
                     b.Property<int>("CreatedByUserId")
                         .HasColumnType("integer")
-                        .HasColumnName("created_by_user_id");
+                        .HasColumnName("created_by_id");
 
                     b.Property<DateTime>("InvoiceDate")
                         .HasColumnType("timestamp with time zone")
@@ -1054,17 +1056,9 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("boolean")
                         .HasColumnName("is_admin");
-
-                    b.Property<bool>("IsRetired")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_retired");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text")
@@ -1161,20 +1155,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("withdrawals");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.LoginBarcode", b =>
-                {
-                    b.HasBaseType("Snackbox.Api.Models.Barcode");
-
-                    b.HasDiscriminator().HasValue("LoginBarcode");
-                });
-
-            modelBuilder.Entity("Snackbox.Api.Models.PurchaseBarcode", b =>
-                {
-                    b.HasBaseType("Snackbox.Api.Models.Barcode");
-
-                    b.HasDiscriminator().HasValue("PurchaseBarcode");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>

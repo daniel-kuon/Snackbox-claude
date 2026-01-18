@@ -41,8 +41,9 @@ public class BarcodesController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var barcodes = await _context.Barcodes
+            .OfType<PurchaseBarcode>()
             .Include(b => b.User)
-            .Where(b => b.UserId == userId.Value && !b.IsLoginOnly)
+            .Where(b => b.UserId == userId.Value)
             .ToListAsync();
 
         return Ok(barcodes.ToDtoListWithUser());
@@ -88,14 +89,22 @@ public class BarcodesController : ControllerBase
             return BadRequest(new { message = "A barcode with this code already exists" });
         }
 
-        var barcode = new Barcode
-        {
-            UserId = dto.UserId,
-            Code = dto.Code,
-            Amount = dto.Amount,
-            IsLoginOnly = dto.IsLoginOnly,
-            CreatedAt = DateTime.UtcNow
-        };
+        // Choose correct concrete type
+        Barcode barcode = dto.IsLoginOnly
+            ? new LoginBarcode
+            {
+                UserId = dto.UserId,
+                Code = dto.Code,
+                Amount = 0m,
+                CreatedAt = DateTime.UtcNow
+            }
+            : new PurchaseBarcode
+            {
+                UserId = dto.UserId,
+                Code = dto.Code,
+                Amount = dto.Amount,
+                CreatedAt = DateTime.UtcNow
+            };
 
         _context.Barcodes.Add(barcode);
         await _context.SaveChangesAsync();
@@ -126,8 +135,12 @@ public class BarcodesController : ControllerBase
         }
 
         barcode.Code = dto.Code;
-        barcode.Amount = dto.Amount;
-        barcode.IsLoginOnly = dto.IsLoginOnly;
+
+        // Update amount for purchase barcodes only
+        if (barcode is PurchaseBarcode)
+        {
+            barcode.Amount = dto.Amount;
+        }
 
         await _context.SaveChangesAsync();
 

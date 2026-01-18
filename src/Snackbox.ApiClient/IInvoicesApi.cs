@@ -31,4 +31,10 @@ public interface IInvoicesApi
 
     [Delete("/api/invoices/{id}")]
     Task DeleteAsync(int id);
+
+    [Post("/api/invoices/manual/simple")]
+    Task<InvoiceDto> CreateManualSimpleAsync([Body] CreateManualSimpleInvoiceDto dto);
+
+    [Post("/api/invoices/manual/detailed")]
+    Task<InvoiceDto> CreateManualDetailedAsync([Body] CreateManualDetailedInvoiceDto dto);
 }

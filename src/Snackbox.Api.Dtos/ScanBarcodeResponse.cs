@@ -8,7 +8,6 @@ public class ScanBarcodeResponse
     // User information
     public int UserId { get; set; }
     public required string Username { get; set; }
-    public bool IsAdmin { get; set; }
     public bool IsLoginOnly { get; set; } // True if this is a login-only barcode
     public bool IsUserInactive { get; set; } // True if the user's barcode is inactive
 
@@ -21,10 +20,10 @@ public class ScanBarcodeResponse
     public decimal Balance { get; set; } // Total spent - total paid (negative = owes money)
     public decimal LastPaymentAmount { get; set; }
     public DateTime? LastPaymentDate { get; set; }
-    
+
     // Recent purchases
     public List<RecentPurchaseDto> RecentPurchases { get; set; } = new();
-    
+
     // Newly earned achievements (not yet shown to user)
     public List<AchievementDto> NewAchievements { get; set; } = new();
 }
