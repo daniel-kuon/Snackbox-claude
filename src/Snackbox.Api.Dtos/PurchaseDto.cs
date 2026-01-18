@@ -7,11 +7,12 @@ public class PurchaseDto
     public string? Username { get; set; }
     public decimal TotalAmount { get; set; }
     public DateTime CreatedAt { get; set; }
-    public DateTime? CompletedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
     public string Type { get; set; } = "Normal"; // Normal, Manual, Correction
     public int? ReferencePurchaseId { get; set; }
     public decimal? ManualAmount { get; set; }
     public List<PurchaseItemDto> Items { get; set; } = new();
+    public List<AppliedDiscountDto> AppliedDiscounts { get; set; } = new();
 }
 
 public class PurchaseItemDto

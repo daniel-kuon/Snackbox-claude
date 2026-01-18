@@ -239,13 +239,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
+                            @foreach (var purchase in _purchases.OrderByDescending(p => p.UpdatedAt))
                             {
                                 var itemsTotal = purchase.Items.Sum(i => i.Amount);
-                                var hasDiscount = purchase.Type == "Normal" && purchase.Items.Any() && itemsTotal > purchase.TotalAmount;
+                                var totalDiscounts = purchase.AppliedDiscounts.Sum(d => d.DiscountAmount);
+                                var hasDiscount = totalDiscounts > 0;
 
                                 <tr>
-                                    <td>@purchase.CompletedAt?.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>@purchase.UpdatedAt?.ToString("yyyy-MM-dd HH:mm")</td>
                                     <td>
                                         @if (purchase.Type == "Manual")
                                         {
@@ -291,8 +292,18 @@
                                         {
                                             <br/>
                                             <small class="badge bg-success mt-1">
-                                                🎉 Saved €@((itemsTotal - purchase.TotalAmount).ToString("F2"))
+                                                🎉 Saved €@(totalDiscounts.ToString("F2"))
                                             </small>
+                                            @if (purchase.AppliedDiscounts.Count > 0)
+                                            {
+                                                <br/>
+                                                @foreach (var discount in purchase.AppliedDiscounts)
+                                                {
+                                                    <small class="text-muted d-block">
+                                                        @discount.Name: -€@discount.DiscountAmount.ToString("F2")
+                                                    </small>
+                                                }
+                                            }
                                         }
                                     </td>
                                     <td>
@@ -657,9 +668,9 @@
                             <option value="">-- Select a purchase --</option>
                             @if (_purchases != null)
                             {
-                                @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
+                                @foreach (var purchase in _purchases.OrderByDescending(p => p.UpdatedAt))
                                 {
-                                    <option value="@purchase.Id">#@purchase.Id - @purchase.CompletedAt?.ToString("yyyy-MM-dd") - €@purchase.TotalAmount.ToString("F2")</option>
+                                    <option value="@purchase.Id">#@purchase.Id - @purchase.UpdatedAt?.ToString("yyyy-MM-dd") - €@purchase.TotalAmount.ToString("F2")</option>
                                 }
                             }
                         </InputSelect>

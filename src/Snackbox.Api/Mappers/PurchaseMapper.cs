@@ -49,7 +49,7 @@ public static partial class PurchaseMapper
             Username = source.User.Username,
             TotalAmount = source.ManualAmount ?? source.Scans.Sum(s => s.Amount),
             CreatedAt = source.CreatedAt,
-            CompletedAt = source.CompletedAt,
+            UpdatedAt = source.UpdatedAt,
             Items = source.Scans.ToItemDtoList()
         };
     }

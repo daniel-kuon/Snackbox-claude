@@ -42,6 +42,6 @@ public class RecentPurchaseDto
 {
     public int PurchaseId { get; set; }
     public decimal TotalAmount { get; set; }
-    public DateTime CompletedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
     public int ItemCount { get; set; }
 }

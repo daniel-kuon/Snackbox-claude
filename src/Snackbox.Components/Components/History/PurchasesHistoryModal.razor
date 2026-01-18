@@ -35,12 +35,30 @@
                             <div class="sb-month-content">
                                 @foreach (var p in group.Value.OrderByDescending(p => EffectiveDate(p)))
                                 {
+                                    var itemsTotal = p.Items.Sum(i => i.Amount);
+                                    var hasDiscount = p.AppliedDiscounts.Any();
+
                                     <div class="sb-row">
                                         <div class="sb-row-left">
                                             <div class="sb-date">@EffectiveDate(p).ToString("dd MMM yyyy HH:mm")</div>
                                             <div class="sb-sub">@p.Items.Count item@(p.Items.Count == 1 ? string.Empty : "s")</div>
+                                            @if (hasDiscount)
+                                            {
+                                                <div class="sb-discounts">
+                                                    @foreach (var discount in p.AppliedDiscounts)
+                                                    {
+                                                        <span class="sb-discount-tag">🎉 @discount.Name (-@discount.DiscountAmount.ToString("C"))</span>
+                                                    }
+                                                </div>
+                                            }
                                         </div>
-                                        <div class="sb-amount">@p.TotalAmount.ToString("C")</div>
+                                        <div class="sb-row-right">
+                                            @if (hasDiscount)
+                                            {
+                                                <div class="sb-amount-original">@itemsTotal.ToString("C")</div>
+                                            }
+                                            <div class="sb-amount @(hasDiscount ? "sb-amount-discounted" : "")">@p.TotalAmount.ToString("C")</div>
+                                        </div>
                                     </div>
                                 }
                             </div>
@@ -62,7 +80,7 @@
     private void Close() => OnClose.InvokeAsync();
 
     private static DateTime EffectiveDate(PurchaseDto p)
-        => p.CompletedAt ?? p.CreatedAt;
+        => p.UpdatedAt ?? p.CreatedAt;
 
     private SortedDictionary<DateTime, List<PurchaseDto>> GetGroups()
     {
@@ -120,10 +138,15 @@
     .sb-month-content { padding: .25rem .5rem .75rem; }
     .sb-row { display: flex; align-items: center; justify-content: space-between; padding: .5rem .75rem; border-radius: 8px; }
     .sb-row:hover { background: #f8f9fa; }
-    .sb-row-left { display: flex; flex-direction: column; }
+    .sb-row-left { display: flex; flex-direction: column; gap: .25rem; }
+    .sb-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: .15rem; }
     .sb-date { font-size: .95rem; color: #333; }
     .sb-sub { font-size: .8rem; color: #666; }
+    .sb-discounts { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
+    .sb-discount-tag { font-size: .75rem; padding: .15rem .4rem; background: #e7f9ed; color: #155724; border-radius: 4px; border-left: 2px solid #28a745; }
     .sb-amount { font-weight: 600; }
+    .sb-amount-original { font-size: .85rem; color: #999; text-decoration: line-through; }
+    .sb-amount-discounted { color: #28a745; font-size: 1.05rem; }
     @@media (max-width: 520px) {
         .sb-date { font-size: .9rem; }
         .sb-modal { top: 2vh; max-height: 96vh; }

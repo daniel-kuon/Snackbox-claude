@@ -381,8 +381,8 @@
         _editingDiscount = null;
         _formModel = new DiscountFormModel
         {
-            ValidFrom = DateTime.Now.ToString("yyyy-MM-ddTHH:mm"),
-            ValidTo = DateTime.Now.AddDays(30).ToString("yyyy-MM-ddTHH:mm"),
+            ValidFrom = DateTime.Now,
+            ValidTo = DateTime.Now.AddDays(30),
             IsActive = true,
             Type = "FixedAmount"
         };
@@ -399,8 +399,8 @@
             Type = discount.Type,
             Value = discount.Value,
             MinimumPurchaseAmount = discount.MinimumPurchaseAmount,
-            ValidFrom = discount.ValidFrom.ToLocalTime().ToString("yyyy-MM-ddTHH:mm"),
-            ValidTo = discount.ValidTo.ToLocalTime().ToString("yyyy-MM-ddTHH:mm"),
+            ValidFrom = discount.ValidFrom.ToLocalTime(),
+            ValidTo = discount.ValidTo.ToLocalTime(),
             IsActive = discount.IsActive
         };
         _modalError = null;
@@ -425,19 +425,19 @@
             return;
         }
 
-        if (!DateTime.TryParse(_formModel.ValidFrom, out var validFrom))
+        if (_formModel.ValidFrom == null)
         {
             _modalError = "Invalid Valid From date.";
             return;
         }
 
-        if (!DateTime.TryParse(_formModel.ValidTo, out var validTo))
+        if (_formModel.ValidTo == null)
         {
             _modalError = "Invalid Valid To date.";
             return;
         }
 
-        if (validFrom >= validTo)
+        if (_formModel.ValidFrom >= _formModel.ValidTo)
         {
             _modalError = "Valid From must be before Valid To.";
             return;
@@ -460,8 +460,8 @@
                 Type = _formModel.Type,
                 Value = _formModel.Value,
                 MinimumPurchaseAmount = _formModel.MinimumPurchaseAmount,
-                ValidFrom = validFrom.ToUniversalTime(),
-                ValidTo = validTo.ToUniversalTime(),
+                ValidFrom = _formModel.ValidFrom!.Value.ToUniversalTime(),
+                ValidTo = _formModel.ValidTo!.Value.ToUniversalTime(),
                 IsActive = _formModel.IsActive
             };
 
@@ -531,8 +531,8 @@
         public string Type { get; set; } = "FixedAmount";
         public decimal Value { get; set; }
         public decimal MinimumPurchaseAmount { get; set; }
-        public string ValidFrom { get; set; } = string.Empty;
-        public string ValidTo { get; set; } = string.Empty;
+        public DateTime? ValidFrom { get; set; }
+        public DateTime? ValidTo { get; set; }
         public bool IsActive { get; set; } = true;
     }
 }

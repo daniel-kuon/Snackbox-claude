@@ -385,7 +385,7 @@ namespace Snackbox.Api.Migrations
                             Id = 40,
                             Category = 8,
                             Code = "SPEED_DEMON",
-                            Description = "Made 2 purchases within 1 minute",
+                            Description = "Made 2 purchases within 3 seconds",
                             Name = "Speed Demon"
                         },
                         new
