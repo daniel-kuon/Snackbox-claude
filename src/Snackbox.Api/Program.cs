@@ -10,6 +10,9 @@ using Snackbox.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load secrets file if it exists
+builder.Configuration.AddJsonFile("appsettings.secrets.json", optional: true, reloadOnChange: true);
+
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -34,8 +37,23 @@ builder.Services.AddOpenApi("v1");
 // Configure PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("snackboxdb")
     ?? throw new InvalidOperationException("Database connection string 'snackboxdb' is not configured.");
+
+// Modify connection string to reduce caching issues
+var connectionStringBuilder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString)
+{
+    // Disable server-side prepared statements to avoid cached query plans
+    MaxAutoPrepare = 0,
+    // Reduce connection pooling cache
+    NoResetOnClose = false
+};
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(connectionStringBuilder.ConnectionString);
+    // Enable detailed logging in development
+    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
+});
 
 // Add health checks with database check
 builder.Services.AddHealthChecks()
@@ -72,6 +90,18 @@ builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()
     {
         client.Timeout = TimeSpan.FromSeconds(30);
     });
+
+// Register backup service
+builder.Services.AddScoped<IBackupService, BackupService>();
+
+// Register settings service
+builder.Services.AddScoped<ISettingsService, SettingsService>();
+
+// Register database seeder service
+builder.Services.AddScoped<DatabaseSeeder>();
+
+// Register backup background service
+builder.Services.AddHostedService<BackupBackgroundService>();
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -114,17 +144,80 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Apply migrations and seed database
+// Check database availability and auto-apply migrations if possible
 using (var scope = app.Services.CreateScope())
 {
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
     try
     {
-        await dbContext.Database.MigrateAsync();
-    } catch
+        // Try to connect with retry logic (same as CheckDatabaseExistsAsync)
+        var canConnect = false;
+        Exception? lastException = null;
+
+        for (int i = 0; i < 5; i++)
+        {
+            try
+            {
+                canConnect = await dbContext.Database.CanConnectAsync();
+                if (canConnect)
+                {
+                    logger.LogInformation("Database connection successful on attempt {Attempt}", i + 1);
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                logger.LogWarning("Database connection attempt {Attempt} failed: {Message}", i + 1, ex.Message);
+                if (i < 4) await Task.Delay(1000);
+            }
+        }
+
+        if (!canConnect)
+        {
+            logger.LogWarning("Database is not available after 5 attempts. Last error: {Error}. Please use /database-setup page to initialize the database.",
+                lastException?.Message ?? "Unknown");
+        }
+        else
+        {
+            // Database is accessible - check if we can query tables
+            try
+            {
+                var userCount = await dbContext.Users.CountAsync();
+                logger.LogInformation("Database is initialized with {Count} users", userCount);
+
+                // Check for pending migrations and apply them automatically
+                var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+                if (pendingMigrations.Any())
+                {
+                    logger.LogInformation("Applying {Count} pending migrations...", pendingMigrations.Count());
+                    await dbContext.Database.MigrateAsync();
+                    logger.LogInformation("Migrations applied successfully");
+                }
+                else
+                {
+                    logger.LogInformation("Database is up to date - no pending migrations");
+                }
+            }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P01") // undefined_table
+            {
+                logger.LogInformation("Database exists but is not initialized (no tables). Please use /database-setup page.");
+            }
+            catch (Exception ex) when (ex.Message.Contains("does not exist") || ex.Message.Contains("relation"))
+            {
+                logger.LogInformation("Database exists but is not initialized. Please use /database-setup page.");
+            }
+        }
+    }
+    catch (Npgsql.NpgsqlException ex) when (ex.Message.Contains("does not exist"))
     {
-        await dbContext.Database.EnsureDeletedAsync();
-        await dbContext.Database.MigrateAsync();
+        logger.LogWarning("Database does not exist: {Message}. Please use /database-setup page to initialize the database.", ex.Message);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Database startup check failed: {Message}", ex.Message);
     }
 }
 

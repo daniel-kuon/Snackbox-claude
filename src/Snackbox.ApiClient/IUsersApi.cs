@@ -9,7 +9,7 @@ namespace Snackbox.ApiClient;
 public interface IUsersApi
 {
     [Get("/api/users")]
-    Task<IEnumerable<UserDto>> GetAllAsync();
+    Task<IEnumerable<UserDto>> GetAllAsync([Query] bool? includeRetired = null);
     
     [Get("/api/users/{id}")]
     Task<UserDto> GetByIdAsync(int id);
@@ -25,6 +25,9 @@ public interface IUsersApi
     
     [Delete("/api/users/{id}")]
     Task DeleteAsync(int id);
+
+    [Post("/api/users/{id}/retire")]
+    Task<UserDto> RetireAsync(int id);
 }
 
 public class RegisterResponse

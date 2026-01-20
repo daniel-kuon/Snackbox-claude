@@ -11,13 +11,12 @@ public class BarcodeMapperTests
     public void ToDto_Barcode_MapsAllProperties()
     {
         // Arrange
-        var barcode = new Barcode
+        var barcode = new PurchaseBarcode
         {
             Id = 1,
             UserId = 10,
             Code = "BC123456",
             Amount = 5.50m,
-            IsActive = true,
             IsLoginOnly = false,
             CreatedAt = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc)
         };
@@ -30,7 +29,6 @@ public class BarcodeMapperTests
         Assert.Equal(10, dto.UserId);
         Assert.Equal("BC123456", dto.Code);
         Assert.Equal(5.50m, dto.Amount);
-        Assert.True(dto.IsActive);
         Assert.False(dto.IsLoginOnly);
         Assert.Equal(new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc), dto.CreatedAt);
         Assert.Null(dto.Username); // Not mapped by ToDto
@@ -41,13 +39,12 @@ public class BarcodeMapperTests
     {
         // Arrange
         var user = new User { Id = 10, Username = "testuser", CreatedAt = DateTime.UtcNow };
-        var barcode = new Barcode
+        var barcode = new PurchaseBarcode
         {
             Id = 1,
             UserId = 10,
             Code = "BC123456",
             Amount = 5.50m,
-            IsActive = true,
             IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow,
             User = user
@@ -70,8 +67,8 @@ public class BarcodeMapperTests
         var user2 = new User { Id = 2, Username = "user2", CreatedAt = DateTime.UtcNow };
         var barcodes = new List<Barcode>
         {
-            new Barcode { Id = 1, UserId = 1, Code = "BC1", Amount = 1m, IsActive = true, CreatedAt = DateTime.UtcNow, User = user1 },
-            new Barcode { Id = 2, UserId = 2, Code = "BC2", Amount = 2m, IsActive = true, CreatedAt = DateTime.UtcNow, User = user2 }
+            new PurchaseBarcode { Id = 1, UserId = 1, Code = "BC1", Amount = 1m, CreatedAt = DateTime.UtcNow, User = user1 },
+            new PurchaseBarcode { Id = 2, UserId = 2, Code = "BC2", Amount = 2m, CreatedAt = DateTime.UtcNow, User = user2 }
         };
 
         // Act
@@ -87,13 +84,12 @@ public class BarcodeMapperTests
     public void ToDtoWithUser_NullUser_ReturnsNullUsername()
     {
         // Arrange
-        var barcode = new Barcode
+        var barcode = new PurchaseBarcode
         {
             Id = 1,
             UserId = 10,
             Code = "BC123456",
             Amount = 5.50m,
-            IsActive = true,
             CreatedAt = DateTime.UtcNow,
             User = null!
         };

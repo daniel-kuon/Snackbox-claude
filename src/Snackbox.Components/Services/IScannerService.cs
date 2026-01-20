@@ -24,7 +24,6 @@ public interface IScannerService
 public class ScanResult
 {
     public bool IsSuccess { get; set; }
-    public bool IsAdmin { get; set; }
     public bool IsLoginOnly { get; set; }
     public string? ErrorMessage { get; set; }
 }

@@ -25,9 +25,15 @@ public class AuthenticationService : IAuthenticationService
         // Find the barcode with the user
         var barcode = await _context.Barcodes
             .Include(b => b.User)
-            .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
+            .FirstOrDefaultAsync(b => b.Code == barcodeValue);
 
         if (barcode == null)
+        {
+            return null;
+        }
+
+        // Only allow login using login barcodes
+        if (barcode is not LoginBarcode)
         {
             return null;
         }
@@ -79,9 +85,15 @@ public class AuthenticationService : IAuthenticationService
         // Find the barcode with the user
         var barcode = await _context.Barcodes
             .Include(b => b.User)
-            .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
+            .FirstOrDefaultAsync(b => b.Code == barcodeValue);
 
         if (barcode == null || string.IsNullOrEmpty(barcode.User.PasswordHash))
+        {
+            return null;
+        }
+
+        // Only allow login using login barcodes
+        if (barcode is not LoginBarcode)
         {
             return null;
         }
@@ -109,7 +121,7 @@ public class AuthenticationService : IAuthenticationService
         // Verify barcode exists and get associated user
         var barcode = await _context.Barcodes
             .Include(b => b.User)
-            .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
+            .FirstOrDefaultAsync(b => b.Code == barcodeValue);
 
         if (barcode == null)
         {

@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Snackbox.Api.Controllers;
@@ -54,7 +54,7 @@ public class ScannerControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var barcode1 = new Barcode
+        var barcode1 = new PurchaseBarcode
         {
             Id = 1,
             UserId = 1,
@@ -65,7 +65,7 @@ public class ScannerControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var barcode2 = new Barcode
+        var barcode2 = new PurchaseBarcode
         {
             Id = 2,
             UserId = 1,
@@ -76,7 +76,7 @@ public class ScannerControllerTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        var loginBarcode = new Barcode
+        var loginBarcode = new LoginBarcode
         {
             Id = 3,
             UserId = 1,
@@ -218,10 +218,10 @@ public class ScannerControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task ScanBarcode_InactiveBarcode_ReturnsError()
+    public async Task ScanBarcode_InactiveBarcode_AllowsScanWithInactiveFlag()
     {
         // Arrange
-        var inactiveBarcode = new Barcode
+        var inactiveBarcode = new PurchaseBarcode
         {
             Id = 99,
             UserId = 1,
@@ -243,8 +243,12 @@ public class ScannerControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
 
-        Assert.False(response.Success);
-        Assert.Equal("Barcode is inactive", response.ErrorMessage);
+        Assert.True(response.Success);
+        Assert.True(response.IsUserInactive);
+        Assert.Equal(1, response.UserId);
+        Assert.Equal("testuser", response.Username);
+        Assert.Single(response.ScannedBarcodes);
+        Assert.Equal(5.00m, response.TotalAmount);
     }
 
     [Fact]
@@ -397,6 +401,144 @@ public class ScannerControllerTests : IDisposable
         // Verify no purchase was created
         var purchaseCountAfter = await _context.Purchases.CountAsync();
         Assert.Equal(purchaseCountBefore, purchaseCountAfter);
+    }
+
+    [Fact]
+    public async Task ScanBarcode_WithApplicablePercentageDiscount_AppliesDiscount()
+    {
+        // Arrange
+        var discount = new Discount
+        {
+            Name = "10% Off",
+            ValidFrom = DateTime.UtcNow.AddDays(-1),
+            ValidTo = DateTime.UtcNow.AddDays(7),
+            MinimumPurchaseAmount = 5.00m,
+            Type = DiscountType.Percentage,
+            Value = 10m,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Discounts.Add(discount);
+        await _context.SaveChangesAsync();
+
+        var request1 = new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" };
+        var request2 = new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" };
+
+        // Act
+        await _controller.ScanBarcode(request1);
+        var result = await _controller.ScanBarcode(request2);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
+
+        Assert.True(response.Success);
+        Assert.Equal(10.00m, response.TotalAmount); // 5 + 5 = 10
+        Assert.Single(response.ApplicableDiscounts);
+        Assert.Equal("10% Off", response.ApplicableDiscounts[0].Name);
+        Assert.Equal(1.00m, response.ApplicableDiscounts[0].DiscountAmount); // 10% of 10 = 1
+        Assert.Equal(9.00m, response.DiscountedAmount); // 10 - 1 = 9
+    }
+
+    [Fact]
+    public async Task ScanBarcode_WithApplicableFixedDiscount_AppliesDiscount()
+    {
+        // Arrange
+        var discount = new Discount
+        {
+            Name = "50 Cent Off",
+            ValidFrom = DateTime.UtcNow.AddDays(-1),
+            ValidTo = DateTime.UtcNow.AddDays(7),
+            MinimumPurchaseAmount = 3.00m,
+            Type = DiscountType.FixedAmount,
+            Value = 0.50m,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Discounts.Add(discount);
+        await _context.SaveChangesAsync();
+
+        var request = new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" };
+
+        // Act
+        var result = await _controller.ScanBarcode(request);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
+
+        Assert.True(response.Success);
+        Assert.Equal(5.00m, response.TotalAmount);
+        Assert.Single(response.ApplicableDiscounts);
+        Assert.Equal("50 Cent Off", response.ApplicableDiscounts[0].Name);
+        Assert.Equal(0.50m, response.ApplicableDiscounts[0].DiscountAmount);
+        Assert.Equal(4.50m, response.DiscountedAmount); // 5 - 0.50 = 4.50
+    }
+
+    [Fact]
+    public async Task ScanBarcode_WithDiscountBelowMinimum_DoesNotApplyDiscount()
+    {
+        // Arrange
+        var discount = new Discount
+        {
+            Name = "10% Off",
+            ValidFrom = DateTime.UtcNow.AddDays(-1),
+            ValidTo = DateTime.UtcNow.AddDays(7),
+            MinimumPurchaseAmount = 10.00m, // Minimum is 10, but we'll only scan 5
+            Type = DiscountType.Percentage,
+            Value = 10m,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Discounts.Add(discount);
+        await _context.SaveChangesAsync();
+
+        var request = new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" };
+
+        // Act
+        var result = await _controller.ScanBarcode(request);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
+
+        Assert.True(response.Success);
+        Assert.Equal(5.00m, response.TotalAmount);
+        Assert.Empty(response.ApplicableDiscounts);
+        Assert.Equal(5.00m, response.DiscountedAmount); // No discount applied
+    }
+
+    [Fact]
+    public async Task ScanBarcode_WithExpiredDiscount_DoesNotApplyDiscount()
+    {
+        // Arrange
+        var discount = new Discount
+        {
+            Name = "Expired Discount",
+            ValidFrom = DateTime.UtcNow.AddDays(-10),
+            ValidTo = DateTime.UtcNow.AddDays(-3), // Expired 3 days ago
+            MinimumPurchaseAmount = 3.00m,
+            Type = DiscountType.Percentage,
+            Value = 20m,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Discounts.Add(discount);
+        await _context.SaveChangesAsync();
+
+        var request = new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" };
+
+        // Act
+        var result = await _controller.ScanBarcode(request);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
+
+        Assert.True(response.Success);
+        Assert.Equal(5.00m, response.TotalAmount);
+        Assert.Empty(response.ApplicableDiscounts);
+        Assert.Equal(5.00m, response.DiscountedAmount); // No discount applied
     }
 
     public void Dispose()

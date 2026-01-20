@@ -2,9 +2,10 @@
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
 @using Refit
-@inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IInvoicesApi InvoicesApi
 @inject IProductsApi ProductsApi
+@inject IUsersApi UsersApi
 
 <PageTitle>Invoices - Snackbox Admin</PageTitle>
 
@@ -12,6 +13,12 @@
     <div class="page-header">
         <h2>Invoice Management</h2>
         <div class="header-actions">
+            <button class="btn btn-success" @onclick="CreateManualSimple">
+                <span class="icon">➕</span> Simple Invoice
+            </button>
+            <button class="btn btn-success" @onclick="CreateManualDetailed">
+                <span class="icon">📝</span> Detailed Invoice
+            </button>
             <button class="btn btn-primary" @onclick="ShowParseInvoice">
                 <span class="icon">📄</span> Parse Invoice
             </button>
@@ -661,7 +668,7 @@
 
         try
         {
-            _invoices = await Http.GetFromJsonAsync<List<InvoiceDto>>("api/invoices");
+            _invoices = (await InvoicesApi.GetAllAsync()).ToList();
         }
         catch (Exception ex)
         {
@@ -677,7 +684,7 @@
     {
         try
         {
-            _users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+            _users = (await UsersApi.GetAllAsync()).ToList();
             // Get current user ID from the first admin user or first user
             var currentUser = _users?.FirstOrDefault(u => u.IsAdmin);
             if (currentUser != null)
@@ -696,12 +703,22 @@
     {
         try
         {
-            _allProducts = await Http.GetFromJsonAsync<List<ProductDto>>("api/products");
+            _allProducts = (await ProductsApi.GetAllAsync()).ToList();
         }
         catch (Exception ex)
         {
             _errorMessage = $"Failed to load products: {ex.Message}";
         }
+    }
+
+    private void CreateManualSimple()
+    {
+        Navigation.NavigateTo("/admin/invoices/manual/simple");
+    }
+
+    private void CreateManualDetailed()
+    {
+        Navigation.NavigateTo("/admin/invoices/manual/detailed");
     }
 
     private void ShowParseInvoice()
@@ -729,13 +746,9 @@
                 Format = _parseFormat
             };
 
-            var response = await Http.PostAsJsonAsync("api/invoices/parse", request);
+            _parsedInvoice = await InvoicesApi.ParseAsync(request);
 
-            if (response.IsSuccessStatusCode)
-            {
-                _parsedInvoice = await response.Content.ReadFromJsonAsync<ParseInvoiceResponse>();
-
-                if (_parsedInvoice?.Success == true)
+            if (_parsedInvoice?.Success == true)
                 {
                     if (_parsedInvoice.Metadata?.InvoiceDate.HasValue == true)
                     {
@@ -793,11 +806,6 @@
                 {
                     _parseError = _parsedInvoice?.ErrorMessage ?? "Failed to parse invoice";
                 }
-            }
-            else
-            {
-                _parseError = "Failed to parse invoice";
-            }
         }
         catch (Exception ex)
         {
@@ -872,21 +880,12 @@
                 SelectedItems = _parsedInvoice.Items
             };
 
-            var response = await Http.PostAsJsonAsync("api/invoices/from-parsed", dto);
-
-            if (response.IsSuccessStatusCode)
+            var created = await InvoicesApi.CreateFromParsedAsync(dto);
+            CloseParsedModal();
+            await LoadInvoices();
+            if (created != null)
             {
-                var created = await response.Content.ReadFromJsonAsync<InvoiceDto>();
-                CloseParsedModal();
-                await LoadInvoices();
-                if (created != null)
-                {
-                    ViewInvoice(created.Id);
-                }
-            }
-            else
-            {
-                _createError = "Failed to create invoice";
+                ViewInvoice(created.Id);
             }
         }
         catch (Exception ex)
@@ -911,7 +910,7 @@
 
         try
         {
-            await Http.DeleteAsync($"api/invoices/{id}");
+            await InvoicesApi.DeleteAsync(id);
             await LoadInvoices();
         }
         catch (Exception ex)

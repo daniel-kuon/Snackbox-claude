@@ -318,3 +318,8 @@ FodyWeavers.xsd
 
 # Temporary files
 nul
+
+# Snackbox specific
+backups/
+appsettings.secrets.json
+

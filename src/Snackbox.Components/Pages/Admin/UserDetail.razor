@@ -36,6 +36,23 @@
 
         <div class="user-summary">
             <div class="summary-card">
+                <div class="summary-label">Status</div>
+                <div class="summary-value">
+                    @if (_user.IsRetired)
+                    {
+                        <span class="badge bg-secondary">Retired</span>
+                    }
+                    else if (!_user.IsActive)
+                    {
+                        <span class="badge bg-warning text-dark">Inactive</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success">Active</span>
+                    }
+                </div>
+            </div>
+            <div class="summary-card">
                 <div class="summary-label">Balance</div>
                 <div class="summary-value @(_user.Balance < 0 ? "text-danger" : "text-success")">
                     €@_user.Balance.ToString("F2")
@@ -86,9 +103,23 @@
                                         ✉ Send Payment Reminder
                                     </button>
                                 }
+                                <button class="btn btn-outline-danger btn-sm" @onclick="RetireUser" title="Retire this user and move barcodes to a new inactive placeholder" disabled="@(!_user.IsActive || _user.IsRetired)">
+                                    🪦 Retire
+                                </button>
                                 <button class="btn btn-primary btn-sm" @onclick="StartEditUserInfo">Edit</button>
                             </div>
                         </div>
+                        @if (_retireSuccessMessage != null)
+                        {
+                            <div class="alert alert-success">
+                                @_retireSuccessMessage
+                                @if (_newPlaceholderId.HasValue)
+                                {
+                                    <br />
+                                    <a href="/admin/users/@_newPlaceholderId" class="alert-link">View newly created placeholder user</a>
+                                }
+                            </div>
+                        }
                         @if (_emailSuccess != null)
                         {
                             <div class="alert alert-success">@_emailSuccess</div>
@@ -144,6 +175,13 @@
                                     <option value="User">User</option>
                                     <option value="Admin">Admin</option>
                                 </InputSelect>
+                            </div>
+
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="_userEditForm.IsActive" class="form-check-input" id="isActiveCheckEdit" />
+                                <label class="form-check-label" for="isActiveCheckEdit">
+                                    Active
+                                </label>
                             </div>
 
                             <div class="info-row">
@@ -232,16 +270,21 @@
                             <tr>
                                 <th>Date</th>
                                 <th>Type</th>
+                                <th>Items</th>
                                 <th>Total</th>
                                 <th>Reference</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
+                            @foreach (var purchase in _purchases.OrderByDescending(p => p.UpdatedAt))
                             {
+                                var itemsTotal = purchase.Items.Sum(i => i.Amount);
+                                var totalDiscounts = purchase.AppliedDiscounts.Sum(d => d.DiscountAmount);
+                                var hasDiscount = totalDiscounts > 0;
+
                                 <tr>
-                                    <td>@purchase.CompletedAt?.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>@purchase.UpdatedAt?.ToString("yyyy-MM-dd HH:mm")</td>
                                     <td>
                                         @if (purchase.Type == "Manual")
                                         {
@@ -256,6 +299,23 @@
                                             <span class="badge badge-secondary">Normal</span>
                                         }
                                     </td>
+                                    <td>
+                                        @if (purchase.Items.Any())
+                                        {
+                                            <span>@purchase.Items.Count item@(purchase.Items.Count != 1 ? "s" : "")</span>
+                                            @if (hasDiscount)
+                                            {
+                                                <br/>
+                                                <small class="text-muted">
+                                                    Subtotal: <span style="text-decoration: line-through;">€@itemsTotal.ToString("F2")</span>
+                                                </small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
                                     <td class="@(purchase.TotalAmount >= 0 ? "text-danger" : "text-success")">
                                         @if (purchase.TotalAmount < 0)
                                         {
@@ -266,6 +326,23 @@
                                             <span class="badge bg-danger me-1">Debit</span>
                                         }
                                         €@Math.Abs(purchase.TotalAmount).ToString("F2")
+                                        @if (hasDiscount)
+                                        {
+                                            <br/>
+                                            <small class="badge bg-success mt-1">
+                                                🎉 Saved €@(totalDiscounts.ToString("F2"))
+                                            </small>
+                                            @if (purchase.AppliedDiscounts.Count > 0)
+                                            {
+                                                <br/>
+                                                @foreach (var discount in purchase.AppliedDiscounts)
+                                                {
+                                                    <small class="text-muted d-block">
+                                                        @discount.Name: -€@discount.DiscountAmount.ToString("F2")
+                                                    </small>
+                                                }
+                                            }
+                                        }
                                     </td>
                                     <td>
                                         @if (purchase.ReferencePurchaseId.HasValue)
@@ -312,8 +389,8 @@
                                 <th>Code</th>
                                 <th>Amount</th>
                                 <th>Type</th>
-                                <th>Status</th>
                                 <th>Created</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -332,17 +409,13 @@
                                             <span class="badge badge-primary">Payment</span>
                                         }
                                     </td>
-                                    <td>
-                                        @if (barcode.IsActive)
-                                        {
-                                            <span class="badge badge-success">Active</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge badge-secondary">Inactive</span>
-                                        }
-                                    </td>
                                     <td>@barcode.CreatedAt.ToString("yyyy-MM-dd")</td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-secondary" @onclick="() => ShowEditBarcode(barcode)">Edit</button>
+                                            <button class="btn btn-outline-danger" @onclick="() => ConfirmDeleteBarcode(barcode.Id)">Delete</button>
+                                        </div>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -491,7 +564,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Add Barcode</h3>
+                <h3>@(_editingBarcodeId.HasValue ? "Edit Barcode" : "Add Barcode")</h3>
                 <button class="btn-close" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
@@ -538,13 +611,6 @@
                         </div>
                     }
 
-                    <div class="form-check">
-                        <InputCheckbox @bind-Value="_barcodeForm.IsActive" class="form-check-input" id="isActiveCheck" />
-                        <label class="form-check-label" for="isActiveCheck">
-                            Active
-                        </label>
-                    </div>
-
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
                         <button type="submit" class="btn btn-primary" disabled="@_isSaving">
@@ -552,7 +618,7 @@
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
-                            Save Barcode
+                            @(_editingBarcodeId.HasValue ? "Save Changes" : "Save Barcode")
                         </button>
                     </div>
                 </EditForm>
@@ -629,9 +695,9 @@
                             <option value="">-- Select a purchase --</option>
                             @if (_purchases != null)
                             {
-                                @foreach (var purchase in _purchases.OrderByDescending(p => p.CompletedAt))
+                                @foreach (var purchase in _purchases.OrderByDescending(p => p.UpdatedAt))
                                 {
-                                    <option value="@purchase.Id">#@purchase.Id - @purchase.CompletedAt?.ToString("yyyy-MM-dd") - €@purchase.TotalAmount.ToString("F2")</option>
+                                    <option value="@purchase.Id">#@purchase.Id - @purchase.UpdatedAt?.ToString("yyyy-MM-dd") - €@purchase.TotalAmount.ToString("F2")</option>
                                 }
                             }
                         </InputSelect>
@@ -1139,6 +1205,8 @@
     private string? _errorMessage;
     private string? _emailSuccess;
     private string? _emailError;
+    private string? _retireSuccessMessage;
+    private int? _newPlaceholderId;
     private string _activeTab = "info";
     private bool _showPaymentModal;
     private bool _showBarcodeModal;
@@ -1337,7 +1405,8 @@
 
     private void ShowAddBarcode()
     {
-        _barcodeForm = new BarcodeFormModel { IsActive = true, BarcodeType = "Payment" };
+        _editingBarcodeId = null;
+        _barcodeForm = new BarcodeFormModel { BarcodeType = "Payment" };
         _modalError = null;
         _showBarcodeModal = true;
     }
@@ -1387,14 +1456,20 @@
 
         try
         {
-            var response = await Http.PostAsJsonAsync("api/barcodes", new
-            {
-                userId = UserId,
-                code = _barcodeForm.Code,
-                amount = _barcodeForm.Amount,
-                isActive = _barcodeForm.IsActive,
-                isLoginOnly = _barcodeForm.BarcodeType == "Login"
-            });
+            var response = _editingBarcodeId.HasValue
+                ? await Http.PutAsJsonAsync($"api/barcodes/{_editingBarcodeId.Value}", new
+                {
+                    code = _barcodeForm.Code,
+                    amount = _barcodeForm.Amount,
+                    isLoginOnly = _barcodeForm.BarcodeType == "Login"
+                })
+                : await Http.PostAsJsonAsync("api/barcodes", new
+                {
+                    userId = UserId,
+                    code = _barcodeForm.Code,
+                    amount = _barcodeForm.Amount,
+                    isLoginOnly = _barcodeForm.BarcodeType == "Login"
+                });
 
             if (response.IsSuccessStatusCode)
             {
@@ -1404,7 +1479,7 @@
             }
             else
             {
-                _modalError = "Failed to add barcode. Please try again.";
+                _modalError = "Failed to save barcode. Please try again.";
             }
         }
         catch (Exception ex)
@@ -1414,6 +1489,41 @@
         finally
         {
             _isSaving = false;
+        }
+    }
+
+    private void ShowEditBarcode(BarcodeDto barcode)
+    {
+        _editingBarcodeId = barcode.Id;
+        _barcodeForm = new BarcodeFormModel
+        {
+            Code = barcode.Code,
+            Amount = barcode.Amount,
+            BarcodeType = barcode.IsLoginOnly ? "Login" : "Payment"
+        };
+        _modalError = null;
+        _showBarcodeModal = true;
+    }
+
+    private async Task ConfirmDeleteBarcode(int barcodeId)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/barcodes/{barcodeId}");
+            if (response.IsSuccessStatusCode)
+            {
+                _barcodes = null;
+                await LoadBarcodes();
+            }
+            else
+            {
+                // Surface a temporary error near the table
+                _errorMessage = "Failed to delete barcode.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Delete failed: {ex.Message}";
         }
     }
 
@@ -1551,7 +1661,8 @@
         {
             Username = _user.Username,
             Email = _user.Email ?? string.Empty,
-            Role = _user.IsAdmin ? "Admin" : "User"
+            Role = _user.IsAdmin ? "Admin" : "User",
+            IsActive = _user.IsActive
         };
         _editError = null;
         _isEditingUserInfo = true;
@@ -1577,7 +1688,8 @@
             {
                 username = _userEditForm.Username,
                 email = _userEditForm.Email,
-                isAdmin = _userEditForm.Role == "Admin"
+                isAdmin = _userEditForm.Role == "Admin",
+                isActive = _userEditForm.IsActive
             });
 
             if (response.IsSuccessStatusCode)
@@ -1600,6 +1712,44 @@
         }
     }
 
+    private async Task RetireUser()
+    {
+        _editError = null;
+        _retireSuccessMessage = null;
+        _newPlaceholderId = null;
+
+        try
+        {
+            var response = await Http.PostAsync($"api/users/{UserId}/retire", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<RetireResponse>();
+                if (result != null)
+                {
+                    _newPlaceholderId = result.PlaceholderUserId;
+                    _retireSuccessMessage = $"User successfully retired. Barcodes moved to {result.PlaceholderUsername}.";
+                }
+                await LoadUserData();
+                await LoadBarcodes();
+            }
+            else
+            {
+                _editError = "Failed to retire user.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _editError = $"Error: {ex.Message}";
+        }
+    }
+
+    private class RetireResponse
+    {
+        public UserDto RetiredUser { get; set; } = null!;
+        public int PlaceholderUserId { get; set; }
+        public string PlaceholderUsername { get; set; } = null!;
+    }
+
     private class PaymentFormModel
     {
         [Required]
@@ -1613,6 +1763,8 @@
         public int? AdminUserId { get; set; }
     }
 
+    private int? _editingBarcodeId;
+
     private class BarcodeFormModel
     {
         [Required]
@@ -1620,8 +1772,6 @@
 
         [Range(0, 10000)]
         public decimal Amount { get; set; }
-
-        public bool IsActive { get; set; } = true;
 
         [Required]
         public string BarcodeType { get; set; } = "Payment"; // "Login" or "Payment"
@@ -1638,6 +1788,8 @@
 
         [Required]
         public string Role { get; set; } = "User";
+
+        public bool IsActive { get; set; } = true;
     }
 
     private class ManualPurchaseFormModel

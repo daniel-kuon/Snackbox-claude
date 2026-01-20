@@ -4,7 +4,6 @@
 @using Snackbox.Api.Dtos
 @using Refit
 @inject IUsersApi UsersApi
-@inject HttpClient Http
 @inject NavigationManager Navigation
 @inject HttpClient Http
 
@@ -64,8 +63,19 @@
                 <tbody>
                     @foreach (var user in _users)
                     {
-                        <tr @onclick="() => NavigateToUserDetail(user.Id)" style="cursor: pointer;">
-                            <td>@user.Username</td>
+                        var rowClass = !user.IsActive && user.HasPurchases ? "table-warning" : (!user.IsActive ? "table-light text-muted" : "");
+                        <tr @onclick="() => NavigateToUserDetail(user.Id)" style="cursor: pointer;" class="@rowClass">
+                            <td>
+                                @user.Username
+                                @if (user.IsRetired)
+                                {
+                                    <span class="badge bg-secondary ms-1">Retired</span>
+                                }
+                                else if (!user.IsActive)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">Inactive</span>
+                                }
+                            </td>
                             <td>@user.Email</td>
                             <td class="@(user.Balance < 0 ? "text-danger" : "text-success")">
                                 €@user.Balance.ToString("F2")
@@ -128,6 +138,18 @@
                         <label class="form-check-label" for="isActiveCheck">
                             Active
                         </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Purchase Barcode 1 (€0.50)</label>
+                        <InputText @bind-Value="_userForm.PurchaseBarcode1" class="form-control" placeholder="Optional" />
+                        <ValidationMessage For="@(() => _userForm.PurchaseBarcode1)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Purchase Barcode 2 (€0.30)</label>
+                        <InputText @bind-Value="_userForm.PurchaseBarcode2" class="form-control" placeholder="Optional" />
+                        <ValidationMessage For="@(() => _userForm.PurchaseBarcode2)" />
                     </div>
 
                     <div class="modal-footer">
@@ -688,7 +710,10 @@
                 {
                     Username = _userForm.Username,
                     Email = _userForm.Email,
-                    IsAdmin = _userForm.Role == "Admin"
+                    IsAdmin = _userForm.Role == "Admin",
+                    IsActive = _userForm.IsActive,
+                    PurchaseBarcode1 = _userForm.PurchaseBarcode1,
+                    PurchaseBarcode2 = _userForm.PurchaseBarcode2
                 };
                 await UsersApi.CreateAsync(createDto);
                 CloseModal();
@@ -701,7 +726,8 @@
                 {
                     Username = _userForm.Username,
                     Email = _userForm.Email,
-                    IsAdmin = _userForm.Role == "Admin"
+                    IsAdmin = _userForm.Role == "Admin",
+                    IsActive = _userForm.IsActive
                 };
                 await UsersApi.UpdateAsync(_editingUserId.Value, updateDto);
                 CloseModal();
@@ -730,7 +756,7 @@
         _modalError = null;
     }
 
-    private class UserFormModel
+    private class UserFormModel : IValidatableObject
     {
         [Required]
         public string Username { get; set; } = string.Empty;
@@ -742,6 +768,23 @@
         public string Role { get; set; } = "User";
 
         public bool IsActive { get; set; } = true;
+
+        public string? PurchaseBarcode1 { get; set; }
+
+        public string? PurchaseBarcode2 { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (!string.IsNullOrWhiteSpace(PurchaseBarcode1) &&
+                !string.IsNullOrWhiteSpace(PurchaseBarcode2) &&
+                PurchaseBarcode1.Equals(PurchaseBarcode2, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return new ValidationResult(
+                    "Purchase barcodes must be different",
+                    new[] { nameof(PurchaseBarcode2) }
+                );
+            }
+        }
     }
 
     private class BulkEmailResult

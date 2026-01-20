@@ -1,0 +1,495 @@
+@page "/admin/backups"
+@using Snackbox.ApiClient
+@using Snackbox.Api.Dtos
+@using Refit
+@using Microsoft.Extensions.Logging
+@inject IBackupApi BackupApi
+@inject IJSRuntime JSRuntime
+@inject ILogger<Backups> Logger
+@inject SnackbarService Snackbar
+
+<PageTitle>Backup Management - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Backup Management</h2>
+        <div class="button-group">
+            <button class="btn btn-primary" @onclick="ShowCreateBackupDialog" disabled="@(_isCreatingBackup || _checkingTools || !_toolsAvailable)" title="@(!_toolsAvailable ? "PostgreSQL tools not available" : null)">
+                <span class="icon">💾</span> @(_isCreatingBackup ? "Creating Backup..." : "Create Backup")
+            </button>
+            <label class="btn btn-secondary" for="importBackupFile">
+                <span class="icon">📥</span> Import Backup
+            </label>
+            <InputFile id="importBackupFile" OnChange="ImportBackup" style="display: none;" accept=".sql" />
+        </div>
+    </div>
+
+    @if (_showCreateBackupDialog)
+    {
+        <div class="modal-backdrop" @onclick="() => _showCreateBackupDialog = false"></div>
+        <div class="modal-dialog-center">
+            <div class="modal-content-custom">
+                <h3>Create Backup</h3>
+                <div class="form-group">
+                    <label>Custom Name (optional)</label>
+                    <input type="text" class="form-control" @bind="_customBackupName" placeholder="e.g., before_upgrade" />
+                    <small class="form-text text-muted">Leave empty for automatic naming</small>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="() => _showCreateBackupDialog = false">Cancel</button>
+                    <button class="btn btn-primary" @onclick="CreateBackup">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!_toolsAvailable && !_checkingTools)
+    {
+        <div class="alert alert-warning" role="alert">
+            <h5>⚠️ PostgreSQL Tools Not Available</h5>
+            <p>The backup functionality requires PostgreSQL client tools (pg_dump, psql) to be installed.</p>
+            <p><strong>Windows users:</strong> Run the installation script to automatically download and install the tools:</p>
+            <pre class="bg-dark text-light p-2 rounded">.\scripts\Install-PostgresTools.ps1</pre>
+            <p class="mb-0">
+                <strong>Other platforms:</strong> See the
+                <a href="https://github.com/daniel-kuon/Snackbox-claude/blob/main/docs/BACKUP.md#prerequisites" target="_blank" class="alert-link">documentation</a>
+                for installation instructions.
+            </p>
+            <div class="mt-2">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="CheckToolsAvailability" disabled="@_checkingTools">
+                    @_checkingTools ? "Checking..." : "Re-check tools"
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading backups...</p>
+        </div>
+    }
+    else if (_backups != null && _backups.Any())
+    {
+        <div class="table-container">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Created</th>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th>Size</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var backup in _backups)
+                    {
+                        <tr>
+                            <td>@backup.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                <span class="badge bg-@GetBackupTypeBadgeClass(backup.Type)">
+                                    @backup.Type
+                                </span>
+                            </td>
+                            <td>@ParseBackupName(backup.FileName, backup.CustomName)</td>
+                            <td>@FormatFileSize(backup.FileSizeBytes)</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-success" @onclick="() => DownloadBackup(backup.Id)" title="Download">
+                                    <span class="icon">⬇️</span> Download
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => RestoreBackup(backup.Id)" title="Restore">
+                                    <span class="icon">🔄</span> Restore
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBackup(backup.Id)" title="Delete">
+                                    <span class="icon">🗑️</span> Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <p>No backups found. Create a backup to get started.</p>
+        </div>
+    }
+</div>
+
+<style>
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1040;
+    }
+
+    .modal-dialog-center {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1050;
+        width: 90%;
+        max-width: 500px;
+    }
+
+    .modal-content-custom {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-content-custom h3 {
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        color: #333;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+</style>
+
+@code {
+    private List<BackupMetadataDto> _backups = new();
+    private bool _isLoading = true;
+    private bool _isCreatingBackup = false;
+    private bool _toolsAvailable = true;
+    private bool _checkingTools = true;
+    private bool _showCreateBackupDialog = false;
+    private string? _customBackupName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckToolsAvailability();
+        await LoadBackups();
+    }
+
+    private async Task CheckToolsAvailability()
+    {
+        try
+        {
+            _checkingTools = true;
+            var result = await BackupApi.CheckPostgresToolsAsync();
+            _toolsAvailable = result.Available;
+
+            if (!_toolsAvailable)
+            {
+                Logger.LogWarning("PostgreSQL tools are not available: {Message}", result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to check PostgreSQL tools availability");
+            _toolsAvailable = false;
+        }
+        finally
+        {
+            _checkingTools = false;
+        }
+    }
+
+    private async Task LoadBackups()
+    {
+        try
+        {
+            _isLoading = true;
+            var backups = await BackupApi.ListBackupsAsync();
+            _backups = backups.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to load backups: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ShowCreateBackupDialog()
+    {
+        _customBackupName = null;
+        _showCreateBackupDialog = true;
+    }
+
+    private async Task CreateBackup()
+    {
+        try
+        {
+            _showCreateBackupDialog = false;
+            _isCreatingBackup = true;
+
+            // Guard: if tools are not available, provide a friendly message and skip the call
+            if (!_toolsAvailable)
+            {
+                Snackbar.Error("PostgreSQL tools are not available. Please install pg_dump/psql (see documentation above) and try again.");
+                return;
+            }
+
+            var result = await BackupApi.CreateBackupAsync(_customBackupName);
+
+            // Check if result indicates duplicate
+            if (result is System.Text.Json.JsonElement jsonElement)
+            {
+                if (jsonElement.TryGetProperty("isDuplicate", out var isDuplicateProp) &&
+                    isDuplicateProp.GetBoolean())
+                {
+                    Snackbar.Warning("Backup is identical to an existing backup and was not created.");
+                    return;
+                }
+            }
+
+            Snackbar.Success("Backup created successfully!");
+            await LoadBackups();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to create backup: {ex.Message}");
+        }
+        finally
+        {
+            _isCreatingBackup = false;
+            _customBackupName = null;
+        }
+    }
+
+    private string ParseBackupName(string fileName, string? customName)
+    {
+        // If there's a custom name, display it
+        if (!string.IsNullOrWhiteSpace(customName))
+        {
+            return customName;
+        }
+
+        // Expected format: snackbox_backup_20260115_223652_Manual.sql
+        // Parse: snackbox_backup_{date}_{time}_{type}[_{customName}].sql
+
+        var pattern = @"snackbox_backup_(\d{8})_(\d{6})_(\w+)(?:_(.+))?\.sql";
+        var match = System.Text.RegularExpressions.Regex.Match(fileName, pattern);
+
+        if (match.Success)
+        {
+            // If there's a custom part after the type, return it
+            if (match.Groups.Count > 4 && !string.IsNullOrWhiteSpace(match.Groups[4].Value))
+            {
+                return match.Groups[4].Value.Replace("_", " ");
+            }
+
+            // Otherwise return "Auto" for automatic backups
+            return "Auto";
+        }
+
+        // If format doesn't match, return the full filename
+        return fileName;
+    }
+
+    private async Task ImportBackup(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            _isLoading = true;
+
+            // Create stream from the file
+            using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            var streamPart = new StreamPart(memoryStream, file.Name, "application/octet-stream");
+            var backup = await BackupApi.ImportBackupAsync(streamPart);
+
+            Snackbar.Success($"Backup imported successfully: {backup.FileName}");
+
+            await LoadBackups();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to import backup: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task DownloadBackup(string backupId)
+    {
+        try
+        {
+            var response = await BackupApi.DownloadBackupAsync(backupId);
+            var content = await response.Content.ReadAsByteArrayAsync();
+            var fileName = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"backup_{backupId}.sql";
+
+            // Use JavaScript to trigger download
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(content));
+
+            Snackbar.Success("Backup downloaded successfully");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to download backup: {ex.Message}");
+        }
+    }
+
+    private async Task RestoreBackup(string backupId)
+    {
+        var backup = _backups.FirstOrDefault(b => b.Id == backupId);
+
+        try
+        {
+            // Check restore impact
+            var impact = await BackupApi.CheckRestoreImpactAsync(backupId);
+
+            if (!impact.BackupExists)
+            {
+                Snackbar.Error("Backup not found");
+                return;
+            }
+
+            // If database exists, show warning and ask about creating backup first
+            bool createBackupFirst = false;
+            if (impact.RequiresConfirmation)
+            {
+                var message = $"{impact.Message}\n\nDo you want to create a backup of the current database before restoring?";
+                var shouldBackup = await JSRuntime.InvokeAsync<bool>("confirm", message);
+
+                if (shouldBackup)
+                {
+                    createBackupFirst = true;
+                }
+                else
+                {
+                    // Ask for final confirmation if user chose not to backup
+                    var finalConfirm = await JSRuntime.InvokeAsync<bool>("confirm",
+                        $"Are you sure you want to restore '{backup?.FileName}' WITHOUT creating a backup first? All current data will be lost!");
+
+                    if (!finalConfirm) return;
+                }
+            }
+            else
+            {
+                // No existing database, just confirm the restore
+                var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+                    $"Restore backup '{backup?.FileName}'?");
+
+                if (!confirmed) return;
+            }
+
+            _isLoading = true;
+
+            // Perform restore with or without backup
+            await BackupApi.RestoreBackupAsync(backupId, createBackupFirst);
+
+            if (createBackupFirst)
+            {
+                Snackbar.Success("Current database backed up and restore completed successfully. The application will reload.");
+            }
+            else
+            {
+                Snackbar.Success("Backup restored successfully. The application will reload.");
+            }
+
+            // Reload the page after a short delay
+            await Task.Delay(2000);
+            await JSRuntime.InvokeVoidAsync("location.reload");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to restore backup: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task DeleteBackup(string backupId)
+    {
+        var backup = _backups.FirstOrDefault(b => b.Id == backupId);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"Are you sure you want to delete backup '{backup?.FileName}'?");
+
+        if (!confirmed) return;
+
+        try
+        {
+            await BackupApi.DeleteBackupAsync(backupId);
+
+            Snackbar.Success("Backup deleted successfully");
+
+            await LoadBackups();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Error($"Failed to delete backup: {ex.Message}");
+        }
+    }
+
+    private string GetBackupTypeBadgeClass(string type)
+    {
+        return type switch
+        {
+            "Manual" => "primary",
+            "Daily" => "info",
+            "Weekly" => "warning",
+            "Monthly" => "success",
+            _ => "secondary"
+        };
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}

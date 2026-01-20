@@ -1,21 +1,21 @@
 # Barcode Lookup Feature
 
-This feature allows administrators to search for product information using barcodes via the barcodelookup.com API.
+This feature allows administrators to search for product information using barcodes via the searchupcdata.com API.
 
 ## Configuration
 
 ### API Key Setup
 
-The feature requires a barcodelookup.com API key. To set it up:
+The feature requires a searchupcdata.com API key. To set it up:
 
-1. Sign up for an account at https://www.barcodelookup.com/
-2. Obtain your API key from the dashboard
+1. Sign up for an account at https://searchupcdata.com/
+2. Obtain your API key from the API Keys page
 3. Configure the API key in one of the following ways:
 
 **Option 1: appsettings.json (for production)**
 ```json
 {
-  "BarcodeLookup": {
+  "SearchUpcData": {
     "ApiKey": "your-actual-api-key-here"
   }
 }
@@ -24,7 +24,7 @@ The feature requires a barcodelookup.com API key. To set it up:
 **Option 2: appsettings.Development.json (for development)**
 ```json
 {
-  "BarcodeLookup": {
+  "SearchUpcData": {
     "ApiKey": "your-actual-api-key-here"
   }
 }
@@ -33,8 +33,16 @@ The feature requires a barcodelookup.com API key. To set it up:
 **Option 3: User Secrets (recommended for development)**
 ```bash
 cd src/Snackbox.Api
-dotnet user-secrets set "BarcodeLookup:ApiKey" "your-actual-api-key-here"
+dotnet user-secrets set "SearchUpcData:ApiKey" "your-actual-api-key-here"
 ```
+
+### Rate Limits
+
+SearchUpcData API usage is tracked with monthly quotas:
+- **Free Tier**: 100 requests per month
+- **Starter Tier**: 10,000 requests per month
+- **Pro Tier**: 100,000 requests per month
+- **Enterprise Tier**: Unlimited requests
 
 ## Usage
 
@@ -94,9 +102,17 @@ dotnet test tests/Snackbox.Api.Tests/Snackbox.Api.Tests.csproj --filter "FullyQu
 
 ### Backend Components
 
-- **BarcodeLookupService**: Handles HTTP communication with barcodelookup.com API
+- **BarcodeLookupService**: Handles HTTP communication with searchupcdata.com API
 - **BarcodeLookupController**: Provides REST endpoint for frontend
 - **DTOs**: Data transfer objects for API communication
+
+### API Details
+
+The service uses the searchupcdata.com REST API:
+- **Base URL**: https://searchupcdata.com/api
+- **Endpoint**: GET /api/products/{upc}
+- **Authentication**: Bearer token in Authorization header
+- **Response Format**: JSON with product details (name, description, brand, category, imageUrl)
 
 ### Frontend Components
 
