@@ -34,7 +34,8 @@ var web = builder.AddProject<Snackbox_BlazorServer>("web").WithReference(api).Wi
 // ReSharper disable once UnusedVariable
 var nativeApp = builder.AddExecutable("native-app", "dotnet", workingDirectory: "../Snackbox.Web")
                        .WithArgs("run", "-f", "net10.0-windows10.0.19041.0")
-                       .WithReference(api);
+                       .WithReference(api)
+                       .WithExplicitStartIf(builder.ExecutionContext.IsRunMode);
 
 // Add a custom resource for database reset using dotnet ef commands
 // This will appear in the Aspire dashboard and can be started manually

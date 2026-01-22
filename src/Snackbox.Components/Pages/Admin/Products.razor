@@ -305,6 +305,7 @@
 }
 
 <BarcodeLookupModal IsVisible="@_showBarcodeLookupModal"
+                    InitialBarcode="@_pendingBarcodeForBatch"
                     OnClose="@CloseBarcodeLookup"
                     OnProductCreated="@OnProductCreatedFromLookup" />
 
@@ -853,6 +854,7 @@
     private bool _isBatchProcessing;
     private string? _batchError;
     private string? _batchSuccess;
+    private string? _pendingBarcodeForBatch;
 
     private void ShowBarcodeLookup()
     {
@@ -862,11 +864,20 @@
     private void CloseBarcodeLookup()
     {
         _showBarcodeLookupModal = false;
+        _pendingBarcodeForBatch = null;
     }
 
     private async Task OnProductCreatedFromLookup()
     {
         await LoadProducts();
+
+        // If we have a pending barcode from batch mode, try to add it again
+        if (!string.IsNullOrWhiteSpace(_pendingBarcodeForBatch))
+        {
+            var barcode = _pendingBarcodeForBatch;
+            _pendingBarcodeForBatch = null;
+            await LookupAndAddBatchProduct(barcode);
+        }
     }
 
     private void StartBatchMode()
@@ -913,7 +924,9 @@
             var product = await ProductsApi.GetByBarcodeAsync(barcode);
             if (product == null)
             {
-                _batchError = $"Product with barcode '{barcode}' not found.";
+                // Product not found, open barcode lookup modal
+                _pendingBarcodeForBatch = barcode;
+                _showBarcodeLookupModal = true;
                 return;
             }
 
@@ -958,7 +971,9 @@
         }
         catch (ApiException)
         {
-            _batchError = $"Product with barcode '{barcode}' not found.";
+            // Product not found, open barcode lookup modal
+            _pendingBarcodeForBatch = barcode;
+            _showBarcodeLookupModal = true;
         }
         catch (Exception ex)
         {
