@@ -26,7 +26,8 @@ builder.Services.AddSnackboxApiClientWithAuth<AuthenticationHeaderHandler>(apiUr
 builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
                                                                               {
                                                                                   client.BaseAddress = new Uri(apiUrl);
-                                                                              });
+                                                                              })
+       .AddHttpMessageHandler<AuthenticationHeaderHandler>();
 
 // Register scanner service with HttpClient for Windows
 builder.Services.AddHttpClient<IScannerService, ScannerService>(client => { client.BaseAddress = new Uri(apiUrl); })

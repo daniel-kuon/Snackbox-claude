@@ -14,6 +14,9 @@ public interface IAuthApi
     [Post("/api/auth/set-password")]
     Task SetPasswordAsync([Body] SetPasswordRequest request);
 
+    [Post("/api/auth/change-password")]
+    Task ChangePasswordAsync([Body] ChangePasswordRequest request);
+
     [Get("/api/auth/has-password/{username}")]
     Task<HasPasswordResponse> HasPasswordAsync(string username);
 }

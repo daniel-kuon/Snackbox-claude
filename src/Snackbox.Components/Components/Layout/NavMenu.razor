@@ -54,6 +54,15 @@
             </div>
         }
 
+        @if (_isAuthenticated)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="change-password">
+                    <span class="bi bi-key" aria-hidden="true"></span> Change Password
+                </NavLink>
+            </div>
+        }
+
         @if (_showLogoutButton)
         {
             <div class="nav-exit-section">
@@ -98,6 +107,7 @@
 
     private bool _showAdminSection = false;
     private bool _showLogoutButton = false;
+    private bool _isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,8 +121,8 @@
 
     private async Task UpdateMenuVisibility()
     {
-        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
-        if (isAuthenticated)
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (_isAuthenticated)
         {
             var userInfo = await AuthService.GetCurrentUserInfoAsync();
             _showAdminSection = userInfo?.IsAdmin ?? false;
@@ -122,6 +132,7 @@
         {
             _showAdminSection = false;
             _showLogoutButton = false;
+            _isAuthenticated = false;
         }
     }
 

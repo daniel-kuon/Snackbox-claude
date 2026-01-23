@@ -25,6 +25,10 @@ public interface IUsersApi
     
     [Delete("/api/users/{id}")]
     Task DeleteAsync(int id);
+
+    // Admin-only: set password for a specific user
+    [Post("/api/users/{id}/set-password")]
+    Task AdminSetPasswordAsync(int id, [Body] AdminSetPasswordRequest request);
 }
 
 public class RegisterResponse
