@@ -869,14 +869,16 @@
 
     private async Task OnProductCreatedFromLookup()
     {
+        // Capture and clear pending barcode before any await to avoid races with CloseBarcodeLookup()
+        var pendingBarcode = _pendingBarcodeForBatch;
+        _pendingBarcodeForBatch = null;
+
         await LoadProducts();
 
-        // If we have a pending barcode from batch mode, try to add it again
-        if (!string.IsNullOrWhiteSpace(_pendingBarcodeForBatch))
+        // If we had a pending barcode from batch mode, try to add it again
+        if (!string.IsNullOrWhiteSpace(pendingBarcode))
         {
-            var barcode = _pendingBarcodeForBatch;
-            _pendingBarcodeForBatch = null;
-            await LookupAndAddBatchProduct(barcode);
+            await LookupAndAddBatchProduct(pendingBarcode);
         }
     }
 
