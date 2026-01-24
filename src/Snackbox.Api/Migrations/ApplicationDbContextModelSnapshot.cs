@@ -421,7 +421,7 @@ namespace Snackbox.Api.Migrations
                             Id = 40,
                             Category = 8,
                             Code = "SPEED_DEMON",
-                            Description = "Made 2 purchases within 1 minute",
+                            Description = "Made 2 scans within 3 seconds",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF6347\" stroke=\"#DC143C\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">⚡</text><text x=\"60\" y=\"85\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B0000\">&lt;1min</text></svg>",
                             Name = "Speed Demon"
                         },
@@ -430,7 +430,7 @@ namespace Snackbox.Api.Migrations
                             Id = 41,
                             Category = 8,
                             Code = "DOUBLE_TROUBLE",
-                            Description = "Made exactly 2 purchases in a session",
+                            Description = "Made 2 or more scans in a session",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF69B4\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">2️⃣</text></svg>",
                             Name = "Double Trouble"
                         },
@@ -439,7 +439,7 @@ namespace Snackbox.Api.Migrations
                             Id = 42,
                             Category = 8,
                             Code = "TRIPLE_THREAT",
-                            Description = "Made exactly 3 purchases in a session",
+                            Description = "Made 3 or more scans in a session",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#DDA0DD\" stroke=\"#BA55D3\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">3️⃣</text></svg>",
                             Name = "Triple Threat"
                         },
@@ -448,7 +448,7 @@ namespace Snackbox.Api.Migrations
                             Id = 43,
                             Category = 8,
                             Code = "LUCKY_SEVEN",
-                            Description = "Made exactly 7 purchases in a session",
+                            Description = "Made 7 or more scans in a session",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#32CD32\" stroke=\"#228B22\" stroke-width=\"3\"/><text x=\"60\" y=\"65\" font-size=\"50\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#006400\">7️⃣</text></svg>",
                             Name = "Lucky Seven"
                         },
@@ -541,13 +541,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<bool>("IsLoginOnly")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_login_only");
+                    b.Property<string>("Discriminator")
+                        .IsRequired()
+                        .HasMaxLength(21)
+                        .HasColumnType("character varying(21)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
@@ -562,77 +559,9 @@ namespace Snackbox.Api.Migrations
 
                     b.ToTable("barcodes");
 
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Amount = 5.00m,
-                            Code = "4061461764012",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsLoginOnly = false,
-                            UserId = 2
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Amount = 10.00m,
-                            Code = "USER2-10EUR",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsLoginOnly = false,
-                            UserId = 2
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Amount = 5.00m,
-                            Code = "USER3-5EUR",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsLoginOnly = false,
-                            UserId = 3
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Amount = 10.00m,
-                            Code = "USER3-10EUR",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsLoginOnly = false,
-                            UserId = 3
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Amount = 0m,
-                            Code = "4260473313809",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsLoginOnly = true,
-                            UserId = 1
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Amount = 0m,
-                            Code = "USER2-LOGIN",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsLoginOnly = true,
-                            UserId = 2
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Amount = 0m,
-                            Code = "USER3-LOGIN",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            IsLoginOnly = true,
-                            UserId = 3
-                        });
+                    b.HasDiscriminator().HasValue("Barcode");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.BarcodeScan", b =>
@@ -668,32 +597,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("PurchaseId");
 
                     b.ToTable("barcode_scans");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Amount = 5.00m,
-                            BarcodeId = 1,
-                            PurchaseId = 1,
-                            ScannedAt = new DateTime(2024, 1, 6, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Amount = 10.00m,
-                            BarcodeId = 2,
-                            PurchaseId = 1,
-                            ScannedAt = new DateTime(2024, 1, 6, 0, 2, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Amount = 5.00m,
-                            BarcodeId = 3,
-                            PurchaseId = 2,
-                            ScannedAt = new DateTime(2024, 1, 11, 0, 0, 0, 0, DateTimeKind.Utc)
-                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.CashRegister", b =>
@@ -758,6 +661,56 @@ namespace Snackbox.Api.Migrations
                     b.ToTable("deposits");
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.Discount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<decimal>("MinimumPurchaseAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("minimum_purchase_amount");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("ValidFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_from");
+
+                    b.Property<DateTime>("ValidTo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_to");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("discounts");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.Invoice", b =>
                 {
                     b.Property<int>("Id")
@@ -778,7 +731,7 @@ namespace Snackbox.Api.Migrations
 
                     b.Property<int>("CreatedByUserId")
                         .HasColumnType("integer")
-                        .HasColumnName("created_by_id");
+                        .HasColumnName("created_by_user_id");
 
                     b.Property<DateTime>("InvoiceDate")
                         .HasColumnType("timestamp with time zone")
@@ -817,6 +770,10 @@ namespace Snackbox.Api.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("total_amount");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
 
                     b.HasKey("Id");
 
@@ -949,26 +906,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("payments");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Amount = 20.00m,
-                            Notes = "Initial payment",
-                            PaidAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Type = 0,
-                            UserId = 2
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Amount = 15.00m,
-                            Notes = "Cash payment",
-                            PaidAt = new DateTime(2024, 1, 3, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Type = 0,
-                            UserId = 3
-                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Product", b =>
@@ -1001,32 +938,6 @@ namespace Snackbox.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("products");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chips - Salt"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chocolate Bar"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Energy Drink"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cookies"
-                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.ProductBarcode", b =>
@@ -1064,56 +975,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("product_barcodes");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Barcode = "1234567890123",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 1,
-                            Quantity = 1
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Barcode = "1234567890123-BOX",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 1,
-                            Quantity = 12
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Barcode = "1234567890124",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 2,
-                            Quantity = 1
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Barcode = "1234567890124-PACK",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 2,
-                            Quantity = 5
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Barcode = "1234567890125",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 3,
-                            Quantity = 1
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Barcode = "1234567890126",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 4,
-                            Quantity = 1
-                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.ProductBatch", b =>
@@ -1142,36 +1003,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("product_batches");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            BestBeforeDate = new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 1
-                        },
-                        new
-                        {
-                            Id = 2,
-                            BestBeforeDate = new DateTime(2025, 8, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 2
-                        },
-                        new
-                        {
-                            Id = 3,
-                            BestBeforeDate = new DateTime(2025, 12, 31, 0, 0, 0, 0, DateTimeKind.Utc),
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 3
-                        },
-                        new
-                        {
-                            Id = 4,
-                            BestBeforeDate = new DateTime(2025, 5, 15, 0, 0, 0, 0, DateTimeKind.Utc),
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductId = 4
-                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Purchase", b =>
@@ -1182,10 +1013,6 @@ namespace Snackbox.Api.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1204,6 +1031,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("type");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
@@ -1215,24 +1046,37 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("purchases");
+                });
 
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CompletedAt = new DateTime(2024, 1, 6, 0, 5, 0, 0, DateTimeKind.Utc),
-                            CreatedAt = new DateTime(2024, 1, 6, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Type = 0,
-                            UserId = 2
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CompletedAt = new DateTime(2024, 1, 11, 0, 3, 0, 0, DateTimeKind.Utc),
-                            CreatedAt = new DateTime(2024, 1, 11, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Type = 0,
-                            UserId = 3
-                        });
+            modelBuilder.Entity("Snackbox.Api.Models.PurchaseDiscount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("discount_amount");
+
+                    b.Property<int>("DiscountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("discount_id");
+
+                    b.Property<int>("PurchaseId")
+                        .HasColumnType("integer")
+                        .HasColumnName("purchase_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiscountId");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.ToTable("purchase_discounts");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.ShelvingAction", b =>
@@ -1271,72 +1115,6 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("ProductBatchId");
 
                     b.ToTable("shelving_actions");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            ActionAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductBatchId = 1,
-                            Quantity = 50,
-                            Type = 0
-                        },
-                        new
-                        {
-                            Id = 2,
-                            ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductBatchId = 1,
-                            Quantity = 20,
-                            Type = 2
-                        },
-                        new
-                        {
-                            Id = 3,
-                            ActionAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductBatchId = 2,
-                            Quantity = 30,
-                            Type = 0
-                        },
-                        new
-                        {
-                            Id = 4,
-                            ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductBatchId = 2,
-                            Quantity = 15,
-                            Type = 2
-                        },
-                        new
-                        {
-                            Id = 5,
-                            ActionAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductBatchId = 3,
-                            Quantity = 40,
-                            Type = 0
-                        },
-                        new
-                        {
-                            Id = 6,
-                            ActionAt = new DateTime(2024, 1, 3, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductBatchId = 3,
-                            Quantity = 25,
-                            Type = 2
-                        },
-                        new
-                        {
-                            Id = 7,
-                            ActionAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductBatchId = 4,
-                            Quantity = 35,
-                            Type = 0
-                        },
-                        new
-                        {
-                            Id = 8,
-                            ActionAt = new DateTime(2024, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ProductBatchId = 4,
-                            Quantity = 18,
-                            Type = 2
-                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.User", b =>
@@ -1357,9 +1135,17 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("boolean")
                         .HasColumnName("is_admin");
+
+                    b.Property<bool>("IsRetired")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_retired");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text")
@@ -1380,34 +1166,6 @@ namespace Snackbox.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("users");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "admin@snackbox.com",
-                            IsAdmin = true,
-                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.gBAGZERO3WEhOw84rLKyWNOe90gtIZi",
-                            Username = "admin"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "john.doe@company.com",
-                            IsAdmin = false,
-                            PasswordHash = "$2a$11$7EW8wLqhqKQZH8J6rX5kQ.nhwgnkeU3Z3ua5zEq5X5I6iMvqFFYkO",
-                            Username = "john.doe"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "jane.smith@company.com",
-                            IsAdmin = false,
-                            Username = "jane.smith"
-                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.UserAchievement", b =>
@@ -1484,6 +1242,20 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("withdrawals");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.LoginBarcode", b =>
+                {
+                    b.HasBaseType("Snackbox.Api.Models.Barcode");
+
+                    b.HasDiscriminator().HasValue("LoginBarcode");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.PurchaseBarcode", b =>
+                {
+                    b.HasBaseType("Snackbox.Api.Models.Barcode");
+
+                    b.HasDiscriminator().HasValue("PurchaseBarcode");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Barcode", b =>
@@ -1646,6 +1418,25 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Snackbox.Api.Models.PurchaseDiscount", b =>
+                {
+                    b.HasOne("Snackbox.Api.Models.Discount", "Discount")
+                        .WithMany()
+                        .HasForeignKey("DiscountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Snackbox.Api.Models.Purchase", "Purchase")
+                        .WithMany("AppliedDiscounts")
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Discount");
+
+                    b.Navigation("Purchase");
+                });
+
             modelBuilder.Entity("Snackbox.Api.Models.ShelvingAction", b =>
                 {
                     b.HasOne("Snackbox.Api.Models.InvoiceItem", "InvoiceItem")
@@ -1736,6 +1527,8 @@ namespace Snackbox.Api.Migrations
 
             modelBuilder.Entity("Snackbox.Api.Models.Purchase", b =>
                 {
+                    b.Navigation("AppliedDiscounts");
+
                     b.Navigation("Scans");
                 });
 

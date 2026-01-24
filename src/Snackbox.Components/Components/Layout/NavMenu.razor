@@ -1,9 +1,10 @@
 @inject NavigationManager Navigation
 @inject IScannerService ScannerService
+@inject IAuthenticationService AuthService
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">Snackbox</a>
+        <span class="navbar-brand">Snackbox</span>
     </div>
 </div>
 
@@ -11,43 +12,70 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="@HomeLink" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> @HomeLinkText
-            </NavLink>
-        </div>
 
-        <div class="nav-section">
-            <div class="nav-section-title">Administration</div>
+        @if (_showAdminSection)
+        {
+            <div class="nav-section">
+                <div class="nav-section-title">Administration</div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/dashboard">
+                        <span class="bi bi-speedometer2" aria-hidden="true"></span> Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/users">
+                        <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Users
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/products">
+                        <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span> Products
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/discounts">
+                        <span class="bi bi-tag-nav-menu" aria-hidden="true"></span> Discounts
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/invoices">
+                        <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Invoices
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/cash-register">
+                        <span class="bi bi-cash-stack-nav-menu" aria-hidden="true"></span> Cash Register
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/backups">
+                        <span class="bi bi-archive-nav-menu" aria-hidden="true"></span> Backups
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/settings">
+                        <span class="bi bi-gear-nav-menu" aria-hidden="true"></span> Settings
+                    </NavLink>
+                </div>
+            </div>
+        }
+
+        @if (_isAuthenticated)
+        {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="admin/users">
-                    <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Users
+                <NavLink class="nav-link" href="change-password">
+                    <span class="bi bi-key" aria-hidden="true"></span> Change Password
                 </NavLink>
             </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="admin/products">
-                    <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span> Products
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="admin/invoices">
-                    <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Invoices
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="admin/cash-register">
-                    <span class="bi bi-cash-stack-nav-menu" aria-hidden="true"></span> Cash Register
-                </NavLink>
-            </div>
-        </div>
+        }
 
         @if (ShowExitButton)
         {
-            <div class="nav-exit-section">
-                <button class="nav-exit-button" @onclick="ExitToScanScreen">
-                    <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Exit to Scan Screen
-                </button>
-            </div>
+        <div class="nav-exit-section">
+            <button class="nav-exit-button" @onclick="ExitToScanScreen">
+                <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Exit to Scan Screen
+            </button>
+        </div>
         }
     </nav>
 </div>
@@ -57,7 +85,7 @@
     /// Whether to show the Exit button (typically for native/MAUI apps)
     /// </summary>
     [Parameter]
-    public bool ShowExitButton { get; set; } = false;
+    public bool ShowExitButton { get; set; }
 
     /// <summary>
     /// The URL for the Home link
@@ -77,15 +105,48 @@
     [Parameter]
     public string ExitUrl { get; set; } = "/scan";
 
+    /// <summary>
+    /// Whether to show the logout button (for web apps)
+    /// </summary>
+    [Parameter]
+    public bool ShowLogoutButton { get; set; }
+
+    private bool _showAdminSection;
+    private bool _isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await UpdateMenuVisibility();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await UpdateMenuVisibility();
+    }
+
+    private async Task UpdateMenuVisibility()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (_isAuthenticated)
+        {
+            var userInfo = await AuthService.GetCurrentUserInfoAsync();
+            _isAuthenticated = userInfo != null;
+            _showAdminSection = userInfo?.IsAdmin ?? false;
+        }
+        else
+        {
+            _showAdminSection = false;
+            _isAuthenticated = false;
+        }
+    }
+
     private async Task ExitToScanScreen()
     {
+        await AuthService.LogoutAsync();
+
         // Reset scanner session before navigating
         ScannerService.ResetSession();
 
-        // Navigate without force reload to maintain service state
-        Navigation.NavigateTo(ExitUrl, forceLoad: false);
-
-        // Small delay to ensure navigation completes
-        await Task.Delay(100);
+        Navigation.NavigateTo(ExitUrl, forceLoad: true);
     }
 }

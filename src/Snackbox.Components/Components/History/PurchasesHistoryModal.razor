@@ -1,0 +1,154 @@
+@using Snackbox.Api.Dtos
+@inherits ComponentBase
+
+@if (IsOpen)
+{
+    <div class="sb-modal-backdrop" @onclick="Close"></div>
+    <div class="sb-modal">
+        <div class="sb-modal-header">
+            <h3>All Purchases</h3>
+            <button class="sb-close" @onclick="Close">×</button>
+        </div>
+        <div class="sb-modal-body">
+            @if (Purchases == null)
+            {
+                <div class="sb-empty">No purchases</div>
+            }
+            else
+            {
+                var groups = GetGroups();
+                @foreach (var group in groups)
+                {
+                    var key = group.Key;
+                    var label = key.ToString("MMMM yyyy");
+                    var monthTotal = group.Value.Sum(p => p.TotalAmount);
+                    var expanded = IsGroupExpanded(key);
+                    <div class="sb-month-group">
+                        <button class="sb-month-header" @onclick="() => ToggleGroup(key)">
+                            <span class="sb-month-label">@label</span>
+                            <span class="sb-spacer"></span>
+                            <span class="sb-month-total">@monthTotal.ToString("C")</span>
+                            <span class="sb-caret">@(expanded ? "▾" : "▸")</span>
+                        </button>
+                        @if (expanded)
+                        {
+                            <div class="sb-month-content">
+                                @foreach (var p in group.Value.OrderByDescending(p => EffectiveDate(p)))
+                                {
+                                    var itemsTotal = p.Items.Sum(i => i.Amount);
+                                    var hasDiscount = p.AppliedDiscounts.Any();
+
+                                    <div class="sb-row">
+                                        <div class="sb-row-left">
+                                            <div class="sb-date">@EffectiveDate(p).ToString("dd MMM yyyy HH:mm")</div>
+                                            <div class="sb-sub">@p.Items.Count item@(p.Items.Count == 1 ? string.Empty : "s")</div>
+                                            @if (hasDiscount)
+                                            {
+                                                <div class="sb-discounts">
+                                                    @foreach (var discount in p.AppliedDiscounts)
+                                                    {
+                                                        <span class="sb-discount-tag">🎉 @discount.Name (-@discount.DiscountAmount.ToString("C"))</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="sb-row-right">
+                                            @if (hasDiscount)
+                                            {
+                                                <div class="sb-amount-original">@itemsTotal.ToString("C")</div>
+                                            }
+                                            <div class="sb-amount @(hasDiscount ? "sb-amount-discounted" : "")">@p.TotalAmount.ToString("C")</div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public IEnumerable<PurchaseDto>? Purchases { get; set; }
+
+    private readonly Dictionary<string, bool> _expanded = new();
+
+    private void Close() => OnClose.InvokeAsync();
+
+    private static DateTime EffectiveDate(PurchaseDto p)
+        => p.UpdatedAt ?? p.CreatedAt;
+
+    private SortedDictionary<DateTime, List<PurchaseDto>> GetGroups()
+    {
+        var map = new SortedDictionary<DateTime, List<PurchaseDto>>(Comparer<DateTime>.Create((a, b) => b.CompareTo(a)));
+        foreach (var p in Purchases!.OrderByDescending(EffectiveDate))
+        {
+            var dt = EffectiveDate(p);
+            var key = new DateTime(dt.Year, dt.Month, 1);
+            if (!map.TryGetValue(key, out var list))
+            {
+                list = new List<PurchaseDto>();
+                map[key] = list;
+                // default collapsed except current month
+                var k = Key(key);
+                if (!_expanded.ContainsKey(k))
+                    _expanded[k] = key.Month == DateTime.Now.Month && key.Year == DateTime.Now.Year;
+            }
+            list.Add(p);
+        }
+        return map;
+    }
+
+    private bool IsGroupExpanded(DateTime key) => _expanded.TryGetValue(Key(key), out var v) && v;
+    private void ToggleGroup(DateTime key)
+    {
+        var k = Key(key);
+        _expanded[k] = !_expanded.TryGetValue(k, out var v) || !v ? true : false;
+        StateHasChanged();
+    }
+
+    private static string Key(DateTime dt) => dt.ToString("yyyy-MM");
+}
+
+<style>
+    .sb-modal-backdrop {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
+    }
+    .sb-modal {
+        position: fixed; top: 5vh; left: 50%; transform: translateX(-50%);
+        width: min(800px, 94vw); max-height: 90vh; overflow: hidden;
+        background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); z-index: 1001;
+        display: flex; flex-direction: column;
+    }
+    .sb-modal-header { display: flex; align-items: center; gap: .5rem; padding: 1rem 1.25rem; border-bottom: 1px solid #eee; }
+    .sb-modal-header h3 { margin: 0; font-size: 1.1rem; }
+    .sb-close { margin-left: auto; border: none; background: transparent; font-size: 1.5rem; cursor: pointer; line-height: 1; }
+    .sb-modal-body { padding: .75rem 0; overflow: auto; }
+    .sb-empty { padding: 1rem 1.25rem; color: #666; }
+    .sb-month-group { border-bottom: 1px solid #f1f1f1; }
+    .sb-month-header { width: 100%; display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; background: #fafafa; border: none; cursor: pointer; }
+    .sb-month-label { font-weight: 600; }
+    .sb-spacer { flex: 1; }
+    .sb-month-total { font-weight: 600; }
+    .sb-caret { margin-left: .5rem; color: #666; }
+    .sb-month-content { padding: .25rem .5rem .75rem; }
+    .sb-row { display: flex; align-items: center; justify-content: space-between; padding: .5rem .75rem; border-radius: 8px; }
+    .sb-row:hover { background: #f8f9fa; }
+    .sb-row-left { display: flex; flex-direction: column; gap: .25rem; }
+    .sb-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: .15rem; }
+    .sb-date { font-size: .95rem; color: #333; }
+    .sb-sub { font-size: .8rem; color: #666; }
+    .sb-discounts { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
+    .sb-discount-tag { font-size: .75rem; padding: .15rem .4rem; background: #e7f9ed; color: #155724; border-radius: 4px; border-left: 2px solid #28a745; }
+    .sb-amount { font-weight: 600; }
+    .sb-amount-original { font-size: .85rem; color: #999; text-decoration: line-through; }
+    .sb-amount-discounted { color: #28a745; font-size: 1.05rem; }
+    @@media (max-width: 520px) {
+        .sb-date { font-size: .9rem; }
+        .sb-modal { top: 2vh; max-height: 96vh; }
+    }
+</style>

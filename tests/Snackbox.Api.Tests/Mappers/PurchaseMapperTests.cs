@@ -34,7 +34,7 @@ public class PurchaseMapperTests
     public void ToItemDtoWithProductName_BarcodeScan_MapsProductNameFromBarcode()
     {
         // Arrange
-        var barcode = new Barcode { Id = 5, Code = "PROD123", UserId = 1, CreatedAt = DateTime.UtcNow };
+        var barcode = new PurchaseBarcode { Id = 5, Code = "PROD123", UserId = 1, CreatedAt = DateTime.UtcNow };
         var scan = new BarcodeScan
         {
             Id = 1,
@@ -58,8 +58,8 @@ public class PurchaseMapperTests
     {
         // Arrange
         var user = new User { Id = 10, Username = "testuser", CreatedAt = DateTime.UtcNow };
-        var barcode1 = new Barcode { Id = 1, Code = "BC1", UserId = 1, CreatedAt = DateTime.UtcNow };
-        var barcode2 = new Barcode { Id = 2, Code = "BC2", UserId = 1, CreatedAt = DateTime.UtcNow };
+        var barcode1 = new PurchaseBarcode { Id = 1, Code = "BC1", UserId = 1, CreatedAt = DateTime.UtcNow };
+        var barcode2 = new PurchaseBarcode { Id = 2, Code = "BC2", UserId = 1, CreatedAt = DateTime.UtcNow };
         
         var purchase = new Purchase
         {

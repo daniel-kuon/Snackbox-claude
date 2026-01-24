@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Services;
+using System.Security.Claims;
 
 namespace Snackbox.Api.Controllers;
 
@@ -81,12 +82,12 @@ public class AuthController : ControllerBase
                 return BadRequest(new { message = "Invalid barcode, email doesn't match, or unable to set password" });
             }
 
-            _logger.LogInformation("Password set successfully for barcode");
+            _logger.LogInformation("Password set/reset successfully for barcode");
             return Ok(new { message = "Password set successfully" });
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning("Attempt to overwrite existing password");
+            _logger.LogWarning("Attempt to set password failed: {Message}", ex.Message);
             return BadRequest(new { message = ex.Message });
         }
     }
@@ -96,5 +97,30 @@ public class AuthController : ControllerBase
     {
         var hasPassword = await _authenticationService.UserHasPasswordAsync(username);
         return Ok(new { hasPassword });
+    }
+
+    [HttpPost("change-password")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<ActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return BadRequest(new { message = "Current and new password are required" });
+        }
+
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { message = "Invalid user context" });
+        }
+
+        var success = await _authenticationService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+        if (!success)
+        {
+            return BadRequest(new { message = "Invalid current password or user does not have a password set" });
+        }
+
+        _logger.LogInformation("User {UserId} changed password successfully", userId);
+        return Ok(new { message = "Password changed successfully" });
     }
 }

@@ -1,0 +1,706 @@
+@page "/home"
+@using Snackbox.Api.Dtos
+@using Snackbox.Components.Components.History
+@using Snackbox.ApiClient
+@inject IAuthenticationService AuthService
+@inject IBarcodesApi BarcodesApi
+@inject IPurchasesApi PurchasesApi
+@inject IPaymentsApi PaymentsApi
+@inject IScannerApi ScannerApi
+@inject NavigationManager Navigation
+
+<PageTitle>Snackbox - Home</PageTitle>
+
+<div class="home-container">
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    }
+    else if (_errorMessage != null)
+    {
+        <div class="error-container">
+            <div class="error-message">@_errorMessage</div>
+            <button class="btn btn-primary" @onclick="LoadDataAsync">Retry</button>
+        </div>
+    }
+    else if (_currentUser != null)
+    {
+        <!-- User Info Section -->
+        <div class="user-info-card">
+            <h2>Welcome, @_currentUser.Username!</h2>
+            <div class="balance-info">
+                <span class="balance-label">@(_openAmount > 0 ? "Open Payment:" : "Deposit:")</span>
+                <span class="balance-amount @(_openAmount > 0 ? "positive" : "negative")">
+                    @Math.Abs(_openAmount).ToString("C")
+                </span>
+            </div>
+            @if (_openAmount > 0)
+            {
+                <div class="paypal-link">
+                    @* Note: PayPal username is hardcoded here to match the native app behavior.
+                       In a production environment, this should be moved to configuration. *@
+                    <a href="@($"https://paypal.me/dkuon/{_openAmount:F2}")" target="_blank" class="btn btn-paypal">
+                        Pay @_openAmount.ToString("C") via PayPal
+                    </a>
+                    <p class="paypal-note">Payments may take some time to show up in the system.</p>
+                </div>
+            }
+        </div>
+
+        <!-- Last Payment -->
+        @if (_lastPayment != null)
+        {
+            <div class="info-card" @onclick="OpenPaymentsModal" style="cursor: pointer;">
+                <h3>Last Payment <small style="font-weight:normal; color:#666;">(click to view all)</small></h3>
+                <div class="payment-details">
+                    <span class="payment-amount">@_lastPayment.Amount.ToString("C")</span>
+                    <span class="payment-date">@_lastPayment.PaidAt.ToString("dd MMM yyyy")</span>
+                </div>
+            </div>
+        }
+
+        <!-- Recent Purchases -->
+        <div class="info-card" @onclick="OpenPurchasesModal" style="cursor: pointer;">
+            <h3>Recent Purchases (@_recentPurchases.Count) <small style="font-weight:normal; color:#666;">(click to view all)</small></h3>
+            @if (_recentPurchases.Any())
+            {
+                <div class="purchases-list">
+                    @foreach (var purchase in _recentPurchases)
+                    {
+                        <div class="purchase-item">
+                            <div class="purchase-info">
+                                <span class="purchase-date">@(purchase.UpdatedAt?.ToString("dd MMM HH:mm") ?? purchase.CreatedAt.ToString("dd MMM HH:mm"))</span>
+                                <span class="purchase-items">@purchase.Items.Count item@(purchase.Items.Count != 1 ? "s" : "")</span>
+                            </div>
+                            <span class="purchase-amount">@purchase.TotalAmount.ToString("C")</span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="no-data">No recent purchases</p>
+            }
+        </div>
+
+        <!-- Purchase Interface -->
+        <div class="purchase-card">
+            <h3>Make a Purchase</h3>
+            @if (_userBarcodes.Any())
+            {
+                <div class="barcode-buttons">
+                    @foreach (var barcode in _userBarcodes)
+                    {
+                        var count = _selectedBarcodes.ContainsKey(barcode.Id) ? _selectedBarcodes[barcode.Id] : 0;
+                        <div class="barcode-item">
+                            <div class="barcode-info">
+                                <span class="barcode-amount">@barcode.Amount.ToString("C")</span>
+                            </div>
+                            <div class="barcode-controls">
+                                <button class="btn-control btn-minus" @onclick="() => DecrementBarcode(barcode.Id)" disabled="@(count <= 0)">
+                                    −
+                                </button>
+                                <span class="barcode-count">@count</span>
+                                <button class="btn-control btn-plus" @onclick="() => IncrementBarcode(barcode.Id)">
+                                    +
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="purchase-total">
+                    <span class="total-label">Total:</span>
+                    <span class="total-amount">@_currentPurchaseTotal.ToString("C")</span>
+                </div>
+
+                @if (_purchaseMessage != null)
+                {
+                    <div class="purchase-message @(_purchaseSuccess ? "success" : "error")">
+                        @_purchaseMessage
+                    </div>
+                }
+
+                <button class="btn btn-primary btn-complete" @onclick="CompletePurchaseAsync" disabled="@(_currentPurchaseTotal <= 0 || _isProcessing)">
+                    @if (_isProcessing)
+                    {
+                        <span class="spinner-small"></span>
+                        <span>Processing...</span>
+                    }
+                    else
+                    {
+                        <span>Complete Purchase</span>
+                    }
+                </button>
+            }
+            else
+            {
+                <p class="no-data">No barcodes available for purchases</p>
+            }
+        </div>
+    }
+</div>
+
+<!-- History Modals -->
+<PurchasesHistoryModal IsOpen="@_showPurchasesModal"
+                      Purchases="@_allPurchases"
+                      OnClose="ClosePurchasesModal" />
+
+<PaymentsHistoryModal IsOpen="@_showPaymentsModal"
+                     Payments="@_allPayments"
+                     OnClose="ClosePaymentsModal" />
+
+<style>
+    .home-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+
+    .loading-container, .error-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 50vh;
+        gap: 1rem;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .spinner-small {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.75s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+        color: #dc3545;
+        padding: 1rem;
+        background: #f8d7da;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .user-info-card, .info-card, .purchase-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .user-info-card h2 {
+        margin: 0 0 1rem 0;
+        color: #333;
+        font-size: 1.5rem;
+    }
+
+    .balance-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 1.2rem;
+    }
+
+    .balance-label {
+        color: #333;
+        font-weight: 500;
+    }
+
+    .balance-amount {
+        font-weight: 700;
+    }
+
+    .balance-amount.positive {
+        color: #dc3545;
+    }
+
+    .balance-amount.negative {
+        color: #28a745;
+    }
+
+    .paypal-link {
+        text-align: center;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background-color: #667eea;
+        color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #5568d3;
+    }
+
+    .btn-primary:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+
+    .btn-paypal {
+        background-color: #0070ba;
+        color: white;
+        width: 100%;
+        max-width: 300px;
+        margin: 0 auto;
+    }
+
+    .btn-paypal:hover {
+        background-color: #005a94;
+    }
+
+    .paypal-note {
+        font-size: 0.85rem;
+        color: #666;
+        margin-top: 0.5rem;
+    }
+
+    .info-card h3 {
+        margin: 0 0 1rem 0;
+        color: #333;
+        font-size: 1.2rem;
+    }
+
+    .payment-details {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: #e7f3ff;
+        border-radius: 8px;
+        border-left: 4px solid #007bff;
+    }
+
+    .payment-amount {
+        font-weight: 600;
+        color: #007bff;
+        font-size: 1.1rem;
+    }
+
+    .payment-date {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .purchases-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .purchase-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 3px solid #667eea;
+    }
+
+    .purchase-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+
+    .purchase-date {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .purchase-items {
+        font-size: 0.8rem;
+        color: #666;
+    }
+
+    .purchase-amount {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+
+    .no-data {
+        color: #666;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .barcode-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .barcode-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .barcode-info {
+        flex: 1;
+    }
+
+    .barcode-amount {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .barcode-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .btn-control {
+        width: 40px;
+        height: 40px;
+        border: 2px solid #667eea;
+        background: white;
+        color: #667eea;
+        border-radius: 8px;
+        font-size: 1.5rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .btn-control:hover:not(:disabled) {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-control:disabled {
+        border-color: #ccc;
+        color: #ccc;
+        cursor: not-allowed;
+    }
+
+    .barcode-count {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+        min-width: 40px;
+        text-align: center;
+    }
+
+    .purchase-total {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .btn-complete {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+    }
+
+    .purchase-message {
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    .purchase-message.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .purchase-message.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    /* Mobile responsiveness */
+    @@media (max-width: 768px) {
+        .home-container {
+            padding: 0.5rem;
+        }
+
+        .user-info-card, .info-card, .purchase-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .balance-info {
+            font-size: 1rem;
+        }
+
+        .btn {
+            padding: 0.6rem 1rem;
+            font-size: 0.95rem;
+        }
+
+        .barcode-controls {
+            gap: 0.5rem;
+        }
+
+        .btn-control {
+            width: 36px;
+            height: 36px;
+            font-size: 1.3rem;
+        }
+    }
+</style>
+
+@code {
+    private UserInfo? _currentUser;
+    private List<BarcodeDto> _userBarcodes = new();
+    private List<PurchaseDto> _recentPurchases = new();
+    private PaymentDto? _lastPayment;
+    private List<PurchaseDto>? _allPurchases;
+    private List<PaymentDto>? _allPayments;
+    private decimal _openAmount;
+    private bool _isLoading = true;
+    private bool _isProcessing = false;
+    private string? _errorMessage;
+    private string? _purchaseMessage;
+    private bool _purchaseSuccess;
+    private bool _showPurchasesModal;
+    private bool _showPaymentsModal;
+
+    private Dictionary<int, int> _selectedBarcodes = new();
+    private decimal _currentPurchaseTotal => _selectedBarcodes.Sum(kvp =>
+    {
+        var barcode = _userBarcodes.FirstOrDefault(b => b.Id == kvp.Key);
+        return barcode != null ? barcode.Amount * kvp.Value : 0;
+    });
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            // Check if user is authenticated
+            var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (!isAuthenticated)
+            {
+                Navigation.NavigateTo("/login", replace: true);
+                return;
+            }
+
+            // Get current user info
+            _currentUser = await AuthService.GetCurrentUserInfoAsync();
+            if (_currentUser == null)
+            {
+                Navigation.NavigateTo("/login", replace: true);
+                return;
+            }
+
+            // If admin, redirect to admin page
+            if (_currentUser.IsAdmin)
+            {
+                Navigation.NavigateTo("/admin/users", replace: true);
+                return;
+            }
+
+            // Load user's barcodes
+            _userBarcodes = (await BarcodesApi.GetMyBarcodesAsync()).ToList();
+
+            // Load recent purchases
+            var allPurchases = await PurchasesApi.GetMyPurchasesAsync();
+            _recentPurchases = allPurchases.OrderByDescending(p => p.UpdatedAt).Take(5).ToList();
+
+            // Load last payment
+            var allPayments = await PaymentsApi.GetMyPaymentsAsync();
+            _lastPayment = allPayments.OrderByDescending(p => p.PaidAt).FirstOrDefault();
+
+            // Calculate open amount (spent - paid)
+            var totalSpent = allPurchases.Sum(p => p.TotalAmount);
+            var totalPaid = allPayments.Sum(p => p.Amount);
+            _openAmount = totalSpent - totalPaid;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load data: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task EnsureAllPurchasesLoadedAsync()
+    {
+        if (_allPurchases == null)
+        {
+            var list = await PurchasesApi.GetMyPurchasesAsync();
+            _allPurchases = list.OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt).ToList();
+        }
+    }
+
+    private async Task EnsureAllPaymentsLoadedAsync()
+    {
+        if (_allPayments == null)
+        {
+            var list = await PaymentsApi.GetMyPaymentsAsync();
+            _allPayments = list.OrderByDescending(p => p.PaidAt).ToList();
+        }
+    }
+
+    private async Task OpenPurchasesModal()
+    {
+        await EnsureAllPurchasesLoadedAsync();
+        _showPurchasesModal = true;
+    }
+
+    private async Task OpenPaymentsModal()
+    {
+        await EnsureAllPaymentsLoadedAsync();
+        _showPaymentsModal = true;
+    }
+
+    private Task ClosePurchasesModal()
+    {
+        _showPurchasesModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task ClosePaymentsModal()
+    {
+        _showPaymentsModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void IncrementBarcode(int barcodeId)
+    {
+        if (!_selectedBarcodes.ContainsKey(barcodeId))
+        {
+            _selectedBarcodes[barcodeId] = 0;
+        }
+        _selectedBarcodes[barcodeId]++;
+        ClearPurchaseMessage();
+    }
+
+    private void DecrementBarcode(int barcodeId)
+    {
+        if (_selectedBarcodes.ContainsKey(barcodeId) && _selectedBarcodes[barcodeId] > 0)
+        {
+            _selectedBarcodes[barcodeId]--;
+            ClearPurchaseMessage();
+        }
+    }
+
+    private async Task CompletePurchaseAsync()
+    {
+        if (_currentPurchaseTotal <= 0)
+        {
+            return;
+        }
+
+        _isProcessing = true;
+        _purchaseMessage = null;
+
+        try
+        {
+            // Simulate scanning barcodes by calling the scanner API for each selected barcode
+            foreach (var selectedBarcode in _selectedBarcodes.Where(kvp => kvp.Value > 0))
+            {
+                var barcode = _userBarcodes.FirstOrDefault(b => b.Id == selectedBarcode.Key);
+                if (barcode == null)
+                {
+                    throw new Exception("Barcode not found in user's barcode list");
+                }
+
+                for (int i = 0; i < selectedBarcode.Value; i++)
+                {
+                    var request = new ScanBarcodeRequest { BarcodeCode = barcode.Code };
+                    var response = await ScannerApi.ScanBarcodeAsync(request);
+
+                    if (!response.Success)
+                    {
+                        throw new Exception($"Failed to process barcode: {response.ErrorMessage}");
+                    }
+                }
+            }
+
+            _purchaseSuccess = true;
+            _purchaseMessage = "Purchase completed successfully!";
+
+            // Clear the cart
+            _selectedBarcodes.Clear();
+
+            // Reload data to show updated information
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            _purchaseSuccess = false;
+            _purchaseMessage = $"Failed to complete purchase: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private void ClearPurchaseMessage()
+    {
+        _purchaseMessage = null;
+    }
+}

@@ -54,7 +54,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("user/{userId}")]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<PaymentDto>>> GetByUserId(int userId)
     {
         var payments = await _context.Payments

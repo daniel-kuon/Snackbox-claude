@@ -59,6 +59,8 @@
         <div class="login-info">
             <small class="text-muted">
                 Don't have an account? <a href="/register" class="register-link">Register here</a>
+                <br />
+                Forgot your password? <a href="/reset-password" class="register-link">Reset it here</a>
             </small>
         </div>
     </div>
@@ -225,7 +227,15 @@
 
             if (result.Success)
             {
-                Navigation.NavigateTo("/admin/users", forceLoad: true);
+                // Redirect based on user role
+                if (result.IsAdmin)
+                {
+                    Navigation.NavigateTo("/admin/dashboard", forceLoad: true);
+                }
+                else
+                {
+                    Navigation.NavigateTo("/home", forceLoad: true);
+                }
             }
             else
             {

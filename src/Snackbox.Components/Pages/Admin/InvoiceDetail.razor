@@ -1,4 +1,5 @@
 @page "/admin/invoices/{InvoiceId:int}"
+@inherits AdminPageBase
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
 @using Refit
@@ -134,12 +135,14 @@
                             var isSelected = _selectedItems.Contains(item.Id);
                             var isEditing = _editingItemId == item.Id;
                             var isProcessed = item.Status == InvoiceItemStatus.Processed;
+                            var hasNoBestBefore = !item.BestBeforeDate.HasValue;
                             var rowClass = isProcessed ? "row-processed" : (isSelected ? "" : "text-muted");
                             <tr class="@rowClass">
                                 <td>
                                     <input type="checkbox" class="form-check-lg" checked="@isSelected"
                                            @onchange="() => ToggleItem(item.Id)"
-                                           disabled="@isProcessed" />
+                                           disabled="@(isProcessed || hasNoBestBefore)"
+                                           title="@(hasNoBestBefore ? "Add a best before date to select this item" : isProcessed ? "Processed items cannot be selected" : "")" />
                                 </td>
                                 <td>
                                     @if (item.ProductId.HasValue)
@@ -447,7 +450,6 @@
     }
 
     tr.row-processed {
-        opacity: 0.5;
         background-color: #f8f9fa;
     }
 
@@ -506,9 +508,9 @@
             _invoice = await InvoicesApi.GetByIdAsync(InvoiceId);
             if (_invoice != null)
             {
-                // Select only pending (not processed) items by default
+                // Select only pending items with best before dates by default
                 _selectedItems = _invoice.Items
-                    .Where(i => i.Status == InvoiceItemStatus.Pending)
+                    .Where(i => i.Status == InvoiceItemStatus.Pending && i.BestBeforeDate.HasValue)
                     .Select(i => i.Id)
                     .ToHashSet();
             }
@@ -530,9 +532,9 @@
         {
             if (_selectAll)
             {
-                // Only select pending (not processed) items
+                // Only select pending items with best before dates
                 _selectedItems = _invoice.Items
-                    .Where(i => i.Status == InvoiceItemStatus.Pending)
+                    .Where(i => i.Status == InvoiceItemStatus.Pending && i.BestBeforeDate.HasValue)
                     .Select(i => i.Id)
                     .ToHashSet();
             }
@@ -545,12 +547,18 @@
 
     private void ToggleItem(int itemId)
     {
-        // Don't allow toggling processed items
+        // Don't allow toggling processed items or items without best before date
         if (_invoice != null)
         {
             var item = _invoice.Items.FirstOrDefault(i => i.Id == itemId);
             if (item?.Status == InvoiceItemStatus.Processed)
             {
+                return;
+            }
+
+            if (!item?.BestBeforeDate.HasValue ?? false)
+            {
+                _errorMessage = "Please add a best before date to this item before selecting it.";
                 return;
             }
         }
@@ -564,9 +572,9 @@
             _selectedItems.Add(itemId);
         }
 
-        // Update select all state based on pending items only
-        var pendingItemsCount = _invoice?.Items.Count(i => i.Status == InvoiceItemStatus.Pending) ?? 0;
-        _selectAll = _invoice != null && pendingItemsCount > 0 && _selectedItems.Count == pendingItemsCount;
+        // Update select all state based on pending items with best before dates only
+        var selectableItemsCount = _invoice?.Items.Count(i => i.Status == InvoiceItemStatus.Pending && i.BestBeforeDate.HasValue) ?? 0;
+        _selectAll = _invoice != null && selectableItemsCount > 0 && _selectedItems.Count == selectableItemsCount;
     }
 
     private void AddItemsToStock()
@@ -793,3 +801,5 @@
         return true;
     }
 }
+
+

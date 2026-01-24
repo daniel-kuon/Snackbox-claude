@@ -55,7 +55,10 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IScannerApi>();
         AddRefitClient<IBarcodesApi>();
         AddRefitClient<IBarcodeLookupApi>();
+        AddRefitClient<IBackupApi>();
         AddRefitClient<IInvoicesApi>();
+        AddRefitClient<IDiscountsApi>();
+        AddRefitClient<ISettingsApi>();
 
         return services;
     }
@@ -73,7 +76,17 @@ public static class ServiceCollectionExtensions
         Action<HttpClient>? configureClient = null)
         where THandler : DelegatingHandler
     {
-        var refitSettings = new RefitSettings();
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
+        jsonOptions.Converters.Add(new JsonStringEnumConverter());
+
+        var refitSettings = new RefitSettings
+        {
+            ContentSerializer = new SystemTextJsonContentSerializer(jsonOptions)
+        };
 
         void AddRefitClient<TApi>() where TApi : class
         {
@@ -81,6 +94,14 @@ public static class ServiceCollectionExtensions
                     .ConfigureHttpClient(c =>
                                          {
                                              c.BaseAddress = new Uri(baseUrl);
+                                             // Disable HTTP caching to avoid stale data
+                                             c.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+                                             {
+                                                 NoCache = true,
+                                                 NoStore = true,
+                                                 MustRevalidate = true
+                                             };
+                                             c.DefaultRequestHeaders.Pragma.Add(new System.Net.Http.Headers.NameValueHeaderValue("no-cache"));
                                              configureClient?.Invoke(c);
                                          })
                     .AddHttpMessageHandler<THandler>();
@@ -105,6 +126,9 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IBarcodesApi>();
         AddRefitClient<IBarcodeLookupApi>();
         AddRefitClient<IInvoicesApi>();
+        AddRefitClient<IBackupApi>();
+        AddRefitClient<IDiscountsApi>();
+        AddRefitClient<ISettingsApi>();
     }
 
 }

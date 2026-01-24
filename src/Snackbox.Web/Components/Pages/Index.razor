@@ -1,12 +1,57 @@
 @page "/"
+@using Snackbox.ApiClient
+@layout Snackbox.Components.Components.Layout.EmptyLayout
 @inject NavigationManager Navigation
+@inject IBackupApi BackupApi
+
+<div class="startup-container">
+    <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p>Starting Snackbox...</p>
+</div>
+
+<style>
+    .startup-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .startup-container p {
+        margin-top: 1rem;
+        font-size: 1.2rem;
+    }
+</style>
 
 @code {
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // Redirect to the scan page for native app
+            // Check if database exists
+            try
+            {
+                var dbCheck = await BackupApi.CheckDatabaseAsync();
+                if (!dbCheck.Exists)
+                {
+                    // No database, redirect to setup
+                    Navigation.NavigateTo("/database-setup", replace: true);
+                    return;
+                }
+            }
+            catch
+            {
+                // Database check failed, redirect to setup
+                Navigation.NavigateTo("/database-setup", replace: true);
+                return;
+            }
+
+            // Database exists, redirect to scan page
             Navigation.NavigateTo("/scan", replace: true);
         }
     }

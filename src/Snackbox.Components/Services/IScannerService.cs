@@ -1,4 +1,5 @@
-﻿using Snackbox.Components.Models;
+﻿using Snackbox.Api.Dtos;
+using Snackbox.Components.Models;
 
 namespace Snackbox.Components.Services;
 
@@ -15,12 +16,14 @@ public interface IScannerService
 
     Task<ScanResult> ProcessBarcodeAsync(string barcode);
     void ResetSession();
+    void SignalActivity();
+    Task<IEnumerable<PurchaseDto>> GetMyPurchasesAsync();
+    Task<IEnumerable<PaymentDto>> GetMyPaymentsAsync();
 }
 
 public class ScanResult
 {
     public bool IsSuccess { get; set; }
-    public bool IsAdmin { get; set; }
     public bool IsLoginOnly { get; set; }
     public string? ErrorMessage { get; set; }
 }

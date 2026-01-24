@@ -5,6 +5,8 @@
 @inject NavigationManager Navigation
 @using System.Timers
 @using Snackbox.Components.Components
+@using Snackbox.Components.Components.History
+@using Snackbox.Api.Dtos
 @using Snackbox.Components.Models
 @using Snackbox.Web.Services
 @implements IDisposable
@@ -42,7 +44,7 @@
         var session = ScannerService.CurrentSession;
 
         <!-- Active Purchase Session -->
-        <div class="scanner-active" @key="session.UserId">
+        <div class="scanner-active" @key="session.UserId" @onmousemove="HandleUserMouse" @onmousedown="HandleUserMouse" @onwheel="HandleUserMouse">
             <!-- Main content area -->
             <div class="scanner-content">
                 <!-- Left side: Purchase items and totals -->
@@ -73,16 +75,46 @@
                         </div>
                     }
 
-                    <div class="purchase-total">
-                        <span class="total-label">Total:</span>
-                        <span class="total-amount">@session.TotalAmount.ToString("C")</span>
-                    </div>
+                    @if (session.AppliedDiscounts.Any())
+                    {
+                        <div class="subtotal-row">
+                            <span class="subtotal-label">Subtotal:</span>
+                            <span class="subtotal-amount">@session.TotalAmount.ToString("C")</span>
+                        </div>
+
+                        @foreach (var discount in session.AppliedDiscounts)
+                        {
+                            <div class="discount-row">
+                                <div class="discount-info">
+                                    <span class="discount-icon">🎉</span>
+                                    <span class="discount-name">@discount.Name</span>
+                                </div>
+                                <span class="discount-amount">-@discount.DiscountAmount.ToString("C")</span>
+                            </div>
+                        }
+
+                        <div class="purchase-total with-discount">
+                            <span class="total-label">Total:</span>
+                            <span class="total-amount">@session.DiscountedAmount.ToString("C")</span>
+                        </div>
+
+                        <div class="savings-badge">
+                            You saved @session.TotalSavings.ToString("C")!
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="purchase-total">
+                            <span class="total-label">Total:</span>
+                            <span class="total-amount">@session.TotalAmount.ToString("C")</span>
+                        </div>
+                    }
 
                     <!-- Last payment info -->
                     @if (session.LastPaymentDate.HasValue)
                     {
-                        <div class="last-payment">
-                            <div class="payment-label">Last Payment:</div>
+                        <div class="last-payment" @onclick="OpenPaymentsModal" style="cursor: pointer;">
+                            <div class="payment-label">Last Payment <small style="font-weight:normal;color:#ddd">(tap to view all)</small>:</div>
                             <div class="payment-details">
                                 <span class="payment-amount">@session.LastPaymentAmount.ToString("C")</span>
                                 <span class="payment-date">@session.LastPaymentDate.Value.ToString("dd MMM yyyy")</span>
@@ -91,8 +123,8 @@
                     }
 
                     <!-- Recent purchases -->
-                    <div class="recent-purchases">
-                        <h4 class="recent-title">Recent Purchases (@session.RecentPurchases.Count)</h4>
+                    <div class="recent-purchases" @onclick="OpenPurchasesModal" style="cursor: pointer;">
+                        <h4 class="recent-title">Recent Purchases (@session.RecentPurchases.Count) <small style="font-weight:normal;color:#666;">(click to view all)</small></h4>
                         @if (session.RecentPurchases.Any())
                         {
                             <div class="recent-list">
@@ -101,7 +133,7 @@
                                     <div class="recent-item">
                                         <div class="recent-info">
                                             <span
-                                                class="recent-date">@purchase.CompletedAt.ToString("dd MMM HH:mm")</span>
+                                                class="recent-date">@purchase.UpdatedAt.ToString("dd MMM HH:mm")</span>
                                             <span
                                                 class="recent-items">@purchase.ItemCount item@(purchase.ItemCount != 1 ? "s" : "")</span>
                                         </div>
@@ -131,6 +163,18 @@
                                 </span>
                             </div>
                         </div>
+
+                        @* Inactive user alert - shown before payment reminders *@
+                        @if (session.IsUserInactive)
+                        {
+                            <div class="balance-notification danger" style="margin-bottom: 1rem;">
+                                <span class="notification-icon">⚠️🔒</span>
+                                <div class="notification-content">
+                                    <strong>Account Setup Required</strong>
+                                    <p>Your card has not been fully activated yet. You can continue scanning, but please contact <a href="mailto:daniel.kuon@cargonerds.com" style="color: inherit; text-decoration: underline;">daniel.kuon@cargonerds.com</a> to complete your account setup.</p>
+                                </div>
+                            </div>
+                        }
 
                         @* Balance-based payment reminders *@
                         @if (session.OpenAmount >= 40)
@@ -250,6 +294,15 @@
         </div>
     }
 </div>
+
+<!-- History Modals -->
+<PurchasesHistoryModal IsOpen="@_showPurchasesModal"
+                      Purchases="@_allPurchases"
+                      OnClose="ClosePurchasesModal" />
+
+<PaymentsHistoryModal IsOpen="@_showPaymentsModal"
+                     Payments="@_allPayments"
+                     OnClose="ClosePaymentsModal" />
 
 <style>
     .scanner-container {
@@ -436,6 +489,87 @@
         font-size: 1.3rem;
         font-weight: 600;
         margin-bottom: 1rem;
+    }
+
+    .purchase-total.with-discount {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .subtotal-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .subtotal-label {
+        color: #666;
+    }
+
+    .subtotal-amount {
+        color: #666;
+        text-decoration: line-through;
+    }
+
+    .discount-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: #e7f9ed;
+        border-left: 4px solid #28a745;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+
+    .discount-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .discount-icon {
+        font-size: 1.2rem;
+    }
+
+    .discount-name {
+        font-weight: 600;
+        color: #155724;
+    }
+
+    .discount-amount {
+        font-weight: 700;
+        color: #28a745;
+        font-size: 1.1rem;
+    }
+
+    .savings-badge {
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        animation: pulseGlow 2s ease-in-out infinite;
+    }
+
+    @@keyframes pulseGlow {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        }
+        50% {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5);
+        }
     }
 
     .last-payment {
@@ -700,8 +834,12 @@
     private Timer? _countdownTimer;
     private string? _errorMessage;
     private Timer? _errorTimer;
+    private bool _showPurchasesModal;
+    private bool _showPaymentsModal;
+    private List<PurchaseDto>? _allPurchases;
+    private List<PaymentDto>? _allPayments;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         // Subscribe to scanner events
         ScannerListener.CodeReceived += HandleCodeScanned;
@@ -726,13 +864,6 @@
             if (!scanResult.IsSuccess)
             {
                 ShowError(scanResult.ErrorMessage ?? "Barcode not recognized");
-                return;
-            }
-
-            // Admin code detected - redirect to the barcode login page with barcode pre-filled
-            if (scanResult.IsAdmin)
-            {
-                await InvokeAsync(() => { Navigation.NavigateTo($"/barcode-login?barcode={Uri.EscapeDataString(code)}"); });
                 return;
             }
 
@@ -775,6 +906,8 @@
 
     private void StartCountdownTimer()
     {
+        if (_countdownTimer is { Enabled: true })
+            return;
         _countdownTimer = new Timer(1000);
         _countdownTimer.Elapsed += (_, _) =>
                                    {
@@ -804,6 +937,57 @@
             _countdownTimer.Dispose();
             _countdownTimer = null;
         }
+    }
+
+    private void HandleUserMouse()
+    {
+        // Reset UI countdown and service timeout when mouse is used
+        ResetCountdownTimer();
+        ScannerService.SignalActivity();
+    }
+
+    private async Task EnsureAllPurchasesLoadedAsync()
+    {
+        if (_allPurchases == null)
+        {
+            var list = await ScannerService.GetMyPurchasesAsync();
+            _allPurchases = list.OrderByDescending(p => (p.UpdatedAt ?? p.CreatedAt)).ToList();
+        }
+    }
+
+    private async Task EnsureAllPaymentsLoadedAsync()
+    {
+        if (_allPayments == null)
+        {
+            var list = await ScannerService.GetMyPaymentsAsync();
+            _allPayments = list.OrderByDescending(p => p.PaidAt).ToList();
+        }
+    }
+
+    private async Task OpenPurchasesModal()
+    {
+        await EnsureAllPurchasesLoadedAsync();
+        _showPurchasesModal = true;
+        StateHasChanged();
+    }
+
+    private async Task OpenPaymentsModal()
+    {
+        await EnsureAllPaymentsLoadedAsync();
+        _showPaymentsModal = true;
+        StateHasChanged();
+    }
+
+    private Task ClosePurchasesModal()
+    {
+        _showPurchasesModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task ClosePaymentsModal()
+    {
+        _showPaymentsModal = false;
+        return Task.CompletedTask;
     }
 
     private void ShowError(string message)

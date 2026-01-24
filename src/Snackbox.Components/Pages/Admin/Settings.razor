@@ -1,0 +1,430 @@
+@page "/admin/settings"
+@inherits AdminPageBase
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject ISettingsApi SettingsApi
+@inject NavigationManager Navigation
+
+<PageTitle>Settings - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Application Settings</h2>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_settings != null)
+    {
+        <div class="settings-container">
+            <!-- Email Settings -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <h3>Email Settings</h3>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="TestEmailSettings" disabled="@_testingEmail">
+                        @if (_testingEmail)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Test Connection
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" @bind="_settings.EmailSettings.Enabled" />
+                        Enable Email Notifications
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">SMTP Server</label>
+                    <input type="text" class="form-control" @bind="_settings.EmailSettings.SmtpServer" placeholder="smtp.gmail.com" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">SMTP Port</label>
+                            <input type="number" class="form-control" @bind="_settings.EmailSettings.SmtpPort" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" @bind="_settings.EmailSettings.EnableSsl" />
+                                Enable SSL/TLS
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" @bind="_settings.EmailSettings.Username" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="text" class="form-control" @bind="_settings.EmailSettings.Password" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">From Email</label>
+                    <input type="email" class="form-control" @bind="_settings.EmailSettings.FromEmail" placeholder="noreply@example.com" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">From Name</label>
+                    <input type="text" class="form-control" @bind="_settings.EmailSettings.FromName" placeholder="Snackbox" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">PayPal Link</label>
+                    <input type="text" class="form-control" @bind="_settings.EmailSettings.PayPalLink" placeholder="https://paypal.me/yourlink" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_emailTestResult))
+                {
+                    <div class="alert @(_emailTestSuccess ? "alert-success" : "alert-danger")">
+                        @_emailTestResult
+                    </div>
+                }
+            </div>
+
+            <!-- Backup Settings -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <h3>Backup Settings</h3>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="TestBackupSettings" disabled="@_testingBackup">
+                        @if (_testingBackup)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Test Directory
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Backup Directory</label>
+                    <input type="text" class="form-control" @bind="_settings.BackupSettings.Directory" placeholder="backups" />
+                    <small class="form-text text-muted">Relative or absolute path for database backups</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email Recipient</label>
+                    <input type="email" class="form-control" @bind="_settings.BackupSettings.EmailRecipient" placeholder="admin@example.com" />
+                    <small class="form-text text-muted">Email address to receive backup notifications</small>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_backupTestResult))
+                {
+                    <div class="alert @(_backupTestSuccess ? "alert-success" : "alert-danger")">
+                        @_backupTestResult
+                    </div>
+                }
+            </div>
+
+            <!-- Barcode Lookup Settings -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <h3>Barcode Lookup API</h3>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="TestBarcodeSettings" disabled="@_testingBarcode">
+                        @if (_testingBarcode)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Test API Key
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">SearchUpcData API Key</label>
+                    <input type="text" class="form-control" @bind="_settings.BarcodeLookupSettings.ApiKey" placeholder="YOUR_API_KEY_HERE" />
+                    <small class="form-text text-muted">
+                        Get your free API key at <a href="https://searchupcdata.com/" target="_blank">searchupcdata.com</a>
+                    </small>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_barcodeTestResult))
+                {
+                    <div class="alert @(_barcodeTestSuccess ? "alert-success" : "alert-danger")">
+                        @_barcodeTestResult
+                    </div>
+                }
+            </div>
+
+            <!-- Save Button -->
+            <div class="settings-actions">
+                <button class="btn btn-primary btn-lg" @onclick="SaveSettings" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Save Settings
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_saveMessage))
+            {
+                <div class="alert @(_saveSuccess ? "alert-success" : "alert-danger") mt-3">
+                    @_saveMessage
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .settings-container {
+        max-width: 900px;
+    }
+
+    .settings-section {
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .settings-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #f0f0f0;
+    }
+
+    .settings-section-header h3 {
+        margin: 0;
+        color: #333;
+        font-size: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #555;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .settings-actions {
+        text-align: center;
+        margin-top: 2rem;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #f0f0f0;
+    }
+
+    .page-header h2 {
+        margin: 0;
+        font-size: 2rem;
+        color: #333;
+    }
+
+    .alert {
+        padding: 1rem;
+        border-radius: 4px;
+        margin-top: 1rem;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+</style>
+
+@code {
+    private ApplicationSettingsDto? _settings;
+    private bool _loading = true;
+    private bool _saving = false;
+    private bool _testingEmail = false;
+    private bool _testingBackup = false;
+    private bool _testingBarcode = false;
+
+    private string? _emailTestResult;
+    private bool _emailTestSuccess;
+    private string? _backupTestResult;
+    private bool _backupTestSuccess;
+    private string? _barcodeTestResult;
+    private bool _barcodeTestSuccess;
+    private string? _saveMessage;
+    private bool _saveSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        try
+        {
+            _loading = true;
+            _settings = await SettingsApi.GetSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading settings: {ex.Message}");
+            _saveMessage = "Error loading settings. Please try again.";
+            _saveSuccess = false;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        if (_settings == null) return;
+
+        try
+        {
+            _saving = true;
+            _saveMessage = null;
+
+            var response = await SettingsApi.UpdateSettingsAsync(_settings);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _saveMessage = "Settings saved successfully! Please restart the application for changes to take effect.";
+                _saveSuccess = true;
+            }
+            else
+            {
+                _saveMessage = "Failed to save settings. Please try again.";
+                _saveSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving settings: {ex.Message}");
+            _saveMessage = $"Error saving settings: {ex.Message}";
+            _saveSuccess = false;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task TestEmailSettings()
+    {
+        if (_settings == null) return;
+
+        try
+        {
+            _testingEmail = true;
+            _emailTestResult = null;
+
+            var result = await SettingsApi.TestEmailSettingsAsync(_settings.EmailSettings);
+            _emailTestResult = result.Message;
+            _emailTestSuccess = result.Success;
+        }
+        catch (Exception ex)
+        {
+            _emailTestResult = $"Test failed: {ex.Message}";
+            _emailTestSuccess = false;
+        }
+        finally
+        {
+            _testingEmail = false;
+        }
+    }
+
+    private async Task TestBackupSettings()
+    {
+        if (_settings == null) return;
+
+        try
+        {
+            _testingBackup = true;
+            _backupTestResult = null;
+
+            var result = await SettingsApi.TestBackupSettingsAsync(_settings.BackupSettings);
+            _backupTestResult = result.Message;
+            _backupTestSuccess = result.Success;
+        }
+        catch (Exception ex)
+        {
+            _backupTestResult = $"Test failed: {ex.Message}";
+            _backupTestSuccess = false;
+        }
+        finally
+        {
+            _testingBackup = false;
+        }
+    }
+
+    private async Task TestBarcodeSettings()
+    {
+        if (_settings == null) return;
+
+        try
+        {
+            _testingBarcode = true;
+            _barcodeTestResult = null;
+
+            var result = await SettingsApi.TestBarcodeLookupAsync(_settings.BarcodeLookupSettings);
+            _barcodeTestResult = result.Message;
+            _barcodeTestSuccess = result.Success;
+        }
+        catch (Exception ex)
+        {
+            _barcodeTestResult = $"Test failed: {ex.Message}";
+            _barcodeTestSuccess = false;
+        }
+        finally
+        {
+            _testingBarcode = false;
+        }
+    }
+}
+
+

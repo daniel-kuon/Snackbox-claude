@@ -5,6 +5,7 @@ using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
 
@@ -15,33 +16,70 @@ public class UsersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<UsersController> _logger;
+    private readonly IAuthenticationService _authenticationService;
 
-    public UsersController(ApplicationDbContext context, ILogger<UsersController> logger)
+    public UsersController(ApplicationDbContext context, ILogger<UsersController> logger, IAuthenticationService authenticationService)
     {
         _context = context;
         _logger = logger;
+        _authenticationService = authenticationService;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetAll([FromQuery] bool includeRetired = false)
     {
-        var users = await _context.Users
+        var usersQuery = _context.Users
             .Include(u => u.Purchases)
                 .ThenInclude(p => p.Scans)
             .Include(u => u.Payments)
             .Include(u => u.Withdrawals)
-            .Select(u => new UserDto
+            .Select(u => new
             {
-                Id = u.Id,
-                Username = u.Username,
-                Email = u.Email,
-                IsAdmin = u.IsAdmin,
-                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - u.Withdrawals.Sum(w => w.Amount),
-                CreatedAt = u.CreatedAt
+                User = u,
+                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - u.Withdrawals.Sum(w => w.Amount)
+            });
+
+        // Hide retired users by default unless they have a non-zero balance
+        if (!includeRetired)
+        {
+            usersQuery = usersQuery.Where(x => !x.User.IsRetired || x.Balance != 0);
+        }
+
+        var users = await usersQuery
+            .Select(x => new UserDto
+            {
+                Id = x.User.Id,
+                Username = x.User.Username,
+                Email = x.User.Email,
+                IsAdmin = x.User.IsAdmin,
+                IsActive = x.User.IsActive,
+                IsRetired = x.User.IsRetired,
+                Balance = x.Balance,
+                CreatedAt = x.User.CreatedAt,
+                HasPurchases = x.User.Purchases.Any(),
+                HasPassword = !string.IsNullOrEmpty(x.User.PasswordHash)
             })
             .ToListAsync();
 
         return Ok(users);
+    }
+
+    [HttpPost("{id}/set-password")]
+    public async Task<ActionResult> AdminSetPassword(int id, [FromBody] AdminSetPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return BadRequest(new { message = "New password is required" });
+        }
+
+        var success = await _authenticationService.AdminSetPasswordAsync(id, request.NewPassword);
+        if (!success)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        _logger.LogInformation("Admin set password for user {UserId}", id);
+        return Ok(new { message = "Password updated" });
     }
 
     [HttpGet("{id}")]
@@ -67,14 +105,14 @@ public class UsersController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult> Register([FromBody] RegisterUserDto dto)
     {
-        // Check if barcode exists
-        var barcode = await _context.Barcodes
+        // Check if barcode already exists
+        var existingBarcode = await _context.Barcodes
             .Include(b => b.User)
             .FirstOrDefaultAsync(b => b.Code == dto.BarcodeValue);
 
-        if (barcode == null)
+        if (existingBarcode != null && existingBarcode.UserId != 0)
         {
-            return BadRequest(new { message = "Invalid barcode. This barcode does not exist in the system." });
+            return BadRequest(new { message = "This barcode is already registered to another user." });
         }
 
         // Check if email is already used (if provided)
@@ -83,26 +121,53 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Email already exists" });
         }
 
+        // Check if this is the first user - make them admin
+        var isFirstUser = !await _context.Users.AnyAsync();
+
         // Create user
         var user = new User
         {
             Username = dto.Name,
             Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email,
             PasswordHash = string.IsNullOrWhiteSpace(dto.Password) ? null : BCrypt.Net.BCrypt.HashPassword(dto.Password),
-            IsAdmin = false,
+            IsAdmin = isFirstUser, // First user becomes admin
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        // Associate barcode with user
-        barcode.UserId = user.Id;
+        // Create and associate login barcode with user
+        var barcode = new LoginBarcode
+        {
+            Code = dto.BarcodeValue,
+            UserId = user.Id,
+            Amount = 0m,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Barcodes.Add(barcode);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("User registered: {UserId} - {Username} via barcode {BarcodeId}", user.Id, user.Username, barcode.Id);
+        // Verify the barcode was actually saved
+        var verifyBarcode = await _context.Barcodes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Code == dto.BarcodeValue);
 
-        return Ok(new { message = "Registration successful", userId = user.Id });
+        if (verifyBarcode == null)
+        {
+            _logger.LogError("Barcode verification failed after save! Code: {BarcodeCode}", dto.BarcodeValue);
+        }
+        else
+        {
+            _logger.LogInformation("Barcode verified in database: {BarcodeId}, Code: {BarcodeCode}", verifyBarcode.Id, verifyBarcode.Code);
+        }
+
+        _logger.LogInformation("User registered: {UserId} - {Username} with new barcode {BarcodeId} (IsAdmin: {IsAdmin})",
+            user.Id, user.Username, barcode.Id, user.IsAdmin);
+
+        return Ok(new { message = "Registration successful", userId = user.Id, isAdmin = user.IsAdmin });
     }
 
     [HttpPost]
@@ -118,6 +183,17 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Email already exists" });
         }
 
+        // Check if purchase barcodes already exist
+        if (!string.IsNullOrWhiteSpace(dto.PurchaseBarcode1) && await _context.Barcodes.AnyAsync(b => b.Code == dto.PurchaseBarcode1))
+        {
+            return BadRequest(new { message = "Purchase barcode 1 already exists" });
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.PurchaseBarcode2) && await _context.Barcodes.AnyAsync(b => b.Code == dto.PurchaseBarcode2))
+        {
+            return BadRequest(new { message = "Purchase barcode 2 already exists" });
+        }
+
         // In production, use proper password hashing (BCrypt, Argon2, etc.)
         var passwordHash = !string.IsNullOrWhiteSpace(dto.Password) ? BCrypt.Net.BCrypt.HashPassword(dto.Password) : null;
 
@@ -125,6 +201,33 @@ public class UsersController : ControllerBase
         user.PasswordHash = passwordHash;
 
         _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Create purchase barcodes if provided
+        if (!string.IsNullOrWhiteSpace(dto.PurchaseBarcode1))
+        {
+            var barcode1 = new PurchaseBarcode
+            {
+                Code = dto.PurchaseBarcode1,
+                UserId = user.Id,
+                Amount = 0.50m,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Barcodes.Add(barcode1);
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.PurchaseBarcode2))
+        {
+            var barcode2 = new PurchaseBarcode
+            {
+                Code = dto.PurchaseBarcode2,
+                UserId = user.Id,
+                Amount = 0.30m,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Barcodes.Add(barcode2);
+        }
+
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("User created: {UserId} - {Username}", user.Id, user.Username);
@@ -194,6 +297,70 @@ public class UsersController : ControllerBase
         _logger.LogInformation("User deleted: {UserId} - {Username}", user.Id, user.Username);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Retire a user: mark as retired and inactive, create an inactive placeholder user ("User {count}")
+    /// and move all barcodes from the retired user to the placeholder.
+    /// </summary>
+    [HttpPost("{id}/retire")]
+    public async Task<ActionResult> RetireUser(int id)
+    {
+        var user = await _context.Users
+            .Include(u => u.Barcodes)
+            .Include(u => u.Purchases)
+                .ThenInclude(p => p.Scans)
+            .Include(u => u.Payments)
+            .Include(u => u.Withdrawals)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (user == null)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        if (user.IsRetired)
+        {
+            return BadRequest(new { message = "User is already retired" });
+        }
+
+        // Mark user as retired and inactive
+        user.IsActive = false;
+        user.IsRetired = true;
+
+        // Create placeholder inactive user with timestamp-based unique username
+        var placeholder = new User
+        {
+            Username = $"User {await _context.Users.CountAsync() + 1}",
+            Email = null,
+            PasswordHash = null,
+            IsAdmin = false,
+            IsActive = false,
+            IsRetired = false,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Users.Add(placeholder);
+        await _context.SaveChangesAsync();
+
+        // Move barcodes to placeholder
+        foreach (var bc in user.Barcodes)
+        {
+            bc.UserId = placeholder.Id;
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("User retired: {UserId} - {Username}. Moved {BarcodeCount} barcodes to placeholder {PlaceholderId}",
+            user.Id, user.Username, user.Barcodes.Count, placeholder.Id);
+
+        // Return the retired user and the new placeholder info
+        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
+        return Ok(new
+        {
+            RetiredUser = user.ToDtoWithBalance(balance),
+            PlaceholderUserId = placeholder.Id,
+            PlaceholderUsername = placeholder.Username
+        });
     }
 
     [HttpGet("{id}/achievements")]

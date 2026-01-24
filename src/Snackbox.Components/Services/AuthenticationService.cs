@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Json;
 using System.Text.Json;
+using Snackbox.Api.Dtos;
 
 namespace Snackbox.Components.Services;
 
@@ -166,6 +167,100 @@ public class AuthenticationService : IAuthenticationService
         try
         {
             return await _storageService.GetAsync(TokenKey);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<UserInfo?> GetCurrentUserInfoAsync()
+    {
+        try
+        {
+            var userInfoJson = await _storageService.GetAsync(UserInfoKey);
+            if (string.IsNullOrEmpty(userInfoJson))
+            {
+                return null;
+            }
+
+            var loginResponse = JsonSerializer.Deserialize<LoginResponse>(userInfoJson);
+            if (loginResponse == null)
+            {
+                return null;
+            }
+
+            return new UserInfo
+            {
+                UserId = loginResponse.UserId,
+                Username = loginResponse.Username,
+                Email = loginResponse.Email,
+                IsAdmin = loginResponse.IsAdmin
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<OperationResult> SetPasswordAsync(string barcodeValue, string email, string newPassword)
+    {
+        try
+        {
+            var request = new SetPasswordRequest
+            {
+                BarcodeValue = barcodeValue,
+                Email = email,
+                NewPassword = newPassword
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("api/auth/set-password", request);
+            if (response.IsSuccessStatusCode)
+            {
+                return new OperationResult { Success = true };
+            }
+
+            var err = await TryReadErrorAsync(response);
+            return new OperationResult { Success = false, ErrorMessage = err ?? "Failed to set password" };
+        }
+        catch (Exception ex)
+        {
+            return new OperationResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    public async Task<OperationResult> ChangePasswordAsync(string currentPassword, string newPassword)
+    {
+        try
+        {
+            var request = new ChangePasswordRequest
+            {
+                CurrentPassword = currentPassword,
+                NewPassword = newPassword
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("api/auth/change-password", request);
+            if (response.IsSuccessStatusCode)
+            {
+                return new OperationResult { Success = true };
+            }
+
+            var err = await TryReadErrorAsync(response);
+            return new OperationResult { Success = false, ErrorMessage = err ?? "Failed to change password" };
+        }
+        catch (Exception ex)
+        {
+            return new OperationResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    private static async Task<string?> TryReadErrorAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+            return error?.Message;
         }
         catch
         {

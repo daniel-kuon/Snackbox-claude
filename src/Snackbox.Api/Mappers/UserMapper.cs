@@ -17,6 +17,8 @@ public static partial class UserMapper
     [MapperIgnoreSource(nameof(User.Payments))]
     [MapperIgnoreSource(nameof(User.Withdrawals))]
     [MapperIgnoreTarget(nameof(UserDto.Balance))]
+    [MapperIgnoreTarget(nameof(UserDto.HasPurchases))]
+    [MapperIgnoreTarget(nameof(UserDto.HasPassword))]
     [MapperIgnoreSource(nameof(User.UserAchievements))]
     public static partial UserDto ToDto(this User source);
 
@@ -29,6 +31,7 @@ public static partial class UserMapper
     {
         var dto = source.ToDto();
         dto.Balance = balance;
+        dto.HasPassword = !string.IsNullOrEmpty(source.PasswordHash);
         return dto;
     }
 
@@ -43,6 +46,7 @@ public static partial class UserMapper
             Username = source.Username,
             Email = string.IsNullOrWhiteSpace(source.Email) ? null : source.Email,
             IsAdmin = source.IsAdmin,
+            IsActive = source.IsActive,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -55,5 +59,6 @@ public static partial class UserMapper
         target.Username = source.Username;
         target.Email = source.Email;
         target.IsAdmin = source.IsAdmin;
+        target.IsActive = source.IsActive;
     }
 }

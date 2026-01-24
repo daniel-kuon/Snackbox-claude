@@ -37,7 +37,7 @@ public class PurchasesController : ControllerBase
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
             .Where(p => p.UserId == userId.Value)
-            .OrderByDescending(p => p.CompletedAt)
+            .OrderByDescending(p => p.UpdatedAt)
             .ToListAsync();
 
         return Ok(purchases.ToDtoList());
@@ -48,7 +48,7 @@ public class PurchasesController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
-        
+
         var timeoutSeconds = _configuration.GetValue("Scanner:TimeoutSeconds", DefaultTimeoutSeconds);
         var timeoutThreshold = DateTime.UtcNow.AddSeconds(-timeoutSeconds);
 
@@ -56,7 +56,7 @@ public class PurchasesController : ControllerBase
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .FirstOrDefaultAsync(p => p.UserId == userId.Value && p.CompletedAt >= timeoutThreshold);
+            .FirstOrDefaultAsync(p => p.UserId == userId.Value && p.UpdatedAt >= timeoutThreshold);
 
         if (purchase == null)
         {
@@ -74,42 +74,59 @@ public class PurchasesController : ControllerBase
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
-            .OrderByDescending(p => p.CompletedAt)
+            .OrderByDescending(p => p.UpdatedAt)
             .ToListAsync();
 
         return Ok(purchases.ToDtoList());
     }
 
     [HttpGet("user/{userId}")]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<PurchaseDto>>> GetByUserId(int userId)
     {
         var purchases = await _context.Purchases
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
+            .Include(p => p.AppliedDiscounts)
+                .ThenInclude(pd => pd.Discount)
             .Where(p => p.UserId == userId)
-            .OrderByDescending(p => p.CompletedAt)
+            .OrderByDescending(p => p.UpdatedAt)
             .ToListAsync();
 
-        var dtos = purchases.Select(p => new PurchaseDto
+        var dtos = purchases.Select(p =>
         {
-            Id = p.Id,
-            UserId = p.UserId,
-            Username = p.User.Username,
-            TotalAmount = p.ManualAmount ?? p.Scans.Sum(s => s.Amount),
-            CreatedAt = p.CreatedAt,
-            CompletedAt = p.CompletedAt,
-            Type = p.Type.ToString(),
-            ReferencePurchaseId = p.ReferencePurchaseId,
-            ManualAmount = p.ManualAmount,
-            Items = p.Scans.Select(s => new PurchaseItemDto
+            var scansTotal = p.Scans.Sum(s => s.Amount);
+            var discountsTotal = p.AppliedDiscounts.Sum(pd => pd.DiscountAmount);
+            var totalAmount = p.ManualAmount ?? (scansTotal - discountsTotal);
+
+            return new PurchaseDto
             {
-                Id = s.Id,
-                ProductName = s.Barcode.Code,
-                Amount = s.Amount,
-                ScannedAt = s.ScannedAt
-            }).ToList()
+                Id = p.Id,
+                UserId = p.UserId,
+                Username = p.User.Username,
+                TotalAmount = totalAmount,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                Type = p.Type.ToString(),
+                ReferencePurchaseId = p.ReferencePurchaseId,
+                ManualAmount = p.ManualAmount,
+                Items = p.Scans.Select(s => new PurchaseItemDto
+                {
+                    Id = s.Id,
+                    ProductName = s.Barcode.Code,
+                    Amount = s.Amount,
+                    ScannedAt = s.ScannedAt
+                }).ToList(),
+                AppliedDiscounts = p.AppliedDiscounts.Select(pd => new AppliedDiscountDto
+                {
+                    DiscountId = pd.DiscountId,
+                    Name = pd.Discount.Name,
+                    Type = pd.Discount.Type.ToString(),
+                    Value = pd.Discount.Value,
+                    DiscountAmount = pd.DiscountAmount
+                }).ToList()
+            };
         }).ToList();
 
         return Ok(dtos);
@@ -135,7 +152,7 @@ public class PurchasesController : ControllerBase
         {
             UserId = dto.UserId,
             CreatedAt = createdAt,
-            CompletedAt = createdAt,
+            UpdatedAt = createdAt,
             Type = PurchaseType.Manual,
             ManualAmount = dto.Amount
         };
@@ -153,7 +170,7 @@ public class PurchasesController : ControllerBase
             Username = user.Username,
             TotalAmount = purchase.ManualAmount.Value,
             CreatedAt = purchase.CreatedAt,
-            CompletedAt = purchase.CompletedAt,
+            UpdatedAt = purchase.UpdatedAt,
             Type = purchase.Type.ToString(),
             ReferencePurchaseId = purchase.ReferencePurchaseId,
             ManualAmount = purchase.ManualAmount,
@@ -188,7 +205,7 @@ public class PurchasesController : ControllerBase
         {
             UserId = dto.UserId,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             Type = PurchaseType.Correction,
             ReferencePurchaseId = dto.ReferencePurchaseId,
             ManualAmount = dto.Amount
@@ -207,7 +224,7 @@ public class PurchasesController : ControllerBase
             Username = user.Username,
             TotalAmount = purchase.ManualAmount.Value,
             CreatedAt = purchase.CreatedAt,
-            CompletedAt = purchase.CompletedAt,
+            UpdatedAt = purchase.UpdatedAt,
             Type = purchase.Type.ToString(),
             ReferencePurchaseId = purchase.ReferencePurchaseId,
             ManualAmount = purchase.ManualAmount,

@@ -25,9 +25,15 @@ public class AuthenticationService : IAuthenticationService
         // Find the barcode with the user
         var barcode = await _context.Barcodes
             .Include(b => b.User)
-            .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
+            .FirstOrDefaultAsync(b => b.Code == barcodeValue);
 
         if (barcode == null)
+        {
+            return null;
+        }
+
+        // Only allow login using login barcodes
+        if (barcode is not LoginBarcode)
         {
             return null;
         }
@@ -79,9 +85,15 @@ public class AuthenticationService : IAuthenticationService
         // Find the barcode with the user
         var barcode = await _context.Barcodes
             .Include(b => b.User)
-            .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
+            .FirstOrDefaultAsync(b => b.Code == barcodeValue);
 
         if (barcode == null || string.IsNullOrEmpty(barcode.User.PasswordHash))
+        {
+            return null;
+        }
+
+        // Only allow login using login barcodes
+        if (barcode is not LoginBarcode)
         {
             return null;
         }
@@ -109,7 +121,7 @@ public class AuthenticationService : IAuthenticationService
         // Verify barcode exists and get associated user
         var barcode = await _context.Barcodes
             .Include(b => b.User)
-            .FirstOrDefaultAsync(b => b.Code == barcodeValue && b.IsActive);
+            .FirstOrDefaultAsync(b => b.Code == barcodeValue);
 
         if (barcode == null)
         {
@@ -122,16 +134,41 @@ public class AuthenticationService : IAuthenticationService
             return false;
         }
 
-        // Check if user already has a password - prevent overwriting
-        if (!string.IsNullOrEmpty(barcode.User.PasswordHash))
-        {
-            throw new InvalidOperationException("User already has a password set. Cannot overwrite existing password.");
-        }
-
-        // Hash and set the password
+        // Hash and set the password (allows both initial set and reset)
         barcode.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         await _context.SaveChangesAsync();
 
+        return true;
+    }
+
+    public async Task<bool> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+        {
+            return false;
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+        {
+            return false;
+        }
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> AdminSetPasswordAsync(int userId, string newPassword)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+        {
+            return false;
+        }
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await _context.SaveChangesAsync();
         return true;
     }
 
