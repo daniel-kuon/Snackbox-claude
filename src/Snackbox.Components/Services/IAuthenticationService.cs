@@ -9,6 +9,10 @@ public interface IAuthenticationService
     Task<bool> IsAuthenticatedAsync();
     Task<string?> GetTokenAsync();
     Task<UserInfo?> GetCurrentUserInfoAsync();
+
+    // New: Password management
+    Task<OperationResult> SetPasswordAsync(string barcodeValue, string email, string newPassword);
+    Task<OperationResult> ChangePasswordAsync(string currentPassword, string newPassword);
 }
 
 public class LoginResult
@@ -28,4 +32,10 @@ public class UserInfo
     public string Username { get; set; } = string.Empty;
     public string? Email { get; set; }
     public bool IsAdmin { get; set; }
+}
+
+public class OperationResult
+{
+    public bool Success { get; set; }
+    public string? ErrorMessage { get; set; }
 }

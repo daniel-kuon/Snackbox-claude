@@ -144,6 +144,35 @@
                             <span class="info-label">Balance:</span>
                             <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
                         </div>
+
+                        <div class="section-divider"></div>
+                        <div class="section-header">
+                            <h3>Password Management</h3>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_adminPasswordSuccess))
+                        {
+                            <div class="alert alert-success">@_adminPasswordSuccess</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_adminPasswordError))
+                        {
+                            <div class="alert alert-danger">@_adminPasswordError</div>
+                        }
+                        <EditForm OnValidSubmit="@AdminSetPasswordAsync">
+                            <DataAnnotationsValidator />
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <InputText @bind-Value="_adminNewPassword" class="form-control" type="password" />
+                            </div>
+                            <div class="button-group">
+                                <button type="submit" class="btn btn-primary btn-sm" disabled="@_isSettingPassword">
+                                    @if (_isSettingPassword)
+                                    {
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    }
+                                    Set Password
+                                </button>
+                            </div>
+                        </EditForm>
                     }
                     else
                     {
@@ -1223,6 +1252,10 @@
     private UserEditFormModel _userEditForm = new();
     private string? _modalError;
     private bool _isSaving;
+    private bool _isSettingPassword;
+    private string _adminNewPassword = string.Empty;
+    private string? _adminPasswordError;
+    private string? _adminPasswordSuccess;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1288,6 +1321,47 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task AdminSetPasswordAsync()
+    {
+        _adminPasswordError = null;
+        _adminPasswordSuccess = null;
+        _isSettingPassword = true;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"api/users/{UserId}/set-password", new AdminSetPasswordRequest
+            {
+                NewPassword = _adminNewPassword
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                _adminPasswordSuccess = "Password updated successfully.";
+                _adminNewPassword = string.Empty;
+            }
+            else
+            {
+                try
+                {
+                    var err = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                    _adminPasswordError = err?.Message ?? $"Failed to set password ({response.StatusCode}).";
+                }
+                catch
+                {
+                    _adminPasswordError = $"Failed to set password ({response.StatusCode}).";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _adminPasswordError = ex.Message;
+        }
+        finally
+        {
+            _isSettingPassword = false;
         }
     }
 
