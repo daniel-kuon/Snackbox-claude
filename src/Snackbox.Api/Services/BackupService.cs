@@ -24,7 +24,14 @@ public class BackupService : IBackupService
         _configuration = configuration;
         _logger = logger;
         _serviceProvider = serviceProvider;
-        _backupDirectory = configuration["Backup:Directory"] ?? Path.Combine(Directory.GetCurrentDirectory(), "backups");
+        string? configBackupDir = configuration["Backup:Directory"];
+        if (configBackupDir is not null)
+        {
+            configBackupDir = configBackupDir.Trim();
+        }
+        _backupDirectory = string.IsNullOrWhiteSpace(configBackupDir)
+            ? Path.Combine(Directory.GetCurrentDirectory(), "backups")
+            : configBackupDir;
         _connectionString = configuration.GetConnectionString("snackboxdb")
             ?? throw new InvalidOperationException("Database connection string is not configured.");
         _metadataFile = Path.Combine(_backupDirectory, "metadata.json");
