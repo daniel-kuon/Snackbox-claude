@@ -79,7 +79,7 @@
         if (_objRef != null && !DisableGlobalScanner)
         {
             JS.InvokeVoidAsync("barcodeScanner.unregister", _objRef);
-            _objRef?.Dispose();
+            _objRef.Dispose();
         }
     }
 }
