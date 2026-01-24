@@ -10,24 +10,28 @@ public interface IUsersApi
 {
     [Get("/api/users")]
     Task<IEnumerable<UserDto>> GetAllAsync([Query] bool? includeRetired = null);
-    
+
     [Get("/api/users/{id}")]
     Task<UserDto> GetByIdAsync(int id);
-    
+
     [Post("/api/users/register")]
     Task<RegisterResponse> RegisterAsync([Body] RegisterUserDto dto);
-    
+
     [Post("/api/users")]
     Task<UserDto> CreateAsync([Body] CreateUserDto dto);
-    
+
     [Put("/api/users/{id}")]
     Task<UserDto> UpdateAsync(int id, [Body] UpdateUserDto dto);
-    
+
     [Delete("/api/users/{id}")]
     Task DeleteAsync(int id);
 
     [Post("/api/users/{id}/retire")]
     Task<UserDto> RetireAsync(int id);
+
+    // Admin-only: set password for a specific user
+    [Post("/api/users/{id}/set-password")]
+    Task AdminSetPasswordAsync(int id, [Body] AdminSetPasswordRequest request);
 }
 
 public class RegisterResponse

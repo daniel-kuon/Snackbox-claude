@@ -39,6 +39,7 @@ public static class MauiProgram
 
         // Register Snackbar service
         builder.Services.AddScoped<SnackbarService>();
+        builder.Services.AddSingleton<AppStartupState>();
 
         // Register delegating handler for authentication
         builder.Services.AddTransient<AuthenticationHeaderHandler>();

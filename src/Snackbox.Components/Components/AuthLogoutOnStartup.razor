@@ -1,0 +1,14 @@
+@using Snackbox.Components.Services
+@inject IAuthenticationService AuthService
+@inject AppStartupState StartupState
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!StartupState.HasClearedAuth)
+        {
+            StartupState.HasClearedAuth = true;
+            await AuthService.LogoutAsync();
+        }
+    }
+}

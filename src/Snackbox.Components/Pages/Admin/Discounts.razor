@@ -1,4 +1,5 @@
 @page "/admin/discounts"
+@inherits AdminPageBase
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
 @using Refit
@@ -536,3 +537,5 @@
         public bool IsActive { get; set; } = true;
     }
 }
+
+

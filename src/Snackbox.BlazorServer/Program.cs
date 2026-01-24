@@ -15,6 +15,7 @@ builder.Services.AddSingleton<IStorageService, WebStorageService>()
 
 // Register Snackbar service
 builder.Services.AddScoped<SnackbarService>();
+builder.Services.AddSingleton<AppStartupState>();
 
 // Register delegating handler for authentication
 builder.Services.AddTransient<AuthenticationHeaderHandler>();
@@ -29,7 +30,8 @@ builder.Services.AddSnackboxApiClientWithAuth<AuthenticationHeaderHandler>(apiUr
 builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
                                                                               {
                                                                                   client.BaseAddress = new Uri(apiUrl);
-                                                                              });
+                                                                              })
+       .AddHttpMessageHandler<AuthenticationHeaderHandler>();
 
 // Register scanner service with HttpClient for Windows
 builder.Services.AddHttpClient<IScannerService, ScannerService>(client => { client.BaseAddress = new Uri(apiUrl); })

@@ -4,7 +4,7 @@
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">Snackbox</a>
+        <span class="navbar-brand">Snackbox</span>
     </div>
 </div>
 
@@ -12,11 +12,6 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="@HomeLink" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> @HomeLinkText
-            </NavLink>
-        </div>
 
         @if (_showAdminSection)
         {
@@ -65,22 +60,22 @@
             </div>
         }
 
-        @if (ShowExitButton)
+        @if (_isAuthenticated)
         {
-            <div class="nav-exit-section">
-                <button class="nav-exit-button" @onclick="ExitToScanScreen">
-                    <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Exit to Scan Screen
-                </button>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="change-password">
+                    <span class="bi bi-key" aria-hidden="true"></span> Change Password
+                </NavLink>
             </div>
         }
 
-        @if (_showLogoutButton)
+        @if (ShowExitButton)
         {
-            <div class="nav-exit-section">
-                <button class="nav-exit-button" @onclick="LogoutAsync">
-                    <span class="bi bi-box-arrow-right" aria-hidden="true"></span> Logout
-                </button>
-            </div>
+        <div class="nav-exit-section">
+            <button class="nav-exit-button" @onclick="ExitToScanScreen">
+                <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Exit to Scan Screen
+            </button>
+        </div>
         }
     </nav>
 </div>
@@ -90,7 +85,7 @@
     /// Whether to show the Exit button (typically for native/MAUI apps)
     /// </summary>
     [Parameter]
-    public bool ShowExitButton { get; set; } = false;
+    public bool ShowExitButton { get; set; }
 
     /// <summary>
     /// The URL for the Home link
@@ -114,10 +109,10 @@
     /// Whether to show the logout button (for web apps)
     /// </summary>
     [Parameter]
-    public bool ShowLogoutButton { get; set; } = false;
+    public bool ShowLogoutButton { get; set; }
 
-    private bool _showAdminSection = false;
-    private bool _showLogoutButton = false;
+    private bool _showAdminSection;
+    private bool _isAuthenticated;
 
     protected override async Task OnInitializedAsync()
     {
@@ -131,35 +126,27 @@
 
     private async Task UpdateMenuVisibility()
     {
-        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
-        if (isAuthenticated)
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (_isAuthenticated)
         {
             var userInfo = await AuthService.GetCurrentUserInfoAsync();
+            _isAuthenticated = userInfo != null;
             _showAdminSection = userInfo?.IsAdmin ?? false;
-            _showLogoutButton = ShowLogoutButton && userInfo != null;
         }
         else
         {
             _showAdminSection = false;
-            _showLogoutButton = false;
+            _isAuthenticated = false;
         }
     }
 
     private async Task ExitToScanScreen()
     {
+        await AuthService.LogoutAsync();
+
         // Reset scanner session before navigating
         ScannerService.ResetSession();
 
-        // Navigate without force reload to maintain service state
-        Navigation.NavigateTo(ExitUrl, forceLoad: false);
-
-        // Small delay to ensure navigation completes
-        await Task.Delay(100);
-    }
-
-    private async Task LogoutAsync()
-    {
-        await AuthService.LogoutAsync();
-        Navigation.NavigateTo("/login", forceLoad: true);
+        Navigation.NavigateTo(ExitUrl, forceLoad: true);
     }
 }

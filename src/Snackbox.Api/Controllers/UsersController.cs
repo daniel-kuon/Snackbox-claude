@@ -5,6 +5,7 @@ using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
 
@@ -15,11 +16,13 @@ public class UsersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<UsersController> _logger;
+    private readonly IAuthenticationService _authenticationService;
 
-    public UsersController(ApplicationDbContext context, ILogger<UsersController> logger)
+    public UsersController(ApplicationDbContext context, ILogger<UsersController> logger, IAuthenticationService authenticationService)
     {
         _context = context;
         _logger = logger;
+        _authenticationService = authenticationService;
     }
 
     [HttpGet]
@@ -53,11 +56,30 @@ public class UsersController : ControllerBase
                 IsRetired = x.User.IsRetired,
                 Balance = x.Balance,
                 CreatedAt = x.User.CreatedAt,
-                HasPurchases = x.User.Purchases.Any()
+                HasPurchases = x.User.Purchases.Any(),
+                HasPassword = !string.IsNullOrEmpty(x.User.PasswordHash)
             })
             .ToListAsync();
 
         return Ok(users);
+    }
+
+    [HttpPost("{id}/set-password")]
+    public async Task<ActionResult> AdminSetPassword(int id, [FromBody] AdminSetPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return BadRequest(new { message = "New password is required" });
+        }
+
+        var success = await _authenticationService.AdminSetPasswordAsync(id, request.NewPassword);
+        if (!success)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        _logger.LogInformation("Admin set password for user {UserId}", id);
+        return Ok(new { message = "Password updated" });
     }
 
     [HttpGet("{id}")]
@@ -309,7 +331,7 @@ public class UsersController : ControllerBase
         // Create placeholder inactive user with timestamp-based unique username
         var placeholder = new User
         {
-            Username = $"User {userCount + 1}",
+            Username = $"User {await _context.Users.CountAsync() + 1}",
             Email = null,
             PasswordHash = null,
             IsAdmin = false,
