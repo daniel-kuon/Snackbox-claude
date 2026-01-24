@@ -1,4 +1,5 @@
 @page "/admin/users/{UserId:int}"
+@inherits AdminPageBase
 @using System.ComponentModel.DataAnnotations
 @using Snackbox.Api.Dtos
 @using Snackbox.Components.Components.Shared
@@ -157,11 +158,11 @@
                         {
                             <div class="alert alert-danger">@_adminPasswordError</div>
                         }
-                        <EditForm OnValidSubmit="@AdminSetPasswordAsync">
+                        <EditForm Model="@_adminPasswordForm" OnValidSubmit="@AdminSetPasswordAsync">
                             <DataAnnotationsValidator />
                             <div class="form-group">
                                 <label>New Password</label>
-                                <InputText @bind-Value="_adminNewPassword" class="form-control" type="password" />
+                                <InputText @bind-Value="_adminPasswordForm.NewPassword" class="form-control" type="password" />
                             </div>
                             <div class="button-group">
                                 <button type="submit" class="btn btn-primary btn-sm" disabled="@_isSettingPassword">
@@ -564,6 +565,22 @@
                             </InputSelect>
                             <ValidationMessage For="@(() => _paymentForm.AdminUserId)" />
                         </div>
+                        <div class="info-row">
+                            <span class="info-label">Password:</span>
+                            <span class="info-value">
+                                @if (_user.HasPassword)
+                                {
+                                    <span class="badge bg-success">Set</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Not Set</span>
+                                }
+                                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="ShowSetPasswordModal">
+                                    @(_user.HasPassword ? "Change Password" : "Set Password")
+                                </button>
+                            </span>
+                        </div>
                     }
 
                     <div class="form-group">
@@ -748,6 +765,49 @@
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
                             Add Correction
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showPasswordModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModals"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@(_user!.HasPassword ? "Change Password" : "Set Password")</h3>
+                <button class="btn-close" @onclick="CloseModals">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_modalError != null)
+                {
+                    <div class="alert alert-danger">@_modalError</div>
+                }
+                @if (_passwordSuccess != null)
+                {
+                    <div class="alert alert-success">@_passwordSuccess</div>
+                }
+                <EditForm Model="@_passwordForm" OnValidSubmit="@SavePassword">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <InputText @bind-Value="_passwordForm.NewPassword" class="form-control" type="password" />
+                        <ValidationMessage For="@(() => _passwordForm.NewPassword)" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                            @if (_isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            @(_user!.HasPassword ? "Change Password" : "Set Password")
                         </button>
                     </div>
                 </EditForm>
@@ -1241,6 +1301,7 @@
     private bool _showBarcodeModal;
     private bool _showManualPurchaseModal;
     private bool _showCorrectionModal;
+    private bool _showPasswordModal;
     private bool _isEditingUserInfo;
     private bool _isSavingUserInfo;
     private bool _isSendingEmail;
@@ -1250,10 +1311,12 @@
     private ManualPurchaseFormModel _manualPurchaseForm = new();
     private CorrectionFormModel _correctionForm = new();
     private UserEditFormModel _userEditForm = new();
+    private PasswordFormModel _passwordForm = new();
     private string? _modalError;
+    private string? _passwordSuccess;
     private bool _isSaving;
     private bool _isSettingPassword;
-    private string _adminNewPassword = string.Empty;
+    private AdminPasswordFormModel _adminPasswordForm = new();
     private string? _adminPasswordError;
     private string? _adminPasswordSuccess;
 
@@ -1334,13 +1397,13 @@
         {
             var response = await Http.PostAsJsonAsync($"api/users/{UserId}/set-password", new AdminSetPasswordRequest
             {
-                NewPassword = _adminNewPassword
+                NewPassword = _adminPasswordForm.NewPassword
             });
 
             if (response.IsSuccessStatusCode)
             {
                 _adminPasswordSuccess = "Password updated successfully.";
-                _adminNewPassword = string.Empty;
+                _adminPasswordForm = new AdminPasswordFormModel();
             }
             else
             {
@@ -1607,11 +1670,14 @@
         _showBarcodeModal = false;
         _showManualPurchaseModal = false;
         _showCorrectionModal = false;
+        _showPasswordModal = false;
         _paymentForm = new();
         _barcodeForm = new();
         _manualPurchaseForm = new();
         _correctionForm = new();
+        _passwordForm = new();
         _modalError = null;
+        _passwordSuccess = null;
     }
 
     private void ShowAddManualPurchase()
@@ -1786,6 +1852,48 @@
         }
     }
 
+    private void ShowSetPasswordModal()
+    {
+        _passwordForm = new PasswordFormModel();
+        _modalError = null;
+        _passwordSuccess = null;
+        _showPasswordModal = true;
+    }
+
+    private async Task SavePassword()
+    {
+        _isSaving = true;
+        _modalError = null;
+        _passwordSuccess = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"api/users/{UserId}/set-password", new
+            {
+                newPassword = _passwordForm.NewPassword
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                _passwordSuccess = "Password updated successfully";
+                _passwordForm = new PasswordFormModel();
+                await LoadUserData(); // Refresh to update HasPassword status
+            }
+            else
+            {
+                _modalError = "Failed to set password. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
     private async Task RetireUser()
     {
         _editError = null;
@@ -1885,4 +1993,20 @@
         [Required]
         public decimal Amount { get; set; }
     }
+
+    private class PasswordFormModel
+    {
+        [Required]
+        [MinLength(6, ErrorMessage = "Password must be at least 6 characters")]
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    private class AdminPasswordFormModel
+    {
+        [Required]
+        [MinLength(6, ErrorMessage = "Password must be at least 6 characters")]
+        public string NewPassword { get; set; } = string.Empty;
+    }
 }
+
+

@@ -1,4 +1,5 @@
 @page "/admin/cash-register"
+@inherits AdminPageBase
 @using System.ComponentModel.DataAnnotations
 @using Snackbox.Api.Dtos
 @inject HttpClient Http
@@ -534,3 +535,5 @@
         public decimal NewBalance { get; set; }
     }
 }
+
+

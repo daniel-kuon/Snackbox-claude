@@ -1,4 +1,5 @@
-﻿@using Snackbox.Web.Components.Layout
+@using Snackbox.Web.Components.Layout
+<Snackbox.Components.Components.AuthLogoutOnStartup />
 <ApiHealthCheck>
     <Router AppAssembly="@typeof(MauiProgram).Assembly"
             AdditionalAssemblies="new[] { typeof(IStorageService).Assembly }">
@@ -8,3 +9,4 @@
         </Found>
     </Router>
 </ApiHealthCheck>
+

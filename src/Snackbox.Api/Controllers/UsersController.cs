@@ -56,7 +56,8 @@ public class UsersController : ControllerBase
                 IsRetired = x.User.IsRetired,
                 Balance = x.Balance,
                 CreatedAt = x.User.CreatedAt,
-                HasPurchases = x.User.Purchases.Any()
+                HasPurchases = x.User.Purchases.Any(),
+                HasPassword = !string.IsNullOrEmpty(x.User.PasswordHash)
             })
             .ToListAsync();
 
@@ -330,7 +331,7 @@ public class UsersController : ControllerBase
         // Create placeholder inactive user with timestamp-based unique username
         var placeholder = new User
         {
-            Username = $"User {userCount + 1}",
+            Username = $"User {await _context.Users.CountAsync() + 1}",
             Email = null,
             PasswordHash = null,
             IsAdmin = false,

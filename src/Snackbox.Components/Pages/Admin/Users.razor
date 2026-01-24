@@ -1,4 +1,5 @@
 @page "/admin/users"
+@inherits AdminPageBase
 @using System.ComponentModel.DataAnnotations
 @using Snackbox.ApiClient
 @using Snackbox.Api.Dtos
@@ -109,7 +110,7 @@
                 {
                     <div class="alert alert-danger">@_modalError</div>
                 }
-                <EditForm Model="@_userForm" OnValidSubmit="@SaveUser">
+                <EditForm EditContext="@_userEditContext" OnValidSubmit="@SaveUser">
                     <DataAnnotationsValidator />
 
                     <div class="form-group">
@@ -551,6 +552,7 @@
     private bool _showBulkEmailModal;
     private int? _editingUserId;
     private UserFormModel _userForm = new();
+    private EditContext? _userEditContext;
     private string? _modalError;
     private bool _isSaving;
     private bool _isSendingEmails;
@@ -559,6 +561,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _userEditContext = new EditContext(_userForm);
         await LoadUsers();
     }
 
@@ -692,6 +695,7 @@
     {
         _editingUserId = null;
         _userForm = new UserFormModel { IsActive = true, Role = "User" };
+        _userEditContext = new EditContext(_userForm);
         _modalError = null;
         _showCreateEditModal = true;
     }
@@ -753,6 +757,7 @@
         _showCreateEditModal = false;
         _editingUserId = null;
         _userForm = new();
+        _userEditContext = null;
         _modalError = null;
     }
 
@@ -793,3 +798,5 @@
         public string? Message { get; set; }
     }
 }
+
+

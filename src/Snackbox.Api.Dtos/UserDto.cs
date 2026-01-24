@@ -11,6 +11,7 @@ public class UserDto
     public decimal Balance { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool HasPurchases { get; set; }
+    public bool HasPassword { get; set; }
 }
 
 public class RegisterUserDto
