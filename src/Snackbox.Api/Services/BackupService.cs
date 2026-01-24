@@ -127,11 +127,14 @@ public class BackupService : IBackupService
             }
 
             var metadata = ParseBackupFileName(fileName);
-            if (metadata != null)
+            if (metadata == null)
             {
-                metadata.FileSizeBytes = fileInfo.Length;
-                metadata.Md5Hash = md5Hash;
+                _logger.LogError("Failed to parse backup filename: {FileName}", fileName);
+                throw new InvalidOperationException($"Failed to parse backup filename: {fileName}");
             }
+            
+            metadata.FileSizeBytes = fileInfo.Length;
+            metadata.Md5Hash = md5Hash;
 
             _logger.LogInformation("Backup created successfully: {FileName} ({Size} bytes)", fileName, fileInfo.Length);
             return metadata;
