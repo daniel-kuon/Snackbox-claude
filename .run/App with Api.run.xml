@@ -1,0 +1,7 @@
+﻿<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="App with Api" type="CompoundRunConfigurationType">
+    <toRun name="Snackbox.AppHost" type="AspireHostConfiguration" />
+    <toRun name="Snackbox.Web" type="UwpProject" />
+    <method v="2" />
+  </configuration>
+</component>

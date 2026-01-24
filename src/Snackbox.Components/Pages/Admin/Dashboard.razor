@@ -8,6 +8,7 @@
 @inject IBarcodesApi BarcodesApi
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <PageTitle>Admin Dashboard - Snackbox</PageTitle>
 
@@ -19,7 +20,7 @@
     <div class="scan-bar">
         <div class="scan-input">
             <label>Scan Barcode (Product or User)</label>
-            <BarcodeInput Value="@_scanValue" ValueChanged="@OnBarcodeScanned" Placeholder="Scan a product or user barcode..." />
+            <BarcodeInput Value="@_scanValue" ValueChanged="@OnBarcodeScanned" Placeholder="Scan a product or user barcode..." DisableGlobalScanner="@(!_isActivePage)" />
         </div>
     </div>
 
@@ -184,6 +185,7 @@
 @code {
     private bool _loading = true;
     private string? _error;
+    private bool _isActivePage = true;
 
     private int _expiryThresholdDays = 14;
     private string _scanValue = string.Empty;
@@ -208,6 +210,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Navigation.LocationChanged += OnLocationChanged;
+        _isActivePage = Navigation.Uri.Contains("/admin/dashboard");
+
         try
         {
             // Fetch products data
@@ -236,6 +241,17 @@
         {
             _loading = false;
         }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _isActivePage = e.Location.Contains("/admin/dashboard");
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 
     private void BuildExpiringSoon(List<ProductDto> products, List<ProductStockDto> stock)
