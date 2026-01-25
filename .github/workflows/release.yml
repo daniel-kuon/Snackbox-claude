@@ -6,10 +6,14 @@ on:
       - 'v*.*.*'  # Trigger on version tags like v1.0.0
   workflow_dispatch:  # Allow manual trigger
     inputs:
-      version:
-        description: 'Version number (e.g., 1.0.0)'
+      release_type:
+        description: 'Release type'
         required: true
-        type: string
+        type: choice
+        options:
+          - major
+          - minor
+          - bugfix
 
 permissions:
   contents: write  # Required for creating releases
@@ -32,17 +36,53 @@ jobs:
       - name: Install .NET Aspire workload
         run: dotnet workload install aspire
 
+      - name: Install .NET MAUI workload
+        run: dotnet workload install maui
+
       - name: Determine version
         id: version
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $version = "${{ inputs.version }}"
+            $latestTag = git tag --list "v*.*.*" --sort=-v:refname | Select-Object -First 1
+            if ([string]::IsNullOrWhiteSpace($latestTag)) {
+              $currentVersion = "0.0.0"
+            } else {
+              $currentVersion = $latestTag.TrimStart('v')
+            }
+
+            $parts = $currentVersion.Split('.')
+            $major = [int]$parts[0]
+            $minor = [int]$parts[1]
+            $patch = [int]$parts[2]
+
+            switch ("${{ inputs.release_type }}") {
+              "major" { $major += 1; $minor = 0; $patch = 0 }
+              "minor" { $minor += 1; $patch = 0 }
+              "bugfix" { $patch += 1 }
+              default { throw "Unknown release type: ${{ inputs.release_type }}" }
+            }
+
+            $version = "$major.$minor.$patch"
           } else {
             $version = "${{ github.ref_name }}".TrimStart('v')
           }
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
           echo "Version: $version"
+
+      - name: Update version in Snackbox.Web.csproj
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $parts = $version.Split('.')
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+          $applicationVersion = ($major * 10000) + ($minor * 100) + $patch
+
+          $file = "src/Snackbox.Web/Snackbox.Web.csproj"
+          (Get-Content $file) -replace '<ApplicationDisplayVersion>.*</ApplicationDisplayVersion>', "<ApplicationDisplayVersion>$version</ApplicationDisplayVersion>" | Set-Content $file
+          (Get-Content $file) -replace '<ApplicationVersion>.*</ApplicationVersion>', "<ApplicationVersion>$applicationVersion</ApplicationVersion>" | Set-Content $file
 
       - name: Update version in Directory.Build.props
         shell: pwsh
@@ -68,6 +108,9 @@ jobs:
 
       - name: Build Updater (Release)
         run: dotnet build tools/Snackbox.Updater/Snackbox.Updater.csproj -c Release --no-restore
+
+      - name: Build Native App (Release)
+        run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release --no-restore
 
       - name: Publish AppHost (self-contained)
         run: |
@@ -109,6 +152,13 @@ jobs:
             -p:PublishReadyToRun=true `
             -o artifacts/updater
 
+      - name: Publish Native App (Release)
+        run: |
+          dotnet publish src/Snackbox.Web/Snackbox.Web.csproj `
+            -c Release `
+            -f net10.0-windows10.0.19041.0 `
+            -o artifacts/native
+
       - name: Create distribution structure
         shell: pwsh
         run: |
@@ -120,12 +170,14 @@ jobs:
           New-Item -ItemType Directory -Path "$distDir/apphost" -Force
           New-Item -ItemType Directory -Path "$distDir/api" -Force
           New-Item -ItemType Directory -Path "$distDir/blazor" -Force
+          New-Item -ItemType Directory -Path "$distDir/native" -Force
 
           # Copy published outputs
           Copy-Item -Path "artifacts/apphost/*" -Destination "$distDir/apphost" -Recurse
           Copy-Item -Path "artifacts/api/*" -Destination "$distDir/api" -Recurse
           Copy-Item -Path "artifacts/blazor/*" -Destination "$distDir/blazor" -Recurse
           Copy-Item -Path "artifacts/updater/Snackbox.Updater.exe" -Destination "$distDir/"
+          Copy-Item -Path "artifacts/native/*" -Destination "$distDir/native" -Recurse
 
           # Copy documentation
           Copy-Item -Path "README.md" -Destination "$distDir/" -ErrorAction SilentlyContinue
@@ -191,7 +243,7 @@ jobs:
           Run the Snackbox Updater from your installation directory, or download and extract the full package manually.
 
           ## Package Contents
-          - **snackbox-full-$version-win-x64.zip**: Complete Snackbox application (AppHost, API, Blazor UI, Updater)
+          - **snackbox-full-$version-win-x64.zip**: Complete Snackbox application (AppHost, API, Blazor UI, Updater, Native app)
           - **snackbox-updater-$version-win-x64.zip**: Updater tool only
           - **checksums.txt**: SHA256 checksums for verification
 

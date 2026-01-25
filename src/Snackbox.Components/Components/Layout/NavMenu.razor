@@ -1,3 +1,4 @@
+@using System.Reflection
 @inject NavigationManager Navigation
 @inject IScannerService ScannerService
 @inject IAuthenticationService AuthService
@@ -71,11 +72,15 @@
 
         @if (ShowExitButton)
         {
-        <div class="nav-exit-section">
-            <button class="nav-exit-button" @onclick="ExitToScanScreen">
-                <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Exit to Scan Screen
-            </button>
-        </div>
+            <div class="nav-exit-section">
+                <button class="nav-exit-button" @onclick="ExitToScanScreen">
+                    <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Exit to Scan Screen
+                </button>
+                @if (!string.IsNullOrWhiteSpace(_appVersion))
+                {
+                    <div class="nav-version">Version @_appVersion</div>
+                }
+            </div>
         }
     </nav>
 </div>
@@ -113,9 +118,11 @@
 
     private bool _showAdminSection;
     private bool _isAuthenticated;
+    private string? _appVersion;
 
     protected override async Task OnInitializedAsync()
     {
+        _appVersion = GetAppVersion();
         await UpdateMenuVisibility();
     }
 
@@ -148,5 +155,18 @@
         ScannerService.ResetSession();
 
         Navigation.NavigateTo(ExitUrl, forceLoad: true);
+    }
+
+    private static string? GetAppVersion()
+    {
+        var assembly = typeof(NavMenu).Assembly;
+        var infoVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(infoVersion))
+        {
+            var plusIndex = infoVersion.IndexOf('+');
+            return plusIndex > 0 ? infoVersion[..plusIndex] : infoVersion;
+        }
+
+        return assembly.GetName().Version?.ToString();
     }
 }

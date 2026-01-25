@@ -172,6 +172,14 @@
         margin-right: 0.75rem;
     }
 
+.nav-version {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+}
+
 @media (min-width: 641px) {
     .navbar-toggler {
         display: none;
