@@ -94,6 +94,9 @@ jobs:
           (Get-Content $file) -replace '<FileVersion>.*</FileVersion>', "<FileVersion>$version</FileVersion>" | Set-Content $file
           (Get-Content $file) -replace '<InformationalVersion>.*</InformationalVersion>', "<InformationalVersion>$version</InformationalVersion>" | Set-Content $file
 
+      - name: Build Native App (Release)
+        run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release
+
       - name: Restore dependencies
         run: dotnet restore && dotnet restore --runtime win-x64
 
@@ -105,9 +108,6 @@ jobs:
 
       - name: Build BlazorServer (Release)
         run: dotnet build src/Snackbox.BlazorServer/Snackbox.BlazorServer.csproj -c Release --no-restore
-
-      - name: Build Native App (Release)
-        run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release
 
       - name: Publish AppHost (self-contained)
         run: |
