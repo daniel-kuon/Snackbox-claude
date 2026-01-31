@@ -107,7 +107,7 @@ jobs:
         run: dotnet build src/Snackbox.BlazorServer/Snackbox.BlazorServer.csproj -c Release --no-restore
 
       - name: Build Native App (Release)
-        run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release --no-restore
+        run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release
 
       - name: Publish AppHost (self-contained)
         run: |
