@@ -33,11 +33,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install .NET Aspire workload
-        run: dotnet workload install aspire
-
-      - name: Install .NET MAUI workload
-        run: dotnet workload install maui
+#      - name: Install .NET MAUI workload
+#        run: dotnet workload install maui
 
       - name: Determine version
         id: version

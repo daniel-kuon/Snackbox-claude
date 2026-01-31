@@ -11,6 +11,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
+        <PublishReadyToRun>true</PublishReadyToRun>
 
         <!-- Display name -->
         <ApplicationTitle>Snackbox</ApplicationTitle>
