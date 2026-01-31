@@ -94,20 +94,19 @@ jobs:
           (Get-Content $file) -replace '<FileVersion>.*</FileVersion>', "<FileVersion>$version</FileVersion>" | Set-Content $file
           (Get-Content $file) -replace '<InformationalVersion>.*</InformationalVersion>', "<InformationalVersion>$version</InformationalVersion>" | Set-Content $file
 
-      - name: Build Native App (Release)
-        run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release
-
       - name: Restore dependencies
         run: dotnet restore && dotnet restore --runtime win-x64
 
-      - name: Build AppHost (Release)
-        run: dotnet build src/Snackbox.AppHost/Snackbox.AppHost.csproj -c Release --no-restore
+      - name: Build Native App (Release)
+        run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release --no-restore
 
-      - name: Build API (Release)
-        run: dotnet build src/Snackbox.Api/Snackbox.Api.csproj -c Release --no-restore
-
-      - name: Build BlazorServer (Release)
-        run: dotnet build src/Snackbox.BlazorServer/Snackbox.BlazorServer.csproj -c Release --no-restore
+      - name: Publish Native App (Release)
+        run: |
+          dotnet publish src/Snackbox.Web/Snackbox.Web.csproj `
+            -c Release `
+            -f net10.0-windows10.0.19041.0 `
+            --no-restore `
+            -o artifacts/native
 
       - name: Publish AppHost (self-contained)
         run: |
@@ -117,6 +116,7 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=false `
             -p:PublishReadyToRun=true `
+            --no-restore `
             -o artifacts/apphost
 
       - name: Publish API (self-contained)
@@ -127,6 +127,7 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=false `
             -p:PublishReadyToRun=true `
+            --no-restore `
             -o artifacts/api
 
       - name: Publish BlazorServer (self-contained)
@@ -137,14 +138,8 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=false `
             -p:PublishReadyToRun=true `
+            --no-restore `
             -o artifacts/blazor
-
-      - name: Publish Native App (Release)
-        run: |
-          dotnet publish src/Snackbox.Web/Snackbox.Web.csproj `
-            -c Release `
-            -f net10.0-windows10.0.19041.0 `
-            -o artifacts/native
 
       - name: Create distribution structure
         shell: pwsh
