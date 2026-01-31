@@ -28,7 +28,6 @@ The installer will:
 - Download the latest release from GitHub
 - Extract files to `C:\Program Files\Snackbox`
 - Create desktop and Start Menu shortcuts
-- Set up the Snackbox Updater tool
 
 ### Alternative Installation
 
@@ -45,16 +44,10 @@ irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/snackbox-claude/main/
 
 ## 🔄 Updating
 
-### Via Updater Tool (Recommended)
+### In-App (Recommended)
 1. Launch Snackbox
 2. Click **"Check for Updates"** in the menu (admin only)
-3. Follow the update prompts
-
-### Command Line
-```bash
-cd "C:\Program Files\Snackbox"
-.\Snackbox.Updater.exe
-```
+3. Start the update if a new version is available
 
 ### Manual Update
 1. Download the latest release
@@ -97,9 +90,6 @@ snackbox-claude/
 │   ├── Snackbox.ApiClient/        # API client library
 │   ├── Snackbox.Api.Dtos/         # Shared DTOs
 │   └── Snackbox.ServiceDefaults/  # Aspire defaults
-├── tools/
-│   ├── Snackbox.Migrator/         # Database migration tool
-│   └── Snackbox.Updater/          # Update manager
 ├── tests/
 │   ├── Snackbox.Api.Tests/        # API unit tests
 │   └── Snackbox.Components.Tests/ # Component tests (bUnit)

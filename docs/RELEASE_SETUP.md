@@ -36,33 +36,7 @@ param(
 
 ---
 
-### 3. Snackbox.Updater Program.cs
-**Location**: `tools/Snackbox.Updater/Program.cs`
-
-Update around line 12-13:
-```csharp
-var repoOwner = "YOUR_GITHUB_USERNAME"; // ← Update this
-var repoName = "snackbox-claude";      // Update if you renamed the repo
-```
-
----
-
-### 4. Snackbox.Updater UpdateManager.cs
-**Location**: `tools/Snackbox.Updater/UpdateManager.cs`
-
-Update line 124 (checksum URL):
-```csharp
-var checksumUrl = $"https://github.com/YOUR_OWNER/YOUR_REPO/releases/latest/download/checksums.txt";
-```
-
-Change to:
-```csharp
-var checksumUrl = $"https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude/releases/latest/download/checksums.txt";
-```
-
----
-
-### 5. docs/INSTALLATION.md
+### 3. docs/INSTALLATION.md
 **Location**: `docs/INSTALLATION.md`
 
 Replace all occurrences of:
@@ -111,7 +85,6 @@ After the GitHub Action completes:
 1. Go to **Releases** in your GitHub repository
 2. Verify these artifacts are present:
    - `snackbox-full-{version}-win-x64.zip`
-   - `snackbox-updater-{version}-win-x64.zip`
    - `checksums.txt`
 3. Check that release notes were auto-generated
 4. Test the installation command:
@@ -180,8 +153,6 @@ Before creating a release:
 
 - [ ] Updated `YOUR_GITHUB_USERNAME` in README.md
 - [ ] Updated `RepoOwner` in install-snackbox.ps1
-- [ ] Updated `repoOwner` in Snackbox.Updater/Program.cs
-- [ ] Updated checksum URL in UpdateManager.cs
 - [ ] Updated docs/INSTALLATION.md
 - [ ] Tested build: `dotnet build -c Release`
 - [ ] Committed all changes

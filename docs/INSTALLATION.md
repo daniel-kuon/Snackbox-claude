@@ -18,7 +18,6 @@ This will:
 - Download the latest release from GitHub
 - Install to `C:\Program Files\Snackbox`
 - Create desktop and Start Menu shortcuts
-- Include the Snackbox Updater tool
 
 ### User Directory Installation (No Admin Required)
 
@@ -65,29 +64,20 @@ irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/snackbox-claude/main/
 1. Launch Snackbox
 2. Navigate to the admin menu
 3. Click **"Check for Updates"**
-4. If an update is available:
-   - Review the changelog
-   - Click "Yes" to install
-5. Wait for the update to complete
-6. Restart Snackbox
+4. If an update is available, click **Start Update**
+5. A backup is created automatically
+6. Snackbox will be stopped and restarted automatically
 
 ### Method 2: Command Line Update
 
 ```powershell
-cd "C:\Program Files\Snackbox"
-.\Snackbox.Updater.exe
+irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/snackbox-claude/main/install-snackbox.ps1 | iex
 ```
 
-**Command-line options**:
+**Downgrade option**:
 ```powershell
-# Check for updates without installing
-.\Snackbox.Updater.exe --check-only
-
-# Silent update (no prompts)
-.\Snackbox.Updater.exe --silent
-
-# Show help
-.\Snackbox.Updater.exe --help
+# Install a specific older version (requires AllowDowngrade)
+irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/snackbox-claude/main/install-snackbox.ps1 | iex -Version 1.2.3 -AllowDowngrade
 ```
 
 ### Method 3: Manual Update
@@ -100,12 +90,10 @@ cd "C:\Program Files\Snackbox"
 
 ## Update Safety Features
 
-The updater includes several safety mechanisms:
+The installer includes several safety mechanisms:
 
-- **Automatic Backup**: Creates backup before applying updates
-- **Checksum Verification**: Validates download integrity (SHA256)
-- **Rollback on Failure**: Restores backup if update fails
-- **Process Management**: Gracefully stops AppHost before updating
+- **Automatic Backup**: Creates a database backup before applying updates
+- **Version Guard**: Prevents accidental downgrades unless explicitly allowed
 
 ## Uninstalling Snackbox
 

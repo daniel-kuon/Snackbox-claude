@@ -4,6 +4,7 @@
 @using Snackbox.ApiClient
 @using Refit
 @inject ISettingsApi SettingsApi
+@inject IUpdatesApi UpdatesApi
 @inject NavigationManager Navigation
 
 <PageTitle>Settings - Snackbox Admin</PageTitle>
@@ -130,6 +131,69 @@
                         @_backupTestResult
                     </div>
                 }
+            </div>
+
+            <!-- Application Updates -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <h3>Application Updates</h3>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="CheckForUpdates" disabled="@_checkingUpdates">
+                        @if (_checkingUpdates)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Check for Updates
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Current Version</label>
+                    <div>@(_updateCheck?.CurrentVersion ?? "Unknown")</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Latest Version</label>
+                    <div>@(_updateCheck?.LatestVersion ?? "Unknown")</div>
+                </div>
+
+                @if (_updateCheck != null)
+                {
+                    <div class="alert @(_updateCheck.UpdateAvailable ? "alert-warning" : "alert-success")">
+                        @(_updateCheck.UpdateAvailable ? "Update available. You can install the latest release." : "You are up to date.")
+                    </div>
+                }
+
+                <div class="form-group">
+                    <label class="form-label">Target Version (optional)</label>
+                    <input type="text" class="form-control" @bind="_targetVersion" placeholder="e.g. 1.2.3" />
+                    <small class="form-text text-muted">Leave blank to install the latest version.</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" @bind="_allowDowngrade" />
+                        Allow downgrade to an older version
+                    </label>
+                </div>
+
+                <div class="settings-actions">
+                    <button class="btn btn-primary btn-lg" @onclick="ApplyUpdate" disabled="@_applyingUpdate">
+                        @if (_applyingUpdate)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Start Update
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_updateMessage))
+                {
+                    <div class="alert @(_updateSuccess ? "alert-success" : "alert-danger") mt-3">
+                        @_updateMessage
+                    </div>
+                }
+
+                <small class="form-text text-muted">An automatic database backup is created before updates are applied.</small>
             </div>
 
             <!-- Barcode Lookup Settings -->
@@ -286,6 +350,8 @@
     private bool _testingEmail = false;
     private bool _testingBackup = false;
     private bool _testingBarcode = false;
+    private bool _checkingUpdates = false;
+    private bool _applyingUpdate = false;
 
     private string? _emailTestResult;
     private bool _emailTestSuccess;
@@ -295,6 +361,11 @@
     private bool _barcodeTestSuccess;
     private string? _saveMessage;
     private bool _saveSuccess;
+    private UpdateCheckResultDto? _updateCheck;
+    private string? _targetVersion;
+    private bool _allowDowngrade;
+    private string? _updateMessage;
+    private bool _updateSuccess;
 
     protected override async Task OnInitializedAsync()
     {
@@ -423,6 +494,61 @@
         finally
         {
             _testingBarcode = false;
+        }
+    }
+
+    private async Task CheckForUpdates()
+    {
+        try
+        {
+            _checkingUpdates = true;
+            _updateMessage = null;
+            _updateCheck = await UpdatesApi.CheckAsync();
+        }
+        catch (Exception ex)
+        {
+            _updateMessage = $"Update check failed: {ex.Message}";
+            _updateSuccess = false;
+        }
+        finally
+        {
+            _checkingUpdates = false;
+        }
+    }
+
+    private async Task ApplyUpdate()
+    {
+        try
+        {
+            _applyingUpdate = true;
+            _updateMessage = null;
+
+            var request = new UpdateApplyRequestDto
+            {
+                Version = string.IsNullOrWhiteSpace(_targetVersion) ? null : _targetVersion.Trim(),
+                AllowDowngrade = _allowDowngrade
+            };
+
+            var response = await UpdatesApi.ApplyAsync(request);
+            if (response.IsSuccessStatusCode && response.Content != null)
+            {
+                _updateMessage = response.Content.Message;
+                _updateSuccess = true;
+            }
+            else
+            {
+                _updateMessage = "Failed to start update. Please check server logs.";
+                _updateSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _updateMessage = $"Update failed: {ex.Message}";
+            _updateSuccess = false;
+        }
+        finally
+        {
+            _applyingUpdate = false;
         }
     }
 }

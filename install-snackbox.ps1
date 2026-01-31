@@ -5,6 +5,10 @@ param(
     [string]$InstallPath = "$env:ProgramFiles\Snackbox",
     [string]$RepoOwner = "daniel-kuon",
     [string]$RepoName = "snackbox-claude",
+    [string]$Version = "latest",
+    [switch]$AllowDowngrade = $false,
+    [switch]$StopRunning = $true,
+    [switch]$RestartAppHost = $false,
     [switch]$CreateShortcut = $true,
     [switch]$AddToStartMenu = $true
 )
@@ -27,17 +31,88 @@ if (-not $isAdmin -and $InstallPath.StartsWith($env:ProgramFiles)) {
 }
 
 try {
-    # Step 1: Fetch latest release info from GitHub
-    Write-Host "Fetching latest release information..." -ForegroundColor Green
-    $apiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
+    # Step 1: Fetch release info from GitHub
+    $requestedTag = $null
+    if (-not [string]::IsNullOrWhiteSpace($Version) -and $Version -ne "latest") {
+        $requestedTag = $Version.Trim()
+        if (-not $requestedTag.StartsWith("v")) {
+            $requestedTag = "v$requestedTag"
+        }
+    }
+
+    Write-Host "Fetching release information..." -ForegroundColor Green
+    if ($requestedTag) {
+        Write-Host "Target version: $requestedTag" -ForegroundColor Cyan
+        $apiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/tags/$requestedTag"
+    } else {
+        $apiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
+    }
     $headers = @{ "User-Agent" = "Snackbox-Installer" }
 
     $release = Invoke-RestMethod -Uri $apiUrl -Headers $headers
     $version = $release.tag_name.TrimStart('v')
 
-    Write-Host "Latest version: $version" -ForegroundColor Cyan
+    Write-Host "Release version: $version" -ForegroundColor Cyan
     Write-Host "Published: $($release.published_at)" -ForegroundColor Cyan
     Write-Host ""
+
+    function Stop-SnackboxProcesses {
+        $processNames = @("Snackbox.AppHost", "Snackbox.Api", "Snackbox.BlazorServer", "Snackbox.Web")
+        $appHostWasRunning = $false
+
+        foreach ($name in $processNames) {
+            $processes = Get-Process -Name $name -ErrorAction SilentlyContinue
+            if (-not $processes) {
+                continue
+            }
+
+            foreach ($process in $processes) {
+                if ($process.ProcessName -eq "Snackbox.AppHost") {
+                    $appHostWasRunning = $true
+                }
+
+                if ($process.MainWindowHandle -ne 0) {
+                    $null = $process.CloseMainWindow()
+                    $process.WaitForExit(5000)
+                }
+
+                if (-not $process.HasExited) {
+                    Stop-Process -Id $process.Id -Force
+                }
+            }
+        }
+
+        return $appHostWasRunning
+    }
+
+    # Step 1b: Prevent accidental downgrades unless explicitly allowed
+    $appHostPath = Join-Path $InstallPath "Snackbox.AppHost.exe"
+    if (Test-Path $appHostPath) {
+        $currentVersionString = (Get-Item $appHostPath).VersionInfo.ProductVersion
+        if ([string]::IsNullOrWhiteSpace($currentVersionString)) {
+            $currentVersionString = (Get-Item $appHostPath).VersionInfo.FileVersion
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($currentVersionString)) {
+            $cleanCurrentVersion = $currentVersionString.Split('+')[0]
+            $cleanTargetVersion = $version.Split('+')[0]
+            $currentParsed = $null
+            $targetParsed = $null
+
+            if ([System.Version]::TryParse($cleanCurrentVersion, [ref]$currentParsed) -and [System.Version]::TryParse($cleanTargetVersion, [ref]$targetParsed)) {
+                if ($targetParsed -lt $currentParsed -and -not $AllowDowngrade) {
+                    Write-Host "ERROR: Target version $version is older than current version $cleanCurrentVersion." -ForegroundColor Red
+                    Write-Host "Re-run with -AllowDowngrade to confirm the downgrade." -ForegroundColor Yellow
+                    exit 1
+                }
+
+                if ($targetParsed -eq $currentParsed) {
+                    Write-Host "Snackbox is already on version $cleanCurrentVersion." -ForegroundColor Green
+                    exit 0
+                }
+            }
+        }
+    }
 
     # Step 2: Find the Windows x64 package
     $asset = $release.assets | Where-Object { $_.name -like "snackbox-full-*-win-x64.zip" } | Select-Object -First 1
@@ -61,6 +136,15 @@ try {
     Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $downloadPath -Headers $headers
     Write-Host "✓ Download complete" -ForegroundColor Green
     Write-Host ""
+
+    # Step 3b: Stop running Snackbox processes if requested
+    $appHostWasRunning = $false
+    if ($StopRunning) {
+        Write-Host "Stopping running Snackbox processes..." -ForegroundColor Yellow
+        $appHostWasRunning = Stop-SnackboxProcesses
+        Write-Host "✓ Processes stopped" -ForegroundColor Green
+        Write-Host ""
+    }
 
     # Step 4: Extract to install location
     Write-Host "Installing to: $InstallPath" -ForegroundColor Green
@@ -118,6 +202,16 @@ try {
     Write-Host "Cleaning up..." -ForegroundColor Green
     Remove-Item -Path $tempDir -Recurse -Force
 
+    # Step 7: Restart AppHost if requested
+    if ($RestartAppHost -and $appHostWasRunning) {
+        $appHostExe = Join-Path $InstallPath "Snackbox.AppHost.exe"
+        if (Test-Path $appHostExe) {
+            Write-Host ""
+            Write-Host "Restarting Snackbox AppHost..." -ForegroundColor Green
+            Start-Process -FilePath $appHostExe -WorkingDirectory $InstallPath
+        }
+    }
+
     # Step 7: Success message
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Green
@@ -132,8 +226,8 @@ try {
     Write-Host "  2. Search for 'Snackbox' in Start Menu" -ForegroundColor White
     Write-Host "  3. Run: $InstallPath\Snackbox.AppHost.exe" -ForegroundColor White
     Write-Host ""
-    Write-Host "To check for updates later:" -ForegroundColor White
-    Write-Host "  Run: $InstallPath\Snackbox.Updater.exe" -ForegroundColor White
+    Write-Host "To update later:" -ForegroundColor White
+    Write-Host "  Re-run this installer (optionally with -Version and -AllowDowngrade)" -ForegroundColor White
     Write-Host ""
     Write-Host "Enjoy! 🍿" -ForegroundColor Cyan
 

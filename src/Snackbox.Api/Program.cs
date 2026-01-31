@@ -97,6 +97,11 @@ builder.Services.AddScoped<IBackupService, BackupService>();
 // Register settings service
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 
+// Register update service
+builder.Services.Configure<UpdateSettings>(builder.Configuration.GetSection("UpdateSettings"));
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<IUpdateService, UpdateService>();
+
 // Register database seeder service
 builder.Services.AddScoped<DatabaseSeeder>();
 

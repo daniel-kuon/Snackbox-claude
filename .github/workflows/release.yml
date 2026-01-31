@@ -106,9 +106,6 @@ jobs:
       - name: Build BlazorServer (Release)
         run: dotnet build src/Snackbox.BlazorServer/Snackbox.BlazorServer.csproj -c Release --no-restore
 
-      - name: Build Updater (Release)
-        run: dotnet build tools/Snackbox.Updater/Snackbox.Updater.csproj -c Release --no-restore
-
       - name: Build Native App (Release)
         run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release --no-restore
 
@@ -142,16 +139,6 @@ jobs:
             -p:PublishReadyToRun=true `
             -o artifacts/blazor
 
-      - name: Publish Updater (self-contained)
-        run: |
-          dotnet publish tools/Snackbox.Updater/Snackbox.Updater.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:PublishReadyToRun=true `
-            -o artifacts/updater
-
       - name: Publish Native App (Release)
         run: |
           dotnet publish src/Snackbox.Web/Snackbox.Web.csproj `
@@ -176,12 +163,12 @@ jobs:
           Copy-Item -Path "artifacts/apphost/*" -Destination "$distDir/apphost" -Recurse
           Copy-Item -Path "artifacts/api/*" -Destination "$distDir/api" -Recurse
           Copy-Item -Path "artifacts/blazor/*" -Destination "$distDir/blazor" -Recurse
-          Copy-Item -Path "artifacts/updater/Snackbox.Updater.exe" -Destination "$distDir/"
           Copy-Item -Path "artifacts/native/*" -Destination "$distDir/native" -Recurse
 
           # Copy documentation
           Copy-Item -Path "README.md" -Destination "$distDir/" -ErrorAction SilentlyContinue
           Copy-Item -Path "docs/RUNNING_APPHOST.md" -Destination "$distDir/" -ErrorAction SilentlyContinue
+          Copy-Item -Path "install-snackbox.ps1" -Destination "$distDir/" -ErrorAction SilentlyContinue
 
       - name: Create release packages
         shell: pwsh
@@ -191,17 +178,13 @@ jobs:
           # Create full package
           Compress-Archive -Path "dist/snackbox-$version/*" -DestinationPath "snackbox-full-$version-win-x64.zip"
 
-          # Create updater-only package
-          Compress-Archive -Path "artifacts/updater/Snackbox.Updater.exe" -DestinationPath "snackbox-updater-$version-win-x64.zip"
-
       - name: Generate checksums
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
 
           $files = @(
-            "snackbox-full-$version-win-x64.zip",
-            "snackbox-updater-$version-win-x64.zip"
+            "snackbox-full-$version-win-x64.zip"
           )
 
           $checksums = @()
@@ -240,11 +223,10 @@ jobs:
           ``````
 
           ### Update Existing Installation
-          Run the Snackbox Updater from your installation directory, or download and extract the full package manually.
+          Re-run the installer (optionally with -Version and -AllowDowngrade), or download and extract the full package manually.
 
           ## Package Contents
-          - **snackbox-full-$version-win-x64.zip**: Complete Snackbox application (AppHost, API, Blazor UI, Updater, Native app)
-          - **snackbox-updater-$version-win-x64.zip**: Updater tool only
+          - **snackbox-full-$version-win-x64.zip**: Complete Snackbox application (AppHost, API, Blazor UI, Native app, installer script)
           - **checksums.txt**: SHA256 checksums for verification
 
           ## System Requirements
@@ -269,7 +251,6 @@ jobs:
           prerelease: false
           files: |
             snackbox-full-${{ steps.version.outputs.VERSION }}-win-x64.zip
-            snackbox-updater-${{ steps.version.outputs.VERSION }}-win-x64.zip
             checksums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
