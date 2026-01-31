@@ -95,7 +95,7 @@ jobs:
           (Get-Content $file) -replace '<InformationalVersion>.*</InformationalVersion>', "<InformationalVersion>$version</InformationalVersion>" | Set-Content $file
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore && dotnet restore --runtime win-x64
 
       - name: Build AppHost (Release)
         run: dotnet build src/Snackbox.AppHost/Snackbox.AppHost.csproj -c Release --no-restore
