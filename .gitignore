@@ -322,4 +322,4 @@ nul
 # Snackbox specific
 backups/
 appsettings.secrets.json
-
+actions-runner

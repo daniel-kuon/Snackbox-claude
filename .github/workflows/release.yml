@@ -20,16 +20,16 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: self-hosted
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Full history for release notes
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
@@ -105,6 +105,7 @@ jobs:
           dotnet publish src/Snackbox.Web/Snackbox.Web.csproj `
             -c Release `
             -f net10.0-windows10.0.19041.0 `
+            -p:RuntimeIdentifierOverride=win10-x64 `
             --no-restore `
             -o artifacts/native
 
@@ -237,7 +238,7 @@ jobs:
           echo "NOTES=$notesEscaped" >> $env:GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.version.outputs.VERSION }}
           name: Snackbox v${{ steps.version.outputs.VERSION }}
