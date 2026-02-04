@@ -36,11 +36,12 @@ public class ScannerControllerTests : IDisposable
             .AddInMemoryCollection(inMemorySettings!)
             .Build();
 
-        // Create achievement service and logger for controller
+        // Create achievement service, balance service, and logger for controller
         var achievementService = new AchievementService(_context);
+        var balanceCalculationService = new BalanceCalculationService();
         var logger = new Mock<ILogger<ScannerController>>();
 
-        _controller = new ScannerController(_context, _configuration, achievementService, logger.Object);
+        _controller = new ScannerController(_context, _configuration, achievementService, logger.Object, balanceCalculationService);
 
         // Seed test data
         SeedTestData();
