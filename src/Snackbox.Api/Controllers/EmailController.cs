@@ -45,7 +45,8 @@ public class EmailController : ControllerBase
             return BadRequest(new { message = "User does not have an email address" });
         }
 
-        // Calculate balance (negative = user owes money, positive = user has credit)
+        // Calculate balance (Payments - Purchases - Withdrawals)
+        // Positive = user has credit, Negative = user owes money, Zero = balanced
         var balance = _balanceCalculationService.CalculateBalance(user);
 
         if (balance >= 0)

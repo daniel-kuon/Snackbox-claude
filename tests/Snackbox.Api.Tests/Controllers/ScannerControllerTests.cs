@@ -287,8 +287,8 @@ public class ScannerControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
 
-        // Balance = TotalPaid - TotalSpent = 50.00 - (15.00 past + 5.00 current) = -30.00 (user has credit)
-        Assert.Equal(-30.00m, response.Balance);
+        // Balance = TotalPaid - TotalSpent = 50.00 - (15.00 past + 5.00 current) = 30.00 (user has credit)
+        Assert.Equal(30.00m, response.Balance);
     }
 
     [Fact]

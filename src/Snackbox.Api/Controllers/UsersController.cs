@@ -35,7 +35,9 @@ public class UsersController : ControllerBase
             .Select(u => new
             {
                 User = u,
-                // Note: Inline calculation needed for EF query translation
+                // NOTE: Inline balance calculation required for EF Core query translation.
+                // IBalanceCalculationService cannot be used in LINQ-to-Entities queries.
+                // For already-loaded entities, use the service instead.
                 Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - u.Withdrawals.Sum(w => w.Amount)
             });
 
