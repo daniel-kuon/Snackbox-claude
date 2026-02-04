@@ -42,6 +42,17 @@ public class ShelvingActionsControllerTests : IDisposable
 
         _context.Products.Add(product);
 
+        var productBarcode = new ProductBarcode
+        {
+            Id = 1,
+            ProductId = 1,
+            Barcode = "1234567890123",
+            Quantity = 1,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.ProductBarcodes.Add(productBarcode);
+
         var batch = new ProductBatch
         {
             Id = 1,

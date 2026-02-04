@@ -24,7 +24,7 @@ public static partial class BarcodeMapper
     public static BarcodeDto ToDtoWithUser(this Barcode source)
     {
         var dto = source.ToDto();
-        dto.Username = source.User.Username;
+        dto.Username = source.User?.Username;
         dto.IsLoginOnly = source is LoginBarcode;
         return dto;
     }
