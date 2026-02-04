@@ -15,14 +15,16 @@ public class ScannerController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly IAchievementService _achievementService;
     private readonly ILogger<ScannerController> _logger;
+    private readonly IBalanceCalculationService _balanceCalculationService;
     private const int DefaultTimeoutSeconds = 60;
 
-    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, ILogger<ScannerController> logger)
+    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, ILogger<ScannerController> logger, IBalanceCalculationService balanceCalculationService)
     {
         _context = context;
         _configuration = configuration;
         _achievementService = achievementService;
         _logger = logger;
+        _balanceCalculationService = balanceCalculationService;
     }
 
     [HttpPost("scan")]
@@ -178,33 +180,30 @@ public class ScannerController : ControllerBase
         // These can be checked on every scan, not just when the purchase completes
         await _achievementService.CheckImmediateAchievementsAsync(user.Id, currentPurchase.Id);
 
-        // Calculate user's balance (total spent - total paid)
-        var totalFromScans = await _context.BarcodeScans
-            .Where(bs => bs.Purchase.UserId == user.Id)
-            .SumAsync(bs => bs.Amount);
-
-        var totalDiscounts = await _context.PurchaseDiscounts
-            .Where(pd => pd.Purchase.UserId == user.Id)
-            .SumAsync(pd => pd.DiscountAmount);
-
-        var totalSpent = totalFromScans - totalDiscounts;
-
-        var totalPaid = await _context.Payments
+        // Calculate user's balance using the balance calculation service
+        var payments = await _context.Payments
             .Where(p => p.UserId == user.Id)
-            .SumAsync(p => p.Amount);
-
-        var balance = totalSpent - totalPaid;
-
-        // Get last payment
-        var lastPayment = await _context.Payments
-            .Where(p => p.UserId == user.Id)
-            .OrderByDescending(p => p.PaidAt)
-            .FirstOrDefaultAsync();
-
-        // Get last 3 purchases (excluding the current one)
-        var recentPurchases = await _context.Purchases
+            .ToListAsync();
+        
+        var purchases = await _context.Purchases
             .Include(p => p.Scans)
-            .Where(p => p.UserId == user.Id && p.Id != currentPurchase.Id)
+            .Where(p => p.UserId == user.Id)
+            .ToListAsync();
+        
+        var withdrawals = await _context.Withdrawals
+            .Where(w => w.UserId == user.Id)
+            .ToListAsync();
+
+        var balance = _balanceCalculationService.CalculateBalance(payments, purchases, withdrawals);
+
+        // Get last payment from already loaded collection
+        var lastPayment = payments
+            .OrderByDescending(p => p.PaidAt)
+            .FirstOrDefault();
+
+        // Get last 3 purchases (excluding the current one) from already loaded collection
+        var recentPurchases = purchases
+            .Where(p => p.Id != currentPurchase.Id)
             .OrderByDescending(p => p.UpdatedAt)
             .Take(3)
             .Select(p => new RecentPurchaseDto
@@ -214,7 +213,7 @@ public class ScannerController : ControllerBase
                 UpdatedAt = p.UpdatedAt,
                 ItemCount = p.Scans.Count
             })
-            .ToListAsync();
+            .ToList();
 
         // Log for debugging
         Console.WriteLine($"User {user.Id} - Found {recentPurchases.Count} recent purchases");

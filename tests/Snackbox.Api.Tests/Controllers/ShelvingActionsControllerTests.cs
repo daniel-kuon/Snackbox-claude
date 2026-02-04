@@ -37,12 +37,21 @@ public class ShelvingActionsControllerTests : IDisposable
         {
             Id = 1,
             Name = "Test Chips",
-            Barcode = "1234567890123",
-            Price = 1.50m,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Products.Add(product);
+
+        var productBarcode = new ProductBarcode
+        {
+            Id = 1,
+            ProductId = 1,
+            Barcode = "1234567890123",
+            Quantity = 1,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.ProductBarcodes.Add(productBarcode);
 
         var batch = new ProductBatch
         {
@@ -124,7 +133,7 @@ public class ShelvingActionsControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var action = Assert.IsType<ShelvingActionDto>(okResult.Value);
         Assert.Equal(50, action.Quantity);
-        Assert.Equal("AddedToStorage", action.Type);
+        Assert.Equal(ShelvingActionType.AddedToStorage, action.Type);
     }
 
     [Fact]
@@ -146,7 +155,7 @@ public class ShelvingActionsControllerTests : IDisposable
             ProductBarcode = "1234567890123",
             BestBeforeDate = DateTime.UtcNow.AddMonths(6).Date,
             Quantity = 10,
-            Type = "MovedToShelf"
+            Type = ShelvingActionType.MovedToShelf
         };
 
         // Act
@@ -156,7 +165,7 @@ public class ShelvingActionsControllerTests : IDisposable
         var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
         var action = Assert.IsType<ShelvingActionDto>(createdResult.Value);
         Assert.Equal(10, action.Quantity);
-        Assert.Equal("MovedToShelf", action.Type);
+        Assert.Equal(ShelvingActionType.MovedToShelf, action.Type);
     }
 
     [Fact]
@@ -169,7 +178,7 @@ public class ShelvingActionsControllerTests : IDisposable
             ProductBarcode = "1234567890123",
             BestBeforeDate = newDate,
             Quantity = 25,
-            Type = "AddedToStorage"
+            Type = ShelvingActionType.AddedToStorage
         };
 
         // Act
@@ -195,7 +204,7 @@ public class ShelvingActionsControllerTests : IDisposable
             ProductBarcode = "nonexistent",
             BestBeforeDate = DateTime.UtcNow.AddMonths(6),
             Quantity = 10,
-            Type = "AddedToStorage"
+            Type = ShelvingActionType.AddedToStorage
         };
 
         // Act
@@ -203,25 +212,6 @@ public class ShelvingActionsControllerTests : IDisposable
 
         // Assert
         Assert.IsType<NotFoundObjectResult>(result.Result);
-    }
-
-    [Fact]
-    public async Task Create_InvalidActionType_ReturnsBadRequest()
-    {
-        // Arrange
-        var createDto = new CreateShelvingActionDto
-        {
-            ProductBarcode = "1234567890123",
-            BestBeforeDate = DateTime.UtcNow.AddMonths(6),
-            Quantity = 10,
-            Type = "InvalidType"
-        };
-
-        // Act
-        var result = await _controller.Create(createDto);
-
-        // Assert
-        Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
     [Fact]
@@ -233,7 +223,7 @@ public class ShelvingActionsControllerTests : IDisposable
             ProductBarcode = "1234567890123",
             BestBeforeDate = DateTime.UtcNow.AddMonths(6).Date,
             Quantity = 100, // More than available (50)
-            Type = "MovedToShelf"
+            Type = ShelvingActionType.MovedToShelf
         };
 
         // Act
@@ -251,7 +241,7 @@ public class ShelvingActionsControllerTests : IDisposable
         {
             Actions = new List<CreateShelvingActionDto>
             {
-                new() { ProductBarcode = "1234567890123", BestBeforeDate = DateTime.UtcNow.AddMonths(6).Date, Quantity = 10, Type = "MovedToShelf" }
+                new() { ProductBarcode = "1234567890123", BestBeforeDate = DateTime.UtcNow.AddMonths(6).Date, Quantity = 10, Type = ShelvingActionType.MovedToShelf }
             }
         };
 
@@ -272,8 +262,8 @@ public class ShelvingActionsControllerTests : IDisposable
         {
             Actions = new List<CreateShelvingActionDto>
             {
-                new() { ProductBarcode = "1234567890123", BestBeforeDate = DateTime.UtcNow.AddMonths(6).Date, Quantity = 5, Type = "MovedToShelf" },
-                new() { ProductBarcode = "nonexistent", BestBeforeDate = DateTime.UtcNow.AddMonths(6), Quantity = 10, Type = "AddedToStorage" }
+                new() { ProductBarcode = "1234567890123", BestBeforeDate = DateTime.UtcNow.AddMonths(6).Date, Quantity = 5, Type = ShelvingActionType.MovedToShelf },
+                new() { ProductBarcode = "nonexistent", BestBeforeDate = DateTime.UtcNow.AddMonths(6), Quantity = 10, Type = ShelvingActionType.AddedToStorage }
             }
         };
 

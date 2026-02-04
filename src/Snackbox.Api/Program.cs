@@ -62,6 +62,9 @@ builder.Services.AddHealthChecks()
 // Register authentication service
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
+// Register balance calculation service
+builder.Services.AddScoped<IBalanceCalculationService, BalanceCalculationService>();
+
 // Register achievement service
 builder.Services.AddScoped<IAchievementService, AchievementService>();
 

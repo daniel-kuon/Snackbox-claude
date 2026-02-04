@@ -1,9 +1,7 @@
-﻿using System.Net.Http.Json;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Snackbox.Api.Dtos;
 using Snackbox.Components.Models;
 using Snackbox.Components.Mappers;
-using Refit;
 using Snackbox.ApiClient;
 using Timer = System.Timers.Timer;
 
@@ -11,7 +9,6 @@ namespace Snackbox.Components.Services;
 
 public class ScannerService : IScannerService
 {
-    private readonly HttpClient _httpClient;
     private readonly IScannerApi _scannerApi;
     private readonly IPurchasesApi _purchasesApi;
     private readonly IPaymentsApi _paymentsApi;
@@ -26,15 +23,12 @@ public class ScannerService : IScannerService
     public bool IsSessionActive => CurrentSession != null;
     public int TimeoutSeconds { get; }
 
-    public ScannerService(HttpClient httpClient, IConfiguration configuration)
+    public ScannerService(IScannerApi scannerApi, IPurchasesApi purchasesApi, IPaymentsApi paymentsApi, IConfiguration configuration)
     {
-        _httpClient = httpClient;
+        _scannerApi = scannerApi;
+        _purchasesApi = purchasesApi;
+        _paymentsApi = paymentsApi;
         TimeoutSeconds = configuration.GetValue("Scanner:TimeoutSeconds", 60);
-
-        // Use Refit clients backed by the same HttpClient instance (auth headers, base URL etc.)
-        _scannerApi = RestService.For<IScannerApi>(_httpClient);
-        _purchasesApi = RestService.For<IPurchasesApi>(_httpClient);
-        _paymentsApi = RestService.For<IPaymentsApi>(_httpClient);
     }
 
     public async Task<ScanResult> ProcessBarcodeAsync(string barcodeCode)

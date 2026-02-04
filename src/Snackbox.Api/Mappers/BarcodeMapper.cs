@@ -10,10 +10,12 @@ public static partial class BarcodeMapper
     /// <summary>
     /// Maps a Barcode entity to a BarcodeDto.
     /// Username is not mapped by Mapperly; must be set manually when User is loaded.
+    /// IsLoginOnly is determined by the concrete type (LoginBarcode vs PurchaseBarcode).
     /// </summary>
     [MapperIgnoreSource(nameof(Barcode.User))]
     [MapperIgnoreSource(nameof(Barcode.Scans))]
     [MapperIgnoreTarget(nameof(BarcodeDto.Username))]
+    [MapperIgnoreTarget(nameof(BarcodeDto.IsLoginOnly))]
     public static partial BarcodeDto ToDto(this Barcode source);
 
     /// <summary>
@@ -22,7 +24,8 @@ public static partial class BarcodeMapper
     public static BarcodeDto ToDtoWithUser(this Barcode source)
     {
         var dto = source.ToDto();
-        dto.Username = source.User.Username;
+        dto.Username = source.User?.Username;
+        dto.IsLoginOnly = source is LoginBarcode;
         return dto;
     }
 
@@ -31,7 +34,12 @@ public static partial class BarcodeMapper
     /// </summary>
     public static List<BarcodeDto> ToDtoList(this IEnumerable<Barcode> source)
     {
-        return source.Select(b => b.ToDto()).ToList();
+        return source.Select(b =>
+        {
+            var dto = b.ToDto();
+            dto.IsLoginOnly = b is LoginBarcode;
+            return dto;
+        }).ToList();
     }
 
     /// <summary>

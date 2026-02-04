@@ -27,15 +27,11 @@ var apiUrl = builder.Configuration["API_HTTPS"] ??
 // Register all Snackbox API clients with authentication
 builder.Services.AddSnackboxApiClientWithAuth<AuthenticationHeaderHandler>(apiUrl);
 
-builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
-                                                                              {
-                                                                                  client.BaseAddress = new Uri(apiUrl);
-                                                                              })
-       .AddHttpMessageHandler<AuthenticationHeaderHandler>();
+// Register authentication service (uses IAuthApi from above)
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
-// Register scanner service with HttpClient for Windows
-builder.Services.AddHttpClient<IScannerService, ScannerService>(client => { client.BaseAddress = new Uri(apiUrl); })
-       .AddHttpMessageHandler<AuthenticationHeaderHandler>();
+// Register scanner service (uses API clients from above)
+builder.Services.AddScoped<IScannerService, ScannerService>();
 
 // Add default HttpClient with BaseAddress and authentication handler
 builder.Services.AddHttpClient("DefaultClient", client => { client.BaseAddress = new Uri(apiUrl); })

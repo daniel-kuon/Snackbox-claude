@@ -1,19 +1,20 @@
-﻿using System.Net.Http.Json;
-using System.Text.Json;
+﻿using System.Text.Json;
+using Refit;
 using Snackbox.Api.Dtos;
+using Snackbox.ApiClient;
 
 namespace Snackbox.Components.Services;
 
 public class AuthenticationService : IAuthenticationService
 {
-    private readonly HttpClient _httpClient;
+    private readonly IAuthApi _authApi;
     private readonly IStorageService _storageService;
     private const string TokenKey = "auth_token";
     private const string UserInfoKey = "user_info";
 
-    public AuthenticationService(HttpClient httpClient, IStorageService storageService)
+    public AuthenticationService(IAuthApi authApi, IStorageService storageService)
     {
-        _httpClient = httpClient;
+        _authApi = authApi;
         _storageService = storageService;
     }
 
@@ -21,34 +22,29 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
-            var request = new { BarcodeValue = barcodeValue };
-            var response = await _httpClient.PostAsJsonAsync("api/auth/login", request);
+            var request = new LoginRequest { BarcodeValue = barcodeValue };
+            var loginResponse = await _authApi.LoginAsync(request);
 
-            if (response.IsSuccessStatusCode)
-            {
-                var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponse>();
-                if (loginResponse != null)
-                {
-                    // Store token and user info securely
-                    await _storageService.SetAsync(TokenKey, loginResponse.Token);
-                    await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
-
-                    return new LoginResult
-                    {
-                        Success = true,
-                        Token = loginResponse.Token,
-                        Username = loginResponse.Username,
-                        Email = loginResponse.Email,
-                        IsAdmin = loginResponse.IsAdmin,
-                        UserId = loginResponse.UserId
-                    };
-                }
-            }
+            // Store token and user info securely
+            await _storageService.SetAsync(TokenKey, loginResponse.Token);
+            await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
 
             return new LoginResult
             {
+                Success = true,
+                Token = loginResponse.Token,
+                Username = loginResponse.Username,
+                Email = loginResponse.Email,
+                IsAdmin = loginResponse.IsAdmin,
+                UserId = loginResponse.UserId
+            };
+        }
+        catch (ApiException apiEx)
+        {
+            return new LoginResult
+            {
                 Success = false,
-                ErrorMessage = "Invalid barcode or authentication failed"
+                ErrorMessage = await TryReadErrorFromApiException(apiEx) ?? "Invalid barcode or authentication failed"
             };
         }
         catch (Exception ex)
@@ -65,34 +61,29 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
-            var request = new { Username = username, Password = password };
-            var response = await _httpClient.PostAsJsonAsync("api/auth/login", request);
+            var request = new LoginRequest { Username = username, Password = password };
+            var loginResponse = await _authApi.LoginAsync(request);
 
-            if (response.IsSuccessStatusCode)
-            {
-                var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponse>();
-                if (loginResponse != null)
-                {
-                    // Store token and user info securely
-                    await _storageService.SetAsync(TokenKey, loginResponse.Token);
-                    await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
-
-                    return new LoginResult
-                    {
-                        Success = true,
-                        Token = loginResponse.Token,
-                        Username = loginResponse.Username,
-                        Email = loginResponse.Email,
-                        IsAdmin = loginResponse.IsAdmin,
-                        UserId = loginResponse.UserId
-                    };
-                }
-            }
+            // Store token and user info securely
+            await _storageService.SetAsync(TokenKey, loginResponse.Token);
+            await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
 
             return new LoginResult
             {
+                Success = true,
+                Token = loginResponse.Token,
+                Username = loginResponse.Username,
+                Email = loginResponse.Email,
+                IsAdmin = loginResponse.IsAdmin,
+                UserId = loginResponse.UserId
+            };
+        }
+        catch (ApiException apiEx)
+        {
+            return new LoginResult
+            {
                 Success = false,
-                ErrorMessage = "Invalid username or password"
+                ErrorMessage = await TryReadErrorFromApiException(apiEx) ?? "Invalid username or password"
             };
         }
         catch (Exception ex)
@@ -109,34 +100,29 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
-            var request = new { BarcodeValue = barcodeValue, Password = password };
-            var response = await _httpClient.PostAsJsonAsync("api/auth/login", request);
+            var request = new LoginRequest { BarcodeValue = barcodeValue, Password = password };
+            var loginResponse = await _authApi.LoginAsync(request);
 
-            if (response.IsSuccessStatusCode)
-            {
-                var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponse>();
-                if (loginResponse != null)
-                {
-                    // Store token and user info securely
-                    await _storageService.SetAsync(TokenKey, loginResponse.Token);
-                    await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
-
-                    return new LoginResult
-                    {
-                        Success = true,
-                        Token = loginResponse.Token,
-                        Username = loginResponse.Username,
-                        Email = loginResponse.Email,
-                        IsAdmin = loginResponse.IsAdmin,
-                        UserId = loginResponse.UserId
-                    };
-                }
-            }
+            // Store token and user info securely
+            await _storageService.SetAsync(TokenKey, loginResponse.Token);
+            await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
 
             return new LoginResult
             {
+                Success = true,
+                Token = loginResponse.Token,
+                Username = loginResponse.Username,
+                Email = loginResponse.Email,
+                IsAdmin = loginResponse.IsAdmin,
+                UserId = loginResponse.UserId
+            };
+        }
+        catch (ApiException apiEx)
+        {
+            return new LoginResult
+            {
                 Success = false,
-                ErrorMessage = "Invalid barcode or password"
+                ErrorMessage = await TryReadErrorFromApiException(apiEx) ?? "Invalid barcode or password"
             };
         }
         catch (Exception ex)
@@ -215,13 +201,12 @@ public class AuthenticationService : IAuthenticationService
                 NewPassword = newPassword
             };
 
-            var response = await _httpClient.PostAsJsonAsync("api/auth/set-password", request);
-            if (response.IsSuccessStatusCode)
-            {
-                return new OperationResult { Success = true };
-            }
-
-            var err = await TryReadErrorAsync(response);
+            await _authApi.SetPasswordAsync(request);
+            return new OperationResult { Success = true };
+        }
+        catch (ApiException apiEx)
+        {
+            var err = await TryReadErrorFromApiException(apiEx);
             return new OperationResult { Success = false, ErrorMessage = err ?? "Failed to set password" };
         }
         catch (Exception ex)
@@ -240,13 +225,12 @@ public class AuthenticationService : IAuthenticationService
                 NewPassword = newPassword
             };
 
-            var response = await _httpClient.PostAsJsonAsync("api/auth/change-password", request);
-            if (response.IsSuccessStatusCode)
-            {
-                return new OperationResult { Success = true };
-            }
-
-            var err = await TryReadErrorAsync(response);
+            await _authApi.ChangePasswordAsync(request);
+            return new OperationResult { Success = true };
+        }
+        catch (ApiException apiEx)
+        {
+            var err = await TryReadErrorFromApiException(apiEx);
             return new OperationResult { Success = false, ErrorMessage = err ?? "Failed to change password" };
         }
         catch (Exception ex)
@@ -255,25 +239,19 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
-    private static async Task<string?> TryReadErrorAsync(HttpResponseMessage response)
+    private static async Task<string?> TryReadErrorFromApiException(ApiException apiException)
     {
         try
         {
-            var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+            if (apiException.Content == null)
+                return null;
+
+            var error = JsonSerializer.Deserialize<ErrorResponse>(apiException.Content);
             return error?.Message;
         }
         catch
         {
             return null;
         }
-    }
-
-    private class LoginResponse
-    {
-        public string Token { get; set; } = string.Empty;
-        public string Username { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public bool IsAdmin { get; set; }
-        public int UserId { get; set; }
     }
 }

@@ -14,25 +14,25 @@ public class EmailController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IEmailService _emailService;
     private readonly ILogger<EmailController> _logger;
+    private readonly IBalanceCalculationService _balanceCalculationService;
 
     public EmailController(
         ApplicationDbContext context, 
         IEmailService emailService,
-        ILogger<EmailController> logger)
+        ILogger<EmailController> logger,
+        IBalanceCalculationService balanceCalculationService)
     {
         _context = context;
         _emailService = emailService;
         _logger = logger;
+        _balanceCalculationService = balanceCalculationService;
     }
 
     [HttpPost("send-payment-reminder/{userId}")]
     public async Task<IActionResult> SendPaymentReminder(int userId)
     {
         var user = await _context.Users
-            .Include(u => u.Payments)
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Withdrawals)
+            .IncludeFinancialData()
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null)
@@ -45,14 +45,11 @@ public class EmailController : ControllerBase
             return BadRequest(new { message = "User does not have an email address" });
         }
 
-        // Calculate balance (positive = user owes money)
-        var totalPaid = user.Payments.Sum(p => p.Amount);
-        var totalSpent = user.Purchases
-            .Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
-        var totalWithdrawn = user.Withdrawals.Sum(w => w.Amount);
-        var balance = totalSpent - totalPaid + totalWithdrawn;
+        // Calculate balance (Payments - Purchases - Withdrawals)
+        // Positive = user has credit, Negative = user owes money, Zero = balanced
+        var balance = _balanceCalculationService.CalculateBalance(user);
 
-        if (balance <= 0)
+        if (balance >= 0)
         {
             return BadRequest(new { message = "User does not have an outstanding balance or has a credit" });
         }
@@ -64,11 +61,13 @@ public class EmailController : ControllerBase
                 .GetRequiredService<Microsoft.Extensions.Options.IOptions<EmailSettings>>()
                 .Value.PayPalLink;
 
-            await _emailService.SendPaymentReminderAsync(user.Email, user.Username, balance, paypalLink);
+            // Balance service returns negative when user owes money (debt)
+            // Email service expects positive amount for outstanding balance display
+            await _emailService.SendPaymentReminderAsync(user.Email, user.Username, -balance, paypalLink);
             
             _logger.LogInformation("Payment reminder sent to user {UserId} ({Email})", userId, user.Email);
             
-            return Ok(new { message = "Payment reminder sent successfully", email = user.Email, balance });
+            return Ok(new { message = "Payment reminder sent successfully", email = user.Email, balance = -balance });
         }
         catch (Exception ex)
         {
@@ -84,10 +83,7 @@ public class EmailController : ControllerBase
 
         // Get all users with their financial data
         var users = await _context.Users
-            .Include(u => u.Payments)
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Withdrawals)
+            .IncludeFinancialData()
             .Where(u => u.Email != null && u.Email != "")
             .ToListAsync();
 

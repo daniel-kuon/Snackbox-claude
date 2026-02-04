@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Snackbox.Api.Controllers;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
@@ -34,10 +36,12 @@ public class ScannerControllerTests : IDisposable
             .AddInMemoryCollection(inMemorySettings!)
             .Build();
 
-        // Create achievement service for controller
+        // Create achievement service, balance service, and logger for controller
         var achievementService = new AchievementService(_context);
+        var balanceCalculationService = new BalanceCalculationService();
+        var logger = new Mock<ILogger<ScannerController>>();
 
-        _controller = new ScannerController(_context, _configuration, achievementService);
+        _controller = new ScannerController(_context, _configuration, achievementService, logger.Object, balanceCalculationService);
 
         // Seed test data
         SeedTestData();
@@ -60,8 +64,6 @@ public class ScannerControllerTests : IDisposable
             UserId = 1,
             Code = "TEST-5EUR",
             Amount = 5.00m,
-            IsActive = true,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -71,8 +73,6 @@ public class ScannerControllerTests : IDisposable
             UserId = 1,
             Code = "TEST-10EUR",
             Amount = 10.00m,
-            IsActive = true,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -81,9 +81,6 @@ public class ScannerControllerTests : IDisposable
             Id = 3,
             UserId = 1,
             Code = "TEST-LOGIN",
-            Amount = 0m,
-            IsActive = true,
-            IsLoginOnly = true,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -144,8 +141,9 @@ public class ScannerControllerTests : IDisposable
         
         // Verify it's the same purchase
         var purchases = await _context.Purchases
-            .Where(p => p.UserId == 1 && p.CompletedAt == null)
+            .Where(p => p.UserId == 1)
             .ToListAsync();
+        // Check if there's only one purchase (the active one)
         Assert.Single(purchases);
     }
 
@@ -160,7 +158,8 @@ public class ScannerControllerTests : IDisposable
         var oldPurchase = new Purchase
         {
             UserId = user!.Id,
-            CreatedAt = DateTime.UtcNow.AddSeconds(-65)
+            CreatedAt = DateTime.UtcNow.AddSeconds(-65),
+            UpdatedAt = DateTime.UtcNow.AddSeconds(-61)
         };
         _context.Purchases.Add(oldPurchase);
         await _context.SaveChangesAsync();
@@ -188,16 +187,11 @@ public class ScannerControllerTests : IDisposable
         Assert.Single(response.ScannedBarcodes); // Only the new scan
         Assert.Equal(10.00m, response.TotalAmount);
 
-        // Verify old purchase was completed
-        var completedPurchase = await _context.Purchases.FindAsync(oldPurchase.Id);
-        Assert.NotNull(completedPurchase!.CompletedAt);
-
-        // Verify new purchase was created
-        var activePurchases = await _context.Purchases
-            .Where(p => p.UserId == 1 && p.CompletedAt == null)
+        // Verify there are now two purchases (old one and new one)
+        var allPurchases = await _context.Purchases
+            .Where(p => p.UserId == 1)
             .ToListAsync();
-        Assert.Single(activePurchases);
-        Assert.NotEqual(oldPurchase.Id, activePurchases[0].Id);
+        Assert.Equal(2, allPurchases.Count);
     }
 
     [Fact]
@@ -227,8 +221,6 @@ public class ScannerControllerTests : IDisposable
             UserId = 1,
             Code = "INACTIVE-CODE",
             Amount = 5.00m,
-            IsActive = false,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
         _context.Barcodes.Add(inactiveBarcode);
@@ -244,7 +236,6 @@ public class ScannerControllerTests : IDisposable
         var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
 
         Assert.True(response.Success);
-        Assert.True(response.IsUserInactive);
         Assert.Equal(1, response.UserId);
         Assert.Equal("testuser", response.Username);
         Assert.Single(response.ScannedBarcodes);
@@ -263,8 +254,8 @@ public class ScannerControllerTests : IDisposable
         var completedPurchase = new Purchase
         {
             UserId = user!.Id,
-            CreatedAt = DateTime.UtcNow.AddDays(-2),
-            CompletedAt = DateTime.UtcNow.AddDays(-2).AddMinutes(5)
+            CreatedAt = DateTime.UtcNow.AddDays(-2).AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow.AddDays(-2)
         };
         _context.Purchases.Add(completedPurchase);
         await _context.SaveChangesAsync();
@@ -296,8 +287,8 @@ public class ScannerControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
 
-        // Balance = TotalSpent - TotalPaid = 15.00 - 50.00 = -35.00 (user has credit)
-        Assert.Equal(-35.00m, response.Balance);
+        // Balance = TotalPaid - TotalSpent = 50.00 - (15.00 past + 5.00 current) = 30.00 (user has credit)
+        Assert.Equal(30.00m, response.Balance);
     }
 
     [Fact]
@@ -357,7 +348,8 @@ public class ScannerControllerTests : IDisposable
         var emptyPurchase = new Purchase
         {
             UserId = user!.Id,
-            CreatedAt = DateTime.UtcNow.AddSeconds(-65)
+            CreatedAt = DateTime.UtcNow.AddSeconds(-65),
+            UpdatedAt = DateTime.UtcNow.AddSeconds(-65)
         };
         _context.Purchases.Add(emptyPurchase);
         await _context.SaveChangesAsync();
