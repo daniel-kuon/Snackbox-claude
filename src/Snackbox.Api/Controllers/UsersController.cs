@@ -17,12 +17,14 @@ public class UsersController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly ILogger<UsersController> _logger;
     private readonly IAuthenticationService _authenticationService;
+    private readonly IBalanceCalculationService _balanceCalculationService;
 
-    public UsersController(ApplicationDbContext context, ILogger<UsersController> logger, IAuthenticationService authenticationService)
+    public UsersController(ApplicationDbContext context, ILogger<UsersController> logger, IAuthenticationService authenticationService, IBalanceCalculationService balanceCalculationService)
     {
         _context = context;
         _logger = logger;
         _authenticationService = authenticationService;
+        _balanceCalculationService = balanceCalculationService;
     }
 
     [HttpGet]
@@ -36,6 +38,7 @@ public class UsersController : ControllerBase
             .Select(u => new
             {
                 User = u,
+                // Note: Inline calculation needed for EF query translation
                 Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - u.Withdrawals.Sum(w => w.Amount)
             });
 
@@ -97,7 +100,7 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
+        var balance = _balanceCalculationService.CalculateBalance(user);
         return Ok(user.ToDtoWithBalance(balance));
     }
 
@@ -268,7 +271,7 @@ public class UsersController : ControllerBase
 
         _logger.LogInformation("User updated: {UserId} - {Username}", user.Id, user.Username);
 
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
+        var balance = _balanceCalculationService.CalculateBalance(user);
         return Ok(user.ToDtoWithBalance(balance));
     }
 
@@ -354,7 +357,7 @@ public class UsersController : ControllerBase
             user.Id, user.Username, user.Barcodes.Count, placeholder.Id);
 
         // Return the retired user and the new placeholder info
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
+        var balance = _balanceCalculationService.CalculateBalance(user);
         return Ok(new
         {
             RetiredUser = user.ToDtoWithBalance(balance),

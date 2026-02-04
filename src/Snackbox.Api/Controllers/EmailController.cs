@@ -14,15 +14,18 @@ public class EmailController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IEmailService _emailService;
     private readonly ILogger<EmailController> _logger;
+    private readonly IBalanceCalculationService _balanceCalculationService;
 
     public EmailController(
         ApplicationDbContext context, 
         IEmailService emailService,
-        ILogger<EmailController> logger)
+        ILogger<EmailController> logger,
+        IBalanceCalculationService balanceCalculationService)
     {
         _context = context;
         _emailService = emailService;
         _logger = logger;
+        _balanceCalculationService = balanceCalculationService;
     }
 
     [HttpPost("send-payment-reminder/{userId}")]
@@ -46,11 +49,7 @@ public class EmailController : ControllerBase
         }
 
         // Calculate balance (positive = user owes money)
-        var totalPaid = user.Payments.Sum(p => p.Amount);
-        var totalSpent = user.Purchases
-            .Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
-        var totalWithdrawn = user.Withdrawals.Sum(w => w.Amount);
-        var balance = totalSpent - totalPaid + totalWithdrawn;
+        var balance = _balanceCalculationService.CalculateBalance(user);
 
         if (balance <= 0)
         {
