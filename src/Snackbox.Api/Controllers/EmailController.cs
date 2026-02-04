@@ -48,10 +48,10 @@ public class EmailController : ControllerBase
             return BadRequest(new { message = "User does not have an email address" });
         }
 
-        // Calculate balance (positive = user owes money)
+        // Calculate balance (negative = user owes money, positive = user has credit)
         var balance = _balanceCalculationService.CalculateBalance(user);
 
-        if (balance <= 0)
+        if (balance >= 0)
         {
             return BadRequest(new { message = "User does not have an outstanding balance or has a credit" });
         }
@@ -63,11 +63,12 @@ public class EmailController : ControllerBase
                 .GetRequiredService<Microsoft.Extensions.Options.IOptions<EmailSettings>>()
                 .Value.PayPalLink;
 
-            await _emailService.SendPaymentReminderAsync(user.Email, user.Username, balance, paypalLink);
+            // Balance is negative when user owes, so negate it for display
+            await _emailService.SendPaymentReminderAsync(user.Email, user.Username, -balance, paypalLink);
             
             _logger.LogInformation("Payment reminder sent to user {UserId} ({Email})", userId, user.Email);
             
-            return Ok(new { message = "Payment reminder sent successfully", email = user.Email, balance });
+            return Ok(new { message = "Payment reminder sent successfully", email = user.Email, balance = -balance });
         }
         catch (Exception ex)
         {
