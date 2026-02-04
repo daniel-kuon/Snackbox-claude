@@ -63,7 +63,8 @@ public class EmailController : ControllerBase
                 .GetRequiredService<Microsoft.Extensions.Options.IOptions<EmailSettings>>()
                 .Value.PayPalLink;
 
-            // Balance is negative when user owes, so negate it for display
+            // Balance service returns negative when user owes money (debt)
+            // Email service expects positive amount for outstanding balance display
             await _emailService.SendPaymentReminderAsync(user.Email, user.Username, -balance, paypalLink);
             
             _logger.LogInformation("Payment reminder sent to user {UserId} ({Email})", userId, user.Email);

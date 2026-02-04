@@ -196,16 +196,14 @@ public class ScannerController : ControllerBase
 
         var balance = _balanceCalculationService.CalculateBalance(payments, purchases, withdrawals);
 
-        // Get last payment
-        var lastPayment = await _context.Payments
-            .Where(p => p.UserId == user.Id)
+        // Get last payment from already loaded collection
+        var lastPayment = payments
             .OrderByDescending(p => p.PaidAt)
-            .FirstOrDefaultAsync();
+            .FirstOrDefault();
 
-        // Get last 3 purchases (excluding the current one)
-        var recentPurchases = await _context.Purchases
-            .Include(p => p.Scans)
-            .Where(p => p.UserId == user.Id && p.Id != currentPurchase.Id)
+        // Get last 3 purchases (excluding the current one) from already loaded collection
+        var recentPurchases = purchases
+            .Where(p => p.Id != currentPurchase.Id)
             .OrderByDescending(p => p.UpdatedAt)
             .Take(3)
             .Select(p => new RecentPurchaseDto
@@ -215,7 +213,7 @@ public class ScannerController : ControllerBase
                 UpdatedAt = p.UpdatedAt,
                 ItemCount = p.Scans.Count
             })
-            .ToListAsync();
+            .ToList();
 
         // Log for debugging
         Console.WriteLine($"User {user.Id} - Found {recentPurchases.Count} recent purchases");
