@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Refit;
 using Snackbox.Api.Data;
+using Snackbox.Api.External;
 using Snackbox.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -84,12 +86,27 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Register product best before date service
 builder.Services.AddScoped<IProductBestBeforeDateService, ProductBestBeforeDateService>();
 
-// Register barcode lookup service
-builder.Services.AddHttpClient<IBarcodeLookupService, BarcodeLookupService>()
-    .ConfigureHttpClient(client =>
+// Register external barcode API via Refit
+builder.Services
+    .AddRefitClient<IExternalBarcodeApi>()
+    .ConfigureHttpClient((sp, client) =>
     {
+        client.BaseAddress = new Uri("https://searchupcdata.com");
         client.Timeout = TimeSpan.FromSeconds(30);
+
+        var cfg = sp.GetRequiredService<IConfiguration>();
+        var apiKey = cfg["SearchUpcData:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(apiKey) && !string.Equals(apiKey, "YOUR_API_KEY_HERE", StringComparison.OrdinalIgnoreCase))
+        {
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+        }
     });
+
+// Register a factory for ad-hoc API-key validation scenarios
+builder.Services.AddSingleton<IExternalBarcodeApiFactory, ExternalBarcodeApiFactory>();
+
+// Register barcode lookup service (consumes Refit client)
+builder.Services.AddScoped<IBarcodeLookupService, BarcodeLookupService>();
 
 // Register backup service
 builder.Services.AddScoped<IBackupService, BackupService>();

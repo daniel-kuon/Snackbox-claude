@@ -11,10 +11,12 @@ namespace Snackbox.Api.Controllers;
 public class BarcodeLookupController : ControllerBase
 {
     private readonly IBarcodeLookupService _barcodeLookupService;
+    private readonly ILogger<BarcodeLookupController>? _logger;
 
-    public BarcodeLookupController(IBarcodeLookupService barcodeLookupService)
+    public BarcodeLookupController(IBarcodeLookupService barcodeLookupService, ILogger<BarcodeLookupController>? logger = null)
     {
         _barcodeLookupService = barcodeLookupService;
+        _logger = logger;
     }
 
     [HttpGet("{barcode}")]
