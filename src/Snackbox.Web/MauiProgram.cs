@@ -59,20 +59,11 @@ public static class MauiProgram
         // Register all Snackbox API clients with authentication
         builder.Services.AddSnackboxApiClientWithAuth<AuthenticationHeaderHandler>(clientBaseAddress);
 
-        builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
-        {
-            client.BaseAddress = new Uri(clientBaseAddress);
-        });
+        // Register authentication service (uses IAuthApi from above)
+        builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
         // For components that still use AddScoped<HttpClient>
         builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient(""));
-
-        builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
-        {
-            // Configure the base address for the API
-            // This should be configurable based on environment
-            client.BaseAddress = new Uri(clientBaseAddress);
-        });
 
         builder.Services.AddHttpClient<IScannerService, ScannerService>(client =>
                                                                         {

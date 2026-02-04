@@ -1,29 +1,27 @@
-﻿using System.Net;
-using System.Net.Http.Json;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Moq;
-using Moq.Protected;
+using Snackbox.Api.Dtos;
+using Snackbox.ApiClient;
 using Snackbox.Components.Models;
 using Snackbox.Components.Services;
 using Xunit;
 
 namespace Snackbox.Components.Tests.Services;
 
-public class ScannerServiceTests : IDisposable
+public class ScannerServiceTests
 {
-    private readonly Mock<HttpMessageHandler> _httpMessageHandlerMock;
-    private readonly HttpClient _httpClient;
+    private readonly Mock<IScannerApi> _scannerApiMock;
+    private readonly Mock<IPurchasesApi> _purchasesApiMock;
+    private readonly Mock<IPaymentsApi> _paymentsApiMock;
     private readonly IConfiguration _configuration;
     private readonly ScannerService _scannerService;
 
     public ScannerServiceTests()
     {
-        // Setup mock HttpMessageHandler
-        _httpMessageHandlerMock = new Mock<HttpMessageHandler>();
-        _httpClient = new HttpClient(_httpMessageHandlerMock.Object)
-        {
-            BaseAddress = new Uri("http://localhost")
-        };
+        // Setup mock Refit clients
+        _scannerApiMock = new Mock<IScannerApi>();
+        _purchasesApiMock = new Mock<IPurchasesApi>();
+        _paymentsApiMock = new Mock<IPaymentsApi>();
 
         // Setup configuration
         var inMemorySettings = new Dictionary<string, string>
@@ -34,35 +32,32 @@ public class ScannerServiceTests : IDisposable
             .AddInMemoryCollection(inMemorySettings!)
             .Build();
 
-        _scannerService = new ScannerService(_httpClient, _configuration);
+        _scannerService = new ScannerService(_scannerApiMock.Object, _purchasesApiMock.Object, _paymentsApiMock.Object, _configuration);
     }
 
     [Fact]
     public async Task ProcessBarcodeAsync_FirstScan_StartsNewSession()
     {
         // Arrange
-        var apiResponse = new
+        var apiResponse = new ScanBarcodeResponse
         {
             Success = true,
             UserId = 1,
             Username = "testuser",
-            PurchaseId = 1,
-            ScannedBarcodes = new[]
+            ScannedBarcodes = new List<ScannedBarcodeDto>
             {
-                new
-                {
-                    BarcodeCode = "TEST-5EUR",
-                    Amount = 5.00m,
-                    ScannedAt = DateTime.UtcNow
-                }
+                new() { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow }
             },
-            TotalAmount = 5.00m,
             Balance = -10.00m,
             LastPaymentAmount = 50.00m,
-            LastPaymentDate = DateTime.UtcNow.AddDays(-5)
+            LastPaymentDate = DateTime.UtcNow.AddDays(-5),
+            RecentPurchases = new List<RecentPurchaseDto>(),
+            NewAchievements = new List<AchievementDto>(),
+            ApplicableDiscounts = new List<AppliedDiscountDto>()
         };
 
-        SetupHttpResponse(HttpStatusCode.OK, apiResponse);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.IsAny<ScanBarcodeRequest>()))
+            .ReturnsAsync(apiResponse);
 
         PurchaseSession? capturedSession = null;
         _scannerService.OnPurchaseStarted += session => capturedSession = session;
@@ -83,44 +78,48 @@ public class ScannerServiceTests : IDisposable
     public async Task ProcessBarcodeAsync_SecondScan_UpdatesExistingSession()
     {
         // Arrange - First scan
-        var firstResponse = new
+        var firstResponse = new ScanBarcodeResponse
         {
             Success = true,
             UserId = 1,
             Username = "testuser",
-            PurchaseId = 1,
-            ScannedBarcodes = new[]
+            ScannedBarcodes = new List<ScannedBarcodeDto>
             {
-                new { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow }
+                new() { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow }
             },
-            TotalAmount = 5.00m,
             Balance = -10.00m,
             LastPaymentAmount = 50.00m,
-            LastPaymentDate = (DateTime?)DateTime.UtcNow.AddDays(-5)
+            LastPaymentDate = DateTime.UtcNow.AddDays(-5),
+            RecentPurchases = new List<RecentPurchaseDto>(),
+            NewAchievements = new List<AchievementDto>(),
+            ApplicableDiscounts = new List<AppliedDiscountDto>()
         };
 
-        SetupHttpResponse(HttpStatusCode.OK, firstResponse);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.Is<ScanBarcodeRequest>(r => r.BarcodeCode == "TEST-5EUR")))
+            .ReturnsAsync(firstResponse);
         await _scannerService.ProcessBarcodeAsync("TEST-5EUR");
 
         // Arrange - Second scan
-        var secondResponse = new
+        var secondResponse = new ScanBarcodeResponse
         {
             Success = true,
             UserId = 1,
             Username = "testuser",
-            PurchaseId = 1,
-            ScannedBarcodes = new[]
+            ScannedBarcodes = new List<ScannedBarcodeDto>
             {
-                new { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow },
-                new { BarcodeCode = "TEST-10EUR", Amount = 10.00m, ScannedAt = DateTime.UtcNow }
+                new() { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow },
+                new() { BarcodeCode = "TEST-10EUR", Amount = 10.00m, ScannedAt = DateTime.UtcNow }
             },
-            TotalAmount = 15.00m,
             Balance = -10.00m,
             LastPaymentAmount = 50.00m,
-            LastPaymentDate = (DateTime?)DateTime.UtcNow.AddDays(-5)
+            LastPaymentDate = DateTime.UtcNow.AddDays(-5),
+            RecentPurchases = new List<RecentPurchaseDto>(),
+            NewAchievements = new List<AchievementDto>(),
+            ApplicableDiscounts = new List<AppliedDiscountDto>()
         };
 
-        SetupHttpResponse(HttpStatusCode.OK, secondResponse);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.Is<ScanBarcodeRequest>(r => r.BarcodeCode == "TEST-10EUR")))
+            .ReturnsAsync(secondResponse);
 
         PurchaseSession? capturedSession = null;
         _scannerService.OnPurchaseUpdated += session => capturedSession = session;
@@ -138,21 +137,22 @@ public class ScannerServiceTests : IDisposable
     public async Task ProcessBarcodeAsync_InvalidBarcode_DoesNotStartSession()
     {
         // Arrange
-        var apiResponse = new
+        var apiResponse = new ScanBarcodeResponse
         {
             Success = false,
-            ErrorMessage = "Barcode not found",
             UserId = 0,
             Username = "",
-            PurchaseId = 0,
-            ScannedBarcodes = Array.Empty<object>(),
-            TotalAmount = 0m,
+            ScannedBarcodes = new List<ScannedBarcodeDto>(),
             Balance = 0m,
             LastPaymentAmount = 0m,
-            LastPaymentDate = (DateTime?)null
+            LastPaymentDate = null,
+            RecentPurchases = new List<RecentPurchaseDto>(),
+            NewAchievements = new List<AchievementDto>(),
+            ApplicableDiscounts = new List<AppliedDiscountDto>()
         };
 
-        SetupHttpResponse(HttpStatusCode.OK, apiResponse);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.IsAny<ScanBarcodeRequest>()))
+            .ReturnsAsync(apiResponse);
 
         // Act
         await _scannerService.ProcessBarcodeAsync("INVALID");
@@ -170,21 +170,14 @@ public class ScannerServiceTests : IDisposable
 
         // Assert
         Assert.False(_scannerService.IsSessionActive);
-
-        // Verify no HTTP call was made
-        _httpMessageHandlerMock.Protected().Verify(
-            "SendAsync",
-            Times.Never(),
-            ItExpr.IsAny<HttpRequestMessage>(),
-            ItExpr.IsAny<CancellationToken>()
-        );
     }
 
     [Fact]
     public async Task ProcessBarcodeAsync_HttpError_DoesNotStartSession()
     {
         // Arrange
-        SetupHttpResponse<object>(HttpStatusCode.InternalServerError, null);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.IsAny<ScanBarcodeRequest>()))
+            .ThrowsAsync(new HttpRequestException("Internal server error"));
 
         // Act
         await _scannerService.ProcessBarcodeAsync("TEST-5EUR");
@@ -197,20 +190,25 @@ public class ScannerServiceTests : IDisposable
     public async Task ResetSession_ClearsCurrentSession()
     {
         // Arrange
-        var apiResponse = new
+        var apiResponse = new ScanBarcodeResponse
         {
             Success = true,
             UserId = 1,
             Username = "testuser",
-            PurchaseId = 1,
-            ScannedBarcodes = new[] { new { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow } },
-            TotalAmount = 5.00m,
+            ScannedBarcodes = new List<ScannedBarcodeDto>
+            {
+                new() { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow }
+            },
             Balance = -10.00m,
             LastPaymentAmount = 50.00m,
-            LastPaymentDate = (DateTime?)DateTime.UtcNow.AddDays(-5)
+            LastPaymentDate = DateTime.UtcNow.AddDays(-5),
+            RecentPurchases = new List<RecentPurchaseDto>(),
+            NewAchievements = new List<AchievementDto>(),
+            ApplicableDiscounts = new List<AppliedDiscountDto>()
         };
 
-        SetupHttpResponse(HttpStatusCode.OK, apiResponse);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.IsAny<ScanBarcodeRequest>()))
+            .ReturnsAsync(apiResponse);
         await _scannerService.ProcessBarcodeAsync("TEST-5EUR");
 
         bool timeoutFired = false;
@@ -229,20 +227,25 @@ public class ScannerServiceTests : IDisposable
     public async Task CompletePurchaseAsync_ClearsSessionAndFiresEvent()
     {
         // Arrange
-        var apiResponse = new
+        var apiResponse = new ScanBarcodeResponse
         {
             Success = true,
             UserId = 1,
             Username = "testuser",
-            PurchaseId = 1,
-            ScannedBarcodes = new[] { new { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow } },
-            TotalAmount = 5.00m,
+            ScannedBarcodes = new List<ScannedBarcodeDto>
+            {
+                new() { BarcodeCode = "TEST-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow }
+            },
             Balance = -10.00m,
             LastPaymentAmount = 50.00m,
-            LastPaymentDate = (DateTime?)DateTime.UtcNow.AddDays(-5)
+            LastPaymentDate = DateTime.UtcNow.AddDays(-5),
+            RecentPurchases = new List<RecentPurchaseDto>(),
+            NewAchievements = new List<AchievementDto>(),
+            ApplicableDiscounts = new List<AppliedDiscountDto>()
         };
 
-        SetupHttpResponse(HttpStatusCode.OK, apiResponse);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.IsAny<ScanBarcodeRequest>()))
+            .ReturnsAsync(apiResponse);
         await _scannerService.ProcessBarcodeAsync("TEST-5EUR");
 
         bool completedFired = false;
@@ -267,37 +270,47 @@ public class ScannerServiceTests : IDisposable
     public async Task ProcessBarcodeAsync_DifferentUser_StartsNewSession()
     {
         // Arrange - First user scan
-        var firstUserResponse = new
+        var firstUserResponse = new ScanBarcodeResponse
         {
             Success = true,
             UserId = 1,
             Username = "user1",
-            PurchaseId = 1,
-            ScannedBarcodes = new[] { new { BarcodeCode = "USER1-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow } },
-            TotalAmount = 5.00m,
+            ScannedBarcodes = new List<ScannedBarcodeDto>
+            {
+                new() { BarcodeCode = "USER1-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow }
+            },
             Balance = 0m,
             LastPaymentAmount = 0m,
-            LastPaymentDate = (DateTime?)null
+            LastPaymentDate = null,
+            RecentPurchases = new List<RecentPurchaseDto>(),
+            NewAchievements = new List<AchievementDto>(),
+            ApplicableDiscounts = new List<AppliedDiscountDto>()
         };
 
-        SetupHttpResponse(HttpStatusCode.OK, firstUserResponse);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.Is<ScanBarcodeRequest>(r => r.BarcodeCode == "USER1-5EUR")))
+            .ReturnsAsync(firstUserResponse);
         await _scannerService.ProcessBarcodeAsync("USER1-5EUR");
 
         // Arrange - Second user scan
-        var secondUserResponse = new
+        var secondUserResponse = new ScanBarcodeResponse
         {
             Success = true,
             UserId = 2,
             Username = "user2",
-            PurchaseId = 2,
-            ScannedBarcodes = new[] { new { BarcodeCode = "USER2-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow } },
-            TotalAmount = 5.00m,
+            ScannedBarcodes = new List<ScannedBarcodeDto>
+            {
+                new() { BarcodeCode = "USER2-5EUR", Amount = 5.00m, ScannedAt = DateTime.UtcNow }
+            },
             Balance = 0m,
             LastPaymentAmount = 0m,
-            LastPaymentDate = (DateTime?)null
+            LastPaymentDate = null,
+            RecentPurchases = new List<RecentPurchaseDto>(),
+            NewAchievements = new List<AchievementDto>(),
+            ApplicableDiscounts = new List<AppliedDiscountDto>()
         };
 
-        SetupHttpResponse(HttpStatusCode.OK, secondUserResponse);
+        _scannerApiMock.Setup(x => x.ScanBarcodeAsync(It.Is<ScanBarcodeRequest>(r => r.BarcodeCode == "USER2-5EUR")))
+            .ReturnsAsync(secondUserResponse);
 
         PurchaseSession? newSession = null;
         _scannerService.OnPurchaseStarted += session => newSession = session;
@@ -311,27 +324,4 @@ public class ScannerServiceTests : IDisposable
         Assert.Equal("2", newSession.UserId);
     }
 
-    private void SetupHttpResponse<T>(HttpStatusCode statusCode, T? content)
-    {
-        var response = new HttpResponseMessage(statusCode);
-
-        if (content != null)
-        {
-            response.Content = JsonContent.Create(content);
-        }
-
-        _httpMessageHandlerMock
-            .Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
-                ItExpr.IsAny<CancellationToken>()
-            )
-            .ReturnsAsync(response);
-    }
-
-    public void Dispose()
-    {
-        _httpClient.Dispose();
-    }
 }
