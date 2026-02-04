@@ -66,7 +66,7 @@ public class PurchaseMapperTests
             Id = 1,
             UserId = 10,
             CreatedAt = new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc),
-            CompletedAt = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
             User = user,
             Scans = new List<BarcodeScan>
             {
@@ -84,7 +84,6 @@ public class PurchaseMapperTests
         Assert.Equal("testuser", dto.Username);
         Assert.Equal(8.50m, dto.TotalAmount); // 5.00 + 3.50
         Assert.Equal(new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc), dto.CreatedAt);
-        Assert.Equal(new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc), dto.CompletedAt);
         Assert.Equal(2, dto.Items.Count);
     }
 

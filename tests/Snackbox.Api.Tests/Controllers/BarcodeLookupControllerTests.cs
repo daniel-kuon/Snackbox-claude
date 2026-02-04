@@ -22,7 +22,7 @@ public class BarcodeLookupControllerTests
     {
         _mockService = new Mock<IBarcodeLookupService>();
         _mockLogger = new Mock<ILogger<BarcodeLookupController>>();
-        _controller = new BarcodeLookupController(_mockService.Object, _mockLogger.Object);
+        _controller = new BarcodeLookupController(_mockService.Object);
     }
 
     [Fact]

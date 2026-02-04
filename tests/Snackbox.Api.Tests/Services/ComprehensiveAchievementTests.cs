@@ -695,13 +695,13 @@ public class ComprehensiveAchievementTests : IDisposable
     [Fact]
     public async Task IncompletePurchase_DoesNotCheckTimeBasedAchievements()
     {
-        // Arrange: Purchase with CompletedAt = default (incomplete)
+        // Arrange - Create a purchase
         var purchase = new Purchase
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = default, // Not completed
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 5.00m, ScannedAt = DateTime.UtcNow }
@@ -713,8 +713,8 @@ public class ComprehensiveAchievementTests : IDisposable
         // Act
         var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
 
-        // Assert: Should not award any time-based achievements (streaks, daily, comeback)
-        Assert.Empty(achievements);
+        // Assert: Should award single purchase achievements but not time-based ones
+        Assert.Contains(achievements, a => a.Code.StartsWith("BIG_SPENDER"));
         Assert.DoesNotContain(achievements, a => a.Code.StartsWith("STREAK"));
         Assert.DoesNotContain(achievements, a => a.Code.StartsWith("DAILY_BUYER"));
         Assert.DoesNotContain(achievements, a => a.Code.StartsWith("COMEBACK"));
@@ -726,12 +726,14 @@ public class ComprehensiveAchievementTests : IDisposable
 
     private Purchase CreatePurchase(int id, decimal amount, DateTime? completedAt = null)
     {
+        var completed = completedAt ?? DateTime.UtcNow;
+        var created = completed.AddMinutes(-5);
         return new Purchase
         {
             Id = id,
             UserId = 1,
-            CreatedAt = completedAt ?? DateTime.UtcNow,
-            CompletedAt = completedAt ?? DateTime.UtcNow,
+            CreatedAt = created,
+            UpdatedAt = completed,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan 
@@ -740,7 +742,7 @@ public class ComprehensiveAchievementTests : IDisposable
                     PurchaseId = id, 
                     BarcodeId = 1, 
                     Amount = amount, 
-                    ScannedAt = completedAt ?? DateTime.UtcNow 
+                    ScannedAt = completed 
                 }
             }
         };

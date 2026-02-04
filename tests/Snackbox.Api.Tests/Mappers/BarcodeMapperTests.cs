@@ -17,7 +17,6 @@ public class BarcodeMapperTests
             UserId = 10,
             Code = "BC123456",
             Amount = 5.50m,
-            IsLoginOnly = false,
             CreatedAt = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc)
         };
 
@@ -29,7 +28,7 @@ public class BarcodeMapperTests
         Assert.Equal(10, dto.UserId);
         Assert.Equal("BC123456", dto.Code);
         Assert.Equal(5.50m, dto.Amount);
-        Assert.False(dto.IsLoginOnly);
+        Assert.False(dto.IsLoginOnly); // PurchaseBarcode is not login-only
         Assert.Equal(new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc), dto.CreatedAt);
         Assert.Null(dto.Username); // Not mapped by ToDto
     }
@@ -45,7 +44,6 @@ public class BarcodeMapperTests
             UserId = 10,
             Code = "BC123456",
             Amount = 5.50m,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow,
             User = user
         };

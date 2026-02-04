@@ -59,8 +59,8 @@ public class AchievementServiceTests : IDisposable
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 3.00m, ScannedAt = DateTime.UtcNow }
@@ -90,8 +90,8 @@ public class AchievementServiceTests : IDisposable
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 4.00m, ScannedAt = DateTime.UtcNow }
@@ -128,8 +128,8 @@ public class AchievementServiceTests : IDisposable
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 2.50m, ScannedAt = DateTime.UtcNow }
@@ -159,8 +159,8 @@ public class AchievementServiceTests : IDisposable
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 6.00m, ScannedAt = DateTime.UtcNow }
@@ -189,8 +189,8 @@ public class AchievementServiceTests : IDisposable
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow.AddDays(-5),
-            CompletedAt = DateTime.UtcNow.AddDays(-5),
+            CreatedAt = DateTime.UtcNow.AddDays(-5).AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow.AddDays(-5),
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 95.00m, ScannedAt = DateTime.UtcNow.AddDays(-5) }
@@ -203,8 +203,8 @@ public class AchievementServiceTests : IDisposable
         {
             Id = 2,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 2, PurchaseId = 2, BarcodeId = 1, Amount = 10.00m, ScannedAt = DateTime.UtcNow }
@@ -228,8 +228,8 @@ public class AchievementServiceTests : IDisposable
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 20.00m, ScannedAt = DateTime.UtcNow }
@@ -248,13 +248,13 @@ public class AchievementServiceTests : IDisposable
     [Fact]
     public async Task CheckImmediateAchievements_IncompletePurchase_AwardsAchievements()
     {
-        // Arrange - Create a purchase that is NOT completed (CompletedAt is default)
+        // Arrange - Create a purchase
         var purchase = new Purchase
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = default, // Not completed!
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 3.00m, ScannedAt = DateTime.UtcNow }
@@ -266,7 +266,7 @@ public class AchievementServiceTests : IDisposable
         // Act
         var achievements = await _service.CheckImmediateAchievementsAsync(1, 1);
 
-        // Assert - should award BIG_SPENDER_2 and BIG_SPENDER_3 even though purchase is not completed
+        // Assert - should award BIG_SPENDER_2 and BIG_SPENDER_3
         Assert.Equal(2, achievements.Count);
         Assert.Contains(achievements, a => a.Code == "BIG_SPENDER_2");
         Assert.Contains(achievements, a => a.Code == "BIG_SPENDER_3");
@@ -280,8 +280,8 @@ public class AchievementServiceTests : IDisposable
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = default,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 2.00m, ScannedAt = DateTime.UtcNow },
@@ -309,13 +309,13 @@ public class AchievementServiceTests : IDisposable
             new Achievement { Id = 10, Code = "IN_DEBT_20", Name = "Credit Curious", Description = "€20+ unpaid", Category = AchievementCategory.HighDebt }
         );
         
-        // Add purchases totaling €20 with no payments (incomplete)
+        // Add purchases totaling €20 with no payments
         var purchase = new Purchase
         {
             Id = 1,
             UserId = 1,
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = default,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 20.00m, ScannedAt = DateTime.UtcNow }
