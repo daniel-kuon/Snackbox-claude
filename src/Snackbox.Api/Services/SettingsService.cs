@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Text.Json;
 using Snackbox.Api.Dtos;
+using Snackbox.Api.External;
 
 namespace Snackbox.Api.Services;
 
@@ -10,12 +11,14 @@ public class SettingsService : ISettingsService
     private readonly IConfiguration _configuration;
     private readonly ILogger<SettingsService> _logger;
     private readonly string _secretsFilePath;
+    private readonly IExternalBarcodeApiFactory _barcodeApiFactory;
 
-    public SettingsService(IConfiguration configuration, ILogger<SettingsService> logger, IWebHostEnvironment environment)
+    public SettingsService(IConfiguration configuration, ILogger<SettingsService> logger, IWebHostEnvironment environment, IExternalBarcodeApiFactory barcodeApiFactory)
     {
         _configuration = configuration;
         _logger = logger;
         _secretsFilePath = Path.Combine(environment.ContentRootPath, "appsettings.secrets.json");
+        _barcodeApiFactory = barcodeApiFactory;
     }
 
     public ApplicationSettingsDto GetSettings()
@@ -189,28 +192,27 @@ public class SettingsService : ISettingsService
                 return new TestResultDto { Success = false, Message = "Valid API key is required" };
             }
 
-            using var httpClient = new HttpClient();
+            var api = _barcodeApiFactory.Create(settings.ApiKey);
             var testBarcode = "049000050103"; // Coca-Cola test barcode
-            var url = $"https://searchupcdata.com/api/products/{testBarcode}";
 
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("Authorization", $"Bearer {settings.ApiKey}");
-
-            var response = await httpClient.SendAsync(request);
-
-            if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+            try
+            {
+                var result = await api.GetProductAsync(testBarcode);
+                if (result != null)
+                {
+                    _logger.LogInformation("Barcode lookup test successful");
+                    return new TestResultDto { Success = true, Message = "API key is valid and working!" };
+                }
+                return new TestResultDto { Success = false, Message = "No product returned by API (but request succeeded)." };
+            }
+            catch (Refit.ApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized || ex.StatusCode == HttpStatusCode.Forbidden)
             {
                 return new TestResultDto { Success = false, Message = "Invalid API key" };
             }
-
-            if (response.IsSuccessStatusCode)
+            catch (Refit.ApiException ex)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Barcode lookup test successful");
-                return new TestResultDto { Success = true, Message = "API key is valid and working!" };
+                return new TestResultDto { Success = false, Message = $"API returned status: {ex.StatusCode}" };
             }
-
-            return new TestResultDto { Success = false, Message = $"API returned status: {response.StatusCode}" };
         }
         catch (Exception ex)
         {

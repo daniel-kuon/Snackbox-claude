@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Moq.Protected;
 using Snackbox.Api.Controllers;
 using Snackbox.Api.Dtos;
+using Snackbox.Api.External;
 using Snackbox.Api.Services;
 using System.Net;
 using System.Text.Json;
@@ -105,31 +104,17 @@ public class BarcodeLookupControllerTests
     }
 }
 
-public class BarcodeLookupServiceTests : IDisposable
+public class BarcodeLookupServiceTests
 {
-    private readonly Mock<HttpMessageHandler> _mockHttpHandler;
-    private readonly HttpClient _httpClient;
-    private readonly Mock<IConfiguration> _mockConfiguration;
     private readonly Mock<ILogger<BarcodeLookupService>> _mockLogger;
     private readonly BarcodeLookupService _service;
+    private readonly FakeExternalApi _fakeApi;
 
     public BarcodeLookupServiceTests()
     {
-        _mockHttpHandler = new Mock<HttpMessageHandler>();
-        _httpClient = new HttpClient(_mockHttpHandler.Object);
-        _mockConfiguration = new Mock<IConfiguration>();
         _mockLogger = new Mock<ILogger<BarcodeLookupService>>();
-
-        // Setup configuration to return a test API key
-        _mockConfiguration.Setup(c => c["BarcodeLookup:ApiKey"])
-            .Returns("test-api-key");
-
-        _service = new BarcodeLookupService(_httpClient, _mockConfiguration.Object, _mockLogger.Object);
-    }
-
-    public void Dispose()
-    {
-        _httpClient?.Dispose();
+        _fakeApi = new FakeExternalApi();
+        _service = new BarcodeLookupService(_fakeApi, _mockLogger.Object);
     }
 
     [Fact]
@@ -137,34 +122,14 @@ public class BarcodeLookupServiceTests : IDisposable
     {
         // Arrange
         var barcode = "1234567890123";
-        var apiResponse = new
+        _fakeApi.Response = new SearchUpcDataApiResponse
         {
-            products = new[]
-            {
-                new
-                {
-                    barcode_number = barcode,
-                    title = "Test Product",
-                    manufacturer = "Test Manufacturer",
-                    brand = "Test Brand",
-                    description = "Test Description",
-                    category = "Test Category"
-                }
-            }
+            Upc = barcode,
+            Name = "Test Product",
+            Brand = "Test Brand",
+            Description = "Test Description",
+            Category = "Test Category"
         };
-
-        var responseContent = JsonSerializer.Serialize(apiResponse);
-        var httpResponse = new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(responseContent, System.Text.Encoding.UTF8, "application/json")
-        };
-
-        _mockHttpHandler.Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
-                ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync(httpResponse);
 
         // Act
         var result = await _service.LookupBarcodeAsync(barcode);
@@ -173,7 +138,6 @@ public class BarcodeLookupServiceTests : IDisposable
         Assert.True(result.Success);
         Assert.NotNull(result.Product);
         Assert.Equal("Test Product", result.Product.Title);
-        Assert.Equal("Test Manufacturer", result.Product.Manufacturer);
         Assert.Equal("Test Brand", result.Product.Brand);
         Assert.Equal(barcode, result.Product.Barcode);
     }
@@ -183,23 +147,7 @@ public class BarcodeLookupServiceTests : IDisposable
     {
         // Arrange
         var barcode = "9999999999999";
-        var apiResponse = new
-        {
-            products = Array.Empty<object>()
-        };
-
-        var responseContent = JsonSerializer.Serialize(apiResponse);
-        var httpResponse = new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(responseContent, System.Text.Encoding.UTF8, "application/json")
-        };
-
-        _mockHttpHandler.Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
-                ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync(httpResponse);
+        _fakeApi.Response = null; // Simulate not found
 
         // Act
         var result = await _service.LookupBarcodeAsync(barcode);
@@ -225,28 +173,19 @@ public class BarcodeLookupServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task LookupBarcodeAsync_WithHttpError_ReturnsFailure()
+    public async Task LookupBarcodeAsync_WithGenericError_ReturnsFailure()
     {
         // Arrange
         var barcode = "1234567890123";
-        var httpResponse = new HttpResponseMessage(HttpStatusCode.BadRequest)
-        {
-            Content = new StringContent("Bad Request")
-        };
-
-        _mockHttpHandler.Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
-                ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync(httpResponse);
+        _fakeApi.Throw = new Exception("Boom");
 
         // Act
         var result = await _service.LookupBarcodeAsync(barcode);
 
         // Assert
         Assert.False(result.Success);
-        Assert.Equal("Invalid barcode format.", result.ErrorMessage);
+        Assert.False(result.Success);
+        Assert.Equal("An unexpected error occurred", result.ErrorMessage);
     }
 
     [Fact]
@@ -254,13 +193,7 @@ public class BarcodeLookupServiceTests : IDisposable
     {
         // Arrange
         var barcode = "1234567890123";
-
-        _mockHttpHandler.Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
-                ItExpr.IsAny<CancellationToken>())
-            .ThrowsAsync(new HttpRequestException("Network error"));
+        _fakeApi.Throw = new HttpRequestException("Network error");
 
         // Act
         var result = await _service.LookupBarcodeAsync(barcode);
@@ -268,5 +201,17 @@ public class BarcodeLookupServiceTests : IDisposable
         // Assert
         Assert.False(result.Success);
         Assert.Equal("Network error occurred while looking up barcode", result.ErrorMessage);
+    }
+
+    private class FakeExternalApi : IExternalBarcodeApi
+    {
+        public SearchUpcDataApiResponse? Response { get; set; }
+        public Exception? Throw { get; set; }
+
+        public Task<SearchUpcDataApiResponse?> GetProductAsync(string barcode)
+        {
+            if (Throw != null) throw Throw;
+            return Task.FromResult<SearchUpcDataApiResponse?>(Response);
+        }
     }
 }

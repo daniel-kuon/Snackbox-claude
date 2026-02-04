@@ -1,26 +1,20 @@
 using System.Net;
 using System.Text.Json;
+using Refit;
 using Snackbox.Api.Dtos;
+using Snackbox.Api.External;
 
 namespace Snackbox.Api.Services;
 
 public class BarcodeLookupService : IBarcodeLookupService
 {
-    private readonly HttpClient _httpClient;
+    private readonly IExternalBarcodeApi _externalApi;
     private readonly ILogger<BarcodeLookupService> _logger;
-    private readonly string _apiKey;
 
-    public BarcodeLookupService(HttpClient httpClient, IConfiguration configuration, ILogger<BarcodeLookupService> logger)
+    public BarcodeLookupService(IExternalBarcodeApi externalApi, ILogger<BarcodeLookupService> logger)
     {
-        _httpClient = httpClient;
+        _externalApi = externalApi;
         _logger = logger;
-        
-        var apiKey = configuration["SearchUpcData:ApiKey"];
-        if (string.IsNullOrWhiteSpace(apiKey) || string.Equals(apiKey, "YOUR_API_KEY_HERE", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("SearchUpcData API key is not configured or is invalid. Please set a valid API key.");
-        }
-        _apiKey = apiKey;
     }
 
     public async Task<BarcodeLookupResponseDto> LookupBarcodeAsync(string barcode)
@@ -36,50 +30,21 @@ public class BarcodeLookupService : IBarcodeLookupService
 
         try
         {
-            var url = $"https://searchupcdata.com/api/products/{Uri.EscapeDataString(barcode)}";
-            
             _logger.LogInformation("Looking up barcode: {Barcode}", barcode);
-            
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("Authorization", $"Bearer {_apiKey}");
-            
-            var response = await _httpClient.SendAsync(request);
-            
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("Barcode lookup failed with status {StatusCode}: {Error}", response.StatusCode, errorContent);
-                
-                var errorMessage = response.StatusCode switch
-                {
-                    HttpStatusCode.Unauthorized => "Invalid API key. Please check your configuration.",
-                    HttpStatusCode.Forbidden => "Your API key has been deactivated. Contact support for assistance.",
-                    HttpStatusCode.NotFound => "Product not found for this barcode.",
-                    (HttpStatusCode)429 => "Monthly quota exceeded. Upgrade your plan or wait for next month's reset.",
-                    HttpStatusCode.InternalServerError => "An unexpected error occurred. Please try again later.",
-                    _ => $"API request failed with status {response.StatusCode}"
-                };
-                
-                return new BarcodeLookupResponseDto
-                {
-                    Success = false,
-                    ErrorMessage = errorMessage
-                };
-            }
 
-            var apiResponse = await response.Content.ReadFromJsonAsync<SearchUpcDataApiResponse>();
-            
+            var apiResponse = await _externalApi.GetProductAsync(barcode);
+
             if (apiResponse == null)
             {
                 _logger.LogInformation("No product found for barcode: {Barcode}", barcode);
-                
+
                 return new BarcodeLookupResponseDto
                 {
                     Success = false,
                     ErrorMessage = "No product found for this barcode"
                 };
             }
-            
+
             return new BarcodeLookupResponseDto
             {
                 Success = true,
@@ -92,6 +57,27 @@ public class BarcodeLookupService : IBarcodeLookupService
                     Category = apiResponse.Category,
                     Barcode = apiResponse.Upc ?? barcode
                 }
+            };
+        }
+        catch (ApiException apiEx)
+        {
+            var statusCode = (HttpStatusCode)apiEx.StatusCode;
+            _logger.LogWarning(apiEx, "Barcode lookup failed with status {StatusCode}", statusCode);
+
+            var errorMessage = statusCode switch
+            {
+                HttpStatusCode.Unauthorized => "Invalid API key. Please check your configuration.",
+                HttpStatusCode.Forbidden => "Your API key has been deactivated. Contact support for assistance.",
+                HttpStatusCode.NotFound => "Product not found for this barcode.",
+                (HttpStatusCode)429 => "Monthly quota exceeded. Upgrade your plan or wait for next month's reset.",
+                HttpStatusCode.InternalServerError => "An unexpected error occurred. Please try again later.",
+                _ => $"API request failed with status {statusCode}"
+            };
+
+            return new BarcodeLookupResponseDto
+            {
+                Success = false,
+                ErrorMessage = errorMessage
             };
         }
         catch (JsonException ex)
