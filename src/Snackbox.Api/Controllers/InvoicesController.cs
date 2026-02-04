@@ -460,7 +460,7 @@ public class InvoicesController : ControllerBase
             try
             {
                 var product = await _context.Products
-                    .Include(p => p.Barcodes)
+                    .IncludeBarcodes()
                     .FirstOrDefaultAsync(p => p.Id == itemDto.MatchedProductId.Value);
 
                 if (product != null && !product.Barcodes.Any(b => b.Barcode == itemDto.ArticleNumber))
@@ -656,8 +656,7 @@ public class InvoicesController : ControllerBase
 
         // Create shelving action
         var product = await _context.Products
-            .Include(p => p.Batches)
-            .ThenInclude(b => b.ShelvingActions)
+            .IncludeBatchesWithShelvingActions()
             .FirstOrDefaultAsync(p => p.Id == productId);
 
         if (product == null)

@@ -110,9 +110,8 @@ public class ShelvingActionsController : ControllerBase
                 if (action.ProductId.HasValue)
                 {
                     product = await _context.Products
-                        .Include(p => p.Batches)
-                        .ThenInclude(b => b.ShelvingActions)
-                        .Include(p => p.Barcodes)
+                        .IncludeBatchesWithShelvingActions()
+                        .IncludeBarcodes()
                         .FirstOrDefaultAsync(p => p.Id == action.ProductId.Value);
 
                     if (product == null)
@@ -297,9 +296,8 @@ public class ShelvingActionsController : ControllerBase
         if (dto.ProductId.HasValue)
         {
             product = await _context.Products
-                .Include(p => p.Batches)
-                .ThenInclude(b => b.ShelvingActions)
-                .Include(p => p.Barcodes)
+                .IncludeBatchesWithShelvingActions()
+                .IncludeBarcodes()
                 .FirstOrDefaultAsync(p => p.Id == dto.ProductId.Value);
 
             if (product == null)

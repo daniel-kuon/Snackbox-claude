@@ -31,10 +31,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<IEnumerable<UserDto>>> GetAll([FromQuery] bool includeRetired = false)
     {
         var usersQuery = _context.Users
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Payments)
-            .Include(u => u.Withdrawals)
+            .IncludeFinancialData()
             .Select(u => new
             {
                 User = u,
@@ -89,10 +86,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> GetById(int id)
     {
         var user = await _context.Users
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Payments)
-            .Include(u => u.Withdrawals)
+            .IncludeFinancialData()
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
@@ -244,10 +238,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> Update(int id, [FromBody] UpdateUserDto dto)
     {
         var user = await _context.Users
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Payments)
-            .Include(u => u.Withdrawals)
+            .IncludeFinancialData()
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
@@ -280,8 +271,7 @@ public class UsersController : ControllerBase
     {
         var user = await _context.Users
             .Include(u => u.Barcodes)
-            .Include(u => u.Purchases)
-            .Include(u => u.Payments)
+            .IncludeFinancialData()
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
@@ -311,10 +301,7 @@ public class UsersController : ControllerBase
     {
         var user = await _context.Users
             .Include(u => u.Barcodes)
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Payments)
-            .Include(u => u.Withdrawals)
+            .IncludeFinancialData()
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)

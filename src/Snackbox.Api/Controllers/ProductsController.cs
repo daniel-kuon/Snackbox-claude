@@ -29,9 +29,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
     {
         var products = await _context.Products
-            .Include(p => p.Barcodes)
-            .Include(p => p.Batches)
-            .ThenInclude(b => b.ShelvingActions)
+            .IncludeRelatedDataWithShelvingActions()
             .ToListAsync();
 
         return Ok(products.ToDtoList(_stockCalculation));
@@ -41,9 +39,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<ProductDto>> GetById(int id)
     {
         var product = await _context.Products
-            .Include(p => p.Barcodes)
-            .Include(p => p.Batches)
-            .ThenInclude(b => b.ShelvingActions)
+            .IncludeRelatedDataWithShelvingActions()
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null)
@@ -75,9 +71,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<ProductDto>> Update(int id, [FromBody] UpdateProductDto dto)
     {
         var product = await _context.Products
-            .Include(p => p.Barcodes)
-            .Include(p => p.Batches)
-            .ThenInclude(b => b.ShelvingActions)
+            .IncludeRelatedDataWithShelvingActions()
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null)
@@ -98,7 +92,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult> Delete(int id)
     {
         var product = await _context.Products
-            .Include(p => p.Batches)
+            .IncludeBatches()
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null)
@@ -142,9 +136,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<ProductStockDto>> GetProductStock(int id)
     {
         var product = await _context.Products
-            .Include(p => p.Barcodes)
-            .Include(p => p.Batches)
-            .ThenInclude(b => b.ShelvingActions)
+            .IncludeRelatedDataWithShelvingActions()
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null)
@@ -178,9 +170,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<IEnumerable<ProductStockDto>>> GetAllProductStock()
     {
         var products = await _context.Products
-            .Include(p => p.Barcodes)
-            .Include(p => p.Batches)
-            .ThenInclude(b => b.ShelvingActions)
+            .IncludeRelatedDataWithShelvingActions()
             .ToListAsync();
 
         var result = products.Select(product =>

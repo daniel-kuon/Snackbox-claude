@@ -32,10 +32,7 @@ public class EmailController : ControllerBase
     public async Task<IActionResult> SendPaymentReminder(int userId)
     {
         var user = await _context.Users
-            .Include(u => u.Payments)
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Withdrawals)
+            .IncludeFinancialData()
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null)
@@ -85,10 +82,7 @@ public class EmailController : ControllerBase
 
         // Get all users with their financial data
         var users = await _context.Users
-            .Include(u => u.Payments)
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Withdrawals)
+            .IncludeFinancialData()
             .Where(u => u.Email != null && u.Email != "")
             .ToListAsync();
 
