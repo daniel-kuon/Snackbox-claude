@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
+using System.Diagnostics;
 using Snackbox.Api.Dtos;
 using Snackbox.Components.Models;
 using Snackbox.Components.Mappers;
@@ -15,6 +16,7 @@ public class ScannerService : IScannerService
     private readonly IScannerApi _scannerApi;
     private readonly IPurchasesApi _purchasesApi;
     private readonly IPaymentsApi _paymentsApi;
+    private readonly IUiTelemetry _uiTelemetry;
     private Timer? _timeoutTimer;
 
     public event Action<PurchaseSession>? OnPurchaseStarted;
@@ -26,9 +28,10 @@ public class ScannerService : IScannerService
     public bool IsSessionActive => CurrentSession != null;
     public int TimeoutSeconds { get; }
 
-    public ScannerService(HttpClient httpClient, IConfiguration configuration)
+    public ScannerService(HttpClient httpClient, IConfiguration configuration, IUiTelemetry uiTelemetry)
     {
         _httpClient = httpClient;
+        _uiTelemetry = uiTelemetry;
         TimeoutSeconds = configuration.GetValue("Scanner:TimeoutSeconds", 60);
 
         // Use Refit clients backed by the same HttpClient instance (auth headers, base URL etc.)
@@ -39,8 +42,17 @@ public class ScannerService : IScannerService
 
     public async Task<ScanResult> ProcessBarcodeAsync(string barcodeCode)
     {
+        var activity = await _uiTelemetry.StartUiActionAsync(
+            "scan.barcode",
+            component: nameof(ScannerService),
+            tags: new Dictionary<string, object?> { ["barcode.length"] = barcodeCode?.Length });
+
         if (string.IsNullOrWhiteSpace(barcodeCode))
+        {
+            activity?.SetTag("scan.success", false);
+            activity?.Dispose();
             return new ScanResult { IsSuccess = false, ErrorMessage = "Empty barcode" };
+        }
 
         try
         {
@@ -51,14 +63,21 @@ public class ScannerService : IScannerService
             });
 
             if (result == null)
+            {
+                activity?.SetTag("scan.success", false);
                 return new ScanResult { IsSuccess = false, ErrorMessage = "Invalid response" };
+            }
 
             if (!result.Success)
+            {
+                activity?.SetTag("scan.success", false);
                 return new ScanResult { IsSuccess = false, ErrorMessage = result.ErrorMessage };
+            }
 
             // Handle login-only barcodes - don't update session
             if (result.IsLoginOnly)
             {
+                activity?.SetTag("scan.success", true);
                 return new ScanResult
                 {
                     IsSuccess = true,
@@ -100,6 +119,7 @@ public class ScannerService : IScannerService
                 OnPurchaseUpdated?.Invoke(CurrentSession);
             }
 
+            activity?.SetTag("scan.success", true);
             return new ScanResult
             {
                 IsSuccess = true,
@@ -108,7 +128,12 @@ public class ScannerService : IScannerService
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return new ScanResult { IsSuccess = false, ErrorMessage = ex.Message };
+        }
+        finally
+        {
+            activity?.Dispose();
         }
     }
 
@@ -130,31 +155,77 @@ public class ScannerService : IScannerService
 
     public async Task<IEnumerable<PurchaseDto>> GetMyPurchasesAsync()
     {
-        if (CurrentSession == null)
-            return Array.Empty<PurchaseDto>();
+        var activity = await _uiTelemetry.StartUiActionAsync("purchases.load", component: nameof(ScannerService));
+        try
+        {
+            if (CurrentSession == null)
+            {
+                activity?.SetTag("purchase.session.active", false);
+                return Array.Empty<PurchaseDto>();
+            }
 
-        // Use Refit client for API call
-        var list = await _purchasesApi.GetByUserIdAsync(int.Parse(CurrentSession.UserId));
-        return list ?? Array.Empty<PurchaseDto>();
+            activity?.SetTag("purchase.session.active", true);
+            // Use Refit client for API call
+            var list = await _purchasesApi.GetByUserIdAsync(int.Parse(CurrentSession.UserId));
+            return list ?? Array.Empty<PurchaseDto>();
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
+        }
+        finally
+        {
+            activity?.Dispose();
+        }
     }
 
     public async Task<IEnumerable<PaymentDto>> GetMyPaymentsAsync()
     {
-        if (CurrentSession == null)
-            return Array.Empty<PaymentDto>();
+        var activity = await _uiTelemetry.StartUiActionAsync("payments.load", component: nameof(ScannerService));
+        try
+        {
+            if (CurrentSession == null)
+            {
+                activity?.SetTag("purchase.session.active", false);
+                return Array.Empty<PaymentDto>();
+            }
 
-        // Use Refit client for API call
-        var list = await _paymentsApi.GetByUserIdAsync(int.Parse(CurrentSession.UserId));
-        return list ?? Array.Empty<PaymentDto>();
+            activity?.SetTag("purchase.session.active", true);
+            // Use Refit client for API call
+            var list = await _paymentsApi.GetByUserIdAsync(int.Parse(CurrentSession.UserId));
+            return list ?? Array.Empty<PaymentDto>();
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
+        }
+        finally
+        {
+            activity?.Dispose();
+        }
     }
 
     public Task CompletePurchaseAsync()
     {
-        // Complete the current purchase session
-        StopTimeoutTimer();
-        CurrentSession = null;
-        OnPurchaseCompleted?.Invoke();
-        return Task.CompletedTask;
+        return CompletePurchaseInternalAsync();
+    }
+
+    private async Task CompletePurchaseInternalAsync()
+    {
+        var activity = await _uiTelemetry.StartUiActionAsync("purchase.complete", component: nameof(ScannerService));
+        try
+        {
+            // Complete the current purchase session
+            StopTimeoutTimer();
+            CurrentSession = null;
+            OnPurchaseCompleted?.Invoke();
+        }
+        finally
+        {
+            activity?.Dispose();
+        }
     }
 
     private void StartTimeoutTimer()

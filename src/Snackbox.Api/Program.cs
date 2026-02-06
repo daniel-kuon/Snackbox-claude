@@ -7,11 +7,20 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Snackbox.Api.Data;
 using Snackbox.Api.Services;
+using Snackbox.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Load secrets file if it exists
 builder.Configuration.AddJsonFile("appsettings.secrets.json", optional: true, reloadOnChange: true);
+
+builder.Services.AddSnackboxOpenTelemetry(builder.Configuration, new TelemetryInstrumentationOptions
+{
+    ServiceName = "snackbox-api",
+    EnableAspNetCoreInstrumentation = true,
+    EnableHttpClientInstrumentation = true
+});
+builder.Logging.AddSnackboxOpenTelemetryLogging(builder.Configuration, "snackbox-api");
 
 // Add services to the container.
 builder.Services.AddControllers()

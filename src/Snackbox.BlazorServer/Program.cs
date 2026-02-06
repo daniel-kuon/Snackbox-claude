@@ -3,8 +3,17 @@ using Snackbox.BlazorServer.Components;
 using Snackbox.BlazorServer.Services;
 using Snackbox.Components.Pages;
 using Snackbox.Components.Services;
+using Snackbox.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddSnackboxOpenTelemetry(builder.Configuration, new TelemetryInstrumentationOptions
+{
+    ServiceName = "snackbox-blazor",
+    EnableAspNetCoreInstrumentation = true,
+    EnableHttpClientInstrumentation = true
+});
+builder.Logging.AddSnackboxOpenTelemetryLogging(builder.Configuration, "snackbox-blazor");
 
 // Add services to the container.
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
@@ -12,6 +21,8 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 // Register storage service for web
 builder.Services.AddSingleton<IStorageService, WebStorageService>()
        .AddSingleton<IScannerListener, DummyScannerListener>();
+
+builder.Services.AddScoped<IUiTelemetry, UiTelemetry>();
 
 // Register Snackbar service
 builder.Services.AddScoped<SnackbarService>();

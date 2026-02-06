@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Snackbox.ApiClient;
 using Snackbox.Components.Services;
 using Snackbox.Web.Services;
+using Snackbox.ServiceDefaults;
 using System.Reflection;
 
 namespace Snackbox.Web;
@@ -26,6 +27,14 @@ public static class MauiProgram
             builder.Configuration.AddConfiguration(config);
         }
 
+        builder.Services.AddSnackboxOpenTelemetry(builder.Configuration, new TelemetryInstrumentationOptions
+        {
+            ServiceName = "snackbox-maui",
+            EnableAspNetCoreInstrumentation = false,
+            EnableHttpClientInstrumentation = true
+        });
+        builder.Logging.AddSnackboxOpenTelemetryLogging(builder.Configuration, "snackbox-maui");
+
         builder.Services.AddMauiBlazorWebView();
 
         // Register window service
@@ -36,6 +45,8 @@ public static class MauiProgram
 
         // Register storage service (MAUI secure storage)
         builder.Services.AddSingleton<IStorageService>(_ => new MauiStorageService(SecureStorage.Default));
+
+        builder.Services.AddTransient<IUiTelemetry, UiTelemetry>();
 
         // Register Snackbar service
         builder.Services.AddScoped<SnackbarService>();

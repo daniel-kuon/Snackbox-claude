@@ -307,6 +307,7 @@ public class UsersController : ControllerBase
         user.IsRetired = true;
 
         // Create placeholder inactive user with timestamp-based unique username
+        var userCount = await _context.Users.CountAsync();
         var placeholder = new User
         {
             Username = $"User {userCount + 1}",

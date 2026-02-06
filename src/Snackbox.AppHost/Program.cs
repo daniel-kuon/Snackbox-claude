@@ -4,29 +4,44 @@ using Projects;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+var dashboardOtlpEndpoint = builder.Configuration["Dashboard:OtlpEndpointUrl"] ?? "https://localhost:18889";
+const string otelCollectorGrpcEndpoint = "http://localhost:4317";
+
 IResourceBuilder<ParameterResource> postgresPassword =
     builder.AddParameter("postgresspassword",
                          "postgresspassword",
                          publishValueAsDefault: false,
                          secret: true);
+IResourceBuilder<ParameterResource> signozJwtSecret =
+    builder.AddParameter("signozjwtsecret",
+                         "signozjwtsecret",
+                         publishValueAsDefault: false,
+                         secret: true);
 
 // Add PostgreSQL database
-var postgres = builder.AddPostgres("postgres", password: postgresPassword)
+var postgres = builder.AddPostgres("postgres", password: postgresPassword,port:59653)
                       .WithContainerName("snackbox-postgres")
                       .WithLifetime(ContainerLifetime.Persistent)
                       .WithHostPort(59653)
-                      .WithDataVolume()
+                      .WithDataVolume("snackbox-postgres-data")
                       .WithPgAdmin(b => b.WithContainerName("snackbox-pgadmin")
                                          .WithHostPort(59654)
                                          .WithLifetime(ContainerLifetime.Persistent))
                       .AddDatabase("snackboxdb");
 
+var signozCompose = builder.AddExecutable("signoz-compose", "docker", workingDirectory: "./Signoz")
+                           .WithArgs("compose", "-d", "docker-compose.yaml", "up")
+                           .WithEnvironment("SIGNOZ_TOKENIZER_JWT_SECRET", signozJwtSecret)
+                           .WithExternalHttpEndpoints();
+
 // Add API project with Swagger UI available at /swagger
 var api = builder.AddProject<Snackbox_Api>("api").WithReference(postgres).WaitFor(postgres).WithExternalHttpEndpoints();
+api.WithEnvironment("Telemetry__Otlp__AdditionalGrpcEndpoints__0", otelCollectorGrpcEndpoint);
 
 // Add Blazor Server web application
 // ReSharper disable once UnusedVariable
 var web = builder.AddProject<Snackbox_BlazorServer>("web").WithReference(api).WithExternalHttpEndpoints();
+web.WithEnvironment("Telemetry__Otlp__AdditionalGrpcEndpoints__0", otelCollectorGrpcEndpoint);
 
 // Note: Windows native MAUI app should be run separately from Visual Studio/Rider
 // Run using: dotnet run --project src/Snackbox.Web -f net10.0-windows10.0.19041.0
@@ -35,6 +50,8 @@ var web = builder.AddProject<Snackbox_BlazorServer>("web").WithReference(api).Wi
 var nativeApp = builder.AddExecutable("native-app", "dotnet", workingDirectory: "../Snackbox.Web")
                        .WithArgs("run", "-f", "net10.0-windows10.0.19041.0")
                        .WithReference(api)
+                       .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", dashboardOtlpEndpoint)
+                       .WithEnvironment("Telemetry__Otlp__AdditionalGrpcEndpoints__0", otelCollectorGrpcEndpoint)
                        .WithExplicitStartIf(builder.ExecutionContext.IsRunMode);
 
 // Add a custom resource for database reset using dotnet ef commands
