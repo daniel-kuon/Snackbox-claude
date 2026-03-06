@@ -21,8 +21,35 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
                                          .WithLifetime(ContainerLifetime.Persistent))
                       .AddDatabase("snackboxdb");
 
+// Email adapter parameters
+var emailEnabled = builder.AddParameter("email-enabled", "false");
+var emailSmtpServer = builder.AddParameter("email-smtp-server", "smtp.gmail.com");
+var emailSmtpPort = builder.AddParameter("email-smtp-port", "587");
+var emailEnableSsl = builder.AddParameter("email-enable-ssl", "true");
+var emailUsername = builder.AddParameter("email-username", "your-email@gmail.com");
+var emailPassword = builder.AddParameter("email-password", secret: true);
+var emailFromEmail = builder.AddParameter("email-from-email", "noreply@snackbox.example.com");
+var emailFromName = builder.AddParameter("email-from-name", "Snackbox");
+var emailPaypalLink = builder.AddParameter("email-paypal-link", "https://paypal.me/yourpaypallink");
+var backupEmailRecipient = builder.AddParameter("backup-email-recipient", "admin@example.com");
+var searchUpcDataApiKey = builder.AddParameter("searchupcdata-api-key", secret: true);
+
 // Add API project with Swagger UI available at /swagger
-var api = builder.AddProject<Snackbox_Api>("api").WithReference(postgres).WaitFor(postgres).WithExternalHttpEndpoints();
+var api = builder.AddProject<Snackbox_Api>("api")
+                 .WithReference(postgres)
+                 .WaitFor(postgres)
+                 .WithExternalHttpEndpoints()
+                 .WithEnvironment("EmailSettings__Enabled", emailEnabled)
+                 .WithEnvironment("EmailSettings__SmtpServer", emailSmtpServer)
+                 .WithEnvironment("EmailSettings__SmtpPort", emailSmtpPort)
+                 .WithEnvironment("EmailSettings__EnableSsl", emailEnableSsl)
+                 .WithEnvironment("EmailSettings__Username", emailUsername)
+                 .WithEnvironment("EmailSettings__Password", emailPassword)
+                 .WithEnvironment("EmailSettings__FromEmail", emailFromEmail)
+                 .WithEnvironment("EmailSettings__FromName", emailFromName)
+                 .WithEnvironment("EmailSettings__PayPalLink", emailPaypalLink)
+                 .WithEnvironment("Backup__EmailRecipient", backupEmailRecipient)
+                 .WithEnvironment("SearchUpcData__ApiKey", searchUpcDataApiKey);
 
 // Add Blazor Server web application
 // ReSharper disable once UnusedVariable
