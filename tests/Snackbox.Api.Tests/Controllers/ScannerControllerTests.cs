@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Snackbox.Api.Controllers;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
@@ -37,7 +38,7 @@ public class ScannerControllerTests : IDisposable
         // Create achievement service for controller
         var achievementService = new AchievementService(_context);
 
-        _controller = new ScannerController(_context, _configuration, achievementService);
+        _controller = new ScannerController(_context, _configuration, achievementService, NullLogger<ScannerController>.Instance);
 
         // Seed test data
         SeedTestData();
@@ -60,8 +61,6 @@ public class ScannerControllerTests : IDisposable
             UserId = 1,
             Code = "TEST-5EUR",
             Amount = 5.00m,
-            IsActive = true,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -71,8 +70,6 @@ public class ScannerControllerTests : IDisposable
             UserId = 1,
             Code = "TEST-10EUR",
             Amount = 10.00m,
-            IsActive = true,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -82,8 +79,6 @@ public class ScannerControllerTests : IDisposable
             UserId = 1,
             Code = "TEST-LOGIN",
             Amount = 0m,
-            IsActive = true,
-            IsLoginOnly = true,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -144,7 +139,7 @@ public class ScannerControllerTests : IDisposable
         
         // Verify it's the same purchase
         var purchases = await _context.Purchases
-            .Where(p => p.UserId == 1 && p.CompletedAt == null)
+            .Where(p => p.UserId == 1)
             .ToListAsync();
         Assert.Single(purchases);
     }
@@ -188,13 +183,13 @@ public class ScannerControllerTests : IDisposable
         Assert.Single(response.ScannedBarcodes); // Only the new scan
         Assert.Equal(10.00m, response.TotalAmount);
 
-        // Verify old purchase was completed
+        // Verify old purchase was finalized (UpdatedAt set to its last scan time)
         var completedPurchase = await _context.Purchases.FindAsync(oldPurchase.Id);
-        Assert.NotNull(completedPurchase!.CompletedAt);
+        Assert.NotEqual(default, completedPurchase!.UpdatedAt);
 
         // Verify new purchase was created
         var activePurchases = await _context.Purchases
-            .Where(p => p.UserId == 1 && p.CompletedAt == null)
+            .Where(p => p.UserId == 1 && p.Id != oldPurchase.Id)
             .ToListAsync();
         Assert.Single(activePurchases);
         Assert.NotEqual(oldPurchase.Id, activePurchases[0].Id);
@@ -220,15 +215,21 @@ public class ScannerControllerTests : IDisposable
     [Fact]
     public async Task ScanBarcode_InactiveBarcode_AllowsScanWithInactiveFlag()
     {
-        // Arrange
+        // Arrange - inactivity is now tracked on the user, not the barcode
+        var inactiveUser = new User
+        {
+            Id = 99,
+            Username = "inactiveuser",
+            IsActive = false,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Users.Add(inactiveUser);
         var inactiveBarcode = new PurchaseBarcode
         {
             Id = 99,
-            UserId = 1,
+            UserId = 99,
             Code = "INACTIVE-CODE",
             Amount = 5.00m,
-            IsActive = false,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
         _context.Barcodes.Add(inactiveBarcode);
@@ -245,8 +246,8 @@ public class ScannerControllerTests : IDisposable
 
         Assert.True(response.Success);
         Assert.True(response.IsUserInactive);
-        Assert.Equal(1, response.UserId);
-        Assert.Equal("testuser", response.Username);
+        Assert.Equal(99, response.UserId);
+        Assert.Equal("inactiveuser", response.Username);
         Assert.Single(response.ScannedBarcodes);
         Assert.Equal(5.00m, response.TotalAmount);
     }
@@ -264,7 +265,7 @@ public class ScannerControllerTests : IDisposable
         {
             UserId = user!.Id,
             CreatedAt = DateTime.UtcNow.AddDays(-2),
-            CompletedAt = DateTime.UtcNow.AddDays(-2).AddMinutes(5)
+            UpdatedAt = DateTime.UtcNow.AddDays(-2).AddMinutes(5)
         };
         _context.Purchases.Add(completedPurchase);
         await _context.SaveChangesAsync();
@@ -296,8 +297,8 @@ public class ScannerControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
 
-        // Balance = TotalSpent - TotalPaid = 15.00 - 50.00 = -35.00 (user has credit)
-        Assert.Equal(-35.00m, response.Balance);
+        // Balance = TotalSpent - TotalPaid = (15.00 + 5.00 current scan) - 50.00 = -30.00 (user has credit)
+        Assert.Equal(-30.00m, response.Balance);
     }
 
     [Fact]

@@ -63,8 +63,6 @@ public class AuthControllerTests : IDisposable
             Id = 1,
             UserId = 1,
             Code = _testBarcode,
-            IsActive = true,
-            IsLoginOnly = true,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -73,8 +71,6 @@ public class AuthControllerTests : IDisposable
             Id = 2,
             UserId = 1,
             Code = _purchaseBarcode,
-            IsActive = true,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 

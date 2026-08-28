@@ -58,7 +58,6 @@ public class BarcodesControllerTests : IDisposable
             UserId = 1,
             Code = "USER1BARCODE1",
             Amount = 5.0m,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -68,7 +67,6 @@ public class BarcodesControllerTests : IDisposable
             UserId = 1,
             Code = "USER1BARCODE2",
             Amount = 10.0m,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -78,7 +76,6 @@ public class BarcodesControllerTests : IDisposable
             UserId = 1,
             Code = "USER1LOGIN",
             Amount = 0.0m,
-            IsLoginOnly = true,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -88,7 +85,6 @@ public class BarcodesControllerTests : IDisposable
             UserId = 2,
             Code = "USER2BARCODE1",
             Amount = 15.0m,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow
         };
 

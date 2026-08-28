@@ -79,7 +79,8 @@ public class ScannerController : ControllerBase
                 UserId = user.Id,
                 Username = user.Username,
                 IsLoginOnly = true,
-                IsUserInactive = isInactive
+                IsUserInactive = isInactive,
+                HasSeenIntro = user.HasSeenIntro
             });
         }
 
@@ -316,6 +317,7 @@ public class ScannerController : ControllerBase
             UserId = user.Id,
             Username = user.Username,
             IsUserInactive = isInactive,
+            HasSeenIntro = user.HasSeenIntro,
             PurchaseId = currentPurchase.Id,
             ScannedBarcodes = currentPurchase.Scans
                 .OrderBy(s => s.ScannedAt)

@@ -10,6 +10,7 @@ public class ScanBarcodeResponse
     public required string Username { get; set; }
     public bool IsLoginOnly { get; set; } // True if this is a login-only barcode
     public bool IsUserInactive { get; set; } // True if the user's barcode is inactive
+    public bool HasSeenIntro { get; set; } // True once the user has completed the app introduction
 
     // Current purchase information
     public int PurchaseId { get; set; }

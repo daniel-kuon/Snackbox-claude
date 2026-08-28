@@ -32,6 +32,14 @@ public interface IUsersApi
     // Admin-only: set password for a specific user
     [Post("/api/users/{id}/set-password")]
     Task AdminSetPasswordAsync(int id, [Body] AdminSetPasswordRequest request);
+
+    // Kiosk: complete setup of an inactive placeholder account (barcode = proof of card possession)
+    [Post("/api/users/setup")]
+    Task<CompleteAccountSetupResponse> CompleteSetupAsync([Body] CompleteAccountSetupDto dto);
+
+    // Kiosk: mark the app introduction as seen for the card's user
+    [Post("/api/users/intro-seen")]
+    Task MarkIntroSeenAsync([Body] MarkIntroSeenDto dto);
 }
 
 public class RegisterResponse

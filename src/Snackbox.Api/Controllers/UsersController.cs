@@ -170,6 +170,71 @@ public class UsersController : ControllerBase
         return Ok(new { message = "Registration successful", userId = user.Id, isAdmin = user.IsAdmin });
     }
 
+    [HttpPost("setup")]
+    [AllowAnonymous]
+    public async Task<ActionResult<CompleteAccountSetupResponse>> CompleteSetup([FromBody] CompleteAccountSetupDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Username))
+        {
+            return BadRequest(new { message = "Name is required" });
+        }
+
+        var barcode = await _context.Barcodes
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(b => b.Code == dto.BarcodeCode);
+
+        if (barcode == null)
+        {
+            return NotFound(new { message = "Barcode not found" });
+        }
+
+        var user = barcode.User;
+        if (user.IsActive || user.IsRetired)
+        {
+            return BadRequest(new { message = "This account is already set up" });
+        }
+
+        var username = dto.Username.Trim();
+        if (await _context.Users.AnyAsync(u => u.Username == username && u.Id != user.Id))
+        {
+            return BadRequest(new { message = "This name is already taken" });
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Email) && await _context.Users.AnyAsync(u => u.Email == dto.Email && u.Id != user.Id))
+        {
+            return BadRequest(new { message = "Email already exists" });
+        }
+
+        user.Username = username;
+        user.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+        user.IsActive = true;
+        user.HasSeenIntro = true;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Account setup completed via kiosk for user {UserId} - {Username}", user.Id, user.Username);
+
+        return Ok(new CompleteAccountSetupResponse { Username = user.Username });
+    }
+
+    [HttpPost("intro-seen")]
+    [AllowAnonymous]
+    public async Task<ActionResult> MarkIntroSeen([FromBody] MarkIntroSeenDto dto)
+    {
+        var barcode = await _context.Barcodes
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(b => b.Code == dto.BarcodeCode);
+
+        if (barcode == null)
+        {
+            return NotFound(new { message = "Barcode not found" });
+        }
+
+        barcode.User.HasSeenIntro = true;
+        await _context.SaveChangesAsync();
+
+        return Ok();
+    }
+
     [HttpPost]
     public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserDto dto)
     {

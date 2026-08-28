@@ -81,6 +81,8 @@ public class ScannerService : IScannerService
                 StartTime = result.ScannedBarcodes.FirstOrDefault()?.ScannedAt ?? DateTime.UtcNow,
                 RecentPurchases = DtoToModelMapper.ToRecentPurchases(result.RecentPurchases),
                 IsUserInactive = result.IsUserInactive,
+                HasSeenIntro = result.HasSeenIntro,
+                ScannedCardCode = barcodeCode,
                 NewAchievements = DtoToModelMapper.ToAchievements(result.NewAchievements),
                 AppliedDiscounts = DtoToModelMapper.ToAppliedDiscounts(result.ApplicableDiscounts),
                 DiscountedAmount = result.DiscountedAmount

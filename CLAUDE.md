@@ -28,7 +28,13 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Purchase History**: Users can view their past purchases and amounts
 - **Payment Entry**: Admins can record when employees make payments
 
-#### 3. User Roles and Permissions
+#### 3. Account Setup and Onboarding
+- **New Cards Work Immediately**: A card assigned to a not-yet-set-up (inactive placeholder) user can make purchases right away; a banner on the scan screen points this out
+- **Self-Service Setup Wizard**: When an inactive user's card is scanned on the kiosk, a wizard opens where they enter their name (and optional email) to activate their account — no admin needed (the scanned barcode acts as proof of card possession)
+- **First-Time Introduction**: The wizard also shows a short introduction (buying, paying, history/achievements/discounts) — shown once to every user on their first scan in the app (tracked via a per-user `HasSeenIntro` flag), including existing users after the flag is introduced
+- **Mouse and Keyboard**: The wizard supports mouse and keyboard (Enter/arrow keys/Esc)
+
+#### 4. User Roles and Permissions
 - **Regular Users**:
   - Scan barcodes to purchase snacks
   - View their own purchase history
@@ -42,7 +48,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
   - Add/edit/remove products
   - Create and manage discounts
 
-#### 4. Stock Management
+#### 5. Stock Management
 - **Two-Tier Inventory**:
   - **Storage**: Products kept in reserve/storage area
   - **Shelf**: Products currently available for purchase
@@ -50,7 +56,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Stock Tracking**: System tracks quantities in both storage and on shelf
 - **Admin Workflow**: When restocking, admin moves quantity from storage to shelf
 
-#### 5. Product and Batch Management
+#### 6. Product and Batch Management
 - **Products**: Individual snack items with barcodes
 - **Multiple Batches**: Each product can have multiple batches
 - **Best Before Dates**: Each batch has its own expiration date
@@ -60,7 +66,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
   - Batch-level stock tracking
   - Removal of expired batches
 
-#### 6. Achievement System
+#### 7. Achievement System
 - **Gamification**: Fun achievements awarded based on purchasing behavior
 - **Categories**: Single purchase, daily activity, streaks, comebacks, debt levels, total spending
 - **Automatic Awards**: Achievements earned automatically when criteria met
@@ -69,7 +75,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **One-Time Only**: Each achievement can only be earned once per user
 - See [Achievement System Documentation](docs/achievement-system.md) for full details
 
-#### 7. Discount System
+#### 8. Discount System
 - **Automatic Application**: Discounts are automatically detected and applied during barcode scanning
 - **Two Types**: Fixed amount (e.g., 0.50€ off) or percentage (e.g., 10% off)
 - **Date-Based Validity**: Discounts only active within their date range

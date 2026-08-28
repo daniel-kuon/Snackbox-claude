@@ -171,7 +171,7 @@
                                 <span class="notification-icon">⚠️🔒</span>
                                 <div class="notification-content">
                                     <strong>Account Setup Required</strong>
-                                    <p>Your card has not been fully activated yet. You can continue scanning, but please contact <a href="mailto:daniel.kuon@cargonerds.com" style="color: inherit; text-decoration: underline;">daniel.kuon@cargonerds.com</a> to complete your account setup.</p>
+                                    <p>Your card has not been fully set up yet. You can continue scanning and buying — but take a minute to <button class="setup-now-link" @onclick="OpenSetupWizard">set up your account now</button> or contact <a href="mailto:daniel.kuon@cargonerds.com" style="color: inherit; text-decoration: underline;">daniel.kuon@cargonerds.com</a>.</p>
                                 </div>
                             </div>
                         }
@@ -303,6 +303,14 @@
 <PaymentsHistoryModal IsOpen="@_showPaymentsModal"
                      Payments="@_allPayments"
                      OnClose="ClosePaymentsModal" />
+
+<!-- Account setup / first-time introduction wizard -->
+<SetupWizard IsOpen="@_showSetupWizard"
+             RequiresSetup="@_wizardRequiresSetup"
+             BarcodeCode="@_wizardBarcodeCode"
+             OnClose="CloseSetupWizard"
+             OnSetupCompleted="HandleSetupCompleted"
+             OnIntroFinished="HandleIntroFinished" />
 
 <style>
     .scanner-container {
@@ -827,6 +835,16 @@
         font-weight: 700;
         color: #667eea;
     }
+    .setup-now-link {
+        background: none;
+        border: none;
+        padding: 0;
+        color: inherit;
+        text-decoration: underline;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+    }
 </style>
 
 @code {
@@ -838,6 +856,10 @@
     private bool _showPaymentsModal;
     private List<PurchaseDto>? _allPurchases;
     private List<PaymentDto>? _allPayments;
+    private bool _showSetupWizard;
+    private bool _wizardRequiresSetup;
+    private string _wizardBarcodeCode = string.Empty;
+    private readonly HashSet<string> _wizardAutoShownUserIds = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -883,6 +905,7 @@
     {
         _remainingSeconds = ScannerService.TimeoutSeconds;
         StartCountdownTimer();
+        MaybeAutoOpenSetupWizard(session);
         InvokeAsync(StateHasChanged);
     }
 
@@ -1021,6 +1044,57 @@
         }
 
         return $"Total: {session.TotalAmount:C}";
+    }
+
+    private void MaybeAutoOpenSetupWizard(PurchaseSession session)
+    {
+        // Auto-open once per user per app run: for setup (inactive card) or first-time introduction
+        if (!session.IsUserInactive && session.HasSeenIntro)
+            return;
+        if (!_wizardAutoShownUserIds.Add(session.UserId))
+            return;
+
+        OpenWizard(session);
+    }
+
+    private void OpenSetupWizard()
+    {
+        var session = ScannerService.CurrentSession;
+        if (session != null)
+            OpenWizard(session);
+    }
+
+    private void OpenWizard(PurchaseSession session)
+    {
+        _wizardRequiresSetup = session.IsUserInactive;
+        _wizardBarcodeCode = session.ScannedCardCode;
+        _showSetupWizard = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private Task CloseSetupWizard()
+    {
+        _showSetupWizard = false;
+        return Task.CompletedTask;
+    }
+
+    private void HandleSetupCompleted(string newUsername)
+    {
+        var session = ScannerService.CurrentSession;
+        if (session != null)
+        {
+            session.UserName = newUsername;
+            session.IsUserInactive = false;
+            session.HasSeenIntro = true;
+        }
+        StateHasChanged();
+    }
+
+    private void HandleIntroFinished()
+    {
+        var session = ScannerService.CurrentSession;
+        if (session != null)
+            session.HasSeenIntro = true;
     }
 
     private void ClearAchievements()

@@ -9,6 +9,7 @@ public class User
     public bool IsAdmin { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsRetired { get; set; } = false; // Special flag to mark users as retired
+    public bool HasSeenIntro { get; set; } = false; // True once the user has completed the app introduction
     public DateTime CreatedAt { get; set; }
 
     // Navigation properties

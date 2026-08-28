@@ -22,7 +22,7 @@ public class BarcodeLookupControllerTests
     {
         _mockService = new Mock<IBarcodeLookupService>();
         _mockLogger = new Mock<ILogger<BarcodeLookupController>>();
-        _controller = new BarcodeLookupController(_mockService.Object, _mockLogger.Object);
+        _controller = new BarcodeLookupController(_mockService.Object);
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public class BarcodeLookupServiceTests : IDisposable
         _mockLogger = new Mock<ILogger<BarcodeLookupService>>();
 
         // Setup configuration to return a test API key
-        _mockConfiguration.Setup(c => c["BarcodeLookup:ApiKey"])
+        _mockConfiguration.Setup(c => c["SearchUpcData:ApiKey"])
             .Returns("test-api-key");
 
         _service = new BarcodeLookupService(_httpClient, _mockConfiguration.Object, _mockLogger.Object);
@@ -139,18 +139,11 @@ public class BarcodeLookupServiceTests : IDisposable
         var barcode = "1234567890123";
         var apiResponse = new
         {
-            products = new[]
-            {
-                new
-                {
-                    barcode_number = barcode,
-                    title = "Test Product",
-                    manufacturer = "Test Manufacturer",
-                    brand = "Test Brand",
-                    description = "Test Description",
-                    category = "Test Category"
-                }
-            }
+            upc = barcode,
+            name = "Test Product",
+            brand = "Test Brand",
+            description = "Test Description",
+            category = "Test Category"
         };
 
         var responseContent = JsonSerializer.Serialize(apiResponse);
@@ -173,7 +166,7 @@ public class BarcodeLookupServiceTests : IDisposable
         Assert.True(result.Success);
         Assert.NotNull(result.Product);
         Assert.Equal("Test Product", result.Product.Title);
-        Assert.Equal("Test Manufacturer", result.Product.Manufacturer);
+        Assert.Null(result.Product.Manufacturer); // searchupcdata.com does not provide a manufacturer
         Assert.Equal("Test Brand", result.Product.Brand);
         Assert.Equal(barcode, result.Product.Barcode);
     }
@@ -183,12 +176,9 @@ public class BarcodeLookupServiceTests : IDisposable
     {
         // Arrange
         var barcode = "9999999999999";
-        var apiResponse = new
-        {
-            products = Array.Empty<object>()
-        };
 
-        var responseContent = JsonSerializer.Serialize(apiResponse);
+        // The API returns a JSON null body when no product is found
+        var responseContent = "null";
         var httpResponse = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(responseContent, System.Text.Encoding.UTF8, "application/json")
@@ -246,7 +236,7 @@ public class BarcodeLookupServiceTests : IDisposable
 
         // Assert
         Assert.False(result.Success);
-        Assert.Equal("Invalid barcode format.", result.ErrorMessage);
+        Assert.Equal("API request failed with status BadRequest", result.ErrorMessage);
     }
 
     [Fact]

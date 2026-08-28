@@ -60,7 +60,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 3.00m, ScannedAt = DateTime.UtcNow }
@@ -91,7 +91,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 4.00m, ScannedAt = DateTime.UtcNow }
@@ -113,13 +113,14 @@ public class AchievementServiceTests : IDisposable
     [Fact]
     public async Task CheckAndAwardAchievements_AlreadyEarned_DoesNotAwardAgain()
     {
-        // Arrange - User already has BIG_SPENDER_2
+        // Arrange - User already earned BIG_SPENDER_2 today
+        // (re-earnable achievements can be earned at most once per day)
         var existingAchievement = new UserAchievement
         {
             Id = 1,
             UserId = 1,
             AchievementId = 1, // BIG_SPENDER_2
-            EarnedAt = DateTime.UtcNow.AddDays(-1),
+            EarnedAt = DateTime.UtcNow,
             HasBeenShown = true
         };
         _context.UserAchievements.Add(existingAchievement);
@@ -129,7 +130,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 2.50m, ScannedAt = DateTime.UtcNow }
@@ -160,7 +161,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 6.00m, ScannedAt = DateTime.UtcNow }
@@ -190,7 +191,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow.AddDays(-5),
-            CompletedAt = DateTime.UtcNow.AddDays(-5),
+            UpdatedAt = DateTime.UtcNow.AddDays(-5),
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 95.00m, ScannedAt = DateTime.UtcNow.AddDays(-5) }
@@ -204,7 +205,7 @@ public class AchievementServiceTests : IDisposable
             Id = 2,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 2, PurchaseId = 2, BarcodeId = 1, Amount = 10.00m, ScannedAt = DateTime.UtcNow }
@@ -229,7 +230,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 20.00m, ScannedAt = DateTime.UtcNow }
@@ -254,7 +255,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = default, // Not completed!
+            UpdatedAt = default, // Not completed!
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 3.00m, ScannedAt = DateTime.UtcNow }
@@ -281,7 +282,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = default,
+            UpdatedAt = default,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 2.00m, ScannedAt = DateTime.UtcNow },
@@ -315,7 +316,7 @@ public class AchievementServiceTests : IDisposable
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = default,
+            UpdatedAt = default,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 20.00m, ScannedAt = DateTime.UtcNow }

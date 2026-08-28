@@ -36,20 +36,16 @@ public class ProductsControllerTests : IDisposable
         {
             Id = 1,
             Name = "Test Chips",
-            Barcode = "1234567890123",
-            Price = 1.50m,
-            Description = "Test chips description",
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Barcodes = { new ProductBarcode { Id = 1, ProductId = 1, Barcode = "1234567890123", CreatedAt = DateTime.UtcNow } }
         };
 
         var product2 = new Product
         {
             Id = 2,
             Name = "Test Chocolate",
-            Barcode = "1234567890124",
-            Price = 2.00m,
-            Description = "Test chocolate description",
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Barcodes = { new ProductBarcode { Id = 2, ProductId = 2, Barcode = "1234567890124", CreatedAt = DateTime.UtcNow } }
         };
 
         _context.Products.AddRange(product1, product2);
@@ -108,7 +104,7 @@ public class ProductsControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var product = Assert.IsType<ProductDto>(okResult.Value);
         Assert.Equal("Test Chips", product.Name);
-        Assert.Equal("1234567890123", product.Barcode);
+        Assert.Equal("1234567890123", Assert.Single(product.Barcodes).Barcode);
     }
 
     [Fact]
@@ -190,10 +186,7 @@ public class ProductsControllerTests : IDisposable
         // Arrange
         var createDto = new CreateProductDto
         {
-            Name = "New Product",
-            Barcode = "9999999999999",
-            Price = 3.00m,
-            Description = "New product description"
+            Name = "New Product"
         };
 
         // Act
@@ -203,22 +196,19 @@ public class ProductsControllerTests : IDisposable
         var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
         var product = Assert.IsType<ProductDto>(createdResult.Value);
         Assert.Equal("New Product", product.Name);
-        Assert.Equal("9999999999999", product.Barcode);
     }
 
     [Fact]
     public async Task Create_DuplicateBarcode_ReturnsBadRequest()
     {
-        // Arrange
-        var createDto = new CreateProductDto
+        // Arrange - duplicate barcodes are now rejected when adding a barcode to a product
+        var createDto = new CreateProductBarcodeDto
         {
-            Name = "Duplicate Product",
-            Barcode = "1234567890123", // Already exists
-            Price = 3.00m
+            Barcode = "1234567890123" // Already exists on product 1
         };
 
         // Act
-        var result = await _controller.Create(createDto);
+        var result = await _controller.AddBarcode(2, createDto);
 
         // Assert
         Assert.IsType<BadRequestObjectResult>(result.Result);
@@ -230,10 +220,7 @@ public class ProductsControllerTests : IDisposable
         // Arrange
         var updateDto = new UpdateProductDto
         {
-            Name = "Updated Chips",
-            Barcode = "1234567890123",
-            Price = 2.00m,
-            Description = "Updated description"
+            Name = "Updated Chips"
         };
 
         // Act
@@ -243,7 +230,6 @@ public class ProductsControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var product = Assert.IsType<ProductDto>(okResult.Value);
         Assert.Equal("Updated Chips", product.Name);
-        Assert.Equal(2.00m, product.Price);
     }
 
     [Fact]

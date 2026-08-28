@@ -1,0 +1,303 @@
+@using Refit
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using System.Text.Json
+@inject IUsersApi UsersApi
+
+@if (IsOpen)
+{
+    <div class="sw-backdrop"></div>
+    <div class="sw-modal" tabindex="-1" @ref="_modalElement" @onkeydown="HandleKeyDown">
+        <div class="sw-header">
+            <h3>@(_currentStep == Step.Setup ? "Set Up Your Account" : "Welcome to Snackbox")</h3>
+            <button class="sw-close" title="Close (Esc)" @onclick="CloseAsync">×</button>
+        </div>
+
+        <div class="sw-body">
+            @if (_currentStep == Step.Setup)
+            {
+                <div class="sw-step-icon">👋</div>
+                <p class="sw-lead">Your card works already — you can scan and buy right away. Tell us who you are so purchases show up under your name.</p>
+
+                <div class="sw-form">
+                    <label class="sw-label" for="sw-name">Your name <span class="sw-required">*</span></label>
+                    <input id="sw-name" class="sw-input" @bind="_username" @bind:event="oninput"
+                           placeholder="e.g. Jane Smith" maxlength="100" autocomplete="off" />
+
+                    <label class="sw-label" for="sw-email">Email (optional)</label>
+                    <input id="sw-email" class="sw-input" type="email" @bind="_email" @bind:event="oninput"
+                           placeholder="you@company.com" maxlength="200" autocomplete="off" />
+
+                    @if (_setupError != null)
+                    {
+                        <div class="sw-error">@_setupError</div>
+                    }
+                </div>
+            }
+            else
+            {
+                var intro = IntroSteps[(int)_currentStep - 1];
+                <div class="sw-step-icon">@intro.Icon</div>
+                <h4 class="sw-step-title">@intro.Title</h4>
+                <p class="sw-lead">@intro.Text</p>
+
+                <div class="sw-dots">
+                    @for (var i = 0; i < IntroSteps.Length; i++)
+                    {
+                        <span class="sw-dot @(i == (int)_currentStep - 1 ? "active" : "")"></span>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="sw-footer">
+            @if (_currentStep == Step.Setup)
+            {
+                <button class="sw-btn secondary" @onclick="CloseAsync">Do this later</button>
+                <button class="sw-btn primary" disabled="@(_isBusy || string.IsNullOrWhiteSpace(_username))" @onclick="SubmitSetupAsync">
+                    @(_isBusy ? "Saving…" : "Create my account")
+                </button>
+            }
+            else
+            {
+                @if (_currentStep > FirstIntroStep || RequiresSetup)
+                {
+                    <button class="sw-btn secondary" @onclick="GoBack" disabled="@(_currentStep == FirstIntroStep)">Back</button>
+                }
+                else
+                {
+                    <span></span>
+                }
+                @if ((int)_currentStep < IntroSteps.Length)
+                {
+                    <button class="sw-btn primary" @onclick="GoNext">Next</button>
+                }
+                else
+                {
+                    <button class="sw-btn primary" disabled="@_isBusy" @onclick="FinishAsync">Got it, let's go!</button>
+                }
+            }
+        </div>
+        <p class="sw-hint">Use Enter / arrow keys to navigate · Esc to close</p>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public bool RequiresSetup { get; set; }
+    [Parameter] public string BarcodeCode { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<string> OnSetupCompleted { get; set; }
+    [Parameter] public EventCallback OnIntroFinished { get; set; }
+
+    private enum Step { Setup = 0, Intro1 = 1, Intro2 = 2, Intro3 = 3 }
+
+    private record IntroStep(string Icon, string Title, string Text);
+
+    private static readonly IntroStep[] IntroSteps =
+    [
+        new("🛒", "Buying snacks",
+            "Grab a snack, then scan one of the barcodes on your card — each barcode stands for a fixed amount (e.g. 0.50 €). Scan as many times as needed to match the price. Your purchase completes automatically when the countdown runs out."),
+        new("💶", "Paying your balance",
+            "The screen shows how much you currently owe (or have as credit). Pay whenever you like by scanning the PayPal QR code on the purchase screen. Payments are entered by the admin, so they won't show up instantly."),
+        new("🏆", "History, achievements & discounts",
+            "Click your recent purchases or last payment on the purchase screen to see your full history. Active discounts are applied automatically — and yes, there are achievements to collect along the way.")
+    ];
+
+    private Step _currentStep;
+    private string _username = string.Empty;
+    private string _email = string.Empty;
+    private string? _setupError;
+    private bool _isBusy;
+    private bool _setupCompleted;
+    private bool _wasOpen;
+    private ElementReference _modalElement;
+
+    private Step FirstIntroStep => Step.Intro1;
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && !_wasOpen)
+        {
+            // Reset state each time the wizard opens
+            _currentStep = RequiresSetup ? Step.Setup : Step.Intro1;
+            _username = string.Empty;
+            _email = string.Empty;
+            _setupError = null;
+            _isBusy = false;
+            _setupCompleted = false;
+        }
+        _wasOpen = IsOpen;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen)
+        {
+            try { await _modalElement.FocusAsync(); } catch { /* focus is best-effort */ }
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Escape":
+                await CloseAsync();
+                break;
+            case "Enter":
+                if (_currentStep == Step.Setup)
+                    await SubmitSetupAsync();
+                else if ((int)_currentStep < IntroSteps.Length)
+                    GoNext();
+                else
+                    await FinishAsync();
+                break;
+            case "ArrowRight":
+                if (_currentStep != Step.Setup && (int)_currentStep < IntroSteps.Length)
+                    GoNext();
+                break;
+            case "ArrowLeft":
+                if (_currentStep > FirstIntroStep)
+                    GoBack();
+                break;
+        }
+    }
+
+    private async Task SubmitSetupAsync()
+    {
+        if (_isBusy || string.IsNullOrWhiteSpace(_username))
+            return;
+
+        _isBusy = true;
+        _setupError = null;
+        try
+        {
+            var response = await UsersApi.CompleteSetupAsync(new CompleteAccountSetupDto
+            {
+                BarcodeCode = BarcodeCode,
+                Username = _username.Trim(),
+                Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim()
+            });
+
+            _setupCompleted = true;
+            await OnSetupCompleted.InvokeAsync(response.Username);
+            _currentStep = Step.Intro1;
+        }
+        catch (ApiException ex)
+        {
+            _setupError = ExtractMessage(ex) ?? "Setup failed. Please try again.";
+        }
+        catch
+        {
+            _setupError = "Setup failed. Please check your connection and try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void GoNext()
+    {
+        if ((int)_currentStep < IntroSteps.Length)
+            _currentStep++;
+    }
+
+    private void GoBack()
+    {
+        if (_currentStep > FirstIntroStep)
+            _currentStep--;
+    }
+
+    private async Task FinishAsync()
+    {
+        if (_isBusy)
+            return;
+
+        _isBusy = true;
+        try
+        {
+            // Setup already marks the intro as seen server-side
+            if (!_setupCompleted)
+            {
+                try
+                {
+                    await UsersApi.MarkIntroSeenAsync(new MarkIntroSeenDto { BarcodeCode = BarcodeCode });
+                }
+                catch
+                {
+                    // Non-critical - the intro simply shows again next time
+                }
+            }
+            await OnIntroFinished.InvokeAsync();
+            await OnClose.InvokeAsync();
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+
+    private static string? ExtractMessage(ApiException ex)
+    {
+        if (string.IsNullOrWhiteSpace(ex.Content))
+            return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(ex.Content);
+            return doc.RootElement.TryGetProperty("message", out var msg) ? msg.GetString() : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}
+
+<style>
+    .sw-backdrop {
+        position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 1100;
+    }
+    .sw-modal {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: min(560px, 94vw); max-height: 92vh; overflow: auto;
+        background: #fff; border-radius: 16px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35); z-index: 1101;
+        display: flex; flex-direction: column; outline: none;
+    }
+    .sw-header { display: flex; align-items: center; padding: 1.25rem 1.5rem 0.5rem; }
+    .sw-header h3 { margin: 0; font-size: 1.35rem; }
+    .sw-close { margin-left: auto; border: none; background: transparent; font-size: 1.75rem; cursor: pointer; line-height: 1; color: #888; }
+    .sw-close:hover { color: #333; }
+    .sw-body { padding: 0.5rem 1.5rem; text-align: center; }
+    .sw-step-icon { font-size: 3.5rem; margin: 0.5rem 0; }
+    .sw-step-title { margin: 0 0 0.5rem; font-size: 1.15rem; }
+    .sw-lead { color: #444; line-height: 1.5; margin: 0 0 1rem; }
+    .sw-form { text-align: left; max-width: 400px; margin: 0 auto; }
+    .sw-label { display: block; font-weight: 600; margin: 0.75rem 0 0.25rem; font-size: 0.9rem; }
+    .sw-required { color: #dc3545; }
+    .sw-input {
+        width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;
+    }
+    .sw-input:focus { outline: none; border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); }
+    .sw-error {
+        margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: #f8d7da; color: #842029;
+        border-radius: 8px; font-size: 0.9rem;
+    }
+    .sw-dots { display: flex; justify-content: center; gap: 0.5rem; margin: 1rem 0 0.5rem; }
+    .sw-dot { width: 10px; height: 10px; border-radius: 50%; background: #d0d0d0; }
+    .sw-dot.active { background: #0d6efd; }
+    .sw-footer { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 1.5rem 0.5rem; }
+    .sw-btn {
+        padding: 0.6rem 1.4rem; border-radius: 8px; border: none; font-size: 1rem; cursor: pointer; font-weight: 600;
+    }
+    .sw-btn.primary { background: #0d6efd; color: #fff; }
+    .sw-btn.primary:hover:not(:disabled) { background: #0b5ed7; }
+    .sw-btn.primary:disabled { opacity: 0.5; cursor: default; }
+    .sw-btn.secondary { background: #eee; color: #333; }
+    .sw-btn.secondary:hover:not(:disabled) { background: #ddd; }
+    .sw-btn.secondary:disabled { opacity: 0.4; cursor: default; }
+    .sw-hint { text-align: center; color: #999; font-size: 0.75rem; margin: 0 0 0.75rem; }
+</style>

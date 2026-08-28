@@ -695,13 +695,13 @@ public class ComprehensiveAchievementTests : IDisposable
     [Fact]
     public async Task IncompletePurchase_DoesNotCheckTimeBasedAchievements()
     {
-        // Arrange: Purchase with CompletedAt = default (incomplete)
+        // Arrange: Purchase with UpdatedAt = default (incomplete)
         var purchase = new Purchase
         {
             Id = 1,
             UserId = 1,
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = default, // Not completed
+            UpdatedAt = default, // Not completed
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 5.00m, ScannedAt = DateTime.UtcNow }
@@ -731,7 +731,7 @@ public class ComprehensiveAchievementTests : IDisposable
             Id = id,
             UserId = 1,
             CreatedAt = completedAt ?? DateTime.UtcNow,
-            CompletedAt = completedAt ?? DateTime.UtcNow,
+            UpdatedAt = completedAt ?? DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
                 new BarcodeScan 

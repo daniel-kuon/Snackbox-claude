@@ -17,7 +17,6 @@ public class BarcodeMapperTests
             UserId = 10,
             Code = "BC123456",
             Amount = 5.50m,
-            IsLoginOnly = false,
             CreatedAt = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc)
         };
 
@@ -45,7 +44,6 @@ public class BarcodeMapperTests
             UserId = 10,
             Code = "BC123456",
             Amount = 5.50m,
-            IsLoginOnly = false,
             CreatedAt = DateTime.UtcNow,
             User = user
         };
