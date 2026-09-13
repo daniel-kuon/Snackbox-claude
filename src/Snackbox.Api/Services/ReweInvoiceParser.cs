@@ -26,7 +26,8 @@ public partial class ReweInvoiceParser : IInvoiceParserService
     [GeneratedRegex(@"SUMME\s+EUR\s+([\d,]+)", RegexOptions.Multiline)]
     private static partial Regex TotalRegex();
 
-    [GeneratedRegex(@"^([A-ZÄÖÜ\s\.]+(?:\d+)?)[\s]+([\d,]+)\s+B\s*$", RegexOptions.Multiline)]
+    // Product names can contain digits, punctuation and marks like "JA!", "G&G", "H-MILCH 3,5%", "COLA 0,5L"
+    [GeneratedRegex(@"^([A-ZÄÖÜ][A-ZÄÖÜß0-9\s\.\-&%!+/,']*?)\s+([\d,]+)\s+B\s*$", RegexOptions.Multiline)]
     private static partial Regex SimpleItemRegex();
 
     [GeneratedRegex(@"^(\d+)\s+Stk\s+x\s+([\d,]+)\s*$", RegexOptions.Multiline)]
