@@ -2,6 +2,7 @@
 @inject NavigationManager Navigation
 @inject IScannerService ScannerService
 @inject IAuthenticationService AuthService
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -58,6 +59,13 @@
                         <span class="bi bi-gear-nav-menu" aria-hidden="true"></span> Settings
                     </NavLink>
                 </div>
+                @* External observability UI - traces and logs for remote bug tracking *@
+                <div class="nav-item px-3">
+                    <a class="nav-link" href="@SignozUrl" target="_blank" rel="noopener"
+                       title="Traces and logs (opens in a new tab)">
+                        <span class="bi bi-graph-up-nav-menu" aria-hidden="true"></span> SigNoz ↗
+                    </a>
+                </div>
             </div>
         }
 
@@ -86,6 +94,9 @@
 </div>
 
 @code {
+    /// <summary>Observability UI (traces and logs); configurable per deployment.</summary>
+    private string SignozUrl => Configuration["Telemetry:SignozUrl"] ?? "http://localhost:3301";
+
     /// <summary>
     /// Whether to show the Exit button (typically for native/MAUI apps)
     /// </summary>
