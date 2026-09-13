@@ -168,16 +168,32 @@
                             </div>
                         </div>
 
-                        @* Inactive user alert - shown before payment reminders *@
+                        @* Inactive user alert - becomes a prominent call to action once they've actually bought something *@
                         @if (session.IsUserInactive)
                         {
-                            <div class="balance-notification danger" style="margin-bottom: 1rem;">
-                                <span class="notification-icon">⚠️🔒</span>
-                                <div class="notification-content">
-                                    <strong>Account Setup Required</strong>
-                                    <p>Your card has not been fully set up yet. You can continue scanning and buying — but take a minute to <button class="setup-now-link" @onclick="OpenSetupWizard">set up your account now</button> or contact <a href="mailto:daniel.kuon@cargonerds.com" style="color: inherit; text-decoration: underline;">daniel.kuon@cargonerds.com</a>.</p>
+                            var boughtSomething = session.ScannedBarcodes.Any();
+                            @if (boughtSomething)
+                            {
+                                <div class="setup-cta">
+                                    <span class="setup-cta-icon">👋</span>
+                                    <div class="setup-cta-body">
+                                        <strong>This is a spare card — please claim it</strong>
+                                        <p>Your purchase is recorded, but not yet under your name. Add your name so your balance is tracked for you.</p>
+                                        <button class="setup-cta-button" @onclick="OpenSetupWizard">Set up your account now →</button>
+                                        <p class="setup-cta-contact">Need help? Contact <a href="mailto:daniel.kuon@cargonerds.com">daniel.kuon@cargonerds.com</a></p>
+                                    </div>
                                 </div>
-                            </div>
+                            }
+                            else
+                            {
+                                <div class="balance-notification danger" style="margin-bottom: 1rem;">
+                                    <span class="notification-icon">⚠️🔒</span>
+                                    <div class="notification-content">
+                                        <strong>Account Setup Required</strong>
+                                        <p>Your card has not been fully set up yet. You can continue scanning and buying — but take a minute to <button class="setup-now-link" @onclick="OpenSetupWizard">set up your account now</button> or contact <a href="mailto:daniel.kuon@cargonerds.com" style="color: inherit; text-decoration: underline;">daniel.kuon@cargonerds.com</a>.</p>
+                                    </div>
+                                </div>
+                            }
                         }
 
                         @* Balance-based payment reminders *@
@@ -967,6 +983,35 @@
     .th-reset.confirm, .th-reset:hover:not(:disabled) { background: #dc3545; color: #fff; }
     .th-reset:disabled { opacity: 0.6; cursor: default; }
 
+    /* Prominent claim-your-spare-card call to action, shown after a purchase */
+    .setup-cta {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding: 1.25rem;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #0d6efd 0%, #0a3d8f 100%);
+        color: #fff;
+        box-shadow: 0 6px 24px rgba(13, 110, 253, 0.45);
+        animation: setup-cta-pulse 1.8s ease-in-out infinite;
+    }
+    @@keyframes setup-cta-pulse {
+        0%, 100% { box-shadow: 0 6px 24px rgba(13, 110, 253, 0.45); }
+        50% { box-shadow: 0 6px 34px rgba(13, 110, 253, 0.85); }
+    }
+    .setup-cta-icon { font-size: 2.2rem; line-height: 1; }
+    .setup-cta-body { flex: 1; }
+    .setup-cta-body strong { font-size: 1.15rem; display: block; margin-bottom: 0.25rem; }
+    .setup-cta-body p { margin: 0 0 0.75rem; opacity: 0.95; }
+    .setup-cta-button {
+        border: none; background: #fff; color: #0a3d8f; font-weight: 700;
+        padding: 0.6rem 1.3rem; border-radius: 8px; font-size: 1.05rem; cursor: pointer;
+    }
+    .setup-cta-button:hover { background: #eef4ff; }
+    .setup-cta-contact { font-size: 0.8rem; margin: 0.6rem 0 0 !important; opacity: 0.9; }
+    .setup-cta-contact a { color: #fff; text-decoration: underline; }
+
     .setup-now-link {
         background: none;
         border: none;
@@ -1302,8 +1347,8 @@
             ? session.PendingWizardSteps
             // Opened manually by an already-onboarded user: replay everything available
             : session.EnabledFeatures.Contains(MobileAppFeature)
-                ? new List<string> { "buying", "paying", "history", MobileAppFeature }
-                : new List<string> { "buying", "paying", "history" };
+                ? new List<string> { "welcome_new_version", "buying", "paying", "history", MobileAppFeature }
+                : new List<string> { "welcome_new_version", "buying", "paying", "history" };
         _showSetupWizard = true;
         UpdateTimerState();
         InvokeAsync(StateHasChanged);

@@ -25,7 +25,7 @@
             @if (_currentStep == Step.Setup)
             {
                 <div class="sw-step-icon">👋</div>
-                <p class="sw-lead">Your card works already — you can scan and buy right away. Tell us who you are so purchases show up under your name.</p>
+                <p class="sw-lead">You're using a spare card. It already works for buying — but purchases aren't tracked to anyone yet. Enter your name (and email, if you like) to claim this card so your balance is yours.</p>
 
                 <div class="sw-form">
                     <label class="sw-label" for="sw-name">Your name <span class="sw-required">*</span></label>
@@ -138,6 +138,8 @@
         var installUrl = string.IsNullOrWhiteSpace(WebsiteUrl) ? "the install page" : $"{WebsiteUrl.TrimEnd('/')}/install";
         return
         [
+            new("welcome_new_version", "🎉", "A new Snackbox is here",
+                "Welcome to the new version of Snackbox! For the first little while the old Snackbox keeps running alongside this one, so nothing you relied on disappears overnight. Give the new one a try — if anything looks off or you need help, message Daniel Kuon on Teams or email daniel.kuon@cargonerds.com."),
             new("buying", "🛒", "Buying snacks",
                 "Grab a snack, then scan one of the barcodes on your card — each barcode stands for a fixed amount (e.g. 0.50 €). Scan as many times as needed to match the price. Everything you scan shows up here, and the purchase completes automatically when the countdown runs out.",
                 TargetKey: "purchases", CardPosition: "bottom"),

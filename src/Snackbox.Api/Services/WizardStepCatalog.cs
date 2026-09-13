@@ -15,6 +15,7 @@ public static class WizardStepCatalog
 {
     public static readonly IReadOnlyList<WizardStepDefinition> Steps =
     [
+        new("welcome_new_version"),
         new("buying"),
         new("paying"),
         new("history"),
