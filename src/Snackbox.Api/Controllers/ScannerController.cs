@@ -134,9 +134,12 @@ public class ScannerController : ControllerBase
                     // Check for achievements earned from the purchase
                     await _achievementService.CheckAndAwardAchievementsAsync(user.Id, lastPurchase.Id);
                 }
-                else
+                else if (lastPurchase.ManualAmount == null)
                 {
-                    // Remove empty purchase (shouldn't happen, but handle it)
+                    // Truly empty purchase - no scans and no manual amount. Only these are
+                    // safe to drop. A manual purchase (admin entry, correction, or an
+                    // imported legacy purchase) legitimately has no scans and must be kept:
+                    // deleting it silently destroyed the user's balance.
                     _context.Purchases.Remove(lastPurchase);
                 }
 
@@ -200,16 +203,24 @@ public class ScannerController : ControllerBase
         // These can be checked on every scan, not just when the purchase completes
         await _achievementService.CheckImmediateAchievementsAsync(user.Id, currentPurchase.Id);
 
-        // Calculate user's balance (total spent - total paid)
+        // Calculate user's balance (total spent - total paid).
+        // A purchase counts as ManualAmount when set, otherwise as the sum of its scans -
+        // the same rule the admin views use. Manual purchases (admin entries, corrections and
+        // imported legacy purchases without a mappable barcode) have no scans, so summing
+        // scans alone would silently under-count what the user owes.
         var totalFromScans = await _context.BarcodeScans
-            .Where(bs => bs.Purchase.UserId == user.Id)
+            .Where(bs => bs.Purchase.UserId == user.Id && bs.Purchase.ManualAmount == null)
             .SumAsync(bs => bs.Amount);
+
+        var totalManual = await _context.Purchases
+            .Where(p => p.UserId == user.Id && p.ManualAmount != null)
+            .SumAsync(p => p.ManualAmount!.Value);
 
         var totalDiscounts = await _context.PurchaseDiscounts
             .Where(pd => pd.Purchase.UserId == user.Id)
             .SumAsync(pd => pd.DiscountAmount);
 
-        var totalSpent = totalFromScans - totalDiscounts;
+        var totalSpent = totalFromScans + totalManual - totalDiscounts;
 
         var totalPaid = await _context.Payments
             .Where(p => p.UserId == user.Id)

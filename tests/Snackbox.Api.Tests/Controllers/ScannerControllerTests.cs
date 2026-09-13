@@ -542,6 +542,58 @@ public class ScannerControllerTests : IDisposable
         Assert.Equal(5.00m, response.DiscountedAmount); // No discount applied
     }
 
+    [Fact]
+    public async Task ScanBarcode_KeepsManualPurchase_AndCountsItInTheBalance()
+    {
+        // A manual purchase (admin entry, correction, or imported legacy purchase) has no
+        // scans. It used to be deleted as an "empty purchase" on the user's next scan, and
+        // was also missing from the balance - both silently destroyed what the user owed.
+        _context.Purchases.Add(new Purchase
+        {
+            Id = 100,
+            UserId = 1,
+            Type = PurchaseType.Manual,
+            ManualAmount = 12.00m,
+            CreatedAt = DateTime.UtcNow.AddDays(-1),
+            UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _controller.ScanBarcode(new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" });
+
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ScanBarcodeResponse>(okResult.Value);
+        Assert.True(response.Success);
+
+        // Still there
+        var manual = await _context.Purchases.FindAsync(100);
+        Assert.NotNull(manual);
+        Assert.Equal(12.00m, manual!.ManualAmount);
+
+        // Balance = spent - paid = (12.00 manual + 5.00 scanned) - 50.00 paid
+        Assert.Equal(-33.00m, response.Balance);
+    }
+
+    [Fact]
+    public async Task ScanBarcode_RemovesTrulyEmptyPurchase()
+    {
+        // No scans and no manual amount - safe to drop
+        _context.Purchases.Add(new Purchase
+        {
+            Id = 101,
+            UserId = 1,
+            Type = PurchaseType.Normal,
+            ManualAmount = null,
+            CreatedAt = DateTime.UtcNow.AddDays(-1),
+            UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        });
+        await _context.SaveChangesAsync();
+
+        await _controller.ScanBarcode(new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" });
+
+        Assert.Null(await _context.Purchases.FindAsync(101));
+    }
+
     public void Dispose()
     {
         _context.Database.EnsureDeleted();
