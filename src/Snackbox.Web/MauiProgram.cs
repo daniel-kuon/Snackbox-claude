@@ -6,6 +6,7 @@ using Snackbox.Web.Services;
 using Snackbox.ServiceDefaults;
 using OpenTelemetry;
 using OpenTelemetry.Trace; // TracerProvider.ForceFlush extension
+using Snackbox.ServiceDefaults.Tracing;
 using System.Reflection;
 
 namespace Snackbox.Web;
@@ -110,6 +111,13 @@ public static class MauiProgram
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
 #endif
+
+        // [Traced] interception for the typed-HttpClient services (their implementation type
+        // is hidden behind a factory, so they are wrapped explicitly); other attributed
+        // services are picked up automatically.
+        builder.Services.AddTracing<IScannerService>()
+                        .AddTracing<IAuthenticationService>()
+                        .AddTracedServices();
 
         var app = builder.Build();
         HookUnhandledExceptions(app.Services);

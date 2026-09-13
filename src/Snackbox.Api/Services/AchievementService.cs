@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Models;
+using Snackbox.ServiceDefaults.Tracing;
 
 namespace Snackbox.Api.Services;
 
@@ -15,6 +16,7 @@ public interface IAchievementService
     Task<List<Achievement>> CheckImmediateAchievementsAsync(int userId, int purchaseId);
 }
 
+[Traced(LogReturnValue = true)] // which achievements a scan awarded, with the userId/purchaseId that triggered it
 public class AchievementService : IAchievementService
 {
     private readonly ApplicationDbContext _context;

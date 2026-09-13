@@ -6,10 +6,12 @@ using Snackbox.Components.Models;
 using Snackbox.Components.Mappers;
 using Refit;
 using Snackbox.ApiClient;
+using Snackbox.ServiceDefaults.Tracing;
 using Timer = System.Timers.Timer;
 
 namespace Snackbox.Components.Services;
 
+[Traced] // every interface call becomes a span with its parameters (see TracingProxy)
 public class ScannerService : IScannerService
 {
     private readonly HttpClient _httpClient;

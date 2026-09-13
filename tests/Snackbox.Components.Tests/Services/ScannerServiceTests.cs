@@ -34,7 +34,9 @@ public class ScannerServiceTests : IDisposable
             .AddInMemoryCollection(inMemorySettings!)
             .Build();
 
-        _scannerService = new ScannerService(_httpClient, _configuration);
+        // Loose mock: StartUiActionAsync returns a completed Task<Activity?> with null, which the
+        // service handles (no listener => no spans), so telemetry does not affect these tests.
+        _scannerService = new ScannerService(_httpClient, _configuration, Mock.Of<IUiTelemetry>());
     }
 
     [Fact]

@@ -8,6 +8,7 @@ using Microsoft.OpenApi;
 using Snackbox.Api.Data;
 using Snackbox.Api.Services;
 using Snackbox.ServiceDefaults;
+using Snackbox.ServiceDefaults.Tracing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -164,6 +165,10 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
+// Wrap every DI service marked [Traced] (class or method) in the tracing proxy:
+// one span per call with parameters and exceptions. Must come after all registrations.
+builder.Services.AddTracedServices();
 
 var app = builder.Build();
 

@@ -14,7 +14,7 @@ public class WizardStepCatalogTests
     {
         var pending = WizardStepCatalog.GetPendingSteps([], NoFeatures);
 
-        Assert.Equal(new[] { "buying", "paying", "history" }, pending);
+        Assert.Equal(new[] { "welcome_new_version", "buying", "paying", "history" }, pending);
         Assert.DoesNotContain(FeatureFlagKeys.MobileApp, pending);
     }
 
@@ -23,14 +23,14 @@ public class WizardStepCatalogTests
     {
         var pending = WizardStepCatalog.GetPendingSteps([], MobileOn);
 
-        Assert.Equal(new[] { "buying", "paying", "history", FeatureFlagKeys.MobileApp }, pending);
+        Assert.Equal(new[] { "welcome_new_version", "buying", "paying", "history", FeatureFlagKeys.MobileApp }, pending);
     }
 
     [Fact]
     public void ExistingUser_FeatureEnabledLater_SeesOnlyTheNewStep()
     {
         // User already went through the intro while the feature was off
-        string[] seen = ["buying", "paying", "history"];
+        string[] seen = ["welcome_new_version", "buying", "paying", "history"];
 
         var pending = WizardStepCatalog.GetPendingSteps(seen, MobileOn);
 
@@ -41,7 +41,7 @@ public class WizardStepCatalogTests
     [Fact]
     public void UserWhoSawEverything_GetsNothing()
     {
-        string[] seen = ["buying", "paying", "history", FeatureFlagKeys.MobileApp];
+        string[] seen = ["welcome_new_version", "buying", "paying", "history", FeatureFlagKeys.MobileApp];
 
         Assert.Empty(WizardStepCatalog.GetPendingSteps(seen, MobileOn));
     }
@@ -49,7 +49,7 @@ public class WizardStepCatalogTests
     [Fact]
     public void SeenFlaggedStep_StaysHidden_WhenFeatureTurnedBackOff()
     {
-        string[] seen = ["buying", "paying"];
+        string[] seen = ["welcome_new_version", "buying", "paying"];
 
         var pending = WizardStepCatalog.GetPendingSteps(seen, NoFeatures);
 
@@ -61,7 +61,7 @@ public class WizardStepCatalogTests
     {
         var pending = WizardStepCatalog.GetPendingSteps(["paying"], MobileOn);
 
-        Assert.Equal(new[] { "buying", "history", FeatureFlagKeys.MobileApp }, pending);
+        Assert.Equal(new[] { "welcome_new_version", "buying", "history", FeatureFlagKeys.MobileApp }, pending);
     }
 
     [Fact]

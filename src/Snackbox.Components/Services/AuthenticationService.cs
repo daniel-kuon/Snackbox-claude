@@ -2,9 +2,11 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Snackbox.Api.Dtos;
+using Snackbox.ServiceDefaults.Tracing;
 
 namespace Snackbox.Components.Services;
 
+[Traced] // parameters are logged per call - secrets below are masked with [Sensitive]
 public class AuthenticationService : IAuthenticationService
 {
     private readonly HttpClient _httpClient;
@@ -84,7 +86,7 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
-    public async Task<LoginResult> LoginWithPasswordAsync(string username, string password)
+    public async Task<LoginResult> LoginWithPasswordAsync(string username, [Sensitive] string password)
     {
         var activity = await _uiTelemetry.StartUiActionAsync(
             "login",
@@ -148,7 +150,7 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
-    public async Task<LoginResult> LoginWithBarcodeAndPasswordAsync(string barcodeValue, string password)
+    public async Task<LoginResult> LoginWithBarcodeAndPasswordAsync(string barcodeValue, [Sensitive] string password)
     {
         var activity = await _uiTelemetry.StartUiActionAsync(
             "login",
@@ -275,7 +277,7 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
-    public async Task<OperationResult> SetPasswordAsync(string barcodeValue, string email, string newPassword)
+    public async Task<OperationResult> SetPasswordAsync(string barcodeValue, string email, [Sensitive] string newPassword)
     {
         try
         {
@@ -301,7 +303,7 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
-    public async Task<OperationResult> ChangePasswordAsync(string currentPassword, string newPassword)
+    public async Task<OperationResult> ChangePasswordAsync([Sensitive] string currentPassword, [Sensitive] string newPassword)
     {
         try
         {

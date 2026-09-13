@@ -41,6 +41,8 @@ public static class TelemetrySources
 {
     public const string Ui = "Snackbox.Ui";
     public const string Api = "Snackbox.Api";
+    /// <summary>Spans produced by the [Traced] attribute interceptor (see Tracing/TracingProxy.cs).</summary>
+    public const string Traced = "Snackbox.Traced";
 }
 
 public static class ServiceDefaultsExtensions
@@ -59,7 +61,7 @@ public static class ServiceDefaultsExtensions
             .WithTracing(tracing =>
             {
                 tracing.SetResourceBuilder(resourceBuilder)
-                    .AddSource(TelemetrySources.Ui, TelemetrySources.Api)
+                    .AddSource(TelemetrySources.Ui, TelemetrySources.Api, TelemetrySources.Traced)
                     .AddSource("Npgsql", "Microsoft.EntityFrameworkCore");
 
                 if (instrumentationOptions.EnableAspNetCoreInstrumentation)

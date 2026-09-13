@@ -5,6 +5,7 @@ using Snackbox.BlazorServer.Services;
 using Snackbox.Components.Pages;
 using Snackbox.Components.Services;
 using Snackbox.ServiceDefaults;
+using Snackbox.ServiceDefaults.Tracing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,6 +63,11 @@ builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().Cre
 
 // Development-only UI test helper (API only answers in Development with TestHelper:Enabled)
 builder.Services.AddHttpClient<TestHelperClient>(client => { client.BaseAddress = new Uri(apiUrl); });
+
+// [Traced] interception (typed HttpClients wrapped explicitly, the rest auto-discovered)
+builder.Services.AddTracing<IScannerService>()
+                .AddTracing<IAuthenticationService>()
+                .AddTracedServices();
 
 var app = builder.Build();
 
