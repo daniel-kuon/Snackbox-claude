@@ -14,4 +14,6 @@ public interface IAuthenticationService
     // Admin can set password for any user without knowing current password
     Task<bool> AdminSetPasswordAsync(int userId, string newPassword);
     Task<bool> UserHasPasswordAsync(string username);
+    // Issue a token for a user without credentials - ONLY for the development test helper
+    Task<LoginResponse?> AuthenticateAsUserAsync(int userId);
 }

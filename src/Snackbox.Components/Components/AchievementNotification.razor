@@ -1,43 +1,49 @@
 @using Snackbox.Components.Models
+@using Snackbox.Components.Services
 @implements IDisposable
 
 <div class="achievement-overlay @(_isVisible ? "show" : "")">
-    @if (_currentAchievement != null)
+    @if (_displayAchievements.Any())
     {
-        <div class="achievement-card">
+        <div class="achievement-container">
             <div class="achievement-header">
-                <h2 class="achievement-title">🎉 Achievement Unlocked! 🎉</h2>
+                <h2 class="achievement-title">
+                    🎉 @(_displayAchievements.Count > 1 ? $"{_displayAchievements.Count} Achievements Unlocked!" : "Achievement Unlocked!") 🎉
+                </h2>
             </div>
 
-            <div class="achievement-content">
-                <!-- Achievement icon/gif -->
-                <div class="achievement-icon">
-                    @if (!string.IsNullOrEmpty(_currentAchievement.ImageUrl))
-                    {
-                        @((MarkupString)_currentAchievement.ImageUrl)
-                    }
-                    else
-                    {
-                        <!-- Default celebration GIF/animation -->
-                        <div class="achievement-emoji">🏆</div>
-                    }
-                </div>
-
-                <!-- Achievement details -->
-                <div class="achievement-details">
-                    <h3 class="achievement-name">@_currentAchievement.Name</h3>
-                    <p class="achievement-description">@_currentAchievement.Description</p>
-                </div>
-
-                <!-- Current scan info (always visible) -->
-                @if (!string.IsNullOrEmpty(CurrentScanInfo))
+            <div class="achievement-cards @(_displayAchievements.Count > 1 ? "multiple" : "")">
+                @foreach (var achievement in _displayAchievements)
                 {
-                    <div class="current-scan-info">
-                        <span class="scan-label">Current scan:</span>
-                        <span class="scan-value">@CurrentScanInfo</span>
+                    <div class="achievement-card">
+                        <div class="achievement-content">
+                            <div class="achievement-icon">
+                                @if (!string.IsNullOrEmpty(achievement.ImageUrl))
+                                {
+                                    @((MarkupString)achievement.ImageUrl)
+                                }
+                                else
+                                {
+                                    <div class="achievement-emoji">🏆</div>
+                                }
+                            </div>
+
+                            <div class="achievement-details">
+                                <h3 class="achievement-name">@achievement.Name</h3>
+                                <p class="achievement-description">@achievement.Description</p>
+                            </div>
+                        </div>
                     </div>
                 }
             </div>
+
+            @if (!string.IsNullOrEmpty(CurrentScanInfo))
+            {
+                <div class="current-scan-info">
+                    <span class="scan-label">Current scan:</span>
+                    <span class="scan-value">@CurrentScanInfo</span>
+                </div>
+            }
         </div>
     }
 </div>
@@ -64,14 +70,35 @@
         visibility: visible;
     }
 
+    .achievement-container {
+        max-width: min(1100px, 94vw);
+        max-height: 92vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0.5rem;
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    .achievement-cards {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
     .achievement-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 20px;
-        padding: 2rem;
-        max-width: 600px;
-        width: 90%;
+        padding: 1.25rem;
+        width: min(500px, 90vw);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         animation: slideIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    .achievement-cards.multiple .achievement-card {
+        width: min(340px, 90vw);
     }
 
     @@keyframes slideIn {
@@ -86,7 +113,6 @@
     }
 
     .achievement-header {
-        text-align: center;
         margin-bottom: 1.5rem;
     }
 
@@ -111,13 +137,14 @@
     .achievement-content {
         background: white;
         border-radius: 15px;
-        padding: 2rem;
+        padding: 1.5rem;
+        height: 100%;
     }
 
     .achievement-icon {
         display: flex;
         justify-content: center;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
     }
 
     .achievement-icon svg {
@@ -127,16 +154,18 @@
         filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
     }
 
-    .achievement-image {
-        max-width: 200px;
-        max-height: 200px;
-        border-radius: 10px;
-        animation: bounce 1s ease-in-out infinite;
+    .achievement-cards.multiple .achievement-icon svg {
+        width: 100px;
+        height: 100px;
     }
 
     .achievement-emoji {
         font-size: 8rem;
         animation: bounce 1s ease-in-out infinite;
+    }
+
+    .achievement-cards.multiple .achievement-emoji {
+        font-size: 5rem;
     }
 
     @@keyframes bounce {
@@ -150,24 +179,23 @@
 
     .achievement-details {
         text-align: center;
-        margin-bottom: 1rem;
     }
 
     .achievement-name {
-        font-size: 1.8rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: #333;
         margin: 0 0 0.5rem 0;
     }
 
     .achievement-description {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         color: #666;
         margin: 0;
     }
 
     .current-scan-info {
-        margin-top: 1.5rem;
+        margin-top: 1.25rem;
         padding: 1rem;
         background: #f8f9fa;
         border-radius: 8px;
@@ -198,12 +226,14 @@
     [Parameter]
     public EventCallback OnAllAchievementsShown { get; set; }
 
-    private Achievement? _currentAchievement;
+    private const int BaseDisplayMs = 4000;
+    private const int ExtraMsPerCard = 1500;
+
+    private List<Achievement> _displayAchievements = new();
     private bool _isVisible;
-    private bool _isDisplaying; // True during entire display cycle (including delays)
-    private int _currentIndex;
+    private bool _isDisplaying; // True during entire display cycle (including fade-out delay)
     private System.Timers.Timer? _displayTimer;
-    private HashSet<int> _shownAchievementIds = new();
+    private readonly HashSet<int> _shownAchievementIds = new();
     private bool _isDisposed;
 
     protected override void OnParametersSet()
@@ -214,72 +244,41 @@
 
         // Find new achievements that haven't been shown yet
         var newAchievements = Achievements.Where(a => !_shownAchievementIds.Contains(a.Id)).ToList();
+        if (!newAchievements.Any())
+            return;
 
-        if (newAchievements.Any())
+        // Mark the whole batch as handled - including tiers suppressed by the filter
+        foreach (var achievement in newAchievements)
+            _shownAchievementIds.Add(achievement.Id);
+
+        // Of tiered achievements earned together (e.g. COMEBACK_30/60/90), show only the highest
+        _displayAchievements = AchievementDisplayFilter.HighestPerFamily(newAchievements);
+
+        _isDisplaying = true;
+        _isVisible = true;
+
+        // All achievements show at once; a bigger batch stays visible a bit longer
+        var displayMs = BaseDisplayMs + ExtraMsPerCard * (_displayAchievements.Count - 1);
+        _displayTimer?.Dispose();
+        _displayTimer = new System.Timers.Timer(displayMs);
+        _displayTimer.Elapsed += async (_, _) =>
         {
-            // Start displaying new achievements
-            _isDisplaying = true;
-            _currentIndex = 0;
-            ShowNextAchievement(newAchievements);
-        }
-    }
+            if (_isDisposed)
+                return;
 
-    private void ShowNextAchievement(List<Achievement> achievementsToShow)
-    {
-        if (_currentIndex < achievementsToShow.Count)
-        {
-            _currentAchievement = achievementsToShow[_currentIndex];
-            _shownAchievementIds.Add(_currentAchievement.Id);
-            _isVisible = true;
-            StateHasChanged();
+            _isVisible = false;
+            await InvokeAsync(StateHasChanged);
 
-            // Auto-hide after 4 seconds
-            _displayTimer?.Dispose();
-            _displayTimer = new System.Timers.Timer(4000);
-            _displayTimer.Elapsed += async (_, _) =>
-            {
-                // Check if disposed before proceeding
-                if (_isDisposed)
-                    return;
+            // Let the fade-out finish before notifying the parent (which removes the component)
+            await Task.Delay(500);
+            if (_isDisposed)
+                return;
 
-                _isVisible = false;
-                await InvokeAsync(StateHasChanged);
-
-                // Wait 0.5 seconds before showing next achievement
-                await Task.Delay(500);
-
-                // Check again after delay
-                if (_isDisposed)
-                    return;
-
-                _currentIndex++;
-
-                if (_currentIndex < achievementsToShow.Count)
-                {
-                    await InvokeAsync(() =>
-                    {
-                        ShowNextAchievement(achievementsToShow);
-                    });
-                }
-                else
-                {
-                    // All achievements shown
-                    _isDisplaying = false;
-
-                    // Notify parent
-                    await InvokeAsync(async () =>
-                    {
-                        await OnAllAchievementsShown.InvokeAsync();
-                    });
-                }
-            };
-            _displayTimer.AutoReset = false;
-            _displayTimer.Start();
-        }
-        else
-        {
             _isDisplaying = false;
-        }
+            await InvokeAsync(async () => await OnAllAchievementsShown.InvokeAsync());
+        };
+        _displayTimer.AutoReset = false;
+        _displayTimer.Start();
     }
 
     public void Dispose()

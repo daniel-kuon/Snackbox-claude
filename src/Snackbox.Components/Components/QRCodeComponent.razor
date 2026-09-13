@@ -9,7 +9,7 @@
 
 @code {
     [Parameter]
-    public string PayPalUrl { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
 
     [Parameter]
     public int Size { get; set; } = 300;
@@ -23,14 +23,14 @@
 
     private void GenerateQrCode()
     {
-        if (string.IsNullOrEmpty(PayPalUrl))
+        if (string.IsNullOrEmpty(Url))
         {
             _qrCodeDataUrl = string.Empty;
             return;
         }
 
         using var qrGenerator = new QRCodeGenerator();
-        using var qrCodeData = qrGenerator.CreateQrCode(PayPalUrl, QRCodeGenerator.ECCLevel.Q);
+        using var qrCodeData = qrGenerator.CreateQrCode(Url, QRCodeGenerator.ECCLevel.Q);
         using var qrCode = new PngByteQRCode(qrCodeData);
 
         var qrCodeBytes = qrCode.GetGraphic(20);

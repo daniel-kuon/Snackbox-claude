@@ -14,10 +14,13 @@ IResourceBuilder<ParameterResource> postgresPassword =
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
                       .WithContainerName("snackbox-postgres")
                       .WithLifetime(ContainerLifetime.Persistent)
-                      .WithHostPort(59653)
+                      // Fixed host ports live in the registered range, not the ephemeral
+                      // range (49152-65535) where Windows/Hyper-V dynamically reserves blocks
+                      // and would refuse the bind ("access to socket forbidden").
+                      .WithHostPort(15653)
                       .WithDataVolume()
                       .WithPgAdmin(b => b.WithContainerName("snackbox-pgadmin")
-                                         .WithHostPort(59654)
+                                         .WithHostPort(15654)
                                          .WithLifetime(ContainerLifetime.Persistent))
                       .AddDatabase("snackboxdb");
 

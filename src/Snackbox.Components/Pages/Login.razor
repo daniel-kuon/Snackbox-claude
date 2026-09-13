@@ -1,7 +1,9 @@
 @page "/login"
 @using System.ComponentModel.DataAnnotations
+@using Snackbox.Api.Dtos
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
+@inject TestHelperClient TestHelper
 
 <PageTitle>Login - Snackbox</PageTitle>
 
@@ -63,6 +65,22 @@
                 Forgot your password? <a href="/reset-password" class="register-link">Reset it here</a>
             </small>
         </div>
+
+        @* Development-only test helper: password bypass (only rendered when the API enables it) *@
+        @if (_testUsers != null)
+        {
+            <div class="th-login">
+                <div class="th-login-title">🧪 Test helper — login without password</div>
+                <div class="th-login-users">
+                    @foreach (var user in _testUsers)
+                    {
+                        <button class="th-login-user" disabled="@_isLoading" @onclick="() => TestLogin(user)">
+                            @user.Username @(user.IsAdmin ? "👑" : "")
+                        </button>
+                    }
+                </div>
+            </div>
+        }
     </div>
 </div>
 
@@ -206,13 +224,58 @@
     .text-muted {
         color: #6c757d;
     }
+
+    /* Development-only test helper */
+    .th-login {
+        margin-top: 1.5rem;
+        padding: 0.75rem;
+        border: 1px dashed #adb5bd;
+        border-radius: 8px;
+        background: #f8f9fa;
+    }
+    .th-login-title { font-size: 0.8rem; font-weight: 600; color: #666; margin-bottom: 0.5rem; }
+    .th-login-users { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .th-login-user {
+        border: 1px solid #ccc; background: #fff; border-radius: 6px;
+        padding: 0.25rem 0.6rem; font-size: 0.85rem; cursor: pointer;
+    }
+    .th-login-user:hover:not(:disabled) { background: #e9ecef; }
 </style>
 
 @code {
     private string? _errorMessage;
     private bool _isLoading;
+    private List<TestUserDto>? _testUsers;
 
     private LoginModel _loginModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Development-only test helper - null (and hidden) unless the API enables it
+        _testUsers = await TestHelper.GetUsersAsync();
+    }
+
+    private async Task TestLogin(TestUserDto user)
+    {
+        _errorMessage = null;
+        _isLoading = true;
+        try
+        {
+            var result = await TestHelper.LoginAsAsync(user.UserId);
+            if (result.Success)
+            {
+                Navigation.NavigateTo(result.IsAdmin ? "/admin/dashboard" : "/home", forceLoad: true);
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "Test login failed";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
 
     private async Task HandleLogin()
     {

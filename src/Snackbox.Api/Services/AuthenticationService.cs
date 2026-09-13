@@ -180,6 +180,26 @@ public class AuthenticationService : IAuthenticationService
         return user != null && !string.IsNullOrEmpty(user.PasswordHash);
     }
 
+    public async Task<LoginResponse?> AuthenticateAsUserAsync(int userId)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+        {
+            return null;
+        }
+
+        var token = GenerateJwtToken(user);
+
+        return new LoginResponse
+        {
+            Token = token,
+            Username = user.Username,
+            Email = user.Email,
+            IsAdmin = user.IsAdmin,
+            UserId = user.Id
+        };
+    }
+
     private string GenerateJwtToken(User user)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");

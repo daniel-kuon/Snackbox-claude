@@ -37,9 +37,9 @@ public interface IUsersApi
     [Post("/api/users/setup")]
     Task<CompleteAccountSetupResponse> CompleteSetupAsync([Body] CompleteAccountSetupDto dto);
 
-    // Kiosk: mark the app introduction as seen for the card's user
-    [Post("/api/users/intro-seen")]
-    Task MarkIntroSeenAsync([Body] MarkIntroSeenDto dto);
+    // Kiosk: record which introduction steps the card's user has now seen
+    [Post("/api/users/wizard-steps-seen")]
+    Task MarkWizardStepsSeenAsync([Body] MarkWizardStepsSeenDto dto);
 }
 
 public class RegisterResponse

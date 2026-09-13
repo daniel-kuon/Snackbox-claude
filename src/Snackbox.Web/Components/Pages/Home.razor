@@ -3,6 +3,10 @@
 @inject WindowsScannerListener ScannerListener
 @inject IScannerService ScannerService
 @inject NavigationManager Navigation
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@inject TestHelperClient TestHelper
+@using System.Net
+@using System.Net.Sockets
 @using System.Timers
 @using Snackbox.Components.Components
 @using Snackbox.Components.Components.History
@@ -48,7 +52,7 @@
             <!-- Main content area -->
             <div class="scanner-content">
                 <!-- Left side: Purchase items and totals -->
-                <div class="purchase-section">
+                <div class="purchase-section @SpotlightClass("purchases")">
                     <!-- Timer at top of purchase section -->
                     <div class="timer-container">
                         <div class="timer-circle">
@@ -123,7 +127,7 @@
                     }
 
                     <!-- Recent purchases -->
-                    <div class="recent-purchases" @onclick="OpenPurchasesModal" style="cursor: pointer;">
+                    <div class="recent-purchases @SpotlightClass("history")" @onclick="OpenPurchasesModal" style="cursor: pointer;">
                         <h4 class="recent-title">Recent Purchases (@session.RecentPurchases.Count) <small style="font-weight:normal;color:#666;">(click to view all)</small></h4>
                         @if (session.RecentPurchases.Any())
                         {
@@ -275,15 +279,26 @@
                         }
                     </div>
 
-                    <!-- QR Code -->
-                    <h3 class="section-title" style="margin-bottom: -2rem; z-index: 10">Pay via PayPal</h3>
-                    <div class="qr-code-wrapper">
-                        <QRCodeComponent PayPalUrl="@($"https://paypal.me/dkuon/{Math.Abs(session.OpenAmount):F2}")"
-                                         Size="250"/>
+                    <!-- QR Codes: payment and phone app install guide -->
+                    <div class="qr-pair">
+                        <div class="qr-col @SpotlightClass("payment")">
+                            <h3 class="section-title qr-col-title">Pay via PayPal</h3>
+                            <QRCodeComponent Url="@($"https://paypal.me/dkuon/{Math.Abs(session.OpenAmount):F2}")"
+                                             Size="250"/>
+                            <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C") or go to
+                                https://paypal.me/dkuon/@(Math.Abs(session.OpenAmount).ToString("F2"))<br/>
+                                Payments will not show up instantly.</p>
+                        </div>
+                        @if (_installUrl != null && IsFeatureEnabled(MobileAppFeature))
+                        {
+                            <div class="qr-col @SpotlightClass("install")">
+                                <h3 class="section-title qr-col-title">Snackbox on your phone</h3>
+                                <QRCodeComponent Url="@_installUrl" Size="250"/>
+                                <p class="qr-instruction">Scan to open the install guide<br/>
+                                    and get the app on your phone.</p>
+                            </div>
+                        }
                     </div>
-                    <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C") or go to
-                        https://paypal.me/dkuon/@(Math.Abs(session.OpenAmount).ToString("F2"))<br/>
-                        Payments will not show up instantly.</p>
 
                     <!-- Scan instruction -->
                     <div class="scan-instruction-box">
@@ -305,12 +320,59 @@
                      OnClose="ClosePaymentsModal" />
 
 <!-- Account setup / first-time introduction wizard -->
-<SetupWizard IsOpen="@_showSetupWizard"
+<SetupWizard @ref="_setupWizard"
+             IsOpen="@_showSetupWizard"
              RequiresSetup="@_wizardRequiresSetup"
              BarcodeCode="@_wizardBarcodeCode"
+             WebsiteUrl="@_websiteUrl"
+             PendingStepKeys="@_wizardPendingSteps"
              OnClose="CloseSetupWizard"
              OnSetupCompleted="HandleSetupCompleted"
-             OnIntroFinished="HandleIntroFinished" />
+             OnIntroFinished="HandleIntroFinished"
+             OnHighlightChanged="HandleHighlightChanged" />
+
+@* Development-only test helper: simulate scans by clicking (only rendered when the API enables it) *@
+@if (_testUsers != null)
+{
+    <button class="th-toggle" title="Test helper" @onclick="() => _showTestPanel = !_showTestPanel">🧪</button>
+
+    @if (_showTestPanel)
+    {
+        <div class="th-panel">
+            <div class="th-header">
+                <strong>🧪 Test helper — click to scan</strong>
+                <button class="th-close" @onclick="() => _showTestPanel = false">×</button>
+            </div>
+            <div class="th-body">
+                @foreach (var user in _testUsers)
+                {
+                    <div class="th-user">
+                        <span class="th-user-name">
+                            @user.Username
+                            @if (!user.IsActive) { <span class="th-tag inactive">not set up</span> }
+                            @if (user.IsAdmin) { <span class="th-tag admin">admin</span> }
+                        </span>
+                        <div class="th-codes">
+                            @foreach (var barcode in user.Barcodes)
+                            {
+                                <button class="th-code @(barcode.IsLoginBarcode ? "login" : "")"
+                                        title="@barcode.Code"
+                                        @onclick="() => SimulateScan(barcode.Code)">
+                                    @(barcode.IsLoginBarcode ? "🔑 login" : barcode.Amount.ToString("C"))
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="th-footer">
+                <button class="th-reset @(_confirmReset ? "confirm" : "")" disabled="@_isResetting" @onclick="ResetDatabase">
+                    @(_isResetting ? "Resetting…" : _confirmReset ? "⚠ Really wipe all data? Click again" : "🗑 Reset database")
+                </button>
+            </div>
+        </div>
+    }
+}
 
 <style>
     .scanner-container {
@@ -749,14 +811,30 @@
         }
     }
 
-    .qr-code-wrapper {
+    .qr-pair {
         display: flex;
         justify-content: center;
-        margin: 0;
+        align-items: flex-start;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .qr-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .qr-col-title {
+        margin-bottom: -1.5rem;
+        z-index: 10;
     }
 
     .qr-code-image {
-        height: 600px;
+        max-height: 340px;
+        max-width: 100%;
     }
 
     .qr-instruction {
@@ -764,7 +842,7 @@
         color: #333;
         font-size: 1rem;
         margin-bottom: -1rem;
-        margin-top: -2rem;
+        margin-top: -1.5rem;
     }
 
     .scan-instruction-box {
@@ -835,6 +913,60 @@
         font-weight: 700;
         color: #667eea;
     }
+    /* Wizard spotlight: raises the highlighted element and dims everything else.
+       The huge outer box-shadow is the dimming layer, so no separate backdrop is needed. */
+    .sb-spotlight {
+        position: relative;
+        z-index: 1150;
+        border-radius: 12px;
+        box-shadow: 0 0 0 4px #0d6efd,
+                    0 0 0 9999px rgba(0, 0, 0, 0.72);
+        animation: sb-spotlight-pulse 1.6s ease-in-out infinite;
+    }
+
+    @@keyframes sb-spotlight-pulse {
+        0%, 100% { box-shadow: 0 0 0 4px #0d6efd, 0 0 0 9999px rgba(0, 0, 0, 0.72); }
+        50% { box-shadow: 0 0 0 7px rgba(13, 110, 253, 0.75), 0 0 0 9999px rgba(0, 0, 0, 0.72); }
+    }
+
+    /* Development-only test helper */
+    .th-toggle {
+        position: fixed; bottom: 12px; left: 12px; z-index: 1200;
+        width: 44px; height: 44px; border-radius: 50%; border: none;
+        background: #212529; color: #fff; font-size: 1.2rem; cursor: pointer; opacity: 0.6;
+    }
+    .th-toggle:hover { opacity: 1; }
+    .th-panel {
+        position: fixed; bottom: 64px; left: 12px; z-index: 1200;
+        width: 340px; max-height: 70vh; overflow: auto;
+        background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .th-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.6rem 0.9rem; border-bottom: 1px solid #eee; font-size: 0.9rem;
+    }
+    .th-close { border: none; background: transparent; font-size: 1.2rem; cursor: pointer; line-height: 1; }
+    .th-body { padding: 0.5rem 0.9rem 0.75rem; }
+    .th-user { padding: 0.4rem 0; border-bottom: 1px solid #f4f4f4; }
+    .th-user-name { font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 0.35rem; }
+    .th-tag { font-size: 0.65rem; padding: 0.05rem 0.35rem; border-radius: 4px; font-weight: 600; }
+    .th-tag.inactive { background: #fff3cd; color: #856404; }
+    .th-tag.admin { background: #d1e7ff; color: #084298; }
+    .th-codes { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
+    .th-code {
+        border: 1px solid #ccc; background: #f8f9fa; border-radius: 6px;
+        padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer;
+    }
+    .th-code:hover { background: #e9ecef; }
+    .th-code.login { border-color: #0d6efd; color: #0d6efd; }
+    .th-footer { padding: 0.5rem 0.9rem 0.75rem; border-top: 1px solid #eee; }
+    .th-reset {
+        width: 100%; border: 1px solid #dc3545; color: #dc3545; background: #fff;
+        border-radius: 6px; padding: 0.35rem 0.5rem; font-size: 0.8rem; cursor: pointer;
+    }
+    .th-reset.confirm, .th-reset:hover:not(:disabled) { background: #dc3545; color: #fff; }
+    .th-reset:disabled { opacity: 0.6; cursor: default; }
+
     .setup-now-link {
         background: none;
         border: none;
@@ -859,10 +991,26 @@
     private bool _showSetupWizard;
     private bool _wizardRequiresSetup;
     private string _wizardBarcodeCode = string.Empty;
+    private string? _websiteUrl;
+    private string? _installUrl;
+    private string? _spotlightTarget;
+    private SetupWizard? _setupWizard;
+    private IReadOnlyList<string> _wizardPendingSteps = Array.Empty<string>();
+    private const string MobileAppFeature = "mobile_app";
+    private List<TestUserDto>? _testUsers;
+    private bool _showTestPanel;
+    private bool _confirmReset;
+    private bool _isResetting;
     private readonly HashSet<string> _wizardAutoShownUserIds = new();
 
     protected override async Task OnInitializedAsync()
     {
+        // Website address shown in the intro wizard's "install on your phone" step.
+        // Configurable; falls back to this PC's IP since kiosk and web server run on the same machine.
+        var configured = Configuration["Website:PublicUrl"];
+        _websiteUrl = string.IsNullOrWhiteSpace(configured) ? DetectLocalWebsiteUrl() : configured;
+        _installUrl = BuildInstallUrl(_websiteUrl);
+
         // Subscribe to scanner events
         ScannerListener.CodeReceived += HandleCodeScanned;
 
@@ -874,6 +1022,43 @@
 
         // Start listening for scanner input
         ScannerListener.Start();
+
+        // Development-only test helper - null (and hidden) unless the API enables it
+        _testUsers = await TestHelper.GetUsersAsync();
+    }
+
+    private void SimulateScan(string code)
+    {
+        HandleCodeScanned(code);
+    }
+
+    private async Task ResetDatabase()
+    {
+        if (!_confirmReset)
+        {
+            _confirmReset = true;
+            return;
+        }
+
+        _isResetting = true;
+        try
+        {
+            if (await TestHelper.ResetDatabaseAsync())
+            {
+                ScannerService.ResetSession();
+                _testUsers = await TestHelper.GetUsersAsync();
+            }
+            else
+            {
+                ShowError("Database reset failed");
+            }
+        }
+        finally
+        {
+            _confirmReset = false;
+            _isResetting = false;
+            StateHasChanged();
+        }
     }
 
     private async void HandleCodeScanned(string code)
@@ -906,13 +1091,37 @@
         _remainingSeconds = ScannerService.TimeoutSeconds;
         StartCountdownTimer();
         MaybeAutoOpenSetupWizard(session);
+        UpdateTimerState();
         InvokeAsync(StateHasChanged);
     }
 
     private void HandlePurchaseUpdated(PurchaseSession session)
     {
         ResetCountdownTimer();
+        UpdateTimerState();
         InvokeAsync(StateHasChanged);
+    }
+
+    // Any blocking popup (wizard, achievements, history modals) should freeze the
+    // auto-complete countdown so the session doesn't time out while the user reads it.
+    private bool AnyPopupOpen =>
+        _showSetupWizard
+        || _showPurchasesModal
+        || _showPaymentsModal
+        || (ScannerService.CurrentSession?.NewAchievements.Any() ?? false);
+
+    private void UpdateTimerState()
+    {
+        if (AnyPopupOpen)
+        {
+            StopCountdownTimer();
+            ScannerService.PauseTimeout();
+        }
+        else if (ScannerService.IsSessionActive)
+        {
+            ScannerService.ResumeTimeout();
+            ResetCountdownTimer();
+        }
     }
 
     private void HandlePurchaseCompleted()
@@ -967,6 +1176,8 @@
         // Reset UI countdown and service timeout when mouse is used
         ResetCountdownTimer();
         ScannerService.SignalActivity();
+        // Mouse over the page (incl. the spotlighted element) hands the tour to the user
+        _setupWizard?.NotifyUserActivity();
     }
 
     private async Task EnsureAllPurchasesLoadedAsync()
@@ -991,6 +1202,7 @@
     {
         await EnsureAllPurchasesLoadedAsync();
         _showPurchasesModal = true;
+        UpdateTimerState();
         StateHasChanged();
     }
 
@@ -998,18 +1210,21 @@
     {
         await EnsureAllPaymentsLoadedAsync();
         _showPaymentsModal = true;
+        UpdateTimerState();
         StateHasChanged();
     }
 
     private Task ClosePurchasesModal()
     {
         _showPurchasesModal = false;
+        UpdateTimerState();
         return Task.CompletedTask;
     }
 
     private Task ClosePaymentsModal()
     {
         _showPaymentsModal = false;
+        UpdateTimerState();
         return Task.CompletedTask;
     }
 
@@ -1046,10 +1261,25 @@
         return $"Total: {session.TotalAmount:C}";
     }
 
+    // Highlights the element the current wizard step is talking about
+    private string SpotlightClass(string targetKey)
+        => _spotlightTarget == targetKey ? "sb-spotlight" : string.Empty;
+
+    private bool IsFeatureEnabled(string key)
+        => ScannerService.CurrentSession?.EnabledFeatures.Contains(key) ?? false;
+
+    private void HandleHighlightChanged(string? targetKey)
+    {
+        _spotlightTarget = targetKey;
+        StateHasChanged();
+    }
+
     private void MaybeAutoOpenSetupWizard(PurchaseSession session)
     {
-        // Auto-open once per user per app run: for setup (inactive card) or first-time introduction
-        if (!session.IsUserInactive && session.HasSeenIntro)
+        // Auto-open once per user per app run: for setup (inactive card), or whenever the
+        // API reports intro steps this user has not seen - including steps added later for
+        // a feature that has since been enabled.
+        if (!session.IsUserInactive && !session.PendingWizardSteps.Any())
             return;
         if (!_wizardAutoShownUserIds.Add(session.UserId))
             return;
@@ -1068,13 +1298,22 @@
     {
         _wizardRequiresSetup = session.IsUserInactive;
         _wizardBarcodeCode = session.ScannedCardCode;
+        _wizardPendingSteps = session.PendingWizardSteps.Count > 0
+            ? session.PendingWizardSteps
+            // Opened manually by an already-onboarded user: replay everything available
+            : session.EnabledFeatures.Contains(MobileAppFeature)
+                ? new List<string> { "buying", "paying", "history", MobileAppFeature }
+                : new List<string> { "buying", "paying", "history" };
         _showSetupWizard = true;
+        UpdateTimerState();
         InvokeAsync(StateHasChanged);
     }
 
     private Task CloseSetupWizard()
     {
         _showSetupWizard = false;
+        _spotlightTarget = null;
+        UpdateTimerState();
         return Task.CompletedTask;
     }
 
@@ -1085,16 +1324,48 @@
         {
             session.UserName = newUsername;
             session.IsUserInactive = false;
-            session.HasSeenIntro = true;
         }
         StateHasChanged();
     }
 
     private void HandleIntroFinished()
     {
-        var session = ScannerService.CurrentSession;
-        if (session != null)
-            session.HasSeenIntro = true;
+        // The API recorded the shown steps; nothing is pending for this session anymore
+        ScannerService.CurrentSession?.PendingWizardSteps.Clear();
+    }
+
+    private static string? BuildInstallUrl(string? websiteUrl)
+    {
+        if (string.IsNullOrWhiteSpace(websiteUrl))
+            return null;
+        try
+        {
+            // The install guide must be opened over plain HTTP - the phone can't load
+            // the HTTPS site before the self-signed certificate from that page is trusted.
+            // Keep any explicit port from the configured URL (dev BlazorServer runs on a
+            // non-standard http port); a default port collapses to :80.
+            var uri = new Uri(websiteUrl);
+            var authority = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
+            return $"http://{authority}/install";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? DetectLocalWebsiteUrl()
+    {
+        try
+        {
+            var ip = Dns.GetHostAddresses(Dns.GetHostName())
+                .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
+            return ip == null ? null : $"https://{ip}";
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void ClearAchievements()
@@ -1102,6 +1373,7 @@
         if (ScannerService.CurrentSession != null)
         {
             ScannerService.CurrentSession.NewAchievements.Clear();
+            UpdateTimerState();
             StateHasChanged();
         }
     }

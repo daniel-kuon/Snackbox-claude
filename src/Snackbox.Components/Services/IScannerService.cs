@@ -17,6 +17,8 @@ public interface IScannerService
     Task<ScanResult> ProcessBarcodeAsync(string barcode);
     void ResetSession();
     void SignalActivity();
+    void PauseTimeout();
+    void ResumeTimeout();
     Task<IEnumerable<PurchaseDto>> GetMyPurchasesAsync();
     Task<IEnumerable<PaymentDto>> GetMyPaymentsAsync();
 }

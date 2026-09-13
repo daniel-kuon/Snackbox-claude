@@ -58,6 +58,17 @@ public class DatabaseSeeder
                 PasswordHash = null,
                 IsAdmin = false,
                 CreatedAt = seedDate
+            },
+            new User
+            {
+                // Fresh user with no purchases yet - good for testing the intro wizard
+                // and first-purchase achievements
+                Id = 4,
+                Username = "sam.newbie",
+                Email = "sam.newbie@company.com",
+                PasswordHash = null,
+                IsAdmin = false,
+                CreatedAt = seedDate
             }
         };
 
@@ -126,18 +137,27 @@ public class DatabaseSeeder
         // Seed user barcodes
         var barcodes = new Barcode[]
         {
-            new PurchaseBarcode { Id = 1, UserId = 2, Code = "4061461764012", Amount = 5.00m, CreatedAt = seedDate },
-            new PurchaseBarcode { Id = 2, UserId = 2, Code = "USER2-10EUR", Amount = 10.00m, CreatedAt = seedDate },
-            new PurchaseBarcode { Id = 3, UserId = 3, Code = "USER3-5EUR", Amount = 5.00m, CreatedAt = seedDate },
-            new PurchaseBarcode { Id = 4, UserId = 3, Code = "USER3-10EUR", Amount = 10.00m, CreatedAt = seedDate },
+            new PurchaseBarcode { Id = 1, UserId = 2, Code = "4061461764012", Amount = 0.50m, CreatedAt = seedDate },
+            new PurchaseBarcode { Id = 2, UserId = 2, Code = "USER2-30CENT", Amount = 0.30m, CreatedAt = seedDate },
+            new PurchaseBarcode { Id = 3, UserId = 3, Code = "USER3-50CENT", Amount = 0.50m, CreatedAt = seedDate },
+            new PurchaseBarcode { Id = 4, UserId = 3, Code = "USER3-30CENT", Amount = 0.30m, CreatedAt = seedDate },
             new LoginBarcode { Id = 5, UserId = 1, Code = "4260473313809", Amount = 0m, CreatedAt = seedDate },
             new LoginBarcode { Id = 6, UserId = 2, Code = "USER2-LOGIN", Amount = 0m, CreatedAt = seedDate },
-            new LoginBarcode { Id = 7, UserId = 3, Code = "USER3-LOGIN", Amount = 0m, CreatedAt = seedDate }
+            new LoginBarcode { Id = 7, UserId = 3, Code = "USER3-LOGIN", Amount = 0m, CreatedAt = seedDate },
+            // sam.newbie - has barcodes but no purchases yet
+            new PurchaseBarcode { Id = 8, UserId = 4, Code = "USER4-50CENT", Amount = 0.50m, CreatedAt = seedDate },
+            new PurchaseBarcode { Id = 9, UserId = 4, Code = "USER4-30CENT", Amount = 0.30m, CreatedAt = seedDate },
+            new LoginBarcode { Id = 10, UserId = 4, Code = "USER4-LOGIN", Amount = 0m, CreatedAt = seedDate }
         };
 
         _context.Barcodes.AddRange(barcodes);
         await _context.SaveChangesAsync();
         _logger.LogInformation("Seeded {Count} user barcodes", barcodes.Length);
+
+        // Sample activity uses dates relative to "now" so seeded users look recently active.
+        // Fixed historical dates would make every seeded user's next purchase register as a
+        // multi-month "comeback" (e.g. Lazarus Rising) once enough calendar time has passed.
+        var now = DateTime.UtcNow;
 
         // Seed sample purchases
         var purchases = new[]
@@ -146,15 +166,15 @@ public class DatabaseSeeder
             {
                 Id = 1,
                 UserId = 2,
-                CreatedAt = seedDate.AddDays(5),
-                UpdatedAt = seedDate.AddDays(5).AddMinutes(5)
+                CreatedAt = now.AddDays(-3),
+                UpdatedAt = now.AddDays(-3).AddMinutes(5)
             },
             new Purchase
             {
                 Id = 2,
                 UserId = 3,
-                CreatedAt = seedDate.AddDays(10),
-                UpdatedAt = seedDate.AddDays(10).AddMinutes(3)
+                CreatedAt = now.AddDays(-2),
+                UpdatedAt = now.AddDays(-2).AddMinutes(3)
             }
         };
 
@@ -165,9 +185,9 @@ public class DatabaseSeeder
         // Seed barcode scans for purchases
         var scans = new[]
         {
-            new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 5.00m, ScannedAt = seedDate.AddDays(5) },
-            new BarcodeScan { Id = 2, PurchaseId = 1, BarcodeId = 2, Amount = 10.00m, ScannedAt = seedDate.AddDays(5).AddMinutes(2) },
-            new BarcodeScan { Id = 3, PurchaseId = 2, BarcodeId = 3, Amount = 5.00m, ScannedAt = seedDate.AddDays(10) }
+            new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 5.00m, ScannedAt = now.AddDays(-3) },
+            new BarcodeScan { Id = 2, PurchaseId = 1, BarcodeId = 2, Amount = 10.00m, ScannedAt = now.AddDays(-3).AddMinutes(2) },
+            new BarcodeScan { Id = 3, PurchaseId = 2, BarcodeId = 3, Amount = 5.00m, ScannedAt = now.AddDays(-2) }
         };
 
         _context.BarcodeScans.AddRange(scans);
@@ -182,7 +202,7 @@ public class DatabaseSeeder
                 Id = 1,
                 UserId = 2,
                 Amount = 20.00m,
-                PaidAt = seedDate,
+                PaidAt = now.AddDays(-5),
                 Notes = "Initial payment"
             },
             new Payment
@@ -190,7 +210,7 @@ public class DatabaseSeeder
                 Id = 2,
                 UserId = 3,
                 Amount = 15.00m,
-                PaidAt = seedDate.AddDays(2),
+                PaidAt = now.AddDays(-4),
                 Notes = "Cash payment"
             }
         };

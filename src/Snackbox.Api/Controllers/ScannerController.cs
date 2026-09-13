@@ -70,6 +70,17 @@ public class ScannerController : ControllerBase
         var user = barcode.User;
         var isInactive = !user.IsActive;
 
+        // Which intro steps this user still needs, given the currently enabled features
+        var enabledFeatures = await _context.FeatureFlags
+            .Where(f => f.IsEnabled)
+            .Select(f => f.Key)
+            .ToListAsync();
+        var seenSteps = await _context.UserWizardSteps
+            .Where(s => s.UserId == user.Id)
+            .Select(s => s.StepKey)
+            .ToListAsync();
+        var pendingWizardSteps = WizardStepCatalog.GetPendingSteps(seenSteps, enabledFeatures.ToHashSet());
+
         // Check if this is a login barcode - return success with user info but don't create a purchase
         if (barcode is LoginBarcode)
         {
@@ -80,7 +91,8 @@ public class ScannerController : ControllerBase
                 Username = user.Username,
                 IsLoginOnly = true,
                 IsUserInactive = isInactive,
-                HasSeenIntro = user.HasSeenIntro
+                PendingWizardSteps = pendingWizardSteps,
+                EnabledFeatures = enabledFeatures
             });
         }
 
@@ -317,7 +329,8 @@ public class ScannerController : ControllerBase
             UserId = user.Id,
             Username = user.Username,
             IsUserInactive = isInactive,
-            HasSeenIntro = user.HasSeenIntro,
+            PendingWizardSteps = pendingWizardSteps,
+            EnabledFeatures = enabledFeatures,
             PurchaseId = currentPurchase.Id,
             ScannedBarcodes = currentPurchase.Scans
                 .OrderBy(s => s.ScannedAt)

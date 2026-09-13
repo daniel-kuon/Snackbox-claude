@@ -2,12 +2,20 @@
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
 @using System.Text.Json
+@implements IDisposable
 @inject IUsersApi UsersApi
 
 @if (IsOpen)
 {
-    <div class="sw-backdrop"></div>
-    <div class="sw-modal" tabindex="-1" @ref="_modalElement" @onkeydown="HandleKeyDown">
+    @* Without a highlight target the card needs its own backdrop. With one, the dimming
+       comes from the spotlight ring the host page puts around the highlighted element. *@
+    @if (CurrentTarget == null)
+    {
+        <div class="sw-backdrop"></div>
+    }
+
+    <div class="sw-modal @(CurrentTarget != null ? "sw-tour" : "") @(CurrentCardPosition == "top" ? "sw-top" : "")"
+         tabindex="-1" @ref="_modalElement" @onkeydown="HandleKeyDown" @onmousemove="StopAutoAdvance">
         <div class="sw-header">
             <h3>@(_currentStep == Step.Setup ? "Set Up Your Account" : "Welcome to Snackbox")</h3>
             <button class="sw-close" title="Close (Esc)" @onclick="CloseAsync">×</button>
@@ -34,15 +42,29 @@
                     }
                 </div>
             }
-            else
+            else if (_visibleSteps.Any())
             {
-                var intro = IntroSteps[(int)_currentStep - 1];
+                var intro = _visibleSteps[(int)_currentStep - 1];
                 <div class="sw-step-icon">@intro.Icon</div>
                 <h4 class="sw-step-title">@intro.Title</h4>
+                @if (intro.TargetKey != null)
+                {
+                    <p class="sw-pointer">👉 Highlighted on screen</p>
+                }
                 <p class="sw-lead">@intro.Text</p>
 
+                @if (intro.Steps != null)
+                {
+                    <ol class="sw-steps">
+                        @foreach (var step in intro.Steps)
+                        {
+                            <li>@step</li>
+                        }
+                    </ol>
+                }
+
                 <div class="sw-dots">
-                    @for (var i = 0; i < IntroSteps.Length; i++)
+                    @for (var i = 0; i < _visibleSteps.Count; i++)
                     {
                         <span class="sw-dot @(i == (int)_currentStep - 1 ? "active" : "")"></span>
                     }
@@ -60,15 +82,8 @@
             }
             else
             {
-                @if (_currentStep > FirstIntroStep || RequiresSetup)
-                {
-                    <button class="sw-btn secondary" @onclick="GoBack" disabled="@(_currentStep == FirstIntroStep)">Back</button>
-                }
-                else
-                {
-                    <span></span>
-                }
-                @if ((int)_currentStep < IntroSteps.Length)
+                <button class="sw-btn secondary" @onclick="GoBack" disabled="@(_currentStep == FirstIntroStep)">Back</button>
+                @if ((int)_currentStep < _visibleSteps.Count)
                 {
                     <button class="sw-btn primary" @onclick="GoNext">Next</button>
                 }
@@ -78,7 +93,17 @@
                 }
             }
         </div>
-        <p class="sw-hint">Use Enter / arrow keys to navigate · Esc to close</p>
+        @if (_autoAdvancing && _currentStep != Step.Setup)
+        {
+            <div class="sw-autobar" title="Continues on its own — move the mouse to take over">
+                <div class="sw-autobar-fill" @key="_currentStep" style="animation-duration:@(_autoAdvanceMs)ms"></div>
+            </div>
+        }
+        <p class="sw-hint">
+            @(_autoAdvancing && _currentStep != Step.Setup
+                ? "Continues automatically — move the mouse to take over"
+                : "Use Enter / arrow keys to navigate · Esc to close")
+        </p>
     </div>
 }
 
@@ -86,46 +111,101 @@
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public bool RequiresSetup { get; set; }
     [Parameter] public string BarcodeCode { get; set; } = string.Empty;
+    [Parameter] public string? WebsiteUrl { get; set; }
+
+    /// <summary>Step keys the user has not seen yet, as decided by the API (already filtered by enabled features).</summary>
+    [Parameter] public IReadOnlyList<string> PendingStepKeys { get; set; } = Array.Empty<string>();
+
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<string> OnSetupCompleted { get; set; }
     [Parameter] public EventCallback OnIntroFinished { get; set; }
 
-    private enum Step { Setup = 0, Intro1 = 1, Intro2 = 2, Intro3 = 3 }
+    /// <summary>Raised with the element key the host page should spotlight (null = no highlight).</summary>
+    [Parameter] public EventCallback<string?> OnHighlightChanged { get; set; }
 
-    private record IntroStep(string Icon, string Title, string Text);
+    private enum Step { Setup = 0 } // intro steps are 1.._visibleSteps.Count
 
-    private static readonly IntroStep[] IntroSteps =
-    [
-        new("🛒", "Buying snacks",
-            "Grab a snack, then scan one of the barcodes on your card — each barcode stands for a fixed amount (e.g. 0.50 €). Scan as many times as needed to match the price. Your purchase completes automatically when the countdown runs out."),
-        new("💶", "Paying your balance",
-            "The screen shows how much you currently owe (or have as credit). Pay whenever you like by scanning the PayPal QR code on the purchase screen. Payments are entered by the admin, so they won't show up instantly."),
-        new("🏆", "History, achievements & discounts",
-            "Click your recent purchases or last payment on the purchase screen to see your full history. Active discounts are applied automatically — and yes, there are achievements to collect along the way.")
-    ];
+    /// <param name="Key">Must match a key in the API's WizardStepCatalog.</param>
+    /// <param name="TargetKey">Element on the host page to spotlight, or null for a plain card.</param>
+    private record IntroStep(string Key, string Icon, string Title, string Text,
+                             string[]? Steps = null, string? TargetKey = null, string CardPosition = "bottom");
+
+    private List<IntroStep> _visibleSteps = new();
+
+    private IntroStep[] BuildAllSteps()
+    {
+        var website = string.IsNullOrWhiteSpace(WebsiteUrl) ? "the Snackbox website" : WebsiteUrl;
+        var installUrl = string.IsNullOrWhiteSpace(WebsiteUrl) ? "the install page" : $"{WebsiteUrl.TrimEnd('/')}/install";
+        return
+        [
+            new("buying", "🛒", "Buying snacks",
+                "Grab a snack, then scan one of the barcodes on your card — each barcode stands for a fixed amount (e.g. 0.50 €). Scan as many times as needed to match the price. Everything you scan shows up here, and the purchase completes automatically when the countdown runs out.",
+                TargetKey: "purchases", CardPosition: "bottom"),
+            new("paying", "💶", "Paying your balance",
+                "This shows how much you currently owe (or have as credit). Pay whenever you like by scanning the PayPal QR code with your phone. Payments are entered by the admin, so they won't show up instantly.",
+                TargetKey: "payment", CardPosition: "bottom"),
+            new("history", "🏆", "History, achievements & discounts",
+                "Click your recent purchases or your last payment to see the full history. Active discounts are applied automatically — and yes, there are achievements to collect along the way.",
+                TargetKey: "history", CardPosition: "top"),
+            new("mobile_app", "📲", "Snackbox on your phone",
+                "You can install Snackbox as an app on your phone to check your balance and history anywhere in the office. Scan the highlighted code, or follow these steps — it only works in the office Wi-Fi and needs our security certificate installed once:",
+                [
+                    "Connect your phone to the office Wi-Fi.",
+                    $"Open {installUrl} in your phone's browser (note it down — the page repeats these steps).",
+                    "Download and install the security certificate from that page (Android: install as CA certificate; iPhone: install the profile, then enable it under Certificate Trust Settings).",
+                    $"Open {website} and choose \"Add to Home Screen\" (Safari) or \"Install app\" (Chrome)."
+                ],
+                TargetKey: "install", CardPosition: "bottom")
+        ];
+    }
 
     private Step _currentStep;
     private string _username = string.Empty;
     private string _email = string.Empty;
     private string? _setupError;
     private bool _isBusy;
-    private bool _setupCompleted;
     private bool _wasOpen;
     private ElementReference _modalElement;
 
-    private Step FirstIntroStep => Step.Intro1;
+    // Idle auto-advance: with nobody touching the kiosk the tour plays itself; the first
+    // mouse movement hands control to the user for the rest of this wizard session.
+    private const int AutoAdvanceBaseMs = 3500;
+    private const int AutoAdvancePerCharMs = 45;
+    private const int AutoAdvanceMinMs = 4000;
+    private const int AutoAdvanceMaxMs = 22000;
+    private System.Timers.Timer? _autoAdvanceTimer;
+    private bool _autoAdvancing = true; // false once the user moves the mouse
+    private int _autoAdvanceMs;
+    private int? _autoAdvanceStep;      // step index the running timer belongs to
+    private bool _isDisposed;
+
+    private Step FirstIntroStep => (Step)1;
+
+    private IntroStep? CurrentIntroStep =>
+        _currentStep != Step.Setup && (int)_currentStep - 1 < _visibleSteps.Count
+            ? _visibleSteps[(int)_currentStep - 1]
+            : null;
+
+    private string? CurrentTarget => CurrentIntroStep?.TargetKey;
+    private string CurrentCardPosition => CurrentIntroStep?.CardPosition ?? "bottom";
 
     protected override void OnParametersSet()
     {
+        // Show only the steps the API says are still pending, in catalog order.
+        // A step added for a feature enabled later simply appears in this list.
+        var pending = PendingStepKeys.ToHashSet();
+        _visibleSteps = BuildAllSteps().Where(s => pending.Contains(s.Key)).ToList();
+
         if (IsOpen && !_wasOpen)
         {
             // Reset state each time the wizard opens
-            _currentStep = RequiresSetup ? Step.Setup : Step.Intro1;
+            _currentStep = RequiresSetup ? Step.Setup : FirstIntroStep;
             _username = string.Empty;
             _email = string.Empty;
             _setupError = null;
             _isBusy = false;
-            _setupCompleted = false;
+            _autoAdvancing = true; // fresh session: auto-play until the mouse moves
+            _autoAdvanceStep = null;
         }
         _wasOpen = IsOpen;
     }
@@ -135,6 +215,92 @@
         if (IsOpen)
         {
             try { await _modalElement.FocusAsync(); } catch { /* focus is best-effort */ }
+        }
+
+        // Keep the host page's spotlight in sync with the step being shown
+        var target = IsOpen ? CurrentTarget : null;
+        if (target != _lastNotifiedTarget)
+        {
+            _lastNotifiedTarget = target;
+            await OnHighlightChanged.InvokeAsync(target);
+        }
+
+        SyncAutoAdvance();
+    }
+
+    private string? _lastNotifiedTarget;
+
+    // Start/stop the idle timer so exactly one countdown runs for the current intro step.
+    private void SyncAutoAdvance()
+    {
+        var step = CurrentIntroStep;
+        var shouldRun = IsOpen && _autoAdvancing && _currentStep != Step.Setup && step != null;
+
+        if (!shouldRun)
+        {
+            StopTimer();
+            return;
+        }
+
+        // Already counting for this step - leave it running
+        if (_autoAdvanceStep == (int)_currentStep)
+            return;
+
+        StopTimer();
+        _autoAdvanceStep = (int)_currentStep;
+        _autoAdvanceMs = ReadingTimeMs(step!);
+
+        _autoAdvanceTimer = new System.Timers.Timer(_autoAdvanceMs) { AutoReset = false };
+        _autoAdvanceTimer.Elapsed += async (_, _) =>
+        {
+            if (_isDisposed || !_autoAdvancing)
+                return;
+            await InvokeAsync(async () =>
+            {
+                if (!_autoAdvancing)
+                    return;
+                if ((int)_currentStep < _visibleSteps.Count)
+                {
+                    GoNext();
+                    StateHasChanged(); // OnAfterRender re-arms the timer for the new step
+                }
+                else
+                {
+                    await FinishAsync();
+                }
+            });
+        };
+        _autoAdvanceTimer.Start();
+    }
+
+    private static int ReadingTimeMs(IntroStep step)
+    {
+        var chars = step.Title.Length + step.Text.Length + (step.Steps?.Sum(s => s.Length) ?? 0);
+        var ms = AutoAdvanceBaseMs + chars * AutoAdvancePerCharMs;
+        return Math.Clamp(ms, AutoAdvanceMinMs, AutoAdvanceMaxMs);
+    }
+
+    /// <summary>Called by the host page when it detects user activity outside the wizard card.</summary>
+    public void NotifyUserActivity() => StopAutoAdvance();
+
+    // First mouse movement (from the modal or the host page) hands control to the user.
+    private void StopAutoAdvance()
+    {
+        if (!_autoAdvancing)
+            return;
+        _autoAdvancing = false;
+        StopTimer();
+        StateHasChanged();
+    }
+
+    private void StopTimer()
+    {
+        _autoAdvanceStep = null;
+        if (_autoAdvanceTimer != null)
+        {
+            _autoAdvanceTimer.Stop();
+            _autoAdvanceTimer.Dispose();
+            _autoAdvanceTimer = null;
         }
     }
 
@@ -148,13 +314,13 @@
             case "Enter":
                 if (_currentStep == Step.Setup)
                     await SubmitSetupAsync();
-                else if ((int)_currentStep < IntroSteps.Length)
+                else if ((int)_currentStep < _visibleSteps.Count)
                     GoNext();
                 else
                     await FinishAsync();
                 break;
             case "ArrowRight":
-                if (_currentStep != Step.Setup && (int)_currentStep < IntroSteps.Length)
+                if (_currentStep != Step.Setup && (int)_currentStep < _visibleSteps.Count)
                     GoNext();
                 break;
             case "ArrowLeft":
@@ -180,9 +346,13 @@
                 Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim()
             });
 
-            _setupCompleted = true;
             await OnSetupCompleted.InvokeAsync(response.Username);
-            _currentStep = Step.Intro1;
+
+            // Straight into the tour, or done if there is nothing left to show
+            if (_visibleSteps.Any())
+                _currentStep = FirstIntroStep;
+            else
+                await FinishAsync();
         }
         catch (ApiException ex)
         {
@@ -200,7 +370,7 @@
 
     private void GoNext()
     {
-        if ((int)_currentStep < IntroSteps.Length)
+        if ((int)_currentStep < _visibleSteps.Count)
             _currentStep++;
     }
 
@@ -218,16 +388,20 @@
         _isBusy = true;
         try
         {
-            // Setup already marks the intro as seen server-side
-            if (!_setupCompleted)
+            // Record exactly the steps that were shown, so newly added steps stay pending
+            if (_visibleSteps.Any())
             {
                 try
                 {
-                    await UsersApi.MarkIntroSeenAsync(new MarkIntroSeenDto { BarcodeCode = BarcodeCode });
+                    await UsersApi.MarkWizardStepsSeenAsync(new MarkWizardStepsSeenDto
+                    {
+                        BarcodeCode = BarcodeCode,
+                        StepKeys = _visibleSteps.Select(s => s.Key).ToList()
+                    });
                 }
                 catch
                 {
-                    // Non-critical - the intro simply shows again next time
+                    // Non-critical - the steps simply show again next time
                 }
             }
             await OnIntroFinished.InvokeAsync();
@@ -240,6 +414,12 @@
     }
 
     private Task CloseAsync() => OnClose.InvokeAsync();
+
+    public void Dispose()
+    {
+        _isDisposed = true;
+        StopTimer();
+    }
 
     private static string? ExtractMessage(ApiException ex)
     {
@@ -264,8 +444,16 @@
     .sw-modal {
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
         width: min(560px, 94vw); max-height: 92vh; overflow: auto;
-        background: #fff; border-radius: 16px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35); z-index: 1101;
+        background: #fff; border-radius: 16px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35); z-index: 1200;
         display: flex; flex-direction: column; outline: none;
+    }
+    /* Tour steps sit out of the way so the highlighted element stays visible */
+    .sw-modal.sw-tour {
+        top: auto; bottom: 2.5vh; left: 50%; transform: translateX(-50%);
+        width: min(520px, 92vw); max-height: 46vh;
+    }
+    .sw-modal.sw-tour.sw-top {
+        top: 2.5vh; bottom: auto;
     }
     .sw-header { display: flex; align-items: center; padding: 1.25rem 1.5rem 0.5rem; }
     .sw-header h3 { margin: 0; font-size: 1.35rem; }
@@ -273,7 +461,9 @@
     .sw-close:hover { color: #333; }
     .sw-body { padding: 0.5rem 1.5rem; text-align: center; }
     .sw-step-icon { font-size: 3.5rem; margin: 0.5rem 0; }
+    .sw-modal.sw-tour .sw-step-icon { font-size: 2.25rem; margin: 0.15rem 0; }
     .sw-step-title { margin: 0 0 0.5rem; font-size: 1.15rem; }
+    .sw-pointer { margin: 0 0 0.5rem; font-size: 0.8rem; font-weight: 600; color: #0d6efd; }
     .sw-lead { color: #444; line-height: 1.5; margin: 0 0 1rem; }
     .sw-form { text-align: left; max-width: 400px; margin: 0 auto; }
     .sw-label { display: block; font-weight: 600; margin: 0.75rem 0 0.25rem; font-size: 0.9rem; }
@@ -286,6 +476,8 @@
         margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: #f8d7da; color: #842029;
         border-radius: 8px; font-size: 0.9rem;
     }
+    .sw-steps { text-align: left; max-width: 440px; margin: 0 auto 0.5rem; padding-left: 1.5rem; color: #444; line-height: 1.45; }
+    .sw-steps li { margin: 0.4rem 0; }
     .sw-dots { display: flex; justify-content: center; gap: 0.5rem; margin: 1rem 0 0.5rem; }
     .sw-dot { width: 10px; height: 10px; border-radius: 50%; background: #d0d0d0; }
     .sw-dot.active { background: #0d6efd; }
@@ -300,4 +492,12 @@
     .sw-btn.secondary:hover:not(:disabled) { background: #ddd; }
     .sw-btn.secondary:disabled { opacity: 0.4; cursor: default; }
     .sw-hint { text-align: center; color: #999; font-size: 0.75rem; margin: 0 0 0.75rem; }
+
+    /* Idle auto-advance progress bar */
+    .sw-autobar { height: 3px; margin: 0 1.5rem; background: #eee; border-radius: 2px; overflow: hidden; }
+    .sw-autobar-fill {
+        height: 100%; width: 100%; background: #0d6efd; transform-origin: left;
+        animation-name: sw-autobar-grow; animation-timing-function: linear; animation-fill-mode: forwards;
+    }
+    @@keyframes sw-autobar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 </style>

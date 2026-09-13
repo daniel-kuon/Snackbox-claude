@@ -67,6 +67,9 @@ public static class MauiProgram
         // For components that still use AddScoped<HttpClient>
         builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient(""));
 
+        // Development-only UI test helper (API only answers in Development with TestHelper:Enabled)
+        builder.Services.AddHttpClient<TestHelperClient>(client => { client.BaseAddress = new Uri(clientBaseAddress); });
+
         builder.Services.AddHttpClient<IAuthenticationService, AuthenticationService>(client =>
         {
             // Configure the base address for the API

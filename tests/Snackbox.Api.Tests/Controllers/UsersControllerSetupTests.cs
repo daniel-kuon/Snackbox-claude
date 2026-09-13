@@ -53,7 +53,7 @@ public class UsersControllerSetupTests : IDisposable
     }
 
     [Fact]
-    public async Task CompleteSetup_InactiveUser_ActivatesRenamesAndMarksIntroSeen()
+    public async Task CompleteSetup_InactiveUser_ActivatesAndRenames()
     {
         var result = await _controller.CompleteSetup(new CompleteAccountSetupDto
         {
@@ -68,7 +68,6 @@ public class UsersControllerSetupTests : IDisposable
 
         var user = await _context.Users.SingleAsync(u => u.Id == 1);
         Assert.True(user.IsActive);
-        Assert.True(user.HasSeenIntro);
         Assert.Equal("Jane Smith", user.Username);
         Assert.Equal("jane@example.com", user.Email);
     }
@@ -126,19 +125,48 @@ public class UsersControllerSetupTests : IDisposable
     }
 
     [Fact]
-    public async Task MarkIntroSeen_SetsFlagForBarcodeOwner()
+    public async Task MarkWizardStepsSeen_RecordsStepsForBarcodeOwner()
     {
-        var result = await _controller.MarkIntroSeen(new MarkIntroSeenDto { BarcodeCode = "OLD-CARD-50" });
+        var result = await _controller.MarkWizardStepsSeen(new MarkWizardStepsSeenDto
+        {
+            BarcodeCode = "OLD-CARD-50",
+            StepKeys = ["buying", "paying"]
+        });
 
         Assert.IsType<OkResult>(result);
-        var user = await _context.Users.SingleAsync(u => u.Id == 2);
-        Assert.True(user.HasSeenIntro);
+        var seen = await _context.UserWizardSteps.Where(s => s.UserId == 2).Select(s => s.StepKey).ToListAsync();
+        Assert.Equal(new[] { "buying", "paying" }, seen.Order());
     }
 
     [Fact]
-    public async Task MarkIntroSeen_UnknownBarcode_ReturnsNotFound()
+    public async Task MarkWizardStepsSeen_IgnoresUnknownKeysAndDuplicates()
     {
-        var result = await _controller.MarkIntroSeen(new MarkIntroSeenDto { BarcodeCode = "DOES-NOT-EXIST" });
+        await _controller.MarkWizardStepsSeen(new MarkWizardStepsSeenDto
+        {
+            BarcodeCode = "OLD-CARD-50",
+            StepKeys = ["buying"]
+        });
+
+        // Re-sending an already recorded step must not violate the unique index
+        var result = await _controller.MarkWizardStepsSeen(new MarkWizardStepsSeenDto
+        {
+            BarcodeCode = "OLD-CARD-50",
+            StepKeys = ["buying", "not_a_real_step", "paying"]
+        });
+
+        Assert.IsType<OkResult>(result);
+        var seen = await _context.UserWizardSteps.Where(s => s.UserId == 2).Select(s => s.StepKey).ToListAsync();
+        Assert.Equal(new[] { "buying", "paying" }, seen.Order());
+    }
+
+    [Fact]
+    public async Task MarkWizardStepsSeen_UnknownBarcode_ReturnsNotFound()
+    {
+        var result = await _controller.MarkWizardStepsSeen(new MarkWizardStepsSeenDto
+        {
+            BarcodeCode = "DOES-NOT-EXIST",
+            StepKeys = ["buying"]
+        });
 
         Assert.IsType<NotFoundObjectResult>(result);
     }

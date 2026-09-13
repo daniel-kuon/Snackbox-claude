@@ -59,6 +59,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IInvoicesApi>();
         AddRefitClient<IDiscountsApi>();
         AddRefitClient<ISettingsApi>();
+        AddRefitClient<IFeatureFlagsApi>();
 
         return services;
     }
@@ -129,6 +130,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IBackupApi>();
         AddRefitClient<IDiscountsApi>();
         AddRefitClient<ISettingsApi>();
+        AddRefitClient<IFeatureFlagsApi>();
     }
 
 }

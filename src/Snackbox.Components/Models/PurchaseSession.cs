@@ -16,7 +16,8 @@ public class PurchaseSession
     public decimal DiscountedAmount { get; set; }
     public decimal TotalSavings => AppliedDiscounts.Sum(d => d.DiscountAmount);
     public bool IsUserInactive { get; set; }
-    public bool HasSeenIntro { get; set; }
+    public List<string> PendingWizardSteps { get; set; } = new();
+    public List<string> EnabledFeatures { get; set; } = new();
     public string ScannedCardCode { get; set; } = string.Empty; // Last scanned barcode code - identifies the card for setup/intro API calls
 }
 

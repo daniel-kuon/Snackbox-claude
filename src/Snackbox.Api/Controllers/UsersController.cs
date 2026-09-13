@@ -208,7 +208,6 @@ public class UsersController : ControllerBase
         user.Username = username;
         user.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
         user.IsActive = true;
-        user.HasSeenIntro = true;
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Account setup completed via kiosk for user {UserId} - {Username}", user.Id, user.Username);
@@ -216,9 +215,9 @@ public class UsersController : ControllerBase
         return Ok(new CompleteAccountSetupResponse { Username = user.Username });
     }
 
-    [HttpPost("intro-seen")]
+    [HttpPost("wizard-steps-seen")]
     [AllowAnonymous]
-    public async Task<ActionResult> MarkIntroSeen([FromBody] MarkIntroSeenDto dto)
+    public async Task<ActionResult> MarkWizardStepsSeen([FromBody] MarkWizardStepsSeenDto dto)
     {
         var barcode = await _context.Barcodes
             .Include(b => b.User)
@@ -229,8 +228,30 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "Barcode not found" });
         }
 
-        barcode.User.HasSeenIntro = true;
-        await _context.SaveChangesAsync();
+        var userId = barcode.UserId;
+        var known = WizardStepCatalog.Steps.Select(s => s.Key).ToHashSet();
+        var alreadySeen = await _context.UserWizardSteps
+            .Where(s => s.UserId == userId)
+            .Select(s => s.StepKey)
+            .ToListAsync();
+
+        var toRecord = dto.StepKeys
+            .Where(known.Contains)
+            .Except(alreadySeen)
+            .Distinct()
+            .Select(key => new UserWizardStep
+            {
+                UserId = userId,
+                StepKey = key,
+                SeenAt = DateTime.UtcNow
+            })
+            .ToList();
+
+        if (toRecord.Count > 0)
+        {
+            _context.UserWizardSteps.AddRange(toRecord);
+            await _context.SaveChangesAsync();
+        }
 
         return Ok();
     }

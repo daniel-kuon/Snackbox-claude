@@ -29,6 +29,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<CashRegister> CashRegister => Set<CashRegister>();
     public DbSet<Discount> Discounts => Set<Discount>();
     public DbSet<PurchaseDiscount> PurchaseDiscounts => Set<PurchaseDiscount>();
+    public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
+    public DbSet<UserWizardStep> UserWizardSteps => Set<UserWizardStep>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,6 +63,31 @@ public class ApplicationDbContext : DbContext
                 }
             }
         }
+
+        modelBuilder.Entity<FeatureFlag>(entity =>
+        {
+            entity.HasIndex(e => e.Key).IsUnique();
+            entity.Property(e => e.Key).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<UserWizardStep>(entity =>
+        {
+            // One row per user and step - the wizard records a step at most once
+            entity.HasIndex(e => new { e.UserId, e.StepKey }).IsUnique();
+            entity.Property(e => e.StepKey).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<FeatureFlag>().HasData(
+            new FeatureFlag
+            {
+                Id = 1,
+                Key = FeatureFlagKeys.MobileApp,
+                Name = "Snackbox on the phone",
+                Description = "Show users how to install Snackbox as an app on their phone (install guide QR on the scan screen and the matching introduction step).",
+                IsEnabled = false,
+                UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
 
         // Only configure what differs from convention
         modelBuilder.Entity<User>(entity =>

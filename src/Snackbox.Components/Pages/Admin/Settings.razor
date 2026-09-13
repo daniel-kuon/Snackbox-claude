@@ -4,6 +4,7 @@
 @using Snackbox.ApiClient
 @using Refit
 @inject ISettingsApi SettingsApi
+@inject IFeatureFlagsApi FeatureFlagsApi
 @inject NavigationManager Navigation
 
 <PageTitle>Settings - Snackbox Admin</PageTitle>
@@ -161,6 +162,40 @@
                 }
             </div>
 
+            <!-- Feature Flags: saved immediately, no restart needed -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <h3>Features</h3>
+                </div>
+                <p class="form-text text-muted">Switch features on or off. Changes take effect right away — no restart.</p>
+
+                @if (_featureFlags == null)
+                {
+                    <div class="spinner-border spinner-border-sm"></div>
+                }
+                else
+                {
+                    @foreach (var flag in _featureFlags)
+                    {
+                        <div class="form-group feature-flag">
+                            <label class="form-label">
+                                <input type="checkbox"
+                                       checked="@flag.IsEnabled"
+                                       disabled="@(_savingFlagKey == flag.Key)"
+                                       @onchange="e => ToggleFeatureFlag(flag, (bool)(e.Value ?? false))" />
+                                <strong>@flag.Name</strong>
+                            </label>
+                            <small class="form-text text-muted">@flag.Description</small>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_flagMessage))
+                    {
+                        <div class="alert @(_flagSuccess ? "alert-success" : "alert-danger")">@_flagMessage</div>
+                    }
+                }
+            </div>
+
             <!-- Save Button -->
             <div class="settings-actions">
                 <button class="btn btn-primary btn-lg" @onclick="SaveSettings" disabled="@_saving">
@@ -185,6 +220,11 @@
 <style>
     .settings-container {
         max-width: 900px;
+    }
+
+    .feature-flag {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f1f1f1;
     }
 
     .settings-section {
@@ -296,9 +336,53 @@
     private string? _saveMessage;
     private bool _saveSuccess;
 
+    private List<FeatureFlagDto>? _featureFlags;
+    private string? _savingFlagKey;
+    private string? _flagMessage;
+    private bool _flagSuccess;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadSettings();
+        await LoadFeatureFlags();
+    }
+
+    private async Task LoadFeatureFlags()
+    {
+        try
+        {
+            _featureFlags = await FeatureFlagsApi.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading feature flags: {ex.Message}");
+            _featureFlags = new List<FeatureFlagDto>();
+            _flagMessage = "Could not load features.";
+            _flagSuccess = false;
+        }
+    }
+
+    private async Task ToggleFeatureFlag(FeatureFlagDto flag, bool isEnabled)
+    {
+        _savingFlagKey = flag.Key;
+        _flagMessage = null;
+        try
+        {
+            var updated = await FeatureFlagsApi.UpdateAsync(flag.Key, new UpdateFeatureFlagDto { IsEnabled = isEnabled });
+            flag.IsEnabled = updated.IsEnabled;
+            _flagMessage = $"\"{flag.Name}\" is now {(updated.IsEnabled ? "enabled" : "disabled")}.";
+            _flagSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error updating feature flag: {ex.Message}");
+            _flagMessage = $"Could not update \"{flag.Name}\".";
+            _flagSuccess = false;
+        }
+        finally
+        {
+            _savingFlagKey = null;
+        }
     }
 
     private async Task LoadSettings()

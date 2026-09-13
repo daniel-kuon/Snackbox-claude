@@ -11,11 +11,6 @@ public class CompleteAccountSetupDto
     public string? Email { get; set; }
 }
 
-public class MarkIntroSeenDto
-{
-    public required string BarcodeCode { get; set; }
-}
-
 public class CompleteAccountSetupResponse
 {
     public required string Username { get; set; }

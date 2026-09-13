@@ -81,7 +81,8 @@ public class ScannerService : IScannerService
                 StartTime = result.ScannedBarcodes.FirstOrDefault()?.ScannedAt ?? DateTime.UtcNow,
                 RecentPurchases = DtoToModelMapper.ToRecentPurchases(result.RecentPurchases),
                 IsUserInactive = result.IsUserInactive,
-                HasSeenIntro = result.HasSeenIntro,
+                PendingWizardSteps = result.PendingWizardSteps,
+                EnabledFeatures = result.EnabledFeatures,
                 ScannedCardCode = barcodeCode,
                 NewAchievements = DtoToModelMapper.ToAchievements(result.NewAchievements),
                 AppliedDiscounts = DtoToModelMapper.ToAppliedDiscounts(result.ApplicableDiscounts),
@@ -123,6 +124,21 @@ public class ScannerService : IScannerService
     }
 
     public void SignalActivity()
+    {
+        if (IsSessionActive)
+        {
+            ResetTimeoutTimer();
+        }
+    }
+
+    // Stop the auto-complete countdown while a blocking popup (wizard, achievements) is shown.
+    public void PauseTimeout()
+    {
+        StopTimeoutTimer();
+    }
+
+    // Resume with a fresh full timeout once the popup is dismissed.
+    public void ResumeTimeout()
     {
         if (IsSessionActive)
         {
