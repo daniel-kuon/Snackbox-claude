@@ -390,10 +390,9 @@ public class AchievementService : IAchievementService
 
     private async Task CheckComebackAchievements(int userId, DateTime completedAt, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
-        // Get the previous purchase before this one. Imported history is skipped, otherwise
-        // the gap between the old system and the first scan here reads as a huge "comeback".
+        // Get the previous purchase before this one. Imported history counts here, so a long
+        // absence in the old Snackbox still earns the comeback.
         var previousPurchase = await _context.Purchases
-            .Where(p => !p.IsLegacyImport)
             .Where(p => p.UserId == userId && p.UpdatedAt != default && p.UpdatedAt < completedAt)
             .OrderByDescending(p => p.UpdatedAt)
             .FirstOrDefaultAsync();
@@ -561,15 +560,15 @@ public class AchievementService : IAchievementService
 
     private async Task CheckMilestoneAchievements(int userId, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
-        // Purchase-count milestones deliberately ignore imported history, so a migrated user
-        // starts at zero here instead of unlocking every tier on their first scan.
+        // Imported history counts towards the milestones - a long-time user keeps the tiers
+        // they already earned in the old Snackbox.
         var totalPurchases = await _context.Purchases
-            .Where(p => p.UserId == userId && p.UpdatedAt != default && !p.IsLegacyImport)
+            .Where(p => p.UserId == userId && p.UpdatedAt != default)
             .CountAsync();
 
         // Also count incomplete purchases for first purchase achievement
         var allPurchases = await _context.Purchases
-            .Where(p => p.UserId == userId && !p.IsLegacyImport)
+            .Where(p => p.UserId == userId)
             .CountAsync();
 
         // Milestones can only be earned once (checked by CanEarnAchievement)

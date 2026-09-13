@@ -11,9 +11,9 @@ public class Purchase
     public decimal? ManualAmount { get; set; } // For manual purchases and corrections
 
     /// <summary>
-    /// Carried over from the previous Snackbox. Such a purchase still counts towards money
-    /// spent and streaks, but not towards "how many purchases have you made here" style
-    /// achievements - otherwise a migrated user unlocks a pile of them on their first scan.
+    /// Carried over from the previous Snackbox. Such a purchase counts towards money spent,
+    /// streaks, milestones and comebacks, but not towards achievements that are about
+    /// activity in this app (purchases per day, the snack birthday).
     /// </summary>
     public bool IsLegacyImport { get; set; }
 

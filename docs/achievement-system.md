@@ -113,7 +113,7 @@ When a user earns an achievement:
 - The `HasBeenShown` flag ensures notifications aren't repeated
 - Achievements are included in the scan response only when newly earned
 - Frontend clears achievements from display after showing them
-- Purchases imported from the previous Snackbox carry `Purchase.IsLegacyImport`. They still count towards total spent, streaks and the current balance (debt), but are ignored for purchase counts (milestones), daily activity, comebacks and the snack birthday - otherwise a migrated user unlocks a pile of achievements on their first scan
+- Purchases imported from the previous Snackbox carry `Purchase.IsLegacyImport`. They count towards total spent, streaks, the current balance (debt), purchase-count milestones and comebacks, so a long-time user keeps their history. They are ignored for daily activity ("how often did you buy today" is about this app) and the snack birthday (an imported first purchase from years ago would make the anniversary meaningless)
 
 ## Testing
 

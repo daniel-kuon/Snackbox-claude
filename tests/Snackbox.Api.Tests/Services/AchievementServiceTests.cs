@@ -337,7 +337,7 @@ public class AchievementServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CheckAndAwardAchievements_LegacyImports_SkipMilestonesButStillCountSpending()
+    public async Task CheckAndAwardAchievements_LegacyImports_CountExceptForDailyActivity()
     {
         // Arrange - a migrated user with a pile of imported history and one real scan.
         _context.Achievements.AddRange(
@@ -346,18 +346,20 @@ public class AchievementServiceTests : IDisposable
             new Achievement { Id = 102, Code = "COMEBACK_30", Name = "Lazarus", Description = "Back after 30 days", Category = AchievementCategory.Comeback }
         );
 
+        // Five of them landed "today" in the old system - those must not trigger DAILY_BUYER_5.
         for (var i = 0; i < 20; i++)
         {
+            var when = i < 15 ? DateTime.UtcNow.AddDays(-400 + i) : DateTime.UtcNow.AddMinutes(-10);
             _context.Purchases.Add(new Purchase
             {
                 Id = 100 + i,
                 UserId = 1,
                 IsLegacyImport = true,
-                CreatedAt = DateTime.UtcNow.AddDays(-400 + i),
-                UpdatedAt = DateTime.UtcNow.AddDays(-400 + i),
+                CreatedAt = when,
+                UpdatedAt = when,
                 Scans = new List<BarcodeScan>
                 {
-                    new BarcodeScan { Id = 100 + i, PurchaseId = 100 + i, BarcodeId = 1, Amount = 5.00m, ScannedAt = DateTime.UtcNow.AddDays(-400 + i) }
+                    new BarcodeScan { Id = 100 + i, PurchaseId = 100 + i, BarcodeId = 1, Amount = 5.00m, ScannedAt = when }
                 }
             });
         }
@@ -378,12 +380,12 @@ public class AchievementServiceTests : IDisposable
         // Act
         var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
 
-        // Assert - no flood of count-based awards from the imported history...
-        Assert.DoesNotContain(achievements, a => a.Code == "PURCHASE_10");
-        Assert.DoesNotContain(achievements, a => a.Code == "COMEBACK_30");
-        // ...but the first real purchase still counts, and so does the imported spending.
+        // Assert - history carries over for counts, spending and comebacks...
         Assert.Contains(achievements, a => a.Code == "FIRST_PURCHASE");
+        Assert.Contains(achievements, a => a.Code == "PURCHASE_10");
         Assert.Contains(achievements, a => a.Code == "TOTAL_SPENT_100");
+        // ...but "how often did you buy today" only looks at purchases made here.
+        Assert.DoesNotContain(achievements, a => a.Code == "DAILY_BUYER_5");
     }
 
     public void Dispose()
