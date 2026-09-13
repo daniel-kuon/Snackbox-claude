@@ -336,6 +336,56 @@ public class AchievementServiceTests : IDisposable
         Assert.Contains(achievements, a => a.Code == "BIG_SPENDER_4");
     }
 
+    [Fact]
+    public async Task CheckAndAwardAchievements_LegacyImports_SkipMilestonesButStillCountSpending()
+    {
+        // Arrange - a migrated user with a pile of imported history and one real scan.
+        _context.Achievements.AddRange(
+            new Achievement { Id = 100, Code = "FIRST_PURCHASE", Name = "First Purchase", Description = "First one", Category = AchievementCategory.Milestone },
+            new Achievement { Id = 101, Code = "PURCHASE_10", Name = "Regular", Description = "10 purchases", Category = AchievementCategory.Milestone },
+            new Achievement { Id = 102, Code = "COMEBACK_30", Name = "Lazarus", Description = "Back after 30 days", Category = AchievementCategory.Comeback }
+        );
+
+        for (var i = 0; i < 20; i++)
+        {
+            _context.Purchases.Add(new Purchase
+            {
+                Id = 100 + i,
+                UserId = 1,
+                IsLegacyImport = true,
+                CreatedAt = DateTime.UtcNow.AddDays(-400 + i),
+                UpdatedAt = DateTime.UtcNow.AddDays(-400 + i),
+                Scans = new List<BarcodeScan>
+                {
+                    new BarcodeScan { Id = 100 + i, PurchaseId = 100 + i, BarcodeId = 1, Amount = 5.00m, ScannedAt = DateTime.UtcNow.AddDays(-400 + i) }
+                }
+            });
+        }
+
+        _context.Purchases.Add(new Purchase
+        {
+            Id = 1,
+            UserId = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Scans = new List<BarcodeScan>
+            {
+                new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 1.00m, ScannedAt = DateTime.UtcNow }
+            }
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
+
+        // Assert - no flood of count-based awards from the imported history...
+        Assert.DoesNotContain(achievements, a => a.Code == "PURCHASE_10");
+        Assert.DoesNotContain(achievements, a => a.Code == "COMEBACK_30");
+        // ...but the first real purchase still counts, and so does the imported spending.
+        Assert.Contains(achievements, a => a.Code == "FIRST_PURCHASE");
+        Assert.Contains(achievements, a => a.Code == "TOTAL_SPENT_100");
+    }
+
     public void Dispose()
     {
         _context.Database.EnsureDeleted();

@@ -285,7 +285,9 @@ public class AchievementService : IAchievementService
         var today = completedAt.Date;
         var tomorrow = today.AddDays(1);
 
+        // Imported history does not count: "how often did you buy today" is about this app
         var todayPurchaseCount = await _context.Purchases
+            .Where(p => !p.IsLegacyImport)
             .Where(p => p.UserId == userId && p.UpdatedAt >= today && p.UpdatedAt < tomorrow)
             .CountAsync();
 
@@ -388,8 +390,10 @@ public class AchievementService : IAchievementService
 
     private async Task CheckComebackAchievements(int userId, DateTime completedAt, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
-        // Get the previous purchase before this one
+        // Get the previous purchase before this one. Imported history is skipped, otherwise
+        // the gap between the old system and the first scan here reads as a huge "comeback".
         var previousPurchase = await _context.Purchases
+            .Where(p => !p.IsLegacyImport)
             .Where(p => p.UserId == userId && p.UpdatedAt != default && p.UpdatedAt < completedAt)
             .OrderByDescending(p => p.UpdatedAt)
             .FirstOrDefaultAsync();
@@ -557,13 +561,15 @@ public class AchievementService : IAchievementService
 
     private async Task CheckMilestoneAchievements(int userId, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
     {
+        // Purchase-count milestones deliberately ignore imported history, so a migrated user
+        // starts at zero here instead of unlocking every tier on their first scan.
         var totalPurchases = await _context.Purchases
-            .Where(p => p.UserId == userId && p.UpdatedAt != default)
+            .Where(p => p.UserId == userId && p.UpdatedAt != default && !p.IsLegacyImport)
             .CountAsync();
 
         // Also count incomplete purchases for first purchase achievement
         var allPurchases = await _context.Purchases
-            .Where(p => p.UserId == userId)
+            .Where(p => p.UserId == userId && !p.IsLegacyImport)
             .CountAsync();
 
         // Milestones can only be earned once (checked by CanEarnAchievement)
@@ -738,8 +744,10 @@ public class AchievementService : IAchievementService
         {
             if (CanEarnAchievement("SNACK_BIRTHDAY", AchievementCategory.Special, userAchievements))
             {
+                // Anniversary of the first purchase *here* - an imported first purchase from
+                // years ago would otherwise make the date meaningless
                 var firstPurchase = await _context.Purchases
-                    .Where(p => p.UserId == userId)
+                    .Where(p => p.UserId == userId && !p.IsLegacyImport)
                     .OrderBy(p => p.CreatedAt)
                     .FirstOrDefaultAsync();
 
