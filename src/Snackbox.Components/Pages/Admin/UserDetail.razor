@@ -105,6 +105,12 @@
                                         ✉ Send Payment Reminder
                                     </button>
                                 }
+                                <a class="btn btn-outline-info btn-sm"
+                                   href="@SignozLinks.TracesForUser(SignozBaseUrl, _user.Id, _user.Username)"
+                                   target="_blank" rel="noopener"
+                                   title="Everything this user generated in the last week (traces and logs)">
+                                    🔍 SigNoz
+                                </a>
                                 <button class="btn btn-outline-danger btn-sm" @onclick="RetireUser" title="Retire this user and move barcodes to a new inactive placeholder" disabled="@(!_user.IsActive || _user.IsRetired)">
                                     🪦 Retire
                                 </button>
@@ -1502,13 +1508,10 @@
         }
     }
 
-    // Deep link into SigNoz's trace view for one scan. SigNoz base URL comes from
-    // Telemetry:SignozUrl (defaults to the local docker instance).
-    private string SignozTraceUrl(string traceId)
-    {
-        var baseUrl = (Configuration["Telemetry:SignozUrl"] ?? "http://localhost:3301").TrimEnd('/');
-        return $"{baseUrl}/trace/{traceId}";
-    }
+    // SigNoz base URL comes from Telemetry:SignozUrl (defaults to the local docker instance)
+    private string SignozBaseUrl => Configuration["Telemetry:SignozUrl"] ?? "http://localhost:3301";
+
+    private string SignozTraceUrl(string traceId) => SignozLinks.Trace(SignozBaseUrl, traceId);
 
     private async Task LoadPurchases()
     {

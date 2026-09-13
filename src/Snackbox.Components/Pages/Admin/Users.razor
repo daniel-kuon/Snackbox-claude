@@ -55,17 +55,27 @@
     }
     else if (_users != null && _users.Any())
     {
+        <div class="list-toolbar">
+            <input class="form-control list-search" placeholder="Search name or email…"
+                   @bind="_userSearch" @bind:event="oninput" />
+            @if (!string.IsNullOrWhiteSpace(_userSearch))
+            {
+                <button class="btn btn-link btn-sm" @onclick="() => _userSearch = string.Empty">Clear</button>
+            }
+            <span class="list-count">@VisibleUsers().Count of @_users.Count</span>
+        </div>
+
         <div class="table-container">
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Balance</th>
+                        <th class="sortable" @onclick='() => SortUsersBy("username")'>Username @SortIndicator("username")</th>
+                        <th class="sortable" @onclick='() => SortUsersBy("email")'>Email @SortIndicator("email")</th>
+                        <th class="sortable" @onclick='() => SortUsersBy("balance")'>Balance @SortIndicator("balance")</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var user in _users)
+                    @foreach (var user in VisibleUsers())
                     {
                         var rowClass = !user.IsActive && user.HasPurchases ? "table-warning" : (!user.IsActive ? "table-light text-muted" : "");
                         <tr @onclick="() => NavigateToUserDetail(user.Id)" style="cursor: pointer;" class="@rowClass">
@@ -336,6 +346,33 @@
         border: none;
         font-size: 1.2rem;
         cursor: pointer;
+    }
+
+    .list-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .list-search {
+        max-width: 320px;
+    }
+
+    .list-count {
+        margin-left: auto;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    th.sortable {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+    th.sortable:hover {
+        background: #f1f3f5;
     }
 
     .table-container {
@@ -624,6 +661,9 @@
     private EditContext? _userEditContext;
     private string? _modalError;
     private bool _isSaving;
+    private string _userSearch = string.Empty;
+    private string _userSort = "username";
+    private bool _userSortAsc = true;
     private bool _showSpareModal;
     private SpareCardFormModel _spareForm = new();
     private EditContext? _spareEditContext;
@@ -836,6 +876,46 @@
         _userEditContext = null;
         _modalError = null;
     }
+
+    // Search + sort for the user list. Retired/inactive rows keep their styling; only
+    // the visible set changes.
+    private List<UserDto> VisibleUsers()
+    {
+        if (_users == null)
+            return new List<UserDto>();
+
+        var search = _userSearch?.Trim() ?? string.Empty;
+        IEnumerable<UserDto> users = _users;
+        if (search.Length > 0)
+        {
+            users = users.Where(u =>
+                u.Username.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || (u.Email?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        users = _userSort switch
+        {
+            "email" => _userSortAsc ? users.OrderBy(u => u.Email) : users.OrderByDescending(u => u.Email),
+            "balance" => _userSortAsc ? users.OrderBy(u => u.Balance) : users.OrderByDescending(u => u.Balance),
+            _ => _userSortAsc ? users.OrderBy(u => u.Username) : users.OrderByDescending(u => u.Username)
+        };
+
+        return users.ToList();
+    }
+
+    private void SortUsersBy(string column)
+    {
+        if (_userSort == column)
+            _userSortAsc = !_userSortAsc; // same column again flips direction
+        else
+        {
+            _userSort = column;
+            _userSortAsc = true;
+        }
+    }
+
+    private string SortIndicator(string column) =>
+        _userSort != column ? "" : _userSortAsc ? "▲" : "▼";
 
     private void ShowCreateSpareCard()
     {

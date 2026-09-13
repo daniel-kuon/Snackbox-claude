@@ -8,6 +8,7 @@
 @inject IShelvingActionsApi ShelvingActionsApi
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 <PageTitle>Product Details - Snackbox Admin</PageTitle>
 
@@ -34,7 +35,15 @@
             <div>
                 <h2>@_productStock.ProductName</h2>
             </div>
-            <button class="btn btn-secondary" @onclick="NavigateBack">Back to Products</button>
+            <div class="button-group">
+                <a class="btn btn-outline-info"
+                   href="@SignozLinks.TracesForProduct(SignozBaseUrl, ProductId, _productStock.ProductName, _productStock.Barcodes.Select(b => b.Barcode))"
+                   target="_blank" rel="noopener"
+                   title="Everything recorded for this product in the last week (traces and logs)">
+                    🔍 SigNoz
+                </a>
+                <button class="btn btn-secondary" @onclick="NavigateBack">Back to Products</button>
+            </div>
         </div>
 
         <div class="barcodes-section">
@@ -923,6 +932,9 @@
 </style>
 
 @code {
+    // SigNoz base URL comes from Telemetry:SignozUrl (defaults to the local docker instance)
+    private string SignozBaseUrl => Configuration["Telemetry:SignozUrl"] ?? "http://localhost:3301";
+
     [Parameter]
     public int ProductId { get; set; }
 

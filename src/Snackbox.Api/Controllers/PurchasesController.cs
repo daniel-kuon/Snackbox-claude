@@ -116,7 +116,8 @@ public class PurchasesController : ControllerBase
                     Id = s.Id,
                     ProductName = s.Barcode.Code,
                     Amount = s.Amount,
-                    ScannedAt = s.ScannedAt
+                    ScannedAt = s.ScannedAt,
+                    TraceId = s.TraceId // drives the "open in SigNoz" link in the admin UI
                 }).ToList(),
                 AppliedDiscounts = p.AppliedDiscounts.Select(pd => new AppliedDiscountDto
                 {
