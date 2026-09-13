@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
@@ -45,6 +46,36 @@ public static class TelemetrySources
     public const string Traced = "Snackbox.Traced";
 }
 
+/// <summary>
+/// Npgsql emits the stable database semantic conventions (db.system.name, db.namespace,
+/// db.query.text). SigNoz - like most tooling built before those were stabilised - looks for
+/// the older db.system / db.name / db.statement, so database calls were recorded but never
+/// recognised as such: no database node in the service map and nothing under Database Calls.
+/// Copy the values across so spans carry both spellings.
+/// </summary>
+internal sealed class DatabaseSemanticCompatibilityProcessor : BaseProcessor<Activity>
+{
+    private static readonly (string From, string To)[] Aliases =
+    [
+        ("db.system.name", "db.system"),
+        ("db.namespace", "db.name"),
+        ("db.query.text", "db.statement")
+    ];
+
+    public override void OnEnd(Activity activity)
+    {
+        foreach (var (from, to) in Aliases)
+        {
+            if (activity.GetTagItem(to) != null)
+                continue;
+
+            var value = activity.GetTagItem(from);
+            if (value != null)
+                activity.SetTag(to, value);
+        }
+    }
+}
+
 public static class ServiceDefaultsExtensions
 {
     public static IServiceCollection AddSnackboxOpenTelemetry(
@@ -80,6 +111,9 @@ public static class ServiceDefaultsExtensions
                 {
                     tracing.AddHttpClientInstrumentation(options => { options.RecordException = true; });
                 }
+
+                // Make Npgsql's stable db.* attributes recognisable to SigNoz
+                tracing.AddProcessor(new DatabaseSemanticCompatibilityProcessor());
 
                 // The default exporter targets OTEL_EXPORTER_OTLP_ENDPOINT (set by the Aspire
                 // dashboard for hosted projects). Without it, it would fall back to

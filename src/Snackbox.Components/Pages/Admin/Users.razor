@@ -71,6 +71,10 @@
                         <tr @onclick="() => NavigateToUserDetail(user.Id)" style="cursor: pointer;" class="@rowClass">
                             <td>
                                 @user.Username
+                                @if (user.IsBetaTester)
+                                {
+                                    <span class="badge bg-info ms-1" title="Sees features released to beta testers">Beta</span>
+                                }
                                 @if (user.IsRetired)
                                 {
                                     <span class="badge bg-secondary ms-1">Retired</span>
@@ -141,6 +145,13 @@
                         <InputCheckbox @bind-Value="_userForm.IsActive" class="form-check-input" id="isActiveCheck" />
                         <label class="form-check-label" for="isActiveCheck">
                             Active
+                        </label>
+                    </div>
+
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="_userForm.IsBetaTester" class="form-check-input" id="isBetaCheck" />
+                        <label class="form-check-label" for="isBetaCheck">
+                            Beta tester <small class="text-muted">— also sees features set to "Beta testers only"</small>
                         </label>
                     </div>
 
@@ -779,6 +790,7 @@
                     Email = _userForm.Email,
                     IsAdmin = _userForm.Role == "Admin",
                     IsActive = _userForm.IsActive,
+                    IsBetaTester = _userForm.IsBetaTester,
                     PurchaseBarcode1 = _userForm.PurchaseBarcode1,
                     PurchaseBarcode2 = _userForm.PurchaseBarcode2
                 };
@@ -794,7 +806,8 @@
                     Username = _userForm.Username,
                     Email = _userForm.Email,
                     IsAdmin = _userForm.Role == "Admin",
-                    IsActive = _userForm.IsActive
+                    IsActive = _userForm.IsActive,
+                    IsBetaTester = _userForm.IsBetaTester
                 };
                 await UsersApi.UpdateAsync(_editingUserId.Value, updateDto);
                 CloseModal();
@@ -909,6 +922,8 @@
         public string Role { get; set; } = "User";
 
         public bool IsActive { get; set; } = true;
+
+        public bool IsBetaTester { get; set; }
 
         public string? PurchaseBarcode1 { get; set; }
 

@@ -4,6 +4,7 @@ using Snackbox.Api.Dtos;
 
 namespace Snackbox.Api.Services;
 
+[Traced(LogReturnValue = true)] // external UPC lookups: what was asked and what came back
 public class BarcodeLookupService : IBarcodeLookupService
 {
     private readonly HttpClient _httpClient;

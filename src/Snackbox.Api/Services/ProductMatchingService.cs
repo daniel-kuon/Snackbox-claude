@@ -10,6 +10,7 @@ public interface IProductMatchingService
     Task<ProductMatchResult?> FindMatchingProduct(string barcode, string productName);
 }
 
+[Traced(LogReturnValue = true)] // which product an invoice line matched, and why it failed
 public partial class ProductMatchingService : IProductMatchingService
 {
     private readonly ApplicationDbContext _context;

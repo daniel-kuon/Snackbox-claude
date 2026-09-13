@@ -29,6 +29,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- [Traced] is used across the service layer; keep it out of every file's usings -->
+    <Using Include="Snackbox.ServiceDefaults.Tracing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Snackbox.Api.Dtos\Snackbox.Api.Dtos.csproj" />
     <ProjectReference Include="..\Snackbox.ServiceDefaults\Snackbox.ServiceDefaults.csproj" />
   </ItemGroup>

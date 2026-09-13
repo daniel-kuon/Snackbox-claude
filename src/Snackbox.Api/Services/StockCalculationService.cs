@@ -12,6 +12,7 @@ public interface IStockCalculationService
     DateTime? GetEarliestBestBeforeDateOnShelf(IEnumerable<ProductBatch> batches);
 }
 
+[Traced(LogReturnValue = true)] // stock numbers are a frequent source of "that looks wrong" reports
 public class StockCalculationService : IStockCalculationService
 {
     public int CalculateStorageQuantity(IEnumerable<ShelvingAction> shelvingActions)

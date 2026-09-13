@@ -178,16 +178,21 @@
                     @foreach (var flag in _featureFlags)
                     {
                         <div class="form-group feature-flag">
-                            <label class="form-label">
-                                <input type="checkbox"
-                                       checked="@flag.IsEnabled"
-                                       disabled="@(_savingFlagKey == flag.Key)"
-                                       @onchange="e => ToggleFeatureFlag(flag, (bool)(e.Value ?? false))" />
-                                <strong>@flag.Name</strong>
-                            </label>
+                            <label class="form-label"><strong>@flag.Name</strong></label>
+                            <select class="form-control feature-flag-audience"
+                                    disabled="@(_savingFlagKey == flag.Key)"
+                                    value="@flag.Audience"
+                                    @onchange="e => SetFeatureAudience(flag, e.Value?.ToString())">
+                                <option value="@FeatureAudience.Disabled">Off — nobody</option>
+                                <option value="@FeatureAudience.BetaTesters">Beta testers only</option>
+                                <option value="@FeatureAudience.Everyone">Everyone</option>
+                            </select>
                             <small class="form-text text-muted">@flag.Description</small>
                         </div>
                     }
+                    <small class="form-text text-muted">
+                        Mark individual users as beta testers under <a href="/admin/users">Users</a>.
+                    </small>
 
                     @if (!string.IsNullOrEmpty(_flagMessage))
                     {
@@ -225,6 +230,10 @@
     .feature-flag {
         padding: 0.5rem 0;
         border-bottom: 1px solid #f1f1f1;
+    }
+
+    .feature-flag-audience {
+        max-width: 260px;
     }
 
     .settings-section {
@@ -347,6 +356,13 @@
         await LoadFeatureFlags();
     }
 
+    private static string Describe(FeatureAudience audience) => audience switch
+    {
+        FeatureAudience.Everyone => "enabled for everyone",
+        FeatureAudience.BetaTesters => "enabled for beta testers only",
+        _ => "disabled"
+    };
+
     private async Task LoadFeatureFlags()
     {
         try
@@ -362,15 +378,18 @@
         }
     }
 
-    private async Task ToggleFeatureFlag(FeatureFlagDto flag, bool isEnabled)
+    private async Task SetFeatureAudience(FeatureFlagDto flag, string? audienceValue)
     {
+        if (!Enum.TryParse<FeatureAudience>(audienceValue, out var audience))
+            return;
+
         _savingFlagKey = flag.Key;
         _flagMessage = null;
         try
         {
-            var updated = await FeatureFlagsApi.UpdateAsync(flag.Key, new UpdateFeatureFlagDto { IsEnabled = isEnabled });
-            flag.IsEnabled = updated.IsEnabled;
-            _flagMessage = $"\"{flag.Name}\" is now {(updated.IsEnabled ? "enabled" : "disabled")}.";
+            var updated = await FeatureFlagsApi.UpdateAsync(flag.Key, new UpdateFeatureFlagDto { Audience = audience });
+            flag.Audience = updated.Audience;
+            _flagMessage = $"\"{flag.Name}\" is now {Describe(updated.Audience)}.";
             _flagSuccess = true;
         }
         catch (Exception ex)

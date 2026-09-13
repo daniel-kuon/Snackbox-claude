@@ -5,6 +5,7 @@ using Snackbox.Api.Controllers;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 using Xunit;
 
 namespace Snackbox.Api.Tests.Controllers;
@@ -21,22 +22,26 @@ public class FeatureFlagsControllerTests : IDisposable
             .Options;
         _context = new ApplicationDbContext(options);
 
+        _context.Users.Add(new User { Id = 1, Username = "regular", CreatedAt = DateTime.UtcNow });
+        _context.Users.Add(new User { Id = 2, Username = "beta", IsBetaTester = true, CreatedAt = DateTime.UtcNow });
         _context.FeatureFlags.Add(new FeatureFlag
         {
             Id = 1,
             Key = FeatureFlagKeys.MobileApp,
             Name = "Snackbox on the phone",
             Description = "Phone install guide",
-            IsEnabled = false,
+            Audience = FeatureAudience.Disabled,
             UpdatedAt = DateTime.UtcNow
         });
         _context.SaveChanges();
 
-        _controller = new FeatureFlagsController(_context, NullLogger<FeatureFlagsController>.Instance);
+        _controller = new FeatureFlagsController(
+            new FeatureFlagService(_context),
+            NullLogger<FeatureFlagsController>.Instance);
     }
 
     [Fact]
-    public async Task GetAll_ReturnsFlagsWithState()
+    public async Task GetAll_ReturnsFlagsWithTheirAudience()
     {
         var result = await _controller.GetAll();
 
@@ -44,28 +49,42 @@ public class FeatureFlagsControllerTests : IDisposable
         var flags = Assert.IsType<List<FeatureFlagDto>>(ok.Value);
         var flag = Assert.Single(flags);
         Assert.Equal(FeatureFlagKeys.MobileApp, flag.Key);
-        Assert.False(flag.IsEnabled);
+        Assert.Equal(FeatureAudience.Disabled, flag.Audience);
     }
 
     [Fact]
-    public async Task Update_TogglesFlag()
+    public async Task Update_SetsTheAudience()
     {
-        var result = await _controller.Update(FeatureFlagKeys.MobileApp, new UpdateFeatureFlagDto { IsEnabled = true });
+        var result = await _controller.Update(FeatureFlagKeys.MobileApp,
+            new UpdateFeatureFlagDto { Audience = FeatureAudience.Everyone });
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var dto = Assert.IsType<FeatureFlagDto>(ok.Value);
-        Assert.True(dto.IsEnabled);
+        Assert.Equal(FeatureAudience.Everyone, dto.Audience);
 
         var stored = await _context.FeatureFlags.SingleAsync(f => f.Key == FeatureFlagKeys.MobileApp);
-        Assert.True(stored.IsEnabled);
+        Assert.Equal(FeatureAudience.Everyone, stored.Audience);
     }
 
     [Fact]
     public async Task Update_UnknownKey_ReturnsNotFound()
     {
-        var result = await _controller.Update("nope", new UpdateFeatureFlagDto { IsEnabled = true });
+        var result = await _controller.Update("nope", new UpdateFeatureFlagDto { Audience = FeatureAudience.Everyone });
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetForUser_ReleasesBetaFeatureToBetaTestersOnly()
+    {
+        await _controller.Update(FeatureFlagKeys.MobileApp,
+            new UpdateFeatureFlagDto { Audience = FeatureAudience.BetaTesters });
+
+        var regular = Assert.IsType<OkObjectResult>((await _controller.GetForUser(1)).Result);
+        var beta = Assert.IsType<OkObjectResult>((await _controller.GetForUser(2)).Result);
+
+        Assert.Empty(Assert.IsType<List<string>>(regular.Value));
+        Assert.Contains(FeatureFlagKeys.MobileApp, Assert.IsType<List<string>>(beta.Value));
     }
 
     public void Dispose()

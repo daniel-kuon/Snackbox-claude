@@ -215,6 +215,13 @@
                                 </label>
                             </div>
 
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="_userEditForm.IsBetaTester" class="form-check-input" id="isBetaCheckEdit" />
+                                <label class="form-check-label" for="isBetaCheckEdit">
+                                    Beta tester <small class="text-muted">— also sees features released to beta testers</small>
+                                </label>
+                            </div>
+
                             <div class="info-row">
                                 <span class="info-label">Balance:</span>
                                 <span class="info-value @(_user.Balance < 0 ? "text-danger" : "text-success")">€@_user.Balance.ToString("F2")</span>
@@ -1835,7 +1842,8 @@
             Username = _user.Username,
             Email = _user.Email ?? string.Empty,
             Role = _user.IsAdmin ? "Admin" : "User",
-            IsActive = _user.IsActive
+            IsActive = _user.IsActive,
+            IsBetaTester = _user.IsBetaTester
         };
         _editError = null;
         _isEditingUserInfo = true;
@@ -1862,7 +1870,8 @@
                 username = _userEditForm.Username,
                 email = _userEditForm.Email,
                 isAdmin = _userEditForm.Role == "Admin",
-                isActive = _userEditForm.IsActive
+                isActive = _userEditForm.IsActive,
+                isBetaTester = _userEditForm.IsBetaTester
             });
 
             if (response.IsSuccessStatusCode)
@@ -2005,6 +2014,8 @@
         public string Role { get; set; } = "User";
 
         public bool IsActive { get; set; } = true;
+
+        public bool IsBetaTester { get; set; }
     }
 
     private class ManualPurchaseFormModel

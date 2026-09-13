@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
 
@@ -10,57 +9,57 @@ namespace Snackbox.Api.Controllers;
 [Route("api/[controller]")]
 public class FeatureFlagsController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IFeatureFlagService _featureFlags;
     private readonly ILogger<FeatureFlagsController> _logger;
 
-    public FeatureFlagsController(ApplicationDbContext context, ILogger<FeatureFlagsController> logger)
+    public FeatureFlagsController(IFeatureFlagService featureFlags, ILogger<FeatureFlagsController> logger)
     {
-        _context = context;
+        _featureFlags = featureFlags;
         _logger = logger;
     }
 
     /// <summary>
-    /// All flags with their state. Anonymous: the kiosk scan screen has no logged-in
-    /// user but must still honour which features are switched on.
+    /// All flags with the audience they are switched on for. Anonymous: the kiosk admin
+    /// screen has no logged-in user but still has to render the current state.
     /// </summary>
     [HttpGet]
     [AllowAnonymous]
     public async Task<ActionResult<List<FeatureFlagDto>>> GetAll()
     {
-        var flags = await _context.FeatureFlags
-            .OrderBy(f => f.Name)
-            .Select(f => new FeatureFlagDto
-            {
-                Key = f.Key,
-                Name = f.Name,
-                Description = f.Description,
-                IsEnabled = f.IsEnabled
-            })
-            .ToListAsync();
+        var flags = await _featureFlags.GetAllAsync();
+        return Ok(flags.Select(f => new FeatureFlagDto
+        {
+            Key = f.Key,
+            Name = f.Name,
+            Description = f.Description,
+            Audience = f.Audience
+        }).ToList());
+    }
 
-        return Ok(flags);
+    /// <summary>Which features a specific user may see (resolves the beta-tester rule).</summary>
+    [HttpGet("for-user/{userId:int}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<List<string>>> GetForUser(int userId)
+    {
+        return Ok(await _featureFlags.GetEnabledForUserAsync(userId));
     }
 
     [HttpPut("{key}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<FeatureFlagDto>> Update(string key, [FromBody] UpdateFeatureFlagDto dto)
     {
-        var flag = await _context.FeatureFlags.FirstOrDefaultAsync(f => f.Key == key);
+        var flag = await _featureFlags.SetAudienceAsync(key, dto.Audience);
         if (flag == null)
             return NotFound(new { message = "Unknown feature flag" });
 
-        flag.IsEnabled = dto.IsEnabled;
-        flag.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Feature flag {Key} set to {IsEnabled}", flag.Key, flag.IsEnabled);
+        _logger.LogInformation("Feature flag {Key} audience set to {Audience}", flag.Key, flag.Audience);
 
         return Ok(new FeatureFlagDto
         {
             Key = flag.Key,
             Name = flag.Name,
             Description = flag.Description,
-            IsEnabled = flag.IsEnabled
+            Audience = flag.Audience
         });
     }
 }

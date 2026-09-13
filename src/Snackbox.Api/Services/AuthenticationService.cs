@@ -9,6 +9,7 @@ using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Services;
 
+[Traced] // login attempts, password changes and token issuance (secrets masked below)
 public class AuthenticationService : IAuthenticationService
 {
     private readonly ApplicationDbContext _context;
@@ -51,7 +52,7 @@ public class AuthenticationService : IAuthenticationService
         };
     }
 
-    public async Task<LoginResponse?> AuthenticateWithPasswordAsync(string emailOrUsername, string password)
+    public async Task<LoginResponse?> AuthenticateWithPasswordAsync(string emailOrUsername, [Sensitive] string password)
     {
         // Allow login with either email or username
         var user = await _context.Users
@@ -80,7 +81,7 @@ public class AuthenticationService : IAuthenticationService
         };
     }
 
-    public async Task<LoginResponse?> AuthenticateWithBarcodeAndPasswordAsync(string barcodeValue, string password)
+    public async Task<LoginResponse?> AuthenticateWithBarcodeAndPasswordAsync(string barcodeValue, [Sensitive] string password)
     {
         // Find the barcode with the user
         var barcode = await _context.Barcodes
@@ -116,7 +117,7 @@ public class AuthenticationService : IAuthenticationService
         };
     }
 
-    public async Task<bool> SetPasswordAsync(string barcodeValue, string email, string newPassword)
+    public async Task<bool> SetPasswordAsync(string barcodeValue, string email, [Sensitive] string newPassword)
     {
         // Verify barcode exists and get associated user
         var barcode = await _context.Barcodes
@@ -141,7 +142,7 @@ public class AuthenticationService : IAuthenticationService
         return true;
     }
 
-    public async Task<bool> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+    public async Task<bool> ChangePasswordAsync(int userId, [Sensitive] string currentPassword, [Sensitive] string newPassword)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null || string.IsNullOrEmpty(user.PasswordHash))
@@ -159,7 +160,7 @@ public class AuthenticationService : IAuthenticationService
         return true;
     }
 
-    public async Task<bool> AdminSetPasswordAsync(int userId, string newPassword)
+    public async Task<bool> AdminSetPasswordAsync(int userId, [Sensitive] string newPassword)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null)

@@ -5,6 +5,7 @@ using Snackbox.Api.Dtos;
 
 namespace Snackbox.Api.Services;
 
+[Traced] // configuration changes are worth an audit trail
 public class SettingsService : ISettingsService
 {
     private readonly IConfiguration _configuration;

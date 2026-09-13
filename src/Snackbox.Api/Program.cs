@@ -89,6 +89,9 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 // Register achievement service
 builder.Services.AddScoped<IAchievementService, AchievementService>();
 
+// Resolves which features a given user may see (off / beta testers / everyone)
+builder.Services.AddScoped<IFeatureFlagService, FeatureFlagService>();
+
 // Register stock calculation service
 builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 

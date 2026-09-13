@@ -4,6 +4,7 @@ using Snackbox.Api.Dtos;
 
 namespace Snackbox.Api.Services;
 
+[Traced] // invoice parsing is fiddly and fails on real-world documents
 public class SonderpostenInvoiceParser : IInvoiceParserService
 {
     public string Format => "sonderposten";

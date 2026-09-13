@@ -84,7 +84,7 @@ public class ApplicationDbContext : DbContext
                 Key = FeatureFlagKeys.MobileApp,
                 Name = "Snackbox on the phone",
                 Description = "Show users how to install Snackbox as an app on their phone (install guide QR on the scan screen and the matching introduction step).",
-                IsEnabled = false,
+                Audience = FeatureAudience.Disabled,
                 UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );

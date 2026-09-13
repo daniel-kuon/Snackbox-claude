@@ -9,6 +9,7 @@ public interface IProductBestBeforeDateService
     Task UpdateProductBestBeforeDatesAsync(int productId);
 }
 
+[Traced(LogReturnValue = true)]
 public class ProductBestBeforeDateService : IProductBestBeforeDateService
 {
     private readonly ApplicationDbContext _context;

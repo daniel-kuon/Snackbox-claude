@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Snackbox.Api.Services;
 
+[Traced] // SMTP failures are otherwise invisible
 public class EmailService : IEmailService
 {
     private readonly EmailSettings _emailSettings;

@@ -7,6 +7,7 @@ using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Services;
 
+[Traced] // long-running pg_dump/psql work - worth seeing duration and failures
 public class BackupService : IBackupService
 {
     private readonly IConfiguration _configuration;

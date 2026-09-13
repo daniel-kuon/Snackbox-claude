@@ -15,14 +15,16 @@ public class ScannerController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IAchievementService _achievementService;
+    private readonly IFeatureFlagService _featureFlags;
     private readonly ILogger<ScannerController> _logger;
     private const int DefaultTimeoutSeconds = 60;
 
-    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, ILogger<ScannerController> logger)
+    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, IFeatureFlagService featureFlags, ILogger<ScannerController> logger)
     {
         _context = context;
         _configuration = configuration;
         _achievementService = achievementService;
+        _featureFlags = featureFlags;
         _logger = logger;
     }
 
@@ -71,11 +73,9 @@ public class ScannerController : ControllerBase
         var user = barcode.User;
         var isInactive = !user.IsActive;
 
-        // Which intro steps this user still needs, given the currently enabled features
-        var enabledFeatures = await _context.FeatureFlags
-            .Where(f => f.IsEnabled)
-            .Select(f => f.Key)
-            .ToListAsync();
+        // Which intro steps this user still needs, given the features enabled *for them*
+        // (a beta-only feature is visible to beta testers only)
+        var enabledFeatures = await _featureFlags.GetEnabledForUserAsync(user.Id);
         var seenSteps = await _context.UserWizardSteps
             .Where(s => s.UserId == user.Id)
             .Select(s => s.StepKey)

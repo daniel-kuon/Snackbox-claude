@@ -9,6 +9,7 @@ public class User
     public bool IsAdmin { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsRetired { get; set; } = false; // Special flag to mark users as retired
+    public bool IsBetaTester { get; set; } = false; // Sees features whose audience is BetaTesters
     public DateTime CreatedAt { get; set; }
 
     // Navigation properties

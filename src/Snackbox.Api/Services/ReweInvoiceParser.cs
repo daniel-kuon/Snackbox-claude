@@ -4,6 +4,7 @@ using Snackbox.Api.Dtos;
 
 namespace Snackbox.Api.Services;
 
+[Traced] // invoice parsing is fiddly and fails on real-world documents
 public partial class ReweInvoiceParser : IInvoiceParserService
 {
     public string Format => "rewe";
