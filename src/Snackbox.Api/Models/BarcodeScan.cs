@@ -7,6 +7,7 @@ public class BarcodeScan
     public int BarcodeId { get; set; }
     public decimal Amount { get; set; }
     public DateTime ScannedAt { get; set; }
+    public string? TraceId { get; set; } // OpenTelemetry trace id of the request that recorded this scan (SigNoz deep link)
 
     // Navigation properties
     public Purchase Purchase { get; set; } = null!;

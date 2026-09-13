@@ -7,11 +7,34 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Snackbox.Api.Data;
 using Snackbox.Api.Services;
+using Snackbox.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Load secrets file if it exists
 builder.Configuration.AddJsonFile("appsettings.secrets.json", optional: true, reloadOnChange: true);
+
+builder.Services.AddSnackboxOpenTelemetry(builder.Configuration, new TelemetryInstrumentationOptions
+{
+    ServiceName = "snackbox-api",
+    EnableAspNetCoreInstrumentation = true,
+    EnableHttpClientInstrumentation = true
+});
+builder.Logging.AddSnackboxOpenTelemetryLogging(builder.Configuration, "snackbox-api");
+
+// Verbose per-request logging (method, path, headers, request + response bodies, status,
+// duration) - volume is tiny (a handful of purchases a week) and this is what makes a
+// remote bug diagnosable. Auth/test-helper endpoints are excluded below so passwords and
+// tokens never end up in the logs.
+builder.Services.AddHttpLogging(options =>
+{
+    options.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.All;
+    options.RequestBodyLogLimit = 8 * 1024;
+    options.ResponseBodyLogLimit = 8 * 1024;
+    options.CombineLogs = true; // one log record per request instead of several
+});
+// appsettings caps Microsoft.AspNetCore at Warning; let the HTTP log records through
+builder.Logging.AddFilter("Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware", LogLevel.Information);
 
 // Add services to the container.
 builder.Services.AddControllers()
@@ -240,6 +263,11 @@ app.Use(async (context, next) =>
     context.Response.Headers["Expires"] = "0";
     await next();
 });
+
+// Never log bodies of endpoints that carry credentials or issue tokens
+app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api/auth")
+                   && !ctx.Request.Path.StartsWithSegments("/api/testhelper"),
+            b => b.UseHttpLogging());
 
 app.UseHttpsRedirection();
 app.UseCors("AllowBlazorApp");

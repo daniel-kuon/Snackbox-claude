@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
@@ -168,7 +169,9 @@ public class ScannerController : ControllerBase
             Purchase = currentPurchase,
             BarcodeId = barcode.Id,
             Amount = barcode.Amount,
-            ScannedAt = DateTime.UtcNow
+            ScannedAt = DateTime.UtcNow,
+            // Remember which trace produced this scan so the admin UI can open it in SigNoz
+            TraceId = Activity.Current?.TraceId.ToHexString()
         };
         _context.BarcodeScans.Add(barcodeScan);
 
@@ -177,15 +180,21 @@ public class ScannerController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        // Reload purchase with all scans to get updated data
-        if (isNewPurchase)
-        {
-            await _context.Entry(currentPurchase)
-                .Collection(p => p.Scans)
-                .Query()
-                .Include(s => s.Barcode)
-                .LoadAsync();
-        }
+        // Reload the purchase's scans with their barcodes. This must run for BOTH paths: when
+        // adding to an existing purchase the scan just created has only BarcodeId set, so
+        // without this reload its Barcode navigation is null and building the response
+        // (s.Barcode.Code) throws a NullReferenceException.
+        await _context.Entry(currentPurchase)
+            .Collection(p => p.Scans)
+            .Query()
+            .Include(s => s.Barcode)
+            .LoadAsync();
+
+        // Correlate this purchase with its telemetry: every span/log of this request
+        // carries the purchase id, which the admin UI uses to deep-link into SigNoz.
+        Activity.Current?.SetTag("purchase.id", currentPurchase.Id);
+        Activity.Current?.SetTag("user.id", user.Id);
+        Activity.Current?.SetTag("barcode.code", barcode.Code);
 
         // Check for immediate achievements (single purchase amount, high debt, total spent)
         // These can be checked on every scan, not just when the purchase completes

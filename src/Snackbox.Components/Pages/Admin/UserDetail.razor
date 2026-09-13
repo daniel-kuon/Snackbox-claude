@@ -5,6 +5,7 @@
 @using Snackbox.Components.Components.Shared
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 <PageTitle>User Details - Snackbox Admin</PageTitle>
 
@@ -303,6 +304,7 @@
                                 <th>Items</th>
                                 <th>Total</th>
                                 <th>Reference</th>
+                                <th>Telemetry</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -378,6 +380,29 @@
                                         @if (purchase.ReferencePurchaseId.HasValue)
                                         {
                                             <span>Ref: #@purchase.ReferencePurchaseId</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @{
+                                            var tracedItems = purchase.Items.Where(i => !string.IsNullOrEmpty(i.TraceId)).OrderBy(i => i.ScannedAt).ToList();
+                                        }
+                                        @if (tracedItems.Count > 0)
+                                        {
+                                            @* One trace per scan; the newest is usually what you want, the rest are listed as small links *@
+                                            <a class="btn btn-sm btn-outline-info" href="@SignozTraceUrl(tracedItems[^1].TraceId!)" target="_blank" title="Open the trace of the latest scan in SigNoz (logs, SQL, timings)">🔍 SigNoz</a>
+                                            @if (tracedItems.Count > 1)
+                                            {
+                                                <div class="mt-1">
+                                                    @for (var i = 0; i < tracedItems.Count - 1; i++)
+                                                    {
+                                                        <a class="me-1 small" href="@SignozTraceUrl(tracedItems[i].TraceId!)" target="_blank" title="@tracedItems[i].ScannedAt.ToString("HH:mm:ss")">scan @(i + 1)</a>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small" title="Recorded before telemetry was enabled, or a manual/legacy purchase">-</span>
                                         }
                                     </td>
                                     <td>
@@ -1468,6 +1493,14 @@
         {
             _errorMessage = $"Failed to load payments: {ex.Message}";
         }
+    }
+
+    // Deep link into SigNoz's trace view for one scan. SigNoz base URL comes from
+    // Telemetry:SignozUrl (defaults to the local docker instance).
+    private string SignozTraceUrl(string traceId)
+    {
+        var baseUrl = (Configuration["Telemetry:SignozUrl"] ?? "http://localhost:3301").TrimEnd('/');
+        return $"{baseUrl}/trace/{traceId}";
     }
 
     private async Task LoadPurchases()

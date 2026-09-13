@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Snackbox.Components\Snackbox.Components.csproj" />
     <ProjectReference Include="..\Snackbox.ApiClient\Snackbox.ApiClient.csproj" />
+    <ProjectReference Include="..\Snackbox.ServiceDefaults\Snackbox.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>

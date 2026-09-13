@@ -4,6 +4,10 @@ using Projects;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+// SigNoz (self-hosted observability) receives OTLP on 4317 (gRPC) / 4318 (HTTP).
+// All services export there in addition to the Aspire dashboard's own OTLP endpoint.
+const string otelCollectorGrpcEndpoint = "http://localhost:4317";
+
 IResourceBuilder<ParameterResource> postgresPassword =
     builder.AddParameter("postgresspassword",
                          "postgresspassword",
@@ -24,12 +28,23 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
                                          .WithLifetime(ContainerLifetime.Persistent))
                       .AddDatabase("snackboxdb");
 
+// SigNoz stack (ClickHouse, collector, UI on http://localhost:3301) via its own compose file.
+// `up -d` returns immediately, so this resource simply shows as finished once the
+// containers are started; they keep running independently of the AppHost.
+// ReSharper disable once UnusedVariable
+var signozCompose = builder.AddExecutable("signoz", "docker", workingDirectory: "./Signoz")
+                           .WithArgs("compose", "-f", "docker-compose.yaml", "up", "-d")
+                           .ExcludeFromManifest();
+
 // Add API project with Swagger UI available at /swagger
 var api = builder.AddProject<Snackbox_Api>("api").WithReference(postgres).WaitFor(postgres).WithExternalHttpEndpoints();
+api.WithEnvironment("Telemetry__Otlp__AdditionalGrpcEndpoints__0", otelCollectorGrpcEndpoint);
 
 // Add Blazor Server web application
 // ReSharper disable once UnusedVariable
 var web = builder.AddProject<Snackbox_BlazorServer>("web").WithReference(api).WithExternalHttpEndpoints();
+web.WithEnvironment("Telemetry__Otlp__AdditionalGrpcEndpoints__0", otelCollectorGrpcEndpoint);
+web.WithEnvironment("Telemetry__SignozUrl", "http://localhost:3301");
 
 // Note: Windows native MAUI app should be run separately from Visual Studio/Rider
 // Run using: dotnet run --project src/Snackbox.Web -f net10.0-windows10.0.19041.0
@@ -38,6 +53,7 @@ var web = builder.AddProject<Snackbox_BlazorServer>("web").WithReference(api).Wi
 var nativeApp = builder.AddExecutable("native-app", "dotnet", workingDirectory: "../Snackbox.Web")
                        .WithArgs("run", "-f", "net10.0-windows10.0.19041.0")
                        .WithReference(api)
+                       .WithEnvironment("Telemetry__Otlp__AdditionalGrpcEndpoints__0", otelCollectorGrpcEndpoint)
                        .WithExplicitStartIf(builder.ExecutionContext.IsRunMode);
 
 // Add a custom resource for database reset using dotnet ef commands

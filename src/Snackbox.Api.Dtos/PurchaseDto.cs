@@ -21,6 +21,7 @@ public class PurchaseItemDto
     public string? ProductName { get; set; }
     public decimal Amount { get; set; }
     public DateTime ScannedAt { get; set; }
+    public string? TraceId { get; set; } // For "open in SigNoz" links in the admin UI
 }
 
 public class StartPurchaseDto

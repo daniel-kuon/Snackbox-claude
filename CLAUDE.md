@@ -88,6 +88,14 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Best Discount Applied**: System automatically selects the discount providing highest savings
 - See [Discount System Documentation](docs/discount-system.md) for full details
 
+#### 9. Observability (SigNoz)
+- **Purpose**: Remote bug tracking. All three apps (API `snackbox-api`, phone website `snackbox-blazor`, kiosk `snackbox-maui`) export OpenTelemetry **traces + logs** via OTLP/gRPC to a self-hosted SigNoz (`src/Snackbox.AppHost/Signoz/docker-compose.yaml`, started by the AppHost `signoz` resource or `docker compose up -d` in that folder). UI: `http://localhost:3301`, collector: `4317` (gRPC) / `4318` (HTTP)
+- **Shared setup**: `Snackbox.ServiceDefaults/TelemetryDefaults.cs` (`AddSnackboxOpenTelemetry` / `AddSnackboxOpenTelemetryLogging`). Extra OTLP targets come from `Telemetry:Otlp:AdditionalGrpcEndpoints`; the Aspire dashboard exporter is only added when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (avoids duplicate export from the kiosk)
+- **What is captured**: ASP.NET Core + HttpClient + EF/Npgsql spans with exceptions recorded; verbose per-request HTTP logging on the API (headers + request/response bodies, one record per request — `/api/auth/*` and `/api/testhelper/*` are excluded so credentials never get logged); UI spans (`ui.*`, see `UiTelemetry`) tagged with the user; kiosk unhandled/unobserved exceptions logged as Critical/Error (`MauiProgram.HookUnhandledExceptions`)
+- **Per-purchase deep links**: every `BarcodeScan` stores the `TraceId` of the request that recorded it, and the scan span carries `purchase.id` / `user.id` / `barcode.code`. Admin → User Details → Purchases has a **🔍 SigNoz** link per purchase opening that trace (base URL from `Telemetry:SignozUrl`)
+- **First-run gotcha**: SigNoz's collector is OpAMP-managed and runs *without any receivers* until an organization exists. Complete the first-time signup in the UI (or `POST /api/v1/register`) once; the collector then reloads with the real config within ~30s. Until then every exporter is silently talking to a closed port
+- **Kiosk note**: MAUI does not run hosted services, so the `TracerProvider` is resolved explicitly at startup (in `HookUnhandledExceptions`) to start exporting
+
 ### Key Business Rules
 1. Stock quantities must be manually updated by admins; purchases do not automatically reduce shelf stock counts
 2. Each employee has an account balance (payments minus purchases)

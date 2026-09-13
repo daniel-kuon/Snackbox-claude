@@ -3,6 +3,9 @@ using Microsoft.Extensions.Logging;
 using Snackbox.ApiClient;
 using Snackbox.Components.Services;
 using Snackbox.Web.Services;
+using Snackbox.ServiceDefaults;
+using OpenTelemetry;
+using OpenTelemetry.Trace; // TracerProvider.ForceFlush extension
 using System.Reflection;
 
 namespace Snackbox.Web;
@@ -26,6 +29,14 @@ public static class MauiProgram
             builder.Configuration.AddConfiguration(config);
         }
 
+        builder.Services.AddSnackboxOpenTelemetry(builder.Configuration, new TelemetryInstrumentationOptions
+        {
+            ServiceName = "snackbox-maui",
+            EnableAspNetCoreInstrumentation = false,
+            EnableHttpClientInstrumentation = true
+        });
+        builder.Logging.AddSnackboxOpenTelemetryLogging(builder.Configuration, "snackbox-maui");
+
         builder.Services.AddMauiBlazorWebView();
 
         // Register window service
@@ -36,6 +47,8 @@ public static class MauiProgram
 
         // Register storage service (MAUI secure storage)
         builder.Services.AddSingleton<IStorageService>(_ => new MauiStorageService(SecureStorage.Default));
+
+        builder.Services.AddTransient<IUiTelemetry, UiTelemetry>();
 
         // Register Snackbar service
         builder.Services.AddScoped<SnackbarService>();
@@ -98,6 +111,30 @@ public static class MauiProgram
         builder.Services.AddBlazorWebViewDeveloperTools();
 #endif
 
-        return builder.Build();
+        var app = builder.Build();
+        HookUnhandledExceptions(app.Services);
+        return app;
+    }
+
+    // Anything that escapes the UI is what we most need to see remotely. Log it as
+    // Critical (so it exports to SigNoz) and force-flush the trace exporter, because a
+    // terminating process won't wait for the batch exporter's timer.
+    private static void HookUnhandledExceptions(IServiceProvider services)
+    {
+        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Snackbox.Web.Unhandled");
+        var tracerProvider = services.GetService<OpenTelemetry.Trace.TracerProvider>();
+
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            logger.LogCritical(e.ExceptionObject as Exception,
+                "Unhandled exception in kiosk (terminating: {IsTerminating})", e.IsTerminating);
+            tracerProvider?.ForceFlush(3000);
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            logger.LogError(e.Exception, "Unobserved task exception in kiosk");
+            e.SetObserved();
+        };
     }
 }

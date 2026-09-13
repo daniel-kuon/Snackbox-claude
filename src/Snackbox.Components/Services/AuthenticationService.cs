@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using System.Diagnostics;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Snackbox.Api.Dtos;
 
@@ -8,17 +9,24 @@ public class AuthenticationService : IAuthenticationService
 {
     private readonly HttpClient _httpClient;
     private readonly IStorageService _storageService;
+    private readonly IUiTelemetry _uiTelemetry;
     private const string TokenKey = "auth_token";
     private const string UserInfoKey = "user_info";
 
-    public AuthenticationService(HttpClient httpClient, IStorageService storageService)
+    public AuthenticationService(HttpClient httpClient, IStorageService storageService, IUiTelemetry uiTelemetry)
     {
         _httpClient = httpClient;
         _storageService = storageService;
+        _uiTelemetry = uiTelemetry;
     }
 
     public async Task<LoginResult> LoginAsync(string barcodeValue)
     {
+        var activity = await _uiTelemetry.StartUiActionAsync(
+            "login",
+            component: nameof(AuthenticationService),
+            tags: new Dictionary<string, object?> { ["auth.method"] = "barcode" });
+
         try
         {
             var request = new { BarcodeValue = barcodeValue };
@@ -33,6 +41,15 @@ public class AuthenticationService : IAuthenticationService
                     await _storageService.SetAsync(TokenKey, loginResponse.Token);
                     await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
 
+                    activity?.SetTag("auth.success", true);
+                    _uiTelemetry.SetUserTags(activity, new UserInfo
+                    {
+                        UserId = loginResponse.UserId,
+                        Username = loginResponse.Username,
+                        Email = loginResponse.Email,
+                        IsAdmin = loginResponse.IsAdmin
+                    });
+
                     return new LoginResult
                     {
                         Success = true,
@@ -45,6 +62,7 @@ public class AuthenticationService : IAuthenticationService
                 }
             }
 
+            activity?.SetTag("auth.success", false);
             return new LoginResult
             {
                 Success = false,
@@ -53,16 +71,26 @@ public class AuthenticationService : IAuthenticationService
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return new LoginResult
             {
                 Success = false,
                 ErrorMessage = $"Error during login: {ex.Message}"
             };
         }
+        finally
+        {
+            activity?.Dispose();
+        }
     }
 
     public async Task<LoginResult> LoginWithPasswordAsync(string username, string password)
     {
+        var activity = await _uiTelemetry.StartUiActionAsync(
+            "login",
+            component: nameof(AuthenticationService),
+            tags: new Dictionary<string, object?> { ["auth.method"] = "password" });
+
         try
         {
             var request = new { Username = username, Password = password };
@@ -77,6 +105,15 @@ public class AuthenticationService : IAuthenticationService
                     await _storageService.SetAsync(TokenKey, loginResponse.Token);
                     await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
 
+                    activity?.SetTag("auth.success", true);
+                    _uiTelemetry.SetUserTags(activity, new UserInfo
+                    {
+                        UserId = loginResponse.UserId,
+                        Username = loginResponse.Username,
+                        Email = loginResponse.Email,
+                        IsAdmin = loginResponse.IsAdmin
+                    });
+
                     return new LoginResult
                     {
                         Success = true,
@@ -89,6 +126,7 @@ public class AuthenticationService : IAuthenticationService
                 }
             }
 
+            activity?.SetTag("auth.success", false);
             return new LoginResult
             {
                 Success = false,
@@ -97,16 +135,26 @@ public class AuthenticationService : IAuthenticationService
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return new LoginResult
             {
                 Success = false,
                 ErrorMessage = $"Error during login: {ex.Message}"
             };
         }
+        finally
+        {
+            activity?.Dispose();
+        }
     }
 
     public async Task<LoginResult> LoginWithBarcodeAndPasswordAsync(string barcodeValue, string password)
     {
+        var activity = await _uiTelemetry.StartUiActionAsync(
+            "login",
+            component: nameof(AuthenticationService),
+            tags: new Dictionary<string, object?> { ["auth.method"] = "barcode_password" });
+
         try
         {
             var request = new { BarcodeValue = barcodeValue, Password = password };
@@ -121,6 +169,15 @@ public class AuthenticationService : IAuthenticationService
                     await _storageService.SetAsync(TokenKey, loginResponse.Token);
                     await _storageService.SetAsync(UserInfoKey, JsonSerializer.Serialize(loginResponse));
 
+                    activity?.SetTag("auth.success", true);
+                    _uiTelemetry.SetUserTags(activity, new UserInfo
+                    {
+                        UserId = loginResponse.UserId,
+                        Username = loginResponse.Username,
+                        Email = loginResponse.Email,
+                        IsAdmin = loginResponse.IsAdmin
+                    });
+
                     return new LoginResult
                     {
                         Success = true,
@@ -133,6 +190,7 @@ public class AuthenticationService : IAuthenticationService
                 }
             }
 
+            activity?.SetTag("auth.success", false);
             return new LoginResult
             {
                 Success = false,
@@ -141,19 +199,32 @@ public class AuthenticationService : IAuthenticationService
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return new LoginResult
             {
                 Success = false,
                 ErrorMessage = $"Error during login: {ex.Message}"
             };
         }
+        finally
+        {
+            activity?.Dispose();
+        }
     }
 
     public async Task LogoutAsync()
     {
-        _storageService.Remove(TokenKey);
-        _storageService.Remove(UserInfoKey);
-        await Task.CompletedTask;
+        var activity = await _uiTelemetry.StartUiActionAsync("logout", component: nameof(AuthenticationService));
+        try
+        {
+            _storageService.Remove(TokenKey);
+            _storageService.Remove(UserInfoKey);
+            await Task.CompletedTask;
+        }
+        finally
+        {
+            activity?.Dispose();
+        }
     }
 
     public async Task<bool> IsAuthenticatedAsync()
