@@ -7,6 +7,7 @@ public class TestUserDto
 {
     public int UserId { get; set; }
     public required string Username { get; set; }
+    public string? Email { get; set; }
     public bool IsAdmin { get; set; }
     public bool IsActive { get; set; }
     public List<TestBarcodeDto> Barcodes { get; set; } = new();

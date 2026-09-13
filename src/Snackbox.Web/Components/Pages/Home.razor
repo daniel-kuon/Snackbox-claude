@@ -359,8 +359,23 @@
                 <strong>🧪 Test helper — click to scan</strong>
                 <button class="th-close" @onclick="() => _showTestPanel = false">×</button>
             </div>
+            <div class="th-search">
+                <input class="th-search-input" placeholder="Filter by name, email or code…"
+                       @bind="_testFilter" @bind:event="oninput" />
+                @if (!string.IsNullOrWhiteSpace(_testFilter))
+                {
+                    <button class="th-search-clear" title="Clear" @onclick="() => _testFilter = string.Empty">×</button>
+                }
+            </div>
             <div class="th-body">
-                @foreach (var user in _testUsers)
+                @{
+                    var visibleUsers = FilteredTestUsers();
+                }
+                @if (visibleUsers.Count == 0)
+                {
+                    <div class="th-empty">No users match "@_testFilter"</div>
+                }
+                @foreach (var user in visibleUsers)
                 {
                     <div class="th-user">
                         <span class="th-user-name">
@@ -369,13 +384,23 @@
                             @if (user.IsAdmin) { <span class="th-tag admin">admin</span> }
                         </span>
                         <div class="th-codes">
+                            @* Works even for users without any barcode (password-bypass login) *@
+                            <button class="th-code signin" title="Log in as @user.Username (no password)"
+                                    disabled="@(_loggingInUserId == user.UserId)"
+                                    @onclick="() => LoginAsTestUser(user)">
+                                @(_loggingInUserId == user.UserId ? "…" : "👤 log in")
+                            </button>
                             @foreach (var barcode in user.Barcodes)
                             {
                                 <button class="th-code @(barcode.IsLoginBarcode ? "login" : "")"
                                         title="@barcode.Code"
                                         @onclick="() => SimulateScan(barcode.Code)">
-                                    @(barcode.IsLoginBarcode ? "🔑 login" : barcode.Amount.ToString("C"))
+                                    @(barcode.IsLoginBarcode ? "🔑 scan login" : barcode.Amount.ToString("C"))
                                 </button>
+                            }
+                            @if (user.Barcodes.Count == 0)
+                            {
+                                <span class="th-nocodes">no barcodes</span>
                             }
                         </div>
                     </div>
@@ -973,8 +998,19 @@
         border: 1px solid #ccc; background: #f8f9fa; border-radius: 6px;
         padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer;
     }
-    .th-code:hover { background: #e9ecef; }
+    .th-code:hover:not(:disabled) { background: #e9ecef; }
+    .th-code:disabled { opacity: 0.6; cursor: default; }
     .th-code.login { border-color: #0d6efd; color: #0d6efd; }
+    .th-code.signin { border-color: #198754; color: #198754; font-weight: 600; }
+    .th-nocodes { font-size: 0.75rem; color: #999; align-self: center; }
+    .th-search { display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem 0.9rem 0; }
+    .th-search-input {
+        flex: 1; padding: 0.3rem 0.5rem; font-size: 0.8rem;
+        border: 1px solid #ccc; border-radius: 6px;
+    }
+    .th-search-input:focus { outline: none; border-color: #0d6efd; }
+    .th-search-clear { border: none; background: transparent; font-size: 1rem; cursor: pointer; color: #888; }
+    .th-empty { font-size: 0.8rem; color: #888; padding: 0.5rem 0; }
     .th-footer { padding: 0.5rem 0.9rem 0.75rem; border-top: 1px solid #eee; }
     .th-reset {
         width: 100%; border: 1px solid #dc3545; color: #dc3545; background: #fff;
@@ -1043,6 +1079,8 @@
     private IReadOnlyList<string> _wizardPendingSteps = Array.Empty<string>();
     private const string MobileAppFeature = "mobile_app";
     private List<TestUserDto>? _testUsers;
+    private string _testFilter = string.Empty;
+    private int? _loggingInUserId;
     private bool _showTestPanel;
     private bool _confirmReset;
     private bool _isResetting;
@@ -1075,6 +1113,60 @@
     private void SimulateScan(string code)
     {
         HandleCodeScanned(code);
+    }
+
+    // Own account first, then admins, then everyone else - with a text filter over
+    // name, email and barcode codes.
+    private List<TestUserDto> FilteredTestUsers()
+    {
+        if (_testUsers == null)
+            return new List<TestUserDto>();
+
+        var primary = Configuration["TestHelper:PrimaryUser"] ?? "Daniel Kuon";
+        var filter = _testFilter?.Trim() ?? string.Empty;
+
+        IEnumerable<TestUserDto> users = _testUsers;
+        if (filter.Length > 0)
+        {
+            users = users.Where(u =>
+                u.Username.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                || (u.Email?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
+                || u.Barcodes.Any(b => b.Code.Contains(filter, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return users
+            .OrderByDescending(u => IsPrimaryUser(u, primary))
+            .ThenByDescending(u => u.IsAdmin)
+            .ThenBy(u => u.Username)
+            .ToList();
+    }
+
+    private static bool IsPrimaryUser(TestUserDto user, string primary) =>
+        string.Equals(user.Username, primary, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(user.Email, primary, StringComparison.OrdinalIgnoreCase);
+
+    // Password-bypass login from the kiosk panel. Works for users with no barcode at all
+    // (e.g. imported admins), which a simulated scan cannot do.
+    private async Task LoginAsTestUser(TestUserDto user)
+    {
+        _loggingInUserId = user.UserId;
+        try
+        {
+            var result = await TestHelper.LoginAsAsync(user.UserId);
+            if (result.Success)
+            {
+                Navigation.NavigateTo(result.IsAdmin ? "/admin/dashboard" : "/home", forceLoad: true);
+            }
+            else
+            {
+                ShowError(result.ErrorMessage ?? "Test login failed");
+            }
+        }
+        finally
+        {
+            _loggingInUserId = null;
+            StateHasChanged();
+        }
     }
 
     private async Task ResetDatabase()
