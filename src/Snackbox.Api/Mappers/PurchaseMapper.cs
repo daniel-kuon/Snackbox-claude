@@ -25,7 +25,7 @@ public static partial class PurchaseMapper
     public static PurchaseItemDto ToItemDtoWithProductName(this BarcodeScan source)
     {
         var dto = source.ToItemDto();
-        dto.ProductName = source.Barcode.Code;
+        dto.ProductName = source.Barcode?.Code;
         return dto;
     }
 
@@ -46,7 +46,7 @@ public static partial class PurchaseMapper
         {
             Id = source.Id,
             UserId = source.UserId,
-            Username = source.User.Username,
+            Username = source.User?.Username,
             TotalAmount = source.ManualAmount ?? source.Scans.Sum(s => s.Amount),
             CreatedAt = source.CreatedAt,
             UpdatedAt = source.UpdatedAt,

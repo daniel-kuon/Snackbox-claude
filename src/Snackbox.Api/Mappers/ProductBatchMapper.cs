@@ -27,7 +27,7 @@ public static partial class ProductBatchMapper
     public static ProductBatchDto ToDtoWithStock(this ProductBatch source, int quantityInStorage, int quantityOnShelf)
     {
         var dto = source.ToDto();
-        dto.ProductName = source.Product.Name;
+        dto.ProductName = source.Product?.Name;
         dto.QuantityInStorage = quantityInStorage;
         dto.QuantityOnShelf = quantityOnShelf;
         return dto;
