@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Models;
 using Snackbox.Api.Services;
@@ -335,7 +335,8 @@ public class ComprehensiveAchievementTests : IDisposable
         var today = DateTime.UtcNow;
         for (int week = 0; week < 4; week++)
         {
-            var purchase = CreatePurchase(week + 1, 1.00m, completedAt: today.AddDays(-week * 7));
+            // Oldest first, so the highest id is the purchase completing now.
+            var purchase = CreatePurchase(week + 1, 1.00m, completedAt: today.AddDays(-(3 - week) * 7));
             _context.Purchases.Add(purchase);
         }
         await _context.SaveChangesAsync();
@@ -352,9 +353,9 @@ public class ComprehensiveAchievementTests : IDisposable
     {
         // Arrange: Make purchases in weeks 0, 1, 3 (missing week 2)
         var today = DateTime.UtcNow;
-        var purchase1 = CreatePurchase(1, 1.00m, completedAt: today);
+        var purchase1 = CreatePurchase(1, 1.00m, completedAt: today.AddDays(-21));
         var purchase2 = CreatePurchase(2, 1.00m, completedAt: today.AddDays(-7));
-        var purchase3 = CreatePurchase(3, 1.00m, completedAt: today.AddDays(-21));
+        var purchase3 = CreatePurchase(3, 1.00m, completedAt: today);
         _context.Purchases.AddRange(purchase1, purchase2, purchase3);
         await _context.SaveChangesAsync();
 
