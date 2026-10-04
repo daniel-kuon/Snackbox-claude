@@ -9,6 +9,9 @@ namespace Snackbox.Updater;
 /// </summary>
 public static class SelfCopy
 {
+    /// <summary>Internal marker telling the copy not to copy itself again. Not a user flag.</summary>
+    public const string Marker = "snackbox-internal-from-temp-copy";
+
     /// <summary>
     /// Relaunches from a temp copy and returns true when the caller should stop. Returns false
     /// if we are already running from a copy, or if copying failed - the update is more
@@ -37,9 +40,12 @@ public static class SelfCopy
 
             var info = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true };
             foreach (var argument in args) info.ArgumentList.Add(argument);
-            info.ArgumentList.Add("--detached");
+            info.ArgumentList.Add($"--{Marker}");
 
-            log.Write($"Continuing from {executable} so the build can replace the installed updater.");
+            // The copy has to outlive us: this process is the installed executable the build
+            // is about to overwrite, so it cannot stay around to wait for the result.
+            log.Write($"Continuing in the background from {executable} so the build can replace the installed updater.");
+            log.Write($"Follow the update in {log.Path}");
             Process.Start(info);
             return true;
         }

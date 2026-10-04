@@ -60,9 +60,11 @@ try
         case "update":
             var tag = arguments.Value("tag") ?? throw new UpdaterException("update needs --tag, for example --tag v1.2.3.");
 
-            // The update rebuilds the whole solution, which includes this very executable. Run
-            // from a copy in the temp folder so our own file is not locked while that happens.
-            if (!arguments.Flag("detached") && SelfCopy.Relaunch(args, log)) return 0;
+            // The update rebuilds the whole solution, which includes this very executable, and
+            // Windows will not overwrite a running file. Continue from a copy in the temp
+            // folder. SelfCopy sets the marker below on the copy; it is not for callers, and
+            // passing it by hand is how you get "the file is used by another process".
+            if (!arguments.Flag(SelfCopy.Marker) && SelfCopy.Relaunch(args, log)) return 0;
 
             return new UpdateCommand(installation, stack, log).Run(tag, withKiosk, start: !arguments.Flag("no-start"));
 
