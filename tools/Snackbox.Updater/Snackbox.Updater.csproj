@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Snackbox.Updater</RootNamespace>
+        <AssemblyName>Snackbox.Updater</AssemblyName>
+        <!-- Runs outside the app it updates, so it must not share its build output -->
+        <InvariantGlobalization>true</InvariantGlobalization>
+    </PropertyGroup>
+
+</Project>

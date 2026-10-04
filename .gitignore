@@ -253,6 +253,13 @@ __pycache__/
 tools/**
 !tools/packages.config
 
+# ...but the Snackbox updater lives in tools/ and has to be part of the repository:
+# Snackbox.sln references it, so a clone that lacks it cannot even restore.
+!tools/Snackbox.Updater/
+!tools/Snackbox.Updater/**
+tools/Snackbox.Updater/bin/
+tools/Snackbox.Updater/obj/
+
 # Tabs Studio
 *.tss
 
