@@ -40,10 +40,14 @@ Release, registers autostart and starts everything.
 
 ## Autostart
 
-Autostart is a **scheduled task at logon**, not a Windows service: Docker Desktop and the kiosk
-window both need a desktop session, which a service does not have. The task runs
-`Snackbox.Updater start`, which waits for Docker to answer `docker info`, starts the Aspire
-AppHost and then launches the kiosk.
+Autostart runs **at logon**, not as a Windows service: Docker Desktop and the kiosk window both
+need a desktop session, which a service does not have. It runs `Snackbox.Updater start`, which
+waits for Docker to answer `docker info`, starts the Aspire AppHost and then launches the kiosk.
+
+A scheduled task is used when possible. Creating a logon-triggered task needs an elevated
+shell, so without one the updater falls back to `Snackbox.cmd` in the user's Startup folder -
+same effect for the logged-in user, no administrator needed. The log says which one was used,
+and `uninstall-autostart` removes both.
 
 ```powershell
 $updater = "C:\Snackbox\tools\Snackbox.Updater\bin\Release\net10.0\Snackbox.Updater.exe"
