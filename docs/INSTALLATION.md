@@ -1,198 +1,93 @@
-# Snackbox Installation & Update Guide
+# Installing and updating Snackbox
 
-This guide covers installing and updating Snackbox on Windows.
+A Snackbox installation is a **git checkout that is built and run in place**. The installed
+version is the release tag that is checked out, so there is no version file to keep in sync and
+rolling back is just checking out the previous tag.
 
-## Quick Installation
+## Requirements
 
-### One-Line Installation (Recommended)
-
-Open **PowerShell as Administrator** and run:
-
-```powershell
-irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/snackbox-claude/main/install-snackbox.ps1 | iex
-```
-
-> **Important**: Replace `YOUR_GITHUB_USERNAME` with your actual GitHub username
-
-This will:
-- Download the latest release from GitHub
-- Install to `C:\Program Files\Snackbox`
-- Create desktop and Start Menu shortcuts
-- Include the Snackbox Updater tool
-
-### User Directory Installation (No Admin Required)
+- Windows 10/11 (x64)
+- [git](https://git-scm.com/download/win)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) with the `aspire` and `maui` workloads
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — Postgres and SigNoz run as
+  containers started by the Aspire AppHost
 
 ```powershell
-$params = @{ InstallPath = "$env:LOCALAPPDATA\Snackbox" }
-irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/snackbox-claude/main/install-snackbox.ps1 | iex @params
+dotnet workload install aspire
+dotnet workload install maui
 ```
 
-## Manual Installation
-
-1. Go to [GitHub Releases](https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude/releases)
-2. Download `snackbox-full-{version}-win-x64.zip`
-3. Extract to your preferred location
-4. Run `Snackbox.AppHost.exe`
-
-## System Requirements
-
-- **Operating System**: Windows 10 or Windows 11 (64-bit)
-- **RAM**: 4GB minimum, 8GB recommended
-- **Disk Space**: 500MB for application + space for PostgreSQL data
-- **.NET Runtime**: Not required (self-contained)
-
-## First Launch
-
-1. **Launch Snackbox**:
-   - Double-click the desktop shortcut, OR
-   - Search for "Snackbox" in Start Menu, OR
-   - Run `Snackbox.AppHost.exe` from installation directory
-
-2. **Aspire Dashboard**: The Aspire dashboard will open automatically at `http://localhost:18888`
-
-3. **Access the Application**:
-   - **Web Interface**: http://localhost:5001
-   - **Windows App**: Runs automatically in MAUI window
-
-4. **Default Credentials**: *(Configure based on your setup)*
-   - Username: `admin`
-   - Password: `admin`
-
-## Updating Snackbox
-
-### Method 1: In-App Update (Recommended)
-
-1. Launch Snackbox
-2. Navigate to the admin menu
-3. Click **"Check for Updates"**
-4. If an update is available:
-   - Review the changelog
-   - Click "Yes" to install
-5. Wait for the update to complete
-6. Restart Snackbox
-
-### Method 2: Command Line Update
+## Install
 
 ```powershell
-cd "C:\Program Files\Snackbox"
-.\Snackbox.Updater.exe
+irm https://raw.githubusercontent.com/daniel-kuon/Snackbox-claude/main/install-snackbox.ps1 | iex
 ```
 
-**Command-line options**:
+or, with options:
+
 ```powershell
-# Check for updates without installing
-.\Snackbox.Updater.exe --check-only
-
-# Silent update (no prompts)
-.\Snackbox.Updater.exe --silent
-
-# Show help
-.\Snackbox.Updater.exe --help
+.\install-snackbox.ps1 -InstallPath C:\Snackbox -NoKiosk
 ```
 
-### Method 3: Manual Update
+The script clones the repository, checks out the newest `v*.*.*` tag, builds the solution in
+Release, registers autostart and starts everything.
 
-1. Stop Snackbox (close all windows)
-2. Download the latest release from GitHub
-3. Extract `snackbox-full-{version}-win-x64.zip`
-4. Copy and replace files in your installation directory
-5. Restart Snackbox
+| Option | Effect |
+| --- | --- |
+| `-InstallPath` | Where to install. Default `C:\Snackbox` |
+| `-NoKiosk` | Autostart brings up Docker and the backend but not the kiosk window — useful while the old Snackbox still owns the screen |
+| `-NoStart` | Install and build only; register nothing and start nothing |
 
-## Update Safety Features
+## Autostart
 
-The updater includes several safety mechanisms:
+Autostart is a **scheduled task at logon**, not a Windows service: Docker Desktop and the kiosk
+window both need a desktop session, which a service does not have. The task runs
+`Snackbox.Updater start`, which waits for Docker to answer `docker info`, starts the Aspire
+AppHost and then launches the kiosk.
 
-- **Automatic Backup**: Creates backup before applying updates
-- **Checksum Verification**: Validates download integrity (SHA256)
-- **Rollback on Failure**: Restores backup if update fails
-- **Process Management**: Gracefully stops AppHost before updating
+```powershell
+$updater = "C:\Snackbox\tools\Snackbox.Updater\bin\Release\net10.0\Snackbox.Updater.exe"
 
-## Uninstalling Snackbox
-
-### Windows
-
-1. Close Snackbox
-2. Delete the installation folder (e.g., `C:\Program Files\Snackbox`)
-3. Delete shortcuts:
-   - Desktop: `%USERPROFILE%\Desktop\Snackbox.lnk`
-   - Start Menu: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Snackbox.lnk`
-4. *(Optional)* Delete PostgreSQL data directory if you want to remove all data
-
-## Troubleshooting
-
-### Installation Issues
-
-**Problem**: "Access denied" during installation
-**Solution**: Run PowerShell as Administrator or install to user directory
-
-**Problem**: Antivirus blocks the installer
-**Solution**: Add an exception for the installer and installation directory
-
-**Problem**: Download fails
-**Solution**: Check internet connection and GitHub availability
-
-### Update Issues
-
-**Problem**: Update fails with "AppHost still running"
-**Solution**: Manually close Snackbox.AppHost.exe in Task Manager
-
-**Problem**: Checksum verification fails
-**Solution**: Download may be corrupted, try again or download manually
-
-**Problem**: Update rollback occurred
-**Solution**: Check error logs and try manual update or reinstall
-
-### Runtime Issues
-
-**Problem**: Port already in use (18888, 5001)
-**Solution**: Close conflicting applications or configure custom ports in `appsettings.json`
-
-**Problem**: PostgreSQL connection fails
-**Solution**: Ensure Docker Desktop is running or PostgreSQL service is started
-
-## Configuration
-
-### Custom Ports
-
-Edit `src/Snackbox.AppHost/appsettings.json`:
-
-```json
-{
-  "DashboardUrl": "http://localhost:18888",
-  "ApiUrl": "http://localhost:5000"
-}
+& $updater install-autostart            # register (re-run to change options)
+& $updater install-autostart --no-kiosk # backend only
+& $updater uninstall-autostart          # remove
 ```
 
-### Data Directory
+## Updating
 
-PostgreSQL data is stored in:
-- **Docker**: Managed by Docker Desktop
-- **Manual**: Configuration in connection string
+Open **Admin → Updates** in Snackbox. It shows the installed version, the newest GitHub release
+and its notes. Install stops the stack, moves the checkout to the tag, rebuilds and starts
+again — a few minutes during which the kiosk is unavailable.
 
-## Advanced Topics
+From the command line:
 
-### Building from Source
+```powershell
+& $updater update --tag v1.2.3
+& $updater update --tag v1.2.3 --no-start   # update but leave it stopped
+```
 
-See [CLAUDE.md](../CLAUDE.md) for development setup instructions.
+**If the build fails**, the updater checks the previous commit back out, rebuilds and starts it
+again, so a bad release cannot leave the machine dead. It refuses to run at all while the
+checkout has uncommitted local changes.
 
-### Creating Custom Releases
+The whole run is written to `<install>\.snackbox\updater.log`. That file is the only place the
+outcome can be seen, because the update stops the very app that triggered it — the Updates page
+reads it back once the app returns.
 
-See [GitHub Release Workflow](../.github/workflows/release.yml) for automation details.
+## Other commands
 
-### Network Deployment
+```powershell
+& $updater status   # installed version, commit, what is running
+& $updater start    # Docker, then the Aspire stack, then the kiosk
+& $updater stop     # stop everything the updater started
+```
 
-For multi-machine setups:
-1. Install PostgreSQL on a dedicated server
-2. Update connection strings in all clients
-3. Configure API to accept external connections
-4. Set up reverse proxy (optional)
+Every command takes `--dir <path>`; it otherwise falls back to `SNACKBOX_HOME` and then to the
+repository the updater itself sits in.
 
-## Support
+## Releasing
 
-- **Documentation**: [Project Documentation](../README.md)
-- **Issues**: [GitHub Issues](https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude/discussions)
-
-## Version History
-
-Check [GitHub Releases](https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude/releases) for version history and changelogs.
+Run the **Release** workflow in GitHub Actions (major / minor / bugfix), or push a `v*.*.*` tag.
+The workflow builds the solution with the same command an installation uses — if that fails,
+the release would brick every machine that installs it — and then publishes the release the
+Updates page reads.
