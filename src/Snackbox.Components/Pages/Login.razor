@@ -58,6 +58,12 @@
             </button>
         </EditForm>
 
+        @if (SafeReturnUrl is { } back)
+        {
+            @* The kiosk opens this page from its scan screen; without this there is no way back *@
+            <a href="@back" class="btn btn-outline-secondary btn-lg btn-block mt-2">Cancel</a>
+        }
+
         <div class="login-info">
             <small class="text-muted">
                 Don't have an account? <a href="/register" class="register-link">Register here</a>
@@ -243,6 +249,15 @@
 </style>
 
 @code {
+    /// <summary>Where Cancel leads. Only local paths are honoured - this comes from the URL.</summary>
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private string? SafeReturnUrl =>
+        ReturnUrl is { Length: > 1 } url && url.StartsWith('/') && !url.StartsWith("//") && !url.Contains('\\')
+            ? url
+            : null;
+
     private string? _errorMessage;
     private bool _isLoading;
     private List<TestUserDto>? _testUsers;

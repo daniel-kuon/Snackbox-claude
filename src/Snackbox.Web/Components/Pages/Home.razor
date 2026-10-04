@@ -41,6 +41,9 @@
                 <h1 class="scan-title">Welcome to Snackbox</h1>
                 <p class="scan-instruction">Please scan your card to continue</p>
             </div>
+
+            @* Way in without a card - for remote maintenance, where nobody can scan *@
+            <a class="admin-login-link" href="/login?returnUrl=/scan" title="Log in with e-mail and password">🔒 Admin</a>
         </div>
     }
     else if (ScannerService.CurrentSession != null)
@@ -448,11 +451,31 @@
     }
 
     .scan-prompt-container {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
         min-height: 100vh;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    /* Deliberately quiet: customers scan, the link is for remote maintenance */
+    .admin-login-link {
+        position: absolute;
+        right: 1.25rem;
+        bottom: 1rem;
+        padding: .35rem .75rem;
+        border-radius: 999px;
+        color: rgba(255, 255, 255, .55);
+        font-size: .85rem;
+        text-decoration: none;
+        transition: color .15s, background-color .15s;
+    }
+
+    .admin-login-link:hover,
+    .admin-login-link:focus-visible {
+        color: #fff;
+        background: rgba(255, 255, 255, .15);
     }
 
     .scan-prompt-content {

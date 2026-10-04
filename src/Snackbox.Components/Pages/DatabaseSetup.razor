@@ -83,8 +83,18 @@
                 <div class="option-card">
                     <div class="option-icon">📦</div>
                     <h3>Create Empty Database</h3>
-                    <p>Create a fresh database with no data. You'll need to set up users and products manually.</p>
-                    <button class="btn btn-secondary w-100" @onclick="CreateEmptyDatabase">
+                    <p>A fresh database with no data. Enter the first administrator - you log in with these, no card needed.</p>
+                    <div class="initial-admin text-start">
+                        <input class="form-control mb-2" placeholder="Admin name" @bind="_admin.Username" @bind:event="oninput" autocomplete="off" />
+                        <input class="form-control mb-2" type="email" placeholder="E-mail (used to log in)" @bind="_admin.Email" @bind:event="oninput" autocomplete="off" />
+                        <input class="form-control mb-2" type="password" placeholder="Password (at least 8 characters)" @bind="_admin.Password" @bind:event="oninput" autocomplete="new-password" />
+                        <input class="form-control mb-2" type="password" placeholder="Repeat password" @bind="_passwordRepeat" @bind:event="oninput" autocomplete="new-password" />
+                        @if (AdminProblem is { } problem && (_admin.Password.Length > 0 || _passwordRepeat.Length > 0))
+                        {
+                            <div class="form-text text-danger mb-2">@problem</div>
+                        }
+                    </div>
+                    <button class="btn btn-secondary w-100" @onclick="CreateEmptyDatabase" disabled="@(AdminProblem != null)">
                         <span class="icon">➕</span> Create Empty
                     </button>
                 </div>
@@ -361,10 +371,23 @@
         }
     }
 
+    private readonly InitialAdminDto _admin = new();
+    private string _passwordRepeat = "";
+
+    /// <summary>What still stops the empty database from being created, or null.</summary>
+    private string? AdminProblem =>
+        _admin.Username.Trim().Length < 2 ? "Enter a name for the administrator."
+        : !_admin.Email.Contains('@') ? "Enter the administrator's e-mail address."
+        : _admin.Password.Length < 8 ? "The password needs at least 8 characters."
+        : _admin.Password != _passwordRepeat ? "The passwords do not match."
+        : null;
+
     private async Task CreateEmptyDatabase()
     {
+        if (AdminProblem != null) return;
+
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            "Are you sure you want to create an empty database? You'll need to set up users and products manually.");
+            $"Create an empty database with {_admin.Email} as the administrator? Any existing data is replaced.");
 
         if (!confirmed) return;
 
@@ -374,14 +397,14 @@
             _processingMessage = "Creating empty database...";
             StateHasChanged();
 
-            await BackupApi.CreateEmptyDatabaseAsync();
+            await BackupApi.CreateEmptyDatabaseAsync(_admin);
 
             _processingMessage = "Database created successfully! Redirecting...";
             StateHasChanged();
-            Snackbar.Success("Empty database created successfully! Redirecting to registration...");
+            Snackbar.Success("Empty database created - log in with the administrator you just entered.");
 
             await Task.Delay(2000);
-            Navigation.NavigateTo("/register", forceLoad: true);
+            Navigation.NavigateTo("/login", forceLoad: true);
         }
         catch (Exception ex)
         {

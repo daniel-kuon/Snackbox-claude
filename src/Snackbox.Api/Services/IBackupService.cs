@@ -1,3 +1,4 @@
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 
 namespace Snackbox.Api.Services;
@@ -60,9 +61,9 @@ public interface IBackupService
     Task<bool> CheckDatabaseExistsAsync();
 
     /// <summary>
-    /// Creates an empty database with all migrations applied
+    /// Creates an empty database with all migrations applied and the given first administrator
     /// </summary>
-    Task CreateEmptyDatabaseAsync();
+    Task CreateEmptyDatabaseAsync(InitialAdminDto admin);
 
     /// <summary>
     /// Creates a database with seed data

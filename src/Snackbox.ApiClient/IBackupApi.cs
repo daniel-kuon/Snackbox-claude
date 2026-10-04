@@ -38,7 +38,7 @@ public interface IBackupApi
     Task<DatabaseCheckResponse> CheckDatabaseAsync();
 
     [Post("/api/backup/database/create-empty")]
-    Task CreateEmptyDatabaseAsync();
+    Task CreateEmptyDatabaseAsync([Body] InitialAdminDto admin);
 
     [Post("/api/backup/database/create-seeded")]
     Task CreateSeededDatabaseAsync();

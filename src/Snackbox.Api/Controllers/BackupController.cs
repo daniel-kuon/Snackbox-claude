@@ -271,11 +271,11 @@ public class BackupController : ControllerBase
     /// </summary>
     [HttpPost("database/create-empty")]
     [AllowAnonymousIfNoDatabase]
-    public async Task<ActionResult> CreateEmptyDatabase()
+    public async Task<ActionResult> CreateEmptyDatabase([FromBody] InitialAdminDto admin)
     {
         try
         {
-            await _backupService.CreateEmptyDatabaseAsync();
+            await _backupService.CreateEmptyDatabaseAsync(admin);
             return Ok(new { message = "Empty database created successfully" });
         }
         catch (Exception ex)

@@ -1,3 +1,4 @@
+using Snackbox.Api.Dtos;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -481,9 +482,9 @@ public class BackupService : IBackupService
         }
     }
 
-    public async Task CreateEmptyDatabaseAsync()
+    public async Task CreateEmptyDatabaseAsync(InitialAdminDto admin)
     {
-        _logger.LogInformation("Creating empty database");
+        _logger.LogInformation("Creating empty database with initial admin {Username}", admin.Username);
 
         var connectionParams = ParseConnectionString(_connectionString);
 
@@ -495,6 +496,21 @@ public class BackupService : IBackupService
 
         // Apply migrations with retry logic (includes achievements from OnModelCreating)
         await ApplyMigrationsAsync();
+
+        // An empty installation has nobody who could log in, and a remote one has nobody who
+        // could scan a card - so the first administrator is created here, with a password.
+        using var scope = _serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        context.Users.Add(new User
+        {
+            Username = admin.Username.Trim(),
+            Email = admin.Email.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(admin.Password),
+            IsAdmin = true,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
     }
 
     public async Task CreateSeededDatabaseAsync()
