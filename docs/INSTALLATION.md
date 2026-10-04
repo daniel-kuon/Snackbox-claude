@@ -82,6 +82,21 @@ The whole run is written to `<install>\.snackbox\updater.log`. That file is the 
 outcome can be seen, because the update stops the very app that triggered it — the Updates page
 reads it back once the app returns.
 
+## Where the data lives
+
+Nothing that matters lives inside the installation folder, so updating, moving or reinstalling
+it cannot lose data:
+
+| What | Where |
+| --- | --- |
+| Database | Docker volume `snackbox-postgres-data` (container `snackbox-postgres`, Postgres 17) |
+| Backups | `%ProgramData%\Snackbox\backups` (`Backup:Directory` to change it) |
+| Telemetry (SigNoz) | Docker volumes `signoz-clickhouse`, `signoz-sqlite`, `signoz-zookeeper-1` |
+
+The Postgres major version is pinned on purpose. A new major version cannot open the old
+one's data files, so moving to Postgres 18 means a dump and restore (Admin -> Backups), not
+changing the image.
+
 ## Other commands
 
 ```powershell

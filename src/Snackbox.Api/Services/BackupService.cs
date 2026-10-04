@@ -31,9 +31,15 @@ public class BackupService : IBackupService
         {
             configBackupDir = configBackupDir.Trim();
         }
+        // Backups must outlive the installation: it is a git checkout that gets replaced,
+        // moved or reinstalled, so they default to ProgramData rather than a folder inside it.
+        // A relative Backup:Directory is resolved against that same root for the same reason.
+        var backupRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Snackbox");
         _backupDirectory = string.IsNullOrWhiteSpace(configBackupDir)
-            ? Path.Combine(Directory.GetCurrentDirectory(), "backups")
-            : configBackupDir;
+            ? Path.Combine(backupRoot, "backups")
+            : Path.IsPathRooted(configBackupDir)
+                ? configBackupDir
+                : Path.Combine(backupRoot, configBackupDir);
         _connectionString = configuration.GetConnectionString("snackboxdb")
             ?? throw new InvalidOperationException("Database connection string is not configured.");
         _metadataFile = Path.Combine(_backupDirectory, "metadata.json");

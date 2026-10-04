@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Nextended.Aspire;
 using Projects;
 
@@ -22,7 +22,19 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
                       // range (49152-65535) where Windows/Hyper-V dynamically reserves blocks
                       // and would refuse the bind ("access to socket forbidden").
                       .WithHostPort(15653)
-                      .WithDataVolume()
+                      // The database's storage is pinned completely - name, mount path and
+                      // Postgres major version - because every Aspire default here has moved:
+                      //  - the default volume name is a hash of this project's path, so a
+                      //    different install folder starts on an empty database;
+                      //  - Aspire 13.6 switched the default image from Postgres 17 to 18, and a
+                      //    major version cannot open another's data files (the container just
+                      //    exits) - upgrading needs a dump and restore, never an image swap;
+                      //  - it also moved the mount from /var/lib/postgresql/data to
+                      //    /var/lib/postgresql, where Postgres 17 would find an empty folder
+                      //    and silently initialise a fresh database.
+                      // The minor version floats on purpose: 17.x releases share the data format.
+                      .WithImageTag("17")
+                      .WithVolume("snackbox-postgres-data", "/var/lib/postgresql/data")
                       .WithPgAdmin(b => b.WithContainerName("snackbox-pgadmin")
                                          .WithHostPort(15654)
                                          .WithLifetime(ContainerLifetime.Persistent))
