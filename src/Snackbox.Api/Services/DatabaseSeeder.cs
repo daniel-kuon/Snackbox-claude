@@ -232,6 +232,9 @@ public class DatabaseSeeder
     /// </summary>
     private async Task ResetIdentitySequencesAsync()
     {
+        // Sequences are a relational concept; tests seed into the in-memory provider.
+        if (!_context.Database.IsRelational()) return;
+
         const string sql = @"
 DO $$
 DECLARE target record;
