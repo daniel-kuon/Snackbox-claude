@@ -1,0 +1,232 @@
+@page "/admin/updates"
+@inherits AdminPageBase
+@implements IDisposable
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject IUpdatesApi UpdatesApi
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Updates - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Updates</h2>
+        <p class="text-muted mb-0">
+            Checks GitHub for new releases. Installing stops Snackbox, rebuilds the checkout and
+            starts it again, so the kiosk is unavailable for a few minutes.
+        </p>
+    </div>
+
+    @if (_status == null)
+    {
+        <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+    }
+    else
+    {
+        <div class="settings-section">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                <div>
+                    <div class="text-muted small">Installed version</div>
+                    <div class="fs-4">@_status.CurrentVersion</div>
+                </div>
+                <div>
+                    <div class="text-muted small">Latest release</div>
+                    <div class="fs-4">
+                        @if (_status.Latest != null)
+                        {
+                            <a href="@_status.Latest.Url" target="_blank" rel="noopener">@_status.Latest.Tag</a>
+                            @if (_status.Latest.PreRelease)
+                            {
+                                <span class="badge bg-warning text-dark ms-2">pre-release</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">none published</span>
+                        }
+                    </div>
+                </div>
+                <div class="align-self-center">
+                    <button class="btn btn-outline-secondary" @onclick="RefreshAsync" disabled="@_busy">Check again</button>
+                </div>
+            </div>
+
+            @if (_status.CheckError != null)
+            {
+                <div class="alert alert-warning mt-3 mb-0">Could not reach GitHub: @_status.CheckError</div>
+            }
+
+            @if (_status.Blocker != null)
+            {
+                <div class="alert alert-secondary mt-3 mb-0">@_status.Blocker</div>
+            }
+        </div>
+
+        @if (_status.UpdateAvailable && _status.Latest != null)
+        {
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <h4>@(_status.Latest.Name is { Length: > 0 } name ? name : _status.Latest.Tag)</h4>
+                </div>
+                @if (_status.Latest.PublishedAt != null)
+                {
+                    <div class="text-muted small mb-2">Published @_status.Latest.PublishedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                }
+                @if (!string.IsNullOrWhiteSpace(_status.Latest.Notes))
+                {
+                    <pre class="release-notes">@_status.Latest.Notes</pre>
+                }
+
+                <button class="btn btn-primary" @onclick="InstallAsync" disabled="@(_busy || !_status.CanUpdate)">
+                    Install @_status.Latest.Tag
+                </button>
+            </div>
+        }
+        else if (_status.Latest != null && _status.CheckError == null)
+        {
+            <div class="alert alert-success">Snackbox is up to date.</div>
+        }
+    }
+
+    @if (_installMessage != null)
+    {
+        <div class="alert alert-info">@_installMessage</div>
+    }
+
+    @if (_error != null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+
+    @if (_log is { Lines.Length: > 0 })
+    {
+        <div class="settings-section">
+            <div class="settings-section-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Updater log</h4>
+                @if (_following)
+                {
+                    <span class="text-muted small">following…</span>
+                }
+            </div>
+            <pre class="updater-log">@string.Join("\n", _log.Lines)</pre>
+        </div>
+    }
+</div>
+
+<style>
+    .release-notes, .updater-log {
+        background: var(--bs-tertiary-bg, #f6f7f9);
+        border: 1px solid var(--bs-border-color, #dee2e6);
+        border-radius: .375rem;
+        padding: .75rem;
+        max-height: 24rem;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: .875rem;
+    }
+</style>
+
+@code {
+    private UpdateStatusDto? _status;
+    private UpdateLogDto? _log;
+    private bool _busy;
+    private bool _following;
+    private string? _error;
+    private string? _installMessage;
+    private Timer? _followTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        await LoadLogAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            _status = await UpdatesApi.GetStatusAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = $"The API refused the request: {ex.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task InstallAsync()
+    {
+        if (_status?.Latest == null) return;
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"Install {_status.Latest.Tag}? Snackbox stops, rebuilds and starts again - the kiosk is unavailable for a few minutes.");
+        if (!confirmed) return;
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var response = await UpdatesApi.InstallAsync(new InstallUpdateRequestDto { Tag = _status.Latest.Tag });
+            _installMessage = response.Message;
+
+            // This page dies with the API in a moment. Polling the log keeps it useful for as
+            // long as it lives, and shows the result once the browser reconnects.
+            StartFollowingLog();
+        }
+        catch (ApiException ex)
+        {
+            _error = $"The update was refused: {ex.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void StartFollowingLog()
+    {
+        _following = true;
+        _followTimer?.Dispose();
+        _followTimer = new Timer(async void (_) =>
+        {
+            try
+            {
+                await LoadLogAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+            catch
+            {
+                // The API goes away mid-update; keep trying until the page is replaced.
+            }
+        }, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+    }
+
+    private async Task LoadLogAsync()
+    {
+        try
+        {
+            _log = await UpdatesApi.GetLogAsync(200);
+        }
+        catch
+        {
+            // No log yet, or the API is restarting.
+        }
+    }
+
+    public void Dispose() => _followTimer?.Dispose();
+}

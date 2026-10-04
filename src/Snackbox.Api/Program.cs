@@ -128,6 +128,9 @@ builder.Services.AddScoped<ISettingsService, SettingsService>();
 // Pulls the old Snackbox SQL Server database into this one and compares the two afterwards
 builder.Services.AddScoped<ILegacyImportService, LegacyImportService>();
 
+// Checks GitHub for new releases and hands installing them to tools/Snackbox.Updater
+builder.Services.AddScoped<IUpdateService, UpdateService>();
+
 // Register database seeder service
 builder.Services.AddScoped<DatabaseSeeder>();
 

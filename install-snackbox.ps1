@@ -1,147 +1,127 @@
-# Snackbox Installation Script
-# PowerShell script to download and install Snackbox from GitHub releases
+# Snackbox installer.
+#
+# A Snackbox installation is a git checkout of the repository that is built and run in place:
+# the Aspire AppHost orchestrates Postgres and SigNoz in Docker, so the machine needs git, the
+# .NET SDK and Docker Desktop. Updating later is the same checkout moved to a newer release
+# tag, either from the Updates page in the app or with tools/Snackbox.Updater.
+#
+#   irm https://raw.githubusercontent.com/daniel-kuon/Snackbox-claude/main/install-snackbox.ps1 | iex
+#
+# or, with options:
+#
+#   .\install-snackbox.ps1 -InstallPath C:\Snackbox -NoKiosk
 
 param(
-    [string]$InstallPath = "$env:ProgramFiles\Snackbox",
-    [string]$RepoOwner = "daniel-kuon",
-    [string]$RepoName = "snackbox-claude",
-    [switch]$CreateShortcut = $true,
-    [switch]$AddToStartMenu = $true
+    [string]$InstallPath = "C:\Snackbox",
+    [string]$Repository = "daniel-kuon/Snackbox-claude",
+
+    # Register the logon task but leave the kiosk window out of it - useful while the old
+    # Snackbox is still the one on screen.
+    [switch]$NoKiosk,
+
+    # Install and build, but do not register autostart or start anything.
+    [switch]$NoStart
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== Snackbox Installer ===" -ForegroundColor Cyan
+function Write-Step($message) { Write-Host "==> $message" -ForegroundColor Cyan }
+function Write-Ok($message) { Write-Host "    $message" -ForegroundColor Green }
+
+Write-Host "=== Snackbox installer ===" -ForegroundColor Cyan
 Write-Host ""
 
-# Check if running as administrator
-$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+# --------------------------------------------------------------- prerequisites
 
-if (-not $isAdmin -and $InstallPath.StartsWith($env:ProgramFiles)) {
-    Write-Host "WARNING: Installing to Program Files requires administrator privileges." -ForegroundColor Yellow
-    Write-Host "Please run PowerShell as Administrator or choose a different install location." -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "To install to your user directory instead, run:" -ForegroundColor Yellow
-    Write-Host "  irm https://raw.githubusercontent.com/$RepoOwner/$RepoName/main/install-snackbox.ps1 | iex -InstallPath `"`$env:LOCALAPPDATA\Snackbox`"" -ForegroundColor Yellow
-    exit 1
+Write-Step "Checking prerequisites"
+
+foreach ($tool in @("git", "dotnet")) {
+    if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
+        throw "$tool was not found on PATH. Install it and run this script again."
+    }
+    Write-Ok "$tool found"
 }
 
+$dockerPresent = $null -ne (Get-Command docker -ErrorAction SilentlyContinue)
+if (-not $dockerPresent) {
+    Write-Host "    WARNING: docker was not found. Snackbox needs Docker Desktop for its database." -ForegroundColor Yellow
+    Write-Host "             Install it from https://www.docker.com/products/docker-desktop/" -ForegroundColor Yellow
+} else {
+    Write-Ok "docker found"
+}
+
+# ------------------------------------------------------------------- checkout
+
+$cloneUrl = "https://github.com/$Repository.git"
+
+if (Test-Path (Join-Path $InstallPath ".git")) {
+    Write-Step "Using the existing checkout at $InstallPath"
+    git -C $InstallPath remote set-url origin $cloneUrl
+    git -C $InstallPath fetch --tags --prune origin
+} else {
+    if ((Test-Path $InstallPath) -and (Get-ChildItem $InstallPath -Force | Select-Object -First 1)) {
+        throw "$InstallPath already exists and is not a Snackbox checkout. Pick another -InstallPath."
+    }
+
+    Write-Step "Cloning $Repository into $InstallPath"
+    git clone $cloneUrl $InstallPath
+}
+
+# Pick the newest release tag; fall back to the default branch when nothing is released yet.
+$tags = git -C $InstallPath tag --list "v*.*.*" --sort=-v:refname
+$targetTag = if ($tags) { ($tags -split "`n")[0].Trim() } else { $null }
+
+if ($targetTag) {
+    Write-Step "Checking out $targetTag"
+    git -C $InstallPath -c advice.detachedHead=false checkout --force "tags/$targetTag"
+} else {
+    Write-Host "    No release tags yet - staying on the default branch." -ForegroundColor Yellow
+    git -C $InstallPath checkout --force main
+    git -C $InstallPath pull --ff-only
+}
+
+# ---------------------------------------------------------------------- build
+
+Write-Step "Building (Release) - this takes a few minutes"
+Push-Location $InstallPath
 try {
-    # Step 1: Fetch latest release info from GitHub
-    Write-Host "Fetching latest release information..." -ForegroundColor Green
-    $apiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
-    $headers = @{ "User-Agent" = "Snackbox-Installer" }
+    dotnet restore Snackbox.sln
+    if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed." }
 
-    $release = Invoke-RestMethod -Uri $apiUrl -Headers $headers
-    $version = $release.tag_name.TrimStart('v')
-
-    Write-Host "Latest version: $version" -ForegroundColor Cyan
-    Write-Host "Published: $($release.published_at)" -ForegroundColor Cyan
-    Write-Host ""
-
-    # Step 2: Find the Windows x64 package
-    $asset = $release.assets | Where-Object { $_.name -like "snackbox-full-*-win-x64.zip" } | Select-Object -First 1
-
-    if (-not $asset) {
-        Write-Host "ERROR: Could not find Windows x64 package in release." -ForegroundColor Red
-        exit 1
-    }
-
-    Write-Host "Package: $($asset.name)" -ForegroundColor Cyan
-    Write-Host "Size: $([Math]::Round($asset.size / 1MB, 2)) MB" -ForegroundColor Cyan
-    Write-Host ""
-
-    # Step 3: Create temp directory and download
-    $tempDir = Join-Path $env:TEMP "snackbox-install-$(New-Guid)"
-    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-
-    $downloadPath = Join-Path $tempDir $asset.name
-
-    Write-Host "Downloading Snackbox..." -ForegroundColor Green
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $downloadPath -Headers $headers
-    Write-Host "✓ Download complete" -ForegroundColor Green
-    Write-Host ""
-
-    # Step 4: Extract to install location
-    Write-Host "Installing to: $InstallPath" -ForegroundColor Green
-
-    if (Test-Path $InstallPath) {
-        Write-Host "Installation directory already exists. Backing up..." -ForegroundColor Yellow
-        $backupPath = "$InstallPath.backup.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-        Move-Item -Path $InstallPath -Destination $backupPath -Force
-        Write-Host "Backup created: $backupPath" -ForegroundColor Yellow
-    }
-
-    New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
-
-    Write-Host "Extracting files..." -ForegroundColor Green
-    Expand-Archive -Path $downloadPath -DestinationPath $tempDir -Force
-
-    # Find extracted directory (may be nested)
-    $extractedDir = Get-ChildItem -Path $tempDir -Directory | Select-Object -First 1
-    if ($extractedDir) {
-        Copy-Item -Path "$($extractedDir.FullName)\*" -Destination $InstallPath -Recurse -Force
-    } else {
-        Copy-Item -Path "$tempDir\*" -Destination $InstallPath -Recurse -Force -Exclude "*.zip"
-    }
-
-    Write-Host "✓ Installation complete" -ForegroundColor Green
-    Write-Host ""
-
-    # Step 5: Create shortcuts
-    if ($CreateShortcut) {
-        Write-Host "Creating desktop shortcut..." -ForegroundColor Green
-        $WshShell = New-Object -ComObject WScript.Shell
-        $shortcutPath = Join-Path $env:USERPROFILE "Desktop\Snackbox.lnk"
-        $shortcut = $WshShell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = Join-Path $InstallPath "Snackbox.AppHost.exe"
-        $shortcut.WorkingDirectory = $InstallPath
-        $shortcut.Description = "Snackbox - Employee Snack Management System"
-        $shortcut.Save()
-        Write-Host "✓ Desktop shortcut created" -ForegroundColor Green
-    }
-
-    if ($AddToStartMenu) {
-        Write-Host "Adding to Start Menu..." -ForegroundColor Green
-        $startMenuPath = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Snackbox.lnk"
-        $WshShell = New-Object -ComObject WScript.Shell
-        $shortcut = $WshShell.CreateShortcut($startMenuPath)
-        $shortcut.TargetPath = Join-Path $InstallPath "Snackbox.AppHost.exe"
-        $shortcut.WorkingDirectory = $InstallPath
-        $shortcut.Description = "Snackbox - Employee Snack Management System"
-        $shortcut.Save()
-        Write-Host "✓ Start Menu entry created" -ForegroundColor Green
-    }
-
-    # Step 6: Cleanup
-    Write-Host ""
-    Write-Host "Cleaning up..." -ForegroundColor Green
-    Remove-Item -Path $tempDir -Recurse -Force
-
-    # Step 7: Success message
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host "✓ Snackbox installed successfully!" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "Installation Location: $InstallPath" -ForegroundColor Cyan
-    Write-Host "Version: $version" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "To launch Snackbox:" -ForegroundColor White
-    Write-Host "  1. Use the desktop shortcut" -ForegroundColor White
-    Write-Host "  2. Search for 'Snackbox' in Start Menu" -ForegroundColor White
-    Write-Host "  3. Run: $InstallPath\Snackbox.AppHost.exe" -ForegroundColor White
-    Write-Host ""
-    Write-Host "To check for updates later:" -ForegroundColor White
-    Write-Host "  Run: $InstallPath\Snackbox.Updater.exe" -ForegroundColor White
-    Write-Host ""
-    Write-Host "Enjoy! 🍿" -ForegroundColor Cyan
-
-} catch {
-    Write-Host ""
-    Write-Host "ERROR: Installation failed" -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Please report this issue at: https://github.com/$RepoOwner/$RepoName/issues" -ForegroundColor Yellow
-    exit 1
+    dotnet build Snackbox.sln -c Release --no-restore
+    if ($LASTEXITCODE -ne 0) { throw "dotnet build failed." }
 }
+finally {
+    Pop-Location
+}
+Write-Ok "Build finished"
+
+$updater = Join-Path $InstallPath "tools\Snackbox.Updater\bin\Release\net10.0\Snackbox.Updater.exe"
+if (-not (Test-Path $updater)) { throw "The updater was not built: $updater is missing." }
+
+if ($NoStart) {
+    Write-Host ""
+    Write-Host "Installed to $InstallPath without starting anything." -ForegroundColor Green
+    Write-Host "Start it later with: `"$updater`" start" -ForegroundColor Gray
+    return
+}
+
+# ------------------------------------------------------------------ autostart
+
+Write-Step "Registering autostart (scheduled task at logon)"
+$autostartArgs = @("install-autostart", "--dir", $InstallPath)
+if ($NoKiosk) { $autostartArgs += "--no-kiosk" }
+& $updater @autostartArgs
+if ($LASTEXITCODE -ne 0) { throw "Registering autostart failed." }
+
+# ---------------------------------------------------------------------- start
+
+Write-Step "Starting Snackbox"
+$startArgs = @("start", "--dir", $InstallPath)
+if ($NoKiosk) { $startArgs += "--no-kiosk" }
+& $updater @startArgs
+
+Write-Host ""
+Write-Host "Snackbox is installed in $InstallPath." -ForegroundColor Green
+Write-Host "It starts automatically at logon; updates are on the Updates page in the admin area." -ForegroundColor Green
+Write-Host "Updater log: $(Join-Path $InstallPath '.snackbox\updater.log')" -ForegroundColor Gray

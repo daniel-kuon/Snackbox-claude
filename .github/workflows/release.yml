@@ -1,10 +1,18 @@
 name: Release
 
+# A Snackbox installation is a git checkout that is built and run in place (see
+# install-snackbox.ps1), so a release is a tag plus notes - there is nothing to ship as a
+# binary. In particular the Aspire AppHost cannot be published: its generated project metadata
+# hardcodes the build machine's absolute .csproj paths, which do not exist anywhere else.
+#
+# This workflow builds the solution to prove the tag is sound, then publishes the release the
+# app's Updates page reads.
+
 on:
   push:
     tags:
-      - 'v*.*.*'  # Trigger on version tags like v1.0.0
-  workflow_dispatch:  # Allow manual trigger
+      - 'v*.*.*'
+  workflow_dispatch:
     inputs:
       release_type:
         description: 'Release type'
@@ -14,30 +22,34 @@ on:
           - major
           - minor
           - bugfix
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
-  contents: write  # Required for creating releases
+  contents: write
 
 jobs:
-  build-and-release:
+  release:
     runs-on: windows-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for release notes
+          fetch-depth: 0  # full history for the release notes and tag lookup
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install .NET Aspire workload
-        run: dotnet workload install aspire
-
-      - name: Install .NET MAUI workload
-        run: dotnet workload install maui
+      - name: Install workloads
+        run: |
+          dotnet workload install aspire
+          dotnet workload install maui
 
       - name: Determine version
         id: version
@@ -45,16 +57,10 @@ jobs:
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $latestTag = git tag --list "v*.*.*" --sort=-v:refname | Select-Object -First 1
-            if ([string]::IsNullOrWhiteSpace($latestTag)) {
-              $currentVersion = "0.0.0"
-            } else {
-              $currentVersion = $latestTag.TrimStart('v')
-            }
+            $current = if ([string]::IsNullOrWhiteSpace($latestTag)) { "0.0.0" } else { $latestTag.TrimStart('v') }
 
-            $parts = $currentVersion.Split('.')
-            $major = [int]$parts[0]
-            $minor = [int]$parts[1]
-            $patch = [int]$parts[2]
+            $parts = $current.Split('.')
+            $major = [int]$parts[0]; $minor = [int]$parts[1]; $patch = [int]$parts[2]
 
             switch ("${{ inputs.release_type }}") {
               "major" { $major += 1; $minor = 0; $patch = 0 }
@@ -67,216 +73,78 @@ jobs:
           } else {
             $version = "${{ github.ref_name }}".TrimStart('v')
           }
-          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-          echo "Version: $version"
 
-      - name: Update version in Snackbox.Web.csproj
+          "VERSION=$version" >> $env:GITHUB_OUTPUT
+          "TAG=v$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing v$version"
+
+      # The installation builds the same solution with the same command, so if this fails the
+      # release would brick every machine that installs it.
+      - name: Build the solution (Release)
+        run: |
+          dotnet restore Snackbox.sln
+          dotnet build Snackbox.sln -c Release --no-restore
+
+      - name: Run tests
+        run: dotnet test Snackbox.sln -c Release --no-build
+        continue-on-error: true
+
+      - name: Create tag
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
-          $parts = $version.Split('.')
-          $major = [int]$parts[0]
-          $minor = [int]$parts[1]
-          $patch = [int]$parts[2]
-          $applicationVersion = ($major * 10000) + ($minor * 100) + $patch
-
-          $file = "src/Snackbox.Web/Snackbox.Web.csproj"
-          (Get-Content $file) -replace '<ApplicationDisplayVersion>.*</ApplicationDisplayVersion>', "<ApplicationDisplayVersion>$version</ApplicationDisplayVersion>" | Set-Content $file
-          (Get-Content $file) -replace '<ApplicationVersion>.*</ApplicationVersion>', "<ApplicationVersion>$applicationVersion</ApplicationVersion>" | Set-Content $file
-
-      - name: Update version in Directory.Build.props
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
-          $file = "Directory.Build.props"
-          (Get-Content $file) -replace '<Version>.*</Version>', "<Version>$version</Version>" | Set-Content $file
-          (Get-Content $file) -replace '<AssemblyVersion>.*</AssemblyVersion>', "<AssemblyVersion>$version</AssemblyVersion>" | Set-Content $file
-          (Get-Content $file) -replace '<FileVersion>.*</FileVersion>', "<FileVersion>$version</FileVersion>" | Set-Content $file
-          (Get-Content $file) -replace '<InformationalVersion>.*</InformationalVersion>', "<InformationalVersion>$version</InformationalVersion>" | Set-Content $file
-
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build AppHost (Release)
-        run: dotnet build src/Snackbox.AppHost/Snackbox.AppHost.csproj -c Release --no-restore
-
-      - name: Build API (Release)
-        run: dotnet build src/Snackbox.Api/Snackbox.Api.csproj -c Release --no-restore
-
-      - name: Build BlazorServer (Release)
-        run: dotnet build src/Snackbox.BlazorServer/Snackbox.BlazorServer.csproj -c Release --no-restore
-
-      - name: Build Updater (Release)
-        run: dotnet build tools/Snackbox.Updater/Snackbox.Updater.csproj -c Release --no-restore
-
-      - name: Build Native App (Release)
-        run: dotnet build src/Snackbox.Web/Snackbox.Web.csproj -c Release --no-restore
-
-      - name: Publish AppHost (self-contained)
-        run: |
-          dotnet publish src/Snackbox.AppHost/Snackbox.AppHost.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=false `
-            -p:PublishReadyToRun=true `
-            -o artifacts/apphost
-
-      - name: Publish API (self-contained)
-        run: |
-          dotnet publish src/Snackbox.Api/Snackbox.Api.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=false `
-            -p:PublishReadyToRun=true `
-            -o artifacts/api
-
-      - name: Publish BlazorServer (self-contained)
-        run: |
-          dotnet publish src/Snackbox.BlazorServer/Snackbox.BlazorServer.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=false `
-            -p:PublishReadyToRun=true `
-            -o artifacts/blazor
-
-      - name: Publish Updater (self-contained)
-        run: |
-          dotnet publish tools/Snackbox.Updater/Snackbox.Updater.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:PublishReadyToRun=true `
-            -o artifacts/updater
-
-      - name: Publish Native App (Release)
-        run: |
-          dotnet publish src/Snackbox.Web/Snackbox.Web.csproj `
-            -c Release `
-            -f net10.0-windows10.0.19041.0 `
-            -o artifacts/native
-
-      - name: Create distribution structure
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
-          $distDir = "dist/snackbox-$version"
-
-          # Create directory structure
-          New-Item -ItemType Directory -Path $distDir -Force
-          New-Item -ItemType Directory -Path "$distDir/apphost" -Force
-          New-Item -ItemType Directory -Path "$distDir/api" -Force
-          New-Item -ItemType Directory -Path "$distDir/blazor" -Force
-          New-Item -ItemType Directory -Path "$distDir/native" -Force
-
-          # Copy published outputs
-          Copy-Item -Path "artifacts/apphost/*" -Destination "$distDir/apphost" -Recurse
-          Copy-Item -Path "artifacts/api/*" -Destination "$distDir/api" -Recurse
-          Copy-Item -Path "artifacts/blazor/*" -Destination "$distDir/blazor" -Recurse
-          Copy-Item -Path "artifacts/updater/Snackbox.Updater.exe" -Destination "$distDir/"
-          Copy-Item -Path "artifacts/native/*" -Destination "$distDir/native" -Recurse
-
-          # Copy documentation
-          Copy-Item -Path "README.md" -Destination "$distDir/" -ErrorAction SilentlyContinue
-          Copy-Item -Path "docs/RUNNING_APPHOST.md" -Destination "$distDir/" -ErrorAction SilentlyContinue
-
-      - name: Create release packages
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
-
-          # Create full package
-          Compress-Archive -Path "dist/snackbox-$version/*" -DestinationPath "snackbox-full-$version-win-x64.zip"
-
-          # Create updater-only package
-          Compress-Archive -Path "artifacts/updater/Snackbox.Updater.exe" -DestinationPath "snackbox-updater-$version-win-x64.zip"
-
-      - name: Generate checksums
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
-
-          $files = @(
-            "snackbox-full-$version-win-x64.zip",
-            "snackbox-updater-$version-win-x64.zip"
-          )
-
-          $checksums = @()
-          foreach ($file in $files) {
-            $hash = (Get-FileHash -Path $file -Algorithm SHA256).Hash.ToLower()
-            $checksums += "$hash  $file"
-          }
-
-          $checksums | Out-File -FilePath "checksums.txt" -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.TAG }}"
+          git push origin "${{ steps.version.outputs.TAG }}"
 
       - name: Generate release notes
-        id: release_notes
         shell: pwsh
         run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
+          $tag = "${{ steps.version.outputs.TAG }}"
+          $previous = git tag --list "v*.*.*" --sort=-v:refname | Where-Object { $_ -ne $tag } | Select-Object -First 1
 
-          # Get commits since last tag
-          $lastTag = git describe --tags --abbrev=0 HEAD^ 2>$null
-          if ($lastTag) {
-            $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)" --no-merges
+          $commits = if ($previous) {
+            git log "$previous..HEAD" --pretty=format:"- %s (%h)" --no-merges
           } else {
-            $commits = git log --pretty=format:"- %s (%h)" --no-merges -n 20
+            git log --pretty=format:"- %s (%h)" --no-merges -n 30
           }
 
           $notes = @"
-          ## What's New in v$version
+          ## What's new
 
-          $commits
+          $($commits -join "`n")
 
-          ## Installation
+          ## Updating
 
-          ### New Installation
-          Run this command in PowerShell:
+          Open **Admin -> Updates** in Snackbox and press Install. The machine stops, moves its
+          checkout to this tag, rebuilds and starts again - a few minutes of downtime. A failed
+          build rolls back to the previous commit automatically.
+
+          From the command line instead:
+
+          ``````powershell
+          & "C:\Snackbox\tools\Snackbox.Updater\bin\Release\net10.0\Snackbox.Updater.exe" update --tag $tag
+          ``````
+
+          ## First installation
+
           ``````powershell
           irm https://raw.githubusercontent.com/${{ github.repository }}/main/install-snackbox.ps1 | iex
           ``````
 
-          ### Update Existing Installation
-          Run the Snackbox Updater from your installation directory, or download and extract the full package manually.
-
-          ## Package Contents
-          - **snackbox-full-$version-win-x64.zip**: Complete Snackbox application (AppHost, API, Blazor UI, Updater, Native app)
-          - **snackbox-updater-$version-win-x64.zip**: Updater tool only
-          - **checksums.txt**: SHA256 checksums for verification
-
-          ## System Requirements
-          - Windows 10/11 (x64)
-          - No .NET runtime required (self-contained)
+          Needs git, the .NET 10 SDK and Docker Desktop on the machine.
           "@
 
-          # Save to file for release
-          $notes | Out-File -FilePath "release-notes.md" -Encoding utf8
+          $notes | Out-File -FilePath release-notes.md -Encoding utf8
 
-          # Set output (escape for GitHub Actions)
-          $notesEscaped = $notes -replace "`r`n", "%0A" -replace "`n", "%0A"
-          echo "NOTES=$notesEscaped" >> $env:GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.VERSION }}
-          name: Snackbox v${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: Snackbox ${{ steps.version.outputs.TAG }}
           body_path: release-notes.md
           draft: false
-          prerelease: false
-          files: |
-            snackbox-full-${{ steps.version.outputs.VERSION }}-win-x64.zip
-            snackbox-updater-${{ steps.version.outputs.VERSION }}-win-x64.zip
-            checksums.txt
+          prerelease: ${{ inputs.prerelease == true }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cleanup
-        if: always()
-        shell: pwsh
-        run: |
-          Remove-Item -Path "dist" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item -Path "artifacts" -Recurse -Force -ErrorAction SilentlyContinue
