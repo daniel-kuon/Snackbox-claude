@@ -12,7 +12,9 @@ public class WindowsWindowService : IWindowService, IDisposable
     private IntPtr _windowHandle;
     private AppWindow? _appWindow;
     private readonly bool _startFullscreen;
+    private readonly bool _startMinimized;
     private bool _isCurrentlyFullscreen;
+    private bool _initialMinimizeDone;
     private WndProcDelegate? _wndProcDelegate;
     private IntPtr _oldWndProc;
     private bool _isMaximized = false;
@@ -20,7 +22,9 @@ public class WindowsWindowService : IWindowService, IDisposable
     public WindowsWindowService(IConfiguration configuration)
     {
         var windowConfig = configuration.GetSection("Window").Get<WindowConfiguration>() ?? new WindowConfiguration();
-        _startFullscreen = windowConfig.StartFullscreen;
+        _startMinimized = windowConfig.StartMinimized;
+        // Parallel-run mode owns the window state: never go fullscreen while minimized
+        _startFullscreen = windowConfig.StartFullscreen && !_startMinimized;
     }
 
     public void SetWindow(Window window)
@@ -35,9 +39,16 @@ public class WindowsWindowService : IWindowService, IDisposable
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_windowHandle);
             _appWindow = AppWindow.GetFromWindowId(windowId);
 
-            if (_appWindow != null && _startFullscreen)
+            if (_appWindow != null && (_startFullscreen || _startMinimized))
             {
-                SetFullscreen(true);
+                if (_startMinimized)
+                {
+                    ShowWindow(_windowHandle, SW_MINIMIZE);
+                }
+                else
+                {
+                    SetFullscreen(true);
+                }
 
                 // Subclass window to intercept messages
                 _wndProcDelegate = WndProc;
@@ -96,6 +107,15 @@ public class WindowsWindowService : IWindowService, IDisposable
                     int loWord = (int)wParam & 0xFFFF;
                     bool isActivating = loWord != WA_INACTIVE;
 
+                    // MAUI activates the window right after it is created, which undoes the
+                    // minimize from SetWindow. Push it back down once - after that the user
+                    // (or an admin) is free to open it.
+                    if (isActivating && _startMinimized && !_initialMinimizeDone)
+                    {
+                        _initialMinimizeDone = true;
+                        _window?.Dispatcher.Dispatch(() => ShowWindow(_windowHandle, SW_MINIMIZE));
+                    }
+
                     if (!isActivating && _isCurrentlyFullscreen)
                     {
                         // Window is losing focus while in fullscreen - exit fullscreen but stay maximized
@@ -130,28 +150,45 @@ public class WindowsWindowService : IWindowService, IDisposable
                 ShowWindow(_windowHandle, SW_RESTORE);
             }
 
-            // Try multiple methods to ensure window comes to front
-            SetForegroundWindow(_windowHandle);
+            // Windows refuses SetForegroundWindow from a process that does not own the
+            // foreground (the old Snackbox does while running in parallel). Borrowing the
+            // foreground thread's input queue lifts that block - without it the kiosk resizes
+            // to fullscreen but stays behind the other window.
+            var foregroundThread = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
+            var currentThread = GetCurrentThreadId();
+            var attached = foregroundThread != 0 && foregroundThread != currentThread &&
+                           AttachThreadInput(currentThread, foregroundThread, true);
 
-            // Force window to top of Z-order
-            SetWindowPos(_windowHandle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-            SetWindowPos(_windowHandle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            try
+            {
+                SetForegroundWindow(_windowHandle);
 
-            // Activate the window
-            BringWindowToTop(_windowHandle);
-            SetActiveWindow(_windowHandle);
+                // Force window to top of Z-order
+                SetWindowPos(_windowHandle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                SetWindowPos(_windowHandle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
 
-            // Flash to get attention
-            FlashWindow(_windowHandle, true);
+                // Activate the window
+                BringWindowToTop(_windowHandle);
+                SetActiveWindow(_windowHandle);
 
-            // Check if window is maximized and restore fullscreen if needed
-            if (IsZoomed(_windowHandle))
+                // Flash to get attention
+                FlashWindow(_windowHandle, true);
+            }
+            finally
+            {
+                if (attached)
+                {
+                    AttachThreadInput(currentThread, foregroundThread, false);
+                }
+            }
+
+            // Go back to fullscreen. Losing focus drops the presenter back to Default (see
+            // WM_ACTIVATE), so the window is usually not "zoomed" at this point - checking for
+            // that would leave it windowed after every scan.
+            if (_startFullscreen && !_isCurrentlyFullscreen)
             {
                 _isMaximized = true;
-                if (_startFullscreen && !_isCurrentlyFullscreen)
-                {
-                    _window?.Dispatcher.Dispatch(() => SetFullscreen(true));
-                }
+                _window?.Dispatcher.Dispatch(() => SetFullscreen(true));
             }
         }
         catch
@@ -194,6 +231,7 @@ public class WindowsWindowService : IWindowService, IDisposable
 
     #region Win32 API
     private const int SW_RESTORE = 9;
+    private const int SW_MINIMIZE = 6;
     private const int SW_MAXIMIZE = 3;
     private const int SWP_NOMOVE = 0x0002;
     private const int SWP_NOSIZE = 0x0001;
@@ -246,6 +284,16 @@ public class WindowsWindowService : IWindowService, IDisposable
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr lpdwProcessId);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
     private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);

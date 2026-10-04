@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Snackbox.ApiClient;
 using Snackbox.Components.Services;
@@ -28,6 +28,14 @@ public static class MauiProgram
                 .AddJsonStream(stream)
                 .Build();
             builder.Configuration.AddConfiguration(config);
+        }
+
+        // Optional appsettings.json next to the executable, so settings like
+        // Window:StartMinimized can be flipped on the kiosk without a rebuild.
+        var externalSettings = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        if (File.Exists(externalSettings))
+        {
+            builder.Configuration.AddJsonFile(externalSettings, optional: true, reloadOnChange: false);
         }
 
         builder.Services.AddSnackboxOpenTelemetry(builder.Configuration, new TelemetryInstrumentationOptions

@@ -38,7 +38,13 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Phone App (PWA)**: The Blazor Server website is installable on phones as a PWA (manifest + service worker), gated by the `mobile_app` feature flag. It is only reachable in the local Wi-Fi via the PC's IP with a self-signed certificate. `GET /install` (plain HTTP, exempt from HTTPS redirect) serves a step-by-step guide and `GET /install/certificate` downloads the public certificate (read from `Kestrel:Certificates:Default:Path`/`Password`). The kiosk shows the website URL from `Website:PublicUrl` config or falls back to the PC's IP
 - **Dev test helper**: In Development with `TestHelper:Enabled`, `api/testhelper/*` powers a kiosk overlay to simulate scans by click, bypass the login password, and reset+reseed the database
 
-#### 4. User Roles and Permissions
+#### 4. Kiosk Window Modes (parallel run with the old Snackbox)
+- **Default**: the kiosk window is fullscreen (`Window:StartFullscreen`). It drops out of fullscreen when it loses focus and puts itself back to fullscreen **and to the foreground** on the next scan (`Window:AutoFocusOnScan`). Getting the foreground back from another app needs `AttachThreadInput` - a plain `SetForegroundWindow` is refused by Windows and leaves the kiosk fullscreen-sized but behind the other window
+- **`Window:StartMinimized`**: parallel-run mode for the first weeks alongside the old Snackbox. The kiosk starts minimized and stays there (it re-minimizes once after MAUI's initial activation); it never goes fullscreen and never pulls focus on a scan. Overrides `StartFullscreen`/`AutoFocusOnScan`
+- **Both apps see every scan in either mode**: the kiosk reads the scanner through a global `WH_KEYBOARD_LL` hook (`WindowsScannerListener`) that passes keystrokes on via `CallNextHookEx`, and the old Snackbox runs its own global hook (`GlobalKey=True` in its `option.ini`). Window focus is irrelevant for both. Keep the hook callback fast - window work is dispatched off the hook thread, because Windows evicts a slow low-level hook and that would cost scans
+- **Flipping the setting without a rebuild**: besides the embedded `Resources/Raw/appsettings.json`, the kiosk also reads an optional `appsettings.json` next to `Snackbox.Web.exe`, which wins
+
+#### 5. User Roles and Permissions
 - **Regular Users**:
   - Scan barcodes to purchase snacks
   - View their own purchase history
@@ -52,7 +58,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
   - Add/edit/remove products
   - Create and manage discounts
 
-#### 5. Stock Management
+#### 6. Stock Management
 - **Two-Tier Inventory**:
   - **Storage**: Products kept in reserve/storage area
   - **Shelf**: Products currently available for purchase
@@ -60,7 +66,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Stock Tracking**: System tracks quantities in both storage and on shelf
 - **Admin Workflow**: When restocking, admin moves quantity from storage to shelf
 
-#### 6. Product and Batch Management
+#### 7. Product and Batch Management
 - **Products**: Individual snack items with barcodes
 - **Multiple Batches**: Each product can have multiple batches
 - **Best Before Dates**: Each batch has its own expiration date
@@ -70,7 +76,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
   - Batch-level stock tracking
   - Removal of expired batches
 
-#### 7. Achievement System
+#### 8. Achievement System
 - **Gamification**: Fun achievements awarded based on purchasing behavior
 - **Categories**: Single purchase, daily activity, streaks, comebacks, debt levels, total spending
 - **Automatic Awards**: Achievements earned automatically when criteria met
@@ -79,7 +85,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **One-Time Only**: Each achievement can only be earned once per user
 - See [Achievement System Documentation](docs/achievement-system.md) for full details
 
-#### 8. Discount System
+#### 9. Discount System
 - **Automatic Application**: Discounts are automatically detected and applied during barcode scanning
 - **Two Types**: Fixed amount (e.g., 0.50€ off) or percentage (e.g., 10% off)
 - **Date-Based Validity**: Discounts only active within their date range
@@ -88,7 +94,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Best Discount Applied**: System automatically selects the discount providing highest savings
 - See [Discount System Documentation](docs/discount-system.md) for full details
 
-#### 9. Observability (SigNoz)
+#### 10. Observability (SigNoz)
 - **Purpose**: Remote bug tracking. All three apps (API `snackbox-api`, phone website `snackbox-blazor`, kiosk `snackbox-maui`) export OpenTelemetry **traces + logs** via OTLP/gRPC to a self-hosted SigNoz (`src/Snackbox.AppHost/Signoz/docker-compose.yaml`, started by the AppHost `signoz` resource or `docker compose up -d` in that folder). UI: `http://localhost:3301`, collector: `4317` (gRPC) / `4318` (HTTP)
 - **Shared setup**: `Snackbox.ServiceDefaults/TelemetryDefaults.cs` (`AddSnackboxOpenTelemetry` / `AddSnackboxOpenTelemetryLogging`). Extra OTLP targets come from `Telemetry:Otlp:AdditionalGrpcEndpoints`; the Aspire dashboard exporter is only added when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (avoids duplicate export from the kiosk)
 - **What is captured**: ASP.NET Core + HttpClient + EF/Npgsql spans with exceptions recorded; verbose per-request HTTP logging on the API (headers + request/response bodies, one record per request — `/api/auth/*` and `/api/testhelper/*` are excluded so credentials never get logged); UI spans (`ui.*`, see `UiTelemetry`) tagged with the user; kiosk unhandled/unobserved exceptions logged as Critical/Error (`MauiProgram.HookUnhandledExceptions`)

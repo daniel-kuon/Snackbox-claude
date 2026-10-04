@@ -34,7 +34,9 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
         _windowService = windowService;
 
         var windowConfig = configuration.GetSection("Window").Get<WindowConfiguration>() ?? new WindowConfiguration();
-        _autoFocusOnScan = windowConfig.AutoFocusOnScan;
+        // While running in parallel with the old Snackbox the window must stay out of the way -
+        // the scan is still recorded, it just does not steal the screen.
+        _autoFocusOnScan = windowConfig.AutoFocusOnScan && !windowConfig.StartMinimized;
     }
 
     public void Start()
@@ -96,10 +98,12 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
                 {
                     _resetTimer.Stop();
 
-                    // Bring window to foreground if enabled
+                    // Bring window to foreground if enabled. Off the hook thread: a slow
+                    // low-level keyboard hook blocks every keystroke on the machine and
+                    // Windows eventually evicts it, which would cost us scans.
                     if (_autoFocusOnScan)
                     {
-                        _windowService.BringToFront();
+                        Task.Run(() => _windowService.BringToFront());
                     }
 
                     // Ignore duplicate code within 500ms to prevent accidental scanning
