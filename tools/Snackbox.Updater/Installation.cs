@@ -19,6 +19,21 @@ public sealed class Installation
     public string LogFile => Path.Combine(StateDirectory, "updater.log");
 
     /// <summary>
+    /// Creates the state directory and makes it ignore itself. The installation is a git
+    /// checkout and an update refuses to run on a dirty one - without this, the updater's own
+    /// log and pid file would block every update it is supposed to perform. A .gitignore of
+    /// "*" inside the folder covers the folder's contents and the file itself, so this works
+    /// on installations whose checked-out .gitignore knows nothing about it.
+    /// </summary>
+    public void EnsureStateDirectory()
+    {
+        Directory.CreateDirectory(StateDirectory);
+
+        var ignore = Path.Combine(StateDirectory, ".gitignore");
+        if (!File.Exists(ignore)) File.WriteAllText(ignore, "*" + Environment.NewLine);
+    }
+
+    /// <summary>
     /// Finds the installation: an explicit path, then SNACKBOX_HOME, then the first directory
     /// at or above the updater itself that looks like the repository.
     /// </summary>
@@ -29,13 +44,21 @@ public sealed class Installation
         {
             var full = Path.GetFullPath(candidate);
             if (!IsInstallation(full)) throw new UpdaterException($"{full} is not a Snackbox installation (no Snackbox.sln next to a .git folder).");
-            return new Installation(full);
+            var named = new Installation(full);
+            named.EnsureStateDirectory();
+            return named;
         }
 
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory != null)
         {
-            if (IsInstallation(directory.FullName)) return new Installation(directory.FullName);
+            if (IsInstallation(directory.FullName))
+            {
+                var found = new Installation(directory.FullName);
+                found.EnsureStateDirectory();
+                return found;
+            }
+
             directory = directory.Parent;
         }
 
@@ -105,7 +128,7 @@ public sealed class Installation
 
     public void RememberProcess(int pid)
     {
-        Directory.CreateDirectory(StateDirectory);
+        EnsureStateDirectory();
         File.AppendAllLines(PidFile, [pid.ToString()]);
     }
 

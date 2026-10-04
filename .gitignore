@@ -249,6 +249,9 @@ paket-files/
 __pycache__/
 *.pyc
 
+# Snackbox updater state (log and pid file) inside an installation
+.snackbox/
+
 # Cake
 tools/**
 !tools/packages.config
