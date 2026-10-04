@@ -11,7 +11,10 @@ public class Payment
     public int? AdminUserId { get; set; }  // For PayPal payments - which admin received it
     public int? LinkedWithdrawalId { get; set; }  // For PayPal payments - the corresponding withdrawal
     public int? LinkedDepositId { get; set; }  // For CashRegister payments - the corresponding deposit
-    public int? InvoiceId { get; set; }  // Link to invoice if payment is for an invoice
+    public int? InvoiceId { get; set; }
+
+    /// <summary>T_ToPay.ToPayID of the old Snackbox, set by the legacy import.</summary>
+    public Guid? LegacyToPayId { get; set; }  // Link to invoice if payment is for an invoice
 
     // Navigation properties
     public User User { get; set; } = null!;

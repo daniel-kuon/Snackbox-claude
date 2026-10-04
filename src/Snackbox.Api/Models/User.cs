@@ -12,6 +12,10 @@ public class User
     public bool IsBetaTester { get; set; } = false; // Sees features whose audience is BetaTesters
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>T_User.UserID of the old Snackbox, set by the legacy import. Lets a re-run
+    /// recognise users it already imported and lets the verification match the two sides.</summary>
+    public int? LegacyUserId { get; set; }
+
     // Navigation properties
     public ICollection<Barcode> Barcodes { get; set; } = new List<Barcode>();
     public ICollection<Purchase> Purchases { get; set; } = new List<Purchase>();

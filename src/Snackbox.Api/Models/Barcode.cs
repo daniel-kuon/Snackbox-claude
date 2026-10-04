@@ -9,6 +9,9 @@ public abstract class Barcode
     public decimal Amount { get; set; }
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>T_UserCodes.CodeID of the old Snackbox, set by the legacy import.</summary>
+    public int? LegacyCodeId { get; set; }
+
     // Navigation properties
     public User User { get; set; } = null!;
     public ICollection<BarcodeScan> Scans { get; set; } = new List<BarcodeScan>();

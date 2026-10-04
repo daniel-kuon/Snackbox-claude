@@ -219,6 +219,37 @@ public class DatabaseSeeder
         await _context.SaveChangesAsync();
         _logger.LogInformation("Seeded {Count} sample payments", payments.Length);
 
+        await ResetIdentitySequencesAsync();
+
         _logger.LogInformation("Sample data seeding completed");
+    }
+
+    /// <summary>
+    /// The seed rows above carry explicit ids, which leaves every identity sequence sitting at
+    /// 1 - so the first row the running app inserts collides with seed data ("duplicate key
+    /// value violates unique constraint PK_users"). Push each sequence past its table's
+    /// highest id once seeding is done.
+    /// </summary>
+    private async Task ResetIdentitySequencesAsync()
+    {
+        const string sql = @"
+DO $$
+DECLARE target record;
+BEGIN
+    FOR target IN
+        SELECT c.table_name, c.column_name,
+               pg_get_serial_sequence(quote_ident(c.table_name), c.column_name) AS sequence_name
+        FROM information_schema.columns c
+        WHERE c.table_schema = 'public'
+          AND pg_get_serial_sequence(quote_ident(c.table_name), c.column_name) IS NOT NULL
+    LOOP
+        EXECUTE format(
+            'SELECT setval(%L, COALESCE((SELECT MAX(%I) FROM %I), 0) + 1, false)',
+            target.sequence_name, target.column_name, target.table_name);
+    END LOOP;
+END $$;";
+
+        await _context.Database.ExecuteSqlRawAsync(sql);
+        _logger.LogInformation("Identity sequences advanced past the seeded ids");
     }
 }

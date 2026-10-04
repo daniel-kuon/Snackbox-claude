@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Snackbox.Api.Data;
 using Snackbox.Api.Services;
+using Snackbox.Api.Services.LegacyImport;
 using Snackbox.ServiceDefaults;
 using Snackbox.ServiceDefaults.Tracing;
 
@@ -123,6 +124,9 @@ builder.Services.AddScoped<IBackupService, BackupService>();
 
 // Register settings service
 builder.Services.AddScoped<ISettingsService, SettingsService>();
+
+// Pulls the old Snackbox SQL Server database into this one and compares the two afterwards
+builder.Services.AddScoped<ILegacyImportService, LegacyImportService>();
 
 // Register database seeder service
 builder.Services.AddScoped<DatabaseSeeder>();
@@ -274,7 +278,8 @@ app.Use(async (context, next) =>
 
 // Never log bodies of endpoints that carry credentials or issue tokens
 app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api/auth")
-                   && !ctx.Request.Path.StartsWithSegments("/api/testhelper"),
+                   && !ctx.Request.Path.StartsWithSegments("/api/testhelper")
+                   && !ctx.Request.Path.StartsWithSegments("/api/legacyimport"),
             b => b.UseHttpLogging());
 
 app.UseHttpsRedirection();

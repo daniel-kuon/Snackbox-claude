@@ -96,12 +96,15 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.Email).IsUnique();
             entity.Property(e => e.Username).HasMaxLength(100);
             entity.Property(e => e.Email).HasMaxLength(255).IsRequired(false);
+            // Legacy keys are unique where set; rows created in this app leave them null.
+            entity.HasIndex(e => e.LegacyUserId).IsUnique().HasFilter("legacy_user_id IS NOT NULL");
         });
 
         modelBuilder.Entity<Barcode>(entity =>
         {
             entity.HasIndex(e => e.Code).IsUnique();
             entity.Property(e => e.Code).HasMaxLength(50);
+            entity.HasIndex(e => e.LegacyCodeId).IsUnique().HasFilter("legacy_code_id IS NOT NULL");
         });
 
         // Configure TPH inheritance for Barcode
@@ -109,7 +112,10 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<LoginBarcode>();
         modelBuilder.Entity<PurchaseBarcode>();
 
-        modelBuilder.Entity<BarcodeScan>();
+        modelBuilder.Entity<BarcodeScan>(entity =>
+        {
+            entity.HasIndex(e => e.LegacyPostenId).IsUnique().HasFilter("legacy_posten_id IS NOT NULL");
+        });
 
         modelBuilder.Entity<Product>(entity =>
         {
@@ -132,6 +138,7 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.AdminUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.LegacyToPayId).IsUnique().HasFilter("legacy_to_pay_id IS NOT NULL");
         });
 
         modelBuilder.Entity<Purchase>();

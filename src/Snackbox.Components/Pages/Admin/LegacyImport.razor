@@ -1,0 +1,315 @@
+@page "/admin/legacy-import"
+@inherits AdminPageBase
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject ILegacyImportApi LegacyImportApi
+
+<PageTitle>Old Snackbox - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Old Snackbox</h2>
+        <p class="text-muted mb-0">
+            Pulls users, cards, scans and payments out of the previous Snackbox and compares both
+            databases afterwards. Importing twice is safe - rows that are already here are skipped.
+        </p>
+    </div>
+
+    <div class="settings-section">
+        <div class="settings-section-header"><h4>Connection</h4></div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Server</label>
+                <input class="form-control" @bind="_connection.Server" placeholder="localhost" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Database</label>
+                <input class="form-control" @bind="_connection.Database" placeholder="Snackboxx" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">User</label>
+                <input class="form-control" @bind="_connection.Username" placeholder="leave empty for Windows login" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" @bind="_password" autocomplete="off" />
+            </div>
+            <div class="col-md-8 d-flex align-items-end">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="trustCert" @bind="_connection.TrustServerCertificate" />
+                    <label class="form-check-label" for="trustCert">Trust the server certificate (needed for a local SQL Server)</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick="TestAsync" disabled="@_busy">Test connection</button>
+        </div>
+
+        @if (_test != null)
+        {
+            <div class="alert @(_test.Connected ? "alert-success" : "alert-danger") mt-3 mb-0">
+                @if (_test.Connected)
+                {
+                    <text>
+                        Connected. @_test.Users users, @_test.Codes codes, @_test.Scans scans, @_test.Payments payments.
+                        @if (_test.FirstScan != null)
+                        {
+                            <text>Scans from @_test.FirstScan.Value.ToString("yyyy-MM-dd") to @_test.LastScan?.ToString("yyyy-MM-dd").</text>
+                        }
+                    </text>
+                }
+                else
+                {
+                    <text>Could not connect: @_test.Error</text>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="settings-section">
+        <div class="settings-section-header"><h4>Import</h4></div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Only from (optional)</label>
+                <input type="date" class="form-control" @bind="_from" />
+                <div class="form-text">Leave empty for the whole history. Set it to pick up only what happened since the switch.</div>
+            </div>
+            <div class="col-md-8 d-flex align-items-end">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="anchor" @bind="_anchorBalances" />
+                    <label class="form-check-label" for="anchor">
+                        Correct balances to the old "rest" value. The old database does not add up exactly,
+                        so without this users start with the wrong balance.
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+            <button class="btn btn-outline-primary" @onclick="() => ImportAsync(true)" disabled="@_busy">Dry run</button>
+            <button class="btn btn-primary" @onclick="() => ImportAsync(false)" disabled="@_busy">Import</button>
+            @if (_busy)
+            {
+                <span class="align-self-center text-muted">Working…</span>
+            }
+        </div>
+
+        @if (_import != null)
+        {
+            <div class="alert alert-info mt-3">
+                <strong>@(_import.DryRun ? "Dry run" : "Imported") in @(_import.DurationMs / 1000.0)s</strong>
+                <ul class="mb-0 mt-2">
+                    <li>Users: @_import.UsersCreated created, @_import.UsersMatched already known</li>
+                    <li>Barcodes created: @_import.BarcodesCreated</li>
+                    <li>Purchases created: @_import.PurchasesCreated</li>
+                    <li>Scans: @_import.ScansImported imported, @_import.ScansSkippedAlreadyPresent already present</li>
+                    <li>Payments: @_import.PaymentsImported imported, @_import.PaymentsSkippedAlreadyPresent already present</li>
+                    @if (_import.DryRun)
+                    {
+                        <li>Balance corrections: only calculated on a real import</li>
+                    }
+                    else
+                    {
+                        <li>Balance corrections: @_import.BalanceAnchorsWritten (@_import.BalanceAnchorTotal.ToString("0.00") € in total)</li>
+                    }
+                </ul>
+            </div>
+
+            @if (_import.Warnings.Count > 0)
+            {
+                <details class="mt-2">
+                    <summary>@_import.Warnings.Count warnings</summary>
+                    <ul class="mt-2">
+                        @foreach (var warning in _import.Warnings)
+                        {
+                            <li>@warning</li>
+                        }
+                    </ul>
+                </details>
+            }
+        }
+    </div>
+
+    <div class="settings-section">
+        <div class="settings-section-header"><h4>Verification</h4></div>
+        <p class="text-muted">
+            Compares both databases scan by scan. Run it after the import, and again while both apps
+            run in parallel to confirm the new one did not miss anything.
+        </p>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Tolerance (seconds)</label>
+                <input type="number" class="form-control" @bind="_tolerance" min="0" max="120" />
+                <div class="form-text">How far two scans may be apart and still count as the same one.</div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <button class="btn btn-primary" @onclick="VerifyAsync" disabled="@_busy">Compare</button>
+        </div>
+
+        @if (_verification != null)
+        {
+            var report = _verification;
+            <div class="alert @(report.TotalMissingInNew == 0 ? "alert-success" : "alert-warning") mt-3">
+                <strong>@report.UsersMatching of @report.UsersCompared users match.</strong>
+                @report.TotalMissingInNew scans are only in the old app, @report.TotalMissingInOld only in the new one.
+                <div class="mt-1">
+                    Spent: @report.OldSpentTotal.ToString("0.00") € old vs @report.NewSpentTotal.ToString("0.00") € new ·
+                    Paid: @report.OldPaidTotal.ToString("0.00") € old vs @report.NewPaidTotal.ToString("0.00") € new
+                </div>
+            </div>
+
+            <div class="form-check mb-2">
+                <input type="checkbox" class="form-check-input" id="onlyProblems" @bind="_onlyProblems" />
+                <label class="form-check-label" for="onlyProblems">Only show users that do not match</label>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-sm table-striped">
+                    <thead>
+                    <tr>
+                        <th>User</th>
+                        <th class="text-end">Scans old</th>
+                        <th class="text-end">Scans new</th>
+                        <th class="text-end">Spent old</th>
+                        <th class="text-end">Spent new</th>
+                        <th class="text-end">Only old</th>
+                        <th class="text-end">Only new</th>
+                        <th class="text-end">Owed (old)</th>
+                        <th class="text-end">Balance (new)</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var user in report.Users.Where(u => !_onlyProblems || !u.Matches)
+                                                .OrderBy(u => u.Matches).ThenBy(u => u.LegacyName))
+                    {
+                        <tr>
+                            <td>@user.LegacyName @(user.Username != null && user.Username != user.LegacyName ? $"({user.Username})" : "")</td>
+                            <td class="text-end">@user.OldScanCount</td>
+                            <td class="text-end">@user.NewScanCount</td>
+                            <td class="text-end">@user.OldSpent.ToString("0.00")</td>
+                            <td class="text-end">@user.NewSpent.ToString("0.00")</td>
+                            <td class="text-end @(user.MissingInNew > 0 ? "text-danger fw-bold" : "")">@user.MissingInNew</td>
+                            <td class="text-end @(user.MissingInOld > 0 ? "text-warning fw-bold" : "")">@user.MissingInOld</td>
+                            <td class="text-end">@user.OldRest.ToString("0.00")</td>
+                            <td class="text-end">@user.NewBalance.ToString("0.00")</td>
+                            <td>@(user.Matches ? "✓" : "⚠")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (report.Differences.Count > 0)
+            {
+                <details class="mt-2">
+                    <summary>
+                        @report.Differences.Count individual differences@(report.DifferencesTruncated ? " (capped)" : "")
+                    </summary>
+                    <div class="table-responsive mt-2">
+                        <table class="table table-sm">
+                            <thead>
+                            <tr><th>When</th><th>User</th><th class="text-end">Amount</th><th>Only in</th></tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var difference in report.Differences)
+                            {
+                                <tr>
+                                    <td>@difference.ScannedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                    <td>@difference.UserName</td>
+                                    <td class="text-end">@difference.Amount.ToString("0.00")</td>
+                                    <td>@(difference.Side == "OnlyInOld" ? "old Snackbox" : "new Snackbox")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            }
+        }
+    </div>
+
+    @if (_error != null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+</div>
+
+@code {
+    private readonly LegacyConnectionDto _connection = new();
+    private string _password = "";
+    private DateTime? _from;
+    private bool _anchorBalances = true;
+    private int _tolerance = 5;
+    private bool _onlyProblems;
+
+    private bool _busy;
+    private string? _error;
+    private LegacyConnectionTestDto? _test;
+    private LegacyImportResultDto? _import;
+    private LegacyVerificationDto? _verification;
+
+    // The password lives in this field only, so it is sent with the request but never kept
+    // in a component field that survives a re-render of the connection form.
+    private LegacyConnectionDto Connection() => new()
+    {
+        Server = _connection.Server,
+        Database = _connection.Database,
+        Username = string.IsNullOrWhiteSpace(_connection.Username) ? null : _connection.Username,
+        Password = string.IsNullOrEmpty(_password) ? null : _password,
+        TrustServerCertificate = _connection.TrustServerCertificate
+    };
+
+    private async Task TestAsync() => await RunAsync(async () =>
+    {
+        _test = await LegacyImportApi.TestAsync(Connection());
+    });
+
+    private async Task ImportAsync(bool dryRun) => await RunAsync(async () =>
+    {
+        _import = await LegacyImportApi.ImportAsync(new LegacyImportRequestDto
+        {
+            Connection = Connection(),
+            From = _from?.ToUniversalTime(),
+            AnchorBalances = _anchorBalances,
+            DryRun = dryRun
+        });
+    });
+
+    private async Task VerifyAsync() => await RunAsync(async () =>
+    {
+        _verification = await LegacyImportApi.VerifyAsync(new LegacyVerificationRequestDto
+        {
+            Connection = Connection(),
+            From = _from?.ToUniversalTime(),
+            MatchToleranceSeconds = _tolerance
+        });
+    });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            await action();
+        }
+        catch (ApiException ex)
+        {
+            _error = $"The API refused the request: {ex.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
