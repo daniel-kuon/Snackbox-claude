@@ -465,7 +465,7 @@
     .sw-step-icon { font-size: 3.5rem; margin: 0.5rem 0; }
     .sw-modal.sw-tour .sw-step-icon { font-size: 2.25rem; margin: 0.15rem 0; }
     .sw-step-title { margin: 0 0 0.5rem; font-size: 1.15rem; }
-    .sw-pointer { margin: 0 0 0.5rem; font-size: 0.8rem; font-weight: 600; color: #0d6efd; }
+    .sw-pointer { margin: 0 0 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--brand-blue); }
     .sw-lead { color: #444; line-height: 1.5; margin: 0 0 1rem; }
     .sw-form { text-align: left; max-width: 400px; margin: 0 auto; }
     .sw-label { display: block; font-weight: 600; margin: 0.75rem 0 0.25rem; font-size: 0.9rem; }
@@ -473,7 +473,7 @@
     .sw-input {
         width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;
     }
-    .sw-input:focus { outline: none; border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); }
+    .sw-input:focus { outline: none; border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); }
     .sw-error {
         margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: #f8d7da; color: #842029;
         border-radius: 8px; font-size: 0.9rem;
@@ -482,12 +482,12 @@
     .sw-steps li { margin: 0.4rem 0; }
     .sw-dots { display: flex; justify-content: center; gap: 0.5rem; margin: 1rem 0 0.5rem; }
     .sw-dot { width: 10px; height: 10px; border-radius: 50%; background: #d0d0d0; }
-    .sw-dot.active { background: #0d6efd; }
+    .sw-dot.active { background: var(--brand-blue); }
     .sw-footer { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 1.5rem 0.5rem; }
     .sw-btn {
         padding: 0.6rem 1.4rem; border-radius: 8px; border: none; font-size: 1rem; cursor: pointer; font-weight: 600;
     }
-    .sw-btn.primary { background: #0d6efd; color: #fff; }
+    .sw-btn.primary { background: var(--brand-blue); color: #fff; }
     .sw-btn.primary:hover:not(:disabled) { background: #0b5ed7; }
     .sw-btn.primary:disabled { opacity: 0.5; cursor: default; }
     .sw-btn.secondary { background: #eee; color: #333; }
@@ -498,7 +498,7 @@
     /* Idle auto-advance progress bar */
     .sw-autobar { height: 3px; margin: 0 1.5rem; background: #eee; border-radius: 2px; overflow: hidden; }
     .sw-autobar-fill {
-        height: 100%; width: 100%; background: #0d6efd; transform-origin: left;
+        height: 100%; width: 100%; background: var(--brand-blue); transform-origin: left;
         animation-name: sw-autobar-grow; animation-timing-function: linear; animation-fill-mode: forwards;
     }
     @@keyframes sw-autobar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }

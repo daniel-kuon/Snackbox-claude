@@ -456,26 +456,28 @@
         align-items: center;
         justify-content: center;
         min-height: 100vh;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: var(--brand-gradient);
     }
 
-    /* Deliberately quiet: customers scan, the link is for remote maintenance */
+    /* Quiet but findable: customers scan, the link is for remote maintenance. Square and
+       outlined like the buttons on logineer.com */
     .admin-login-link {
         position: absolute;
-        right: 1.25rem;
-        bottom: 1rem;
-        padding: .35rem .75rem;
-        border-radius: 999px;
-        color: rgba(255, 255, 255, .55);
-        font-size: .85rem;
+        right: 1.5rem;
+        bottom: 1.25rem;
+        padding: .45rem 1rem;
+        border: 1px solid rgba(255, 255, 255, .45);
+        color: rgba(255, 255, 255, .85);
+        font-size: 1rem;
         text-decoration: none;
-        transition: color .15s, background-color .15s;
+        transition: color .15s, background-color .15s, border-color .15s;
     }
 
     .admin-login-link:hover,
     .admin-login-link:focus-visible {
         color: #fff;
-        background: rgba(255, 255, 255, .15);
+        border-color: #fff;
+        background: rgba(255, 255, 255, .12);
     }
 
     .scan-prompt-content {
@@ -543,7 +545,7 @@
         width: 70px;
         height: 70px;
         border-radius: 50%;
-        background: #667eea;
+        background: var(--brand-blue);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -710,7 +712,7 @@
         padding: 0.75rem;
         background: #e7f3ff;
         border-radius: 8px;
-        border-left: 4px solid #007bff;
+        border-left: 4px solid var(--brand-blue);
         margin-bottom: 1rem;
     }
 
@@ -728,7 +730,7 @@
 
     .payment-amount {
         font-weight: 600;
-        color: #007bff;
+        color: var(--brand-blue);
         font-size: 1.1rem;
     }
 
@@ -952,7 +954,7 @@
         padding: 0.5rem 0.75rem;
         background: white;
         border-radius: 6px;
-        border-left: 3px solid #667eea;
+        border-left: 3px solid var(--brand-blue);
     }
 
     .recent-info {
@@ -975,7 +977,7 @@
     .recent-amount {
         font-size: 0.95rem;
         font-weight: 700;
-        color: #667eea;
+        color: var(--brand-blue);
     }
     /* Wizard spotlight: raises the highlighted element and dims everything else.
        The huge outer box-shadow is the dimming layer, so no separate backdrop is needed. */
@@ -983,13 +985,13 @@
         position: relative;
         z-index: 1150;
         border-radius: 12px;
-        box-shadow: 0 0 0 4px #0d6efd,
+        box-shadow: 0 0 0 4px var(--brand-blue),
                     0 0 0 9999px rgba(0, 0, 0, 0.72);
         animation: sb-spotlight-pulse 1.6s ease-in-out infinite;
     }
 
     @@keyframes sb-spotlight-pulse {
-        0%, 100% { box-shadow: 0 0 0 4px #0d6efd, 0 0 0 9999px rgba(0, 0, 0, 0.72); }
+        0%, 100% { box-shadow: 0 0 0 4px var(--brand-blue), 0 0 0 9999px rgba(0, 0, 0, 0.72); }
         50% { box-shadow: 0 0 0 7px rgba(13, 110, 253, 0.75), 0 0 0 9999px rgba(0, 0, 0, 0.72); }
     }
 
@@ -1023,7 +1025,7 @@
     }
     .th-code:hover:not(:disabled) { background: #e9ecef; }
     .th-code:disabled { opacity: 0.6; cursor: default; }
-    .th-code.login { border-color: #0d6efd; color: #0d6efd; }
+    .th-code.login { border-color: var(--brand-blue); color: var(--brand-blue); }
     .th-code.signin { border-color: #198754; color: #198754; font-weight: 600; }
     .th-nocodes { font-size: 0.75rem; color: #999; align-self: center; }
     .th-search { display: flex; align-items: center; gap: 0.25rem; padding: 0.5rem 0.9rem 0; }
@@ -1031,7 +1033,7 @@
         flex: 1; padding: 0.3rem 0.5rem; font-size: 0.8rem;
         border: 1px solid #ccc; border-radius: 6px;
     }
-    .th-search-input:focus { outline: none; border-color: #0d6efd; }
+    .th-search-input:focus { outline: none; border-color: var(--brand-blue); }
     .th-search-clear { border: none; background: transparent; font-size: 1rem; cursor: pointer; color: #888; }
     .th-empty { font-size: 0.8rem; color: #888; padding: 0.5rem 0; }
     .th-footer { padding: 0.5rem 0.9rem 0.75rem; border-top: 1px solid #eee; }
@@ -1050,7 +1052,7 @@
         margin-bottom: 1rem;
         padding: 1.25rem;
         border-radius: 14px;
-        background: linear-gradient(135deg, #0d6efd 0%, #0a3d8f 100%);
+        background: var(--brand-gradient);
         color: #fff;
         box-shadow: 0 6px 24px rgba(13, 110, 253, 0.45);
         animation: setup-cta-pulse 1.8s ease-in-out infinite;

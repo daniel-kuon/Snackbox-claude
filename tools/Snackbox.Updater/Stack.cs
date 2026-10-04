@@ -137,8 +137,10 @@ public sealed class Stack(Installation installation, Log log)
                                         $"/c dotnet run --project src/Snackbox.AppHost -c Release --no-build > \"{output}\" 2>&1")
         {
             WorkingDirectory = installation.Root,
-            UseShellExecute = false,
-            CreateNoWindow = true
+            // ShellExecute rather than CreateProcess: the AppHost must not inherit our console
+            // or output handles, or whoever started us (a script, a pipe) waits for it forever.
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Hidden
         };
 
         var process = Process.Start(info) ?? throw new UpdaterException("Could not start the AppHost.");

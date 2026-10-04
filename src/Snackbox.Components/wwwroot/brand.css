@@ -1,0 +1,143 @@
+/*
+ * logineer brand, taken from logineer.com: their stylesheet names the colours "logblue",
+ * "cyan" and "anthracite". Full-width colour blocks, bold white headlines, light body text,
+ * square outlined buttons. Loaded after Bootstrap by both the kiosk and the website, so the
+ * rest of the app only ever refers to these tokens.
+ *
+ * Bootstrap here is 5.1, which has no CSS variables for buttons - hence the explicit
+ * .btn-primary / .text-primary / ... overrides below.
+ */
+
+:root {
+    --brand-blue: #0082CD;          /* logblue - logo, links, primary actions */
+    --brand-blue-dark: #006BA8;     /* hover/pressed */
+    --brand-blue-rgb: 0, 130, 205;
+    --brand-cyan: #00BCD4;          /* secondary colour blocks */
+    --brand-anthracite: #191E1E;    /* text, dark colour blocks */
+    --brand-anthracite-soft: rgba(25, 30, 30, .7);  /* body copy on white */
+
+    /* The site's hero is a blue duotone over black - the gradient keeps that feel */
+    --brand-gradient: linear-gradient(135deg, #0082CD 0%, #005A8E 55%, #191E1E 100%);
+    --brand-sidebar: #191E1E;
+
+    /* Brix Sans is the house face but is licensed; the fallbacks keep the light, open look */
+    --brand-font: "Brix Sans", BrixSansRegular, "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --brand-font-bold: "Brix Sans", BrixSansBold, "Segoe UI Semibold", "Segoe UI", system-ui, sans-serif;
+}
+
+body {
+    font-family: var(--brand-font);
+    color: var(--brand-anthracite);
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    font-family: var(--brand-font-bold);
+    font-weight: 700;
+    color: inherit;
+}
+
+a, .btn-link {
+    color: var(--brand-blue);
+}
+
+a:hover, .btn-link:hover {
+    color: var(--brand-blue-dark);
+}
+
+/* ------------------------------------------------------------------ buttons */
+
+.btn {
+    border-radius: 2px;
+}
+
+.btn-primary {
+    background-color: var(--brand-blue);
+    border-color: var(--brand-blue);
+    color: #fff;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-primary.active,
+.btn-check:checked + .btn-primary {
+    background-color: var(--brand-blue-dark);
+    border-color: var(--brand-blue-dark);
+    color: #fff;
+}
+
+.btn-primary:disabled,
+.btn-primary.disabled {
+    background-color: var(--brand-blue);
+    border-color: var(--brand-blue);
+}
+
+.btn-outline-primary {
+    color: var(--brand-blue);
+    border-color: var(--brand-blue);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:active,
+.btn-outline-primary.active,
+.btn-check:checked + .btn-outline-primary {
+    background-color: var(--brand-blue);
+    border-color: var(--brand-blue);
+    color: #fff;
+}
+
+.btn:focus,
+.btn-primary:focus,
+.btn-outline-primary:focus,
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    box-shadow: 0 0 0 .2rem rgba(var(--brand-blue-rgb), .3);
+}
+
+/* -------------------------------------------------------------- utilities */
+
+.text-primary { color: var(--brand-blue) !important; }
+.bg-primary { background-color: var(--brand-blue) !important; }
+.border-primary { border-color: var(--brand-blue) !important; }
+.badge.bg-primary { background-color: var(--brand-blue) !important; }
+.link-primary { color: var(--brand-blue) !important; }
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--brand-blue);
+}
+
+.form-check-input:checked {
+    background-color: var(--brand-blue);
+    border-color: var(--brand-blue);
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link,
+.page-item.active .page-link,
+.list-group-item.active,
+.dropdown-item.active,
+.dropdown-item:active,
+.progress-bar {
+    background-color: var(--brand-blue);
+    border-color: var(--brand-blue);
+}
+
+.page-link {
+    color: var(--brand-blue);
+}
+
+.alert-info {
+    color: var(--brand-anthracite);
+    background-color: rgba(var(--brand-blue-rgb), .08);
+    border-color: rgba(var(--brand-blue-rgb), .25);
+}
+
+/* ---------------------------------------------------------------- sidebar */
+
+/* The site marks the current section with its blue; a bar on the active item does the same */
+.sidebar .nav-link.active {
+    box-shadow: inset 3px 0 0 var(--brand-blue);
+}
