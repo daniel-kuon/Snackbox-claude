@@ -63,6 +63,10 @@ Open **Admin → Updates** in Snackbox. It shows the installed version, the newe
 and its notes. Install stops the stack, moves the checkout to the tag, rebuilds and starts
 again — a few minutes during which the kiosk is unavailable.
 
+Pressing Install opens a **terminal window on the Snackbox PC** that shows the update step by
+step — the web UI and the kiosk are down while it runs, so that window is where to watch it. It
+stays open for a minute after a successful update, and until you press Enter after a failed one.
+
 From the command line:
 
 ```powershell
