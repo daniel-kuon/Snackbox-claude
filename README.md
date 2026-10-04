@@ -16,51 +16,46 @@
 
 ### Installation (Windows)
 
-Run this command in **PowerShell** (as Administrator recommended):
+A Snackbox installation is a **git checkout that is built and run in place** - the Aspire
+AppHost orchestrates the API, the website and the containers, and the installed version is the
+release tag that is checked out.
+
+Needs [git](https://git-scm.com/download/win), the
+[.NET 10 SDK](https://dotnet.microsoft.com/download) with the `aspire` and `maui` workloads, and
+[Docker Desktop](https://www.docker.com/products/docker-desktop/). No administrator shell
+required.
 
 ```powershell
-irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/snackbox-claude/main/install-snackbox.ps1 | iex
+irm https://raw.githubusercontent.com/daniel-kuon/Snackbox-claude/main/install-snackbox.ps1 | iex
 ```
 
-> **Note**: Replace `YOUR_GITHUB_USERNAME` with your actual GitHub username
+The installer clones the repository, checks out the newest release tag, builds it in Release,
+registers autostart at logon and starts everything.
 
-The installer will:
-- Download the latest release from GitHub
-- Extract files to `C:\Program Files\Snackbox`
-- Create desktop and Start Menu shortcuts
-- Set up the Snackbox Updater tool
+To pass options - for example while the old Snackbox still owns the screen - download the
+script first, since `irm | iex` cannot take parameters:
 
-### Alternative Installation
-
-**User Directory Installation** (no admin required):
 ```powershell
-$installParams = @{ InstallPath = "$env:LOCALAPPDATA\Snackbox" }
-irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/snackbox-claude/main/install-snackbox.ps1 | iex
+irm https://raw.githubusercontent.com/daniel-kuon/Snackbox-claude/main/install-snackbox.ps1 -OutFile install-snackbox.ps1
+.\install-snackbox.ps1 -InstallPath C:\Snackbox -NoKiosk
 ```
 
-**Manual Installation**:
-1. Download the latest `snackbox-full-{version}-win-x64.zip` from [Releases](https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude/releases)
-2. Extract to your preferred location
-3. Run `Snackbox.AppHost.exe`
+See the [Installation Guide](docs/INSTALLATION.md) for every option.
 
 ## 🔄 Updating
 
-### Via Updater Tool (Recommended)
-1. Launch Snackbox
-2. Click **"Check for Updates"** in the menu (admin only)
-3. Follow the update prompts
+Open **Admin -> Updates** in Snackbox. It shows the installed version, the newest GitHub release
+and its notes. Install stops the stack, moves the checkout to that tag, rebuilds and starts
+again - a few minutes during which the kiosk is unavailable. If the build fails, the previous
+commit is checked back out and restarted.
 
-### Command Line
-```bash
-cd "C:\Program Files\Snackbox"
-.\Snackbox.Updater.exe
+From the command line:
+
+```powershell
+& "C:\Snackbox\tools\Snackbox.Updater\bin\Release\net10.0\Snackbox.Updater.exe" update --tag v1.2.3
 ```
 
-### Manual Update
-1. Download the latest release
-2. Stop Snackbox AppHost
-3. Extract and replace files
-4. Restart application
+The whole run is written to `<install>\.snackbox\updater.log`.
 
 ## 💻 Development Setup
 
@@ -77,7 +72,7 @@ dotnet workload install maui
 
 ### Clone and Run
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude.git
+git clone https://github.com/daniel-kuon/Snackbox-claude.git
 cd snackbox-claude
 dotnet restore
 dotnet run --project src/Snackbox.AppHost
@@ -98,8 +93,7 @@ snackbox-claude/
 │   ├── Snackbox.Api.Dtos/         # Shared DTOs
 │   └── Snackbox.ServiceDefaults/  # Aspire defaults
 ├── tools/
-│   ├── Snackbox.Migrator/         # Database migration tool
-│   └── Snackbox.Updater/          # Update manager
+│   └── Snackbox.Updater/          # Starts, stops and updates an installation
 ├── tests/
 │   ├── Snackbox.Api.Tests/        # API unit tests
 │   └── Snackbox.Components.Tests/ # Component tests (bUnit)
@@ -108,7 +102,7 @@ snackbox-claude/
 
 ## 📚 Documentation
 
-- [Installation Guide](docs/INSTALLATION.md) *(coming soon)*
+- [Installation, autostart and updates](docs/INSTALLATION.md)
 - [Running the AppHost](docs/RUNNING_APPHOST.md)
 - [Achievement System](docs/achievement-system.md)
 - [Barcode Lookup](docs/BARCODE_LOOKUP.md)
@@ -126,22 +120,20 @@ snackbox-claude/
 
 ## 🛠️ Building a Release
 
-### Automated (GitHub Actions)
-1. Create and push a version tag:
-   ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
-2. GitHub Actions will automatically build and create a release
+A release is a **tag plus notes** - there is nothing to ship as a binary, because the Aspire
+AppHost cannot be published and moved (its generated project metadata hardcodes the build
+machine's absolute `.csproj` paths).
 
-### Manual Build
+Run the **Release** workflow in GitHub Actions and pick major / minor / bugfix, or push a tag:
+
 ```bash
-# Update version in Directory.Build.props
-dotnet publish src/Snackbox.AppHost/Snackbox.AppHost.csproj -c Release -r win-x64 --self-contained
-
-# Create release package
-Compress-Archive -Path .\artifacts\* -DestinationPath snackbox-v1.0.0-win-x64.zip
+git tag v1.0.0
+git push origin v1.0.0
 ```
+
+The workflow builds the solution with the same command an installation uses - if that fails,
+the release would brick every machine that installs it - and then publishes the release that
+the Updates page reads.
 
 ## 🤝 Contributing
 
@@ -164,8 +156,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_GITHUB_USERNAME/snackbox-claude/discussions)
+- **Issues**: [GitHub Issues](https://github.com/daniel-kuon/Snackbox-claude/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/daniel-kuon/Snackbox-claude/discussions)
 
 ---
 
