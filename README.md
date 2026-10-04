@@ -49,6 +49,9 @@ and its notes. Install stops the stack, moves the checkout to that tag, rebuilds
 again - a few minutes during which the kiosk is unavailable. If the build fails, the previous
 commit is checked back out and restarted.
 
+Install opens a **terminal window on the Snackbox PC** that shows the update step by step - the
+web UI and the kiosk are down while it runs, so that is where to watch it.
+
 From the command line:
 
 ```powershell
