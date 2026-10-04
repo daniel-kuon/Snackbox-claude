@@ -455,12 +455,12 @@
     .scan-prompt-container {
         position: relative;
         display: flex;
-        align-items: center;
+        align-items: flex-start;  /* the photo's free dark space is top left, above the monitors */
         justify-content: flex-start;
         min-height: 100vh;
         background:
             linear-gradient(90deg, rgba(11, 16, 20, .88) 0%, rgba(11, 16, 20, .6) 32%, rgba(11, 16, 20, 0) 62%),
-            url("_content/Snackbox.Components/images/snackbox-hero.jpg") right center / cover no-repeat,
+            url("_content/Snackbox.Components/images/snackbox-hero.jpg") center / cover no-repeat,
             var(--brand-anthracite);
     }
 
@@ -493,8 +493,8 @@
     .scan-prompt-content {
         text-align: left;
         color: white;
-        padding: 0 3rem 0 8vw;
-        max-width: 55vw;
+        padding: 14vh 3rem 0 7vw;
+        max-width: 58vw;
     }
 
 
