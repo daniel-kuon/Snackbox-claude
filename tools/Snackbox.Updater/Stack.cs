@@ -10,6 +10,18 @@ public sealed class Stack(Installation installation, Log log)
 {
     private const string KioskFramework = "net10.0-windows10.0.19041.0";
 
+    /// <summary>
+    /// Everything an installation runs, by process name. The old Snackbox is "Snackboxx" with
+    /// two x - deliberately not in this list, the updater has no business stopping it.
+    /// </summary>
+    private static readonly string[] StackProcessNames =
+    [
+        "Snackbox.AppHost",
+        "Snackbox.Api",
+        "Snackbox.BlazorServer",
+        "Snackbox.Web"
+    ];
+
     public void Start(bool withKiosk)
     {
         EnsureDockerRunning();
@@ -26,11 +38,15 @@ public sealed class Stack(Installation installation, Log log)
 
         installation.ForgetProcesses();
 
-        // The AppHost leaves its children behind when it is killed abruptly, and a stale kiosk
-        // would hold a lock on the build output we are about to replace.
-        foreach (var process in Process.GetProcessesByName("Snackbox.Web"))
+        // Aspire's DCP starts the API and the website outside the AppHost's process tree, so
+        // killing the "dotnet run" we remembered leaves them behind - and they hold the very
+        // DLLs the rebuild has to replace. Anything still called Snackbox.* belongs to us.
+        foreach (var name in StackProcessNames)
         {
-            KillTree(process.Id);
+            foreach (var process in Process.GetProcessesByName(name))
+            {
+                KillTree(process.Id);
+            }
         }
 
         log.Write("Stack stopped.");
