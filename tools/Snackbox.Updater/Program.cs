@@ -66,7 +66,9 @@ try
             // passing it by hand is how you get "the file is used by another process".
             if (!arguments.Flag(SelfCopy.Marker) && SelfCopy.Relaunch(args, log)) return 0;
 
-            return new UpdateCommand(installation, stack, log).Run(tag, withKiosk, start: !arguments.Flag("no-start"));
+            var result = new UpdateCommand(installation, stack, log).Run(tag, withKiosk, start: !arguments.Flag("no-start"));
+            if (arguments.Flag("keep-window")) KeepWindowOpen(result);
+            return result;
 
         case "install-autostart":
             Autostart.Install(installation, withKiosk, log);
@@ -93,13 +95,38 @@ catch (Exception ex)
     return 1;
 }
 
+// Started from the Updates page, the update runs in its own terminal window. Without this the
+// window would vanish the moment the update finishes - including when it failed.
+static void KeepWindowOpen(int result)
+{
+    Console.WriteLine();
+    if (result == 0)
+    {
+        Console.WriteLine("Done. Snackbox is starting - this window closes in 60 seconds.");
+        Thread.Sleep(TimeSpan.FromSeconds(60));
+        return;
+    }
+
+    Console.WriteLine("The update did NOT complete - see the messages above.");
+    Console.WriteLine("Press Enter to close this window.");
+    try
+    {
+        Console.ReadLine();
+    }
+    catch
+    {
+        Thread.Sleep(TimeSpan.FromMinutes(30));
+    }
+}
+
 static void PrintUsage()
 {
     Console.WriteLine("""
         Snackbox updater
 
           status                          show the installed version and what is running
-          update --tag <tag> [--no-start] update the installation to a release tag
+          update --tag <tag> [--no-start] [--keep-window]
+                                          update the installation to a release tag
           start [--no-kiosk]              start Docker, the Aspire stack and the kiosk
           stop                            stop everything the updater started
           install-autostart [--no-kiosk]  run "start" at every logon

@@ -32,6 +32,9 @@ public class UpdateService : IUpdateService
         _logger = logger;
     }
 
+    private static readonly System.Text.RegularExpressions.Regex ReleaseTagPattern =
+        new(@"^v?\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
     private string Repository => _configuration.GetValue("Update:Repository", "daniel-kuon/Snackbox-claude")!;
 
     private bool IncludePreReleases => _configuration.GetValue("Update:IncludePreReleases", false);
@@ -156,32 +159,38 @@ public class UpdateService : IUpdateService
             tag = latest?.Tag ?? throw new InvalidOperationException($"{Repository} has no published release to install.");
         }
 
+        // The tag is written into a .cmd script below; anything but a plain release tag could
+        // smuggle commands into it.
+        if (!ReleaseTagPattern.IsMatch(tag))
+        {
+            throw new InvalidOperationException($"\"{tag}\" is not a release tag (expected something like v1.2.3).");
+        }
+
         var updater = FindUpdater(root)
                       ?? throw new InvalidOperationException(
                           "Snackbox.Updater was not found. Build the solution so tools/Snackbox.Updater exists.");
 
-        // Detached on purpose: the first thing the updater does is stop this process, so the
-        // response has to be on its way before it runs.
-        var info = new ProcessStartInfo(updater)
-        {
-            WorkingDirectory = root,
-            UseShellExecute = true,
-            CreateNoWindow = true
-        };
-        info.ArgumentList.Add("update");
-        info.ArgumentList.Add("--tag");
-        info.ArgumentList.Add(tag);
-        info.ArgumentList.Add("--dir");
-        info.ArgumentList.Add(root);
+        // The updater must not be our child. This process runs inside the job object Aspire's
+        // DCP keeps its resources in, and the first thing the updater does is stop that stack -
+        // as a child it would be killed along with it, mid-update. explorer.exe starts the
+        // script from the user's shell instead: outside the job, on the visible desktop, in a
+        // terminal window that shows the progress (the web UI is down while it runs).
+        var script = Path.Combine(root, ".snackbox", "update.cmd");
+        Directory.CreateDirectory(Path.GetDirectoryName(script)!);
+        File.WriteAllText(script, string.Join(Environment.NewLine,
+            "@echo off",
+            $"title Snackbox update to {tag}",
+            $"\"{updater}\" update --tag {tag} --dir \"{root}\" --keep-window",
+            ""));
 
-        _logger.LogWarning("Starting update to {Tag} via {Updater}; the stack is about to be restarted", tag, updater);
-        Process.Start(info);
+        _logger.LogWarning("Starting update to {Tag} via {Script}; the stack is about to be restarted", tag, script);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{script}\"") { UseShellExecute = false });
 
         return new InstallUpdateResponseDto
         {
             Started = true,
             Tag = tag,
-            Message = "The updater is running. Snackbox stops, rebuilds and starts again - this takes a few minutes."
+            Message = "The update is running in a terminal window on the Snackbox PC. Snackbox stops, rebuilds and starts again - this page loses its connection for a few minutes."
         };
     }
 

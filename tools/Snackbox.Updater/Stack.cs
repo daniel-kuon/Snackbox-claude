@@ -130,26 +130,21 @@ public sealed class Stack(Installation installation, Log log)
     {
         log.Write("Starting the Aspire AppHost...");
 
-        var info = new ProcessStartInfo("dotnet",
-                                        "run --project src/Snackbox.AppHost -c Release --no-build")
+        // The AppHost outlives this updater, so it must not write into a pipe we own: once we
+        // exit, its next log line hits a closed pipe. cmd hands it a file to write to instead.
+        var output = Path.Combine(installation.StateDirectory, "apphost.log");
+        var info = new ProcessStartInfo("cmd.exe",
+                                        $"/c dotnet run --project src/Snackbox.AppHost -c Release --no-build > \"{output}\" 2>&1")
         {
             WorkingDirectory = installation.Root,
             UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
+            CreateNoWindow = true
         };
 
         var process = Process.Start(info) ?? throw new UpdaterException("Could not start the AppHost.");
         installation.RememberProcess(process.Id);
 
-        // Drain the pipes, otherwise the AppHost blocks once its output buffer fills up.
-        process.OutputDataReceived += (_, e) => log.WriteRaw(e.Data);
-        process.ErrorDataReceived += (_, e) => log.WriteRaw(e.Data);
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        log.Write($"AppHost started (pid {process.Id}).");
+        log.Write($"AppHost started (pid {process.Id}), output in {output}.");
     }
 
     private void StartKiosk()

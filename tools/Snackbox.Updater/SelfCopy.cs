@@ -38,7 +38,9 @@ public static class SelfCopy
             var executable = Path.Combine(target, Path.GetFileName(Environment.ProcessPath ?? "Snackbox.Updater.exe"));
             if (!File.Exists(executable)) return false;
 
-            var info = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true };
+            // Share our console: when the update runs in a terminal window (see UpdateService), the
+            // copy keeps that window alive and shows its progress after we have exited.
+            var info = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = false };
             foreach (var argument in args) info.ArgumentList.Add(argument);
             info.ArgumentList.Add($"--{Marker}");
 
