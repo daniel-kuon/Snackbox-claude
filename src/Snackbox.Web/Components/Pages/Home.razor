@@ -37,7 +37,6 @@
         <!-- Welcome Screen: Waiting for user to scan -->
         <div class="scan-prompt-container">
             <div class="scan-prompt-content">
-                <div class="scan-icon">📱</div>
                 <h1 class="scan-title">Welcome to Snackbox</h1>
                 <p class="scan-instruction">Please scan your card to continue</p>
             </div>
@@ -450,70 +449,68 @@
         }
     }
 
+    /* Hero in the logineer.com style: a blue duotone photo with open dark space on the
+       left, and a big bold headline sitting in it. The shade keeps the text readable on
+       any screen shape, since "cover" crops the photo differently per aspect ratio. */
     .scan-prompt-container {
         position: relative;
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         min-height: 100vh;
-        background: var(--brand-gradient);
+        background:
+            linear-gradient(90deg, rgba(11, 16, 20, .88) 0%, rgba(11, 16, 20, .6) 32%, rgba(11, 16, 20, 0) 62%),
+            url("_content/Snackbox.Components/images/snackbox-hero.jpg") right center / cover no-repeat,
+            var(--brand-anthracite);
     }
 
-    /* Quiet but findable: customers scan, the link is for remote maintenance. Square and
-       outlined like the buttons on logineer.com */
+    /* Hidden until the mouse is shaken for a second (wwwroot/js/adminShake.js): customers
+       scan and never see it, a remote admin finds it without a card */
     .admin-login-link {
         position: absolute;
-        right: 1.5rem;
-        bottom: 1.25rem;
-        padding: .45rem 1rem;
-        border: 1px solid rgba(255, 255, 255, .45);
+        right: 1.5em;
+        bottom: 1.25em;
+        padding: .45em 1em;
         color: rgba(255, 255, 255, .85);
-        font-size: 1rem;
+        font-size: max(1rem, .9vw);
         text-decoration: none;
-        transition: color .15s, background-color .15s, border-color .15s;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity .25s, visibility .25s, color .15s, background-color .15s;
+    }
+
+    .show-admin-login .admin-login-link {
+        visibility: visible;
+        opacity: 1;
     }
 
     .admin-login-link:hover,
     .admin-login-link:focus-visible {
         color: #fff;
-        border-color: #fff;
         background: rgba(255, 255, 255, .12);
     }
 
     .scan-prompt-content {
-        text-align: center;
+        text-align: left;
         color: white;
-        padding: 3rem;
+        padding: 0 3rem 0 8vw;
+        max-width: 55vw;
     }
 
-    .scan-icon {
-        font-size: 8rem;
-        margin-bottom: 2rem;
-        animation: pulse 2s ease-in-out infinite;
-    }
 
     .scan-title {
-        font-size: 3rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        font-family: var(--brand-font-bold);
+        font-size: max(2.75rem, 5vw);  /* scales with the screen, like their heroes */
+        font-weight: 700;
+        line-height: 1.05;
+        margin-bottom: 1.25rem;
     }
 
     .scan-instruction {
-        font-size: 1.5rem;
+        font-size: max(1.25rem, 1.8vw);
         opacity: 0.9;
         font-weight: 300;
-    }
-
-    @@keyframes pulse {
-        0%, 100% {
-            transform: scale(1);
-            opacity: 1;
-        }
-        50% {
-            transform: scale(1.05);
-            opacity: 0.8;
-        }
+        margin: 0;
     }
 
     /* Active scanner styles */
