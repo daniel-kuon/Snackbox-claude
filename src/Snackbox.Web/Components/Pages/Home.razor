@@ -504,11 +504,9 @@
         font-weight: 700;
         line-height: 1.05;
         margin-bottom: 1.25rem;
-        /* logblue lettering with a white outline; paint-order puts the stroke behind the
-           fill, so the outline grows outwards instead of eating into the letters */
+        /* logblue lettering; a soft white glow lifts it off the dark photo */
         color: var(--brand-blue);
-        -webkit-text-stroke: .1em #fff;
-        paint-order: stroke fill;
+        text-shadow: 0 0 .06em rgba(255, 255, 255, .55), 0 0 .4em rgba(255, 255, 255, .28);
     }
 
     .scan-instruction {
@@ -516,8 +514,7 @@
         font-weight: 600;
         margin: 0;
         color: var(--brand-blue);
-        -webkit-text-stroke: .14em #fff;
-        paint-order: stroke fill;
+        text-shadow: 0 0 .08em rgba(255, 255, 255, .5), 0 0 .5em rgba(255, 255, 255, .25);
     }
 
     /* Active scanner styles */
