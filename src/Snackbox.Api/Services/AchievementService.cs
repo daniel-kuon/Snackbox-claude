@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
 using Snackbox.Api.Models;
 using Snackbox.ServiceDefaults.Tracing;
@@ -364,17 +364,20 @@ public class AchievementService : IAchievementService
         }
 
         // Check weekly streak (at least one purchase per week for 4 weeks)
-        var fourWeeksAgo = completedAt.Date.AddDays(-28);
+        // Windows are anchored on the current purchase and run backwards as
+        // (weekStart, weekEnd], so the purchase completing now counts for week 0.
+        var today = completedAt.Date;
+        var fourWeeksAgo = today.AddDays(-28);
         var weeklyPurchases = purchases
-            .Where(p => p >= fourWeeksAgo && p <= completedAt.Date)
+            .Where(p => p > fourWeeksAgo && p <= today)
             .ToList();
 
         bool hasWeeklyStreak = true;
         for (int week = 0; week < 4; week++)
         {
-            var weekStart = fourWeeksAgo.AddDays((double)(week * 7));
-            var weekEnd = weekStart.AddDays(7);
-            if (!weeklyPurchases.Any(d => d >= weekStart && d < weekEnd))
+            var weekEnd = today.AddDays((double)(-week * 7));
+            var weekStart = weekEnd.AddDays(-7);
+            if (!weeklyPurchases.Any(d => d > weekStart && d <= weekEnd))
             {
                 hasWeeklyStreak = false;
                 break;
