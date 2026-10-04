@@ -79,11 +79,11 @@ public sealed class UpdateCommand(Installation installation, Stack stack, Log lo
 
     private void Build()
     {
-        log.Write("Restoring packages...");
-        log.WriteRaw(Installation.Run("dotnet", "restore Snackbox.sln", installation.Root));
-
+        // One command, no separate restore: a restore without -c Release skips the win-x64
+        // runtime packs the kiosk's Release build needs (NETSDK1112). That only shows on a
+        // machine whose NuGet cache does not already hold them - i.e. every fresh install.
         log.Write("Building (Release)... this takes a few minutes.");
-        log.WriteRaw(Installation.Run("dotnet", "build Snackbox.sln -c Release --no-restore", installation.Root));
+        log.WriteRaw(Installation.Run("dotnet", "build Snackbox.sln -c Release", installation.Root));
 
         log.Write("Build finished.");
     }

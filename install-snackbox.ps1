@@ -85,10 +85,9 @@ if ($targetTag) {
 Write-Step "Building (Release) - this takes a few minutes"
 Push-Location $InstallPath
 try {
-    dotnet restore Snackbox.sln
-    if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed." }
-
-    dotnet build Snackbox.sln -c Release --no-restore
+    # No separate restore: one without -c Release skips the runtime packs the kiosk's
+    # Release build needs, which fails on any machine that has not built it before.
+    dotnet build Snackbox.sln -c Release
     if ($LASTEXITCODE -ne 0) { throw "dotnet build failed." }
 }
 finally {

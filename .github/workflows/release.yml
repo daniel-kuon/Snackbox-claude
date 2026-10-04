@@ -82,8 +82,7 @@ jobs:
       # release would brick every machine that installs it.
       - name: Build the solution (Release)
         run: |
-          dotnet restore Snackbox.sln
-          dotnet build Snackbox.sln -c Release --no-restore
+          dotnet build Snackbox.sln -c Release
 
       - name: Run tests
         run: dotnet test Snackbox.sln -c Release --no-build
