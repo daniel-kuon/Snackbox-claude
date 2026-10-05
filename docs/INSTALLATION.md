@@ -89,13 +89,14 @@ it cannot lose data:
 
 | What | Where |
 | --- | --- |
-| Database | Docker volume `snackbox-postgres-data` (container `snackbox-postgres`, Postgres 17) |
+| Database | Docker volume `snackbox-postgres` (container `snackbox-postgres`, Postgres 18) |
 | Backups | `%ProgramData%\Snackbox\backups` (`Backup:Directory` to change it) |
 | Telemetry (SigNoz) | Docker volumes `signoz-clickhouse`, `signoz-sqlite`, `signoz-zookeeper-1` |
 
 The Postgres major version is pinned on purpose. A new major version cannot open the old
-one's data files, so moving to Postgres 18 means a dump and restore (Admin -> Backups), not
-changing the image.
+one's data files, so a major upgrade means a backup and restore (Admin -> Backups), not
+changing the image. Backups run inside the database container, so they need no PostgreSQL
+install on the machine and always match the server's version.
 
 ## Other commands
 

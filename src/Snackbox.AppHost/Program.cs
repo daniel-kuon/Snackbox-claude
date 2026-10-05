@@ -23,18 +23,18 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
                       // and would refuse the bind ("access to socket forbidden").
                       .WithHostPort(15653)
                       // The database's storage is pinned completely - name, mount path and
-                      // Postgres major version - because every Aspire default here has moved:
+                      // Postgres major version - because Aspire's defaults here keep moving:
                       //  - the default volume name is a hash of this project's path, so a
                       //    different install folder starts on an empty database;
-                      //  - Aspire 13.6 switched the default image from Postgres 17 to 18, and a
-                      //    major version cannot open another's data files (the container just
-                      //    exits) - upgrading needs a dump and restore, never an image swap;
-                      //  - it also moved the mount from /var/lib/postgresql/data to
-                      //    /var/lib/postgresql, where Postgres 17 would find an empty folder
-                      //    and silently initialise a fresh database.
-                      // The minor version floats on purpose: 17.x releases share the data format.
-                      .WithImageTag("17")
-                      .WithVolume("snackbox-postgres-data", "/var/lib/postgresql/data")
+                      //  - the default image changes with Aspire (13.6 went from 17 to 18), and
+                      //    a major version cannot open another's data files - the container
+                      //    just exits. A major upgrade is a backup and restore, never a tag bump.
+                      // Postgres 18 images keep their data in a per-version folder under
+                      // /var/lib/postgresql (here /var/lib/postgresql/18/docker), so the mount
+                      // goes one level up; that also leaves room for a later in-place
+                      // pg_upgrade. The minor version floats: 18.x releases share the format.
+                      .WithImageTag("18")
+                      .WithVolume("snackbox-postgres", "/var/lib/postgresql")
                       .WithPgAdmin(b => b.WithContainerName("snackbox-pgadmin")
                                          .WithHostPort(15654)
                                          .WithLifetime(ContainerLifetime.Persistent))

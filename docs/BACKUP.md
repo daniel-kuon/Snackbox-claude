@@ -12,58 +12,19 @@ The Snackbox application includes a comprehensive backup and restore system that
 
 ## Prerequisites
 
-### PostgreSQL Tools
+Nothing to install. Backups run `pg_dump` and `psql` **inside the database container**
+(`docker exec snackbox-postgres ...`), so the tools always match the server's major version -
+`pg_dump` refuses to dump a newer server, which is exactly what host-installed tools ran into
+once Postgres was upgraded. The installation therefore needs no PostgreSQL install of its own;
+Docker running and the `snackbox-postgres` container up is all it takes.
 
-The backup functionality requires PostgreSQL client tools (`pg_dump` and `psql`) to be installed on the system.
-
-#### Automated Installation (Windows)
-
-**Recommended**: Use the provided PowerShell script for automatic installation:
-
-```powershell
-# Run from the Snackbox root directory
-.\scripts\Install-PostgresTools.ps1
-```
-
-This script will:
-- Download PostgreSQL client tools automatically
-- Install them to your system
-- Configure your PATH environment variable
-- Verify the installation
-
-See [scripts/README.md](../scripts/README.md) for more options and troubleshooting.
-
-#### Manual Installation
-
-**Ubuntu/Debian:**
+Check via the API:
 ```bash
-sudo apt-get update
-sudo apt-get install postgresql-client
+curl http://localhost:5057/api/backup/tools/check
 ```
 
-**Windows Manual:**
-- Install from [PostgreSQL Downloads](https://www.postgresql.org/download/windows/)
-- Ensure the PostgreSQL `bin` directory is in your PATH
-
-**macOS:**
-```bash
-brew install postgresql
-```
-
-#### Verify Installation
-
-Check if tools are installed:
-```bash
-pg_dump --version
-psql --version
-```
-
-Or check via the API:
-```bash
-curl http://localhost:5000/api/backup/tools/check
-```
-
-**Note**: The backup functionality will gracefully handle missing tools and provide helpful error messages. The application will not crash if PostgreSQL tools are not installed.
+A restore stops at the first SQL error and reports it (`ON_ERROR_STOP`), rather than carrying on
+and announcing success over a half-restored database.
 
 ### Configuration
 
@@ -72,7 +33,7 @@ Add the following settings to `appsettings.json`:
 ```json
 {
   "Backup": {
-    "Directory": "backups",
+    "Directory": "C:\\ProgramData\\Snackbox\\backups",
     "EmailRecipient": "admin@example.com"
   },
   "EmailSettings": {
@@ -90,7 +51,8 @@ Add the following settings to `appsettings.json`:
 
 **Configuration Options:**
 
-- `Backup:Directory`: Directory where backups are stored (relative or absolute path)
+- `Backup:Directory`: Where backups are stored. Defaults to `%ProgramData%\Snackbox\backups` - outside the installation, so deleting or reinstalling the app keeps them. A relative path resolves against `%ProgramData%\Snackbox`
+- `Backup:PostgresContainer`: The database container backups run in. Defaults to `snackbox-postgres`, the fixed name the AppHost gives it
 - `Backup:EmailRecipient`: Email address to receive weekly backups
 - `EmailSettings:Enabled`: Enable/disable email sending (set to false to disable)
 - `EmailSettings:SmtpServer`: SMTP server hostname

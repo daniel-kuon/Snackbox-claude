@@ -32,7 +32,7 @@ public class BackupController : ControllerBase
             // Proactively check for PostgreSQL tools to provide a clear error instead of a generic failure
             if (!await _backupService.ArePostgresToolsAvailableAsync())
             {
-                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install PostgreSQL 17 by running: winget install -e --id PostgreSQL.PostgreSQL.17 (or use scripts/Install-PostgresTools.ps1)" });
+                return StatusCode(503, new { error = "The database container cannot be reached", details = "Backups run pg_dump/psql inside the snackbox-postgres container. Check that Docker is running and the container is up." });
             }
             var backup = await _backupService.CreateBackupAsync(BackupType.Manual, customName);
 
@@ -117,7 +117,7 @@ public class BackupController : ControllerBase
             // Proactively check for PostgreSQL tools to provide a clear error instead of a generic failure
             if (!await _backupService.ArePostgresToolsAvailableAsync())
             {
-                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install PostgreSQL 17 by running: winget install -e --id PostgreSQL.PostgreSQL.17 (or use scripts/Install-PostgresTools.ps1)" });
+                return StatusCode(503, new { error = "The database container cannot be reached", details = "Backups run pg_dump/psql inside the snackbox-postgres container. Check that Docker is running and the container is up." });
             }
             await _backupService.RestoreBackupAsync(id, createBackupBeforeRestore);
             return Ok(new { message = "Backup restored successfully" });
@@ -178,7 +178,7 @@ public class BackupController : ControllerBase
             // Proactively check for PostgreSQL tools to provide a clear error instead of a generic failure
             if (!await _backupService.ArePostgresToolsAvailableAsync())
             {
-                return StatusCode(503, new { error = "PostgreSQL tools are not available", details = "Please install PostgreSQL 17 by running: winget install -e --id PostgreSQL.PostgreSQL.17 (or use scripts/Install-PostgresTools.ps1)" });
+                return StatusCode(503, new { error = "The database container cannot be reached", details = "Backups run pg_dump/psql inside the snackbox-postgres container. Check that Docker is running and the container is up." });
             }
 
             using var stream = file.OpenReadStream();
@@ -314,7 +314,7 @@ public class BackupController : ControllerBase
         try
         {
             var available = await _backupService.ArePostgresToolsAvailableAsync();
-            return Ok(new { available, message = available ? "PostgreSQL tools are available" : "PostgreSQL tools are not installed. Run: winget install -e --id PostgreSQL.PostgreSQL.17" });
+            return Ok(new { available, message = available ? "Backups can reach the database container" : "The database container cannot be reached - check that Docker is running and snackbox-postgres is up" });
         }
         catch (Exception ex)
         {

@@ -15,6 +15,7 @@ public class BackupService : IBackupService
     private readonly ILogger<BackupService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly string _backupDirectory;
+    private readonly string _postgresContainer;
     private readonly string _connectionString;
     private readonly string _metadataFile;
 
@@ -40,6 +41,8 @@ public class BackupService : IBackupService
             : Path.IsPathRooted(configBackupDir)
                 ? configBackupDir
                 : Path.Combine(backupRoot, configBackupDir);
+        // The AppHost gives the database container this fixed name (Program.cs there)
+        _postgresContainer = configuration["Backup:PostgresContainer"] ?? "snackbox-postgres";
         _connectionString = configuration.GetConnectionString("snackboxdb")
             ?? throw new InvalidOperationException("Database connection string is not configured.");
         _metadataFile = Path.Combine(_backupDirectory, "metadata.json");
@@ -71,52 +74,27 @@ public class BackupService : IBackupService
         var connectionParams = ParseConnectionString(_connectionString);
         ValidateConnectionParams(connectionParams);
 
-        // Find pg_dump path
-        var pgDumpPath = FindPostgresToolPath("pg_dump");
-        if (string.IsNullOrEmpty(pgDumpPath))
-        {
-            throw new InvalidOperationException("pg_dump tool not found. Please install PostgreSQL client tools.");
-        }
-
-        // Create pg_dump command with properly escaped arguments
-        var process = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = pgDumpPath,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        // Add arguments individually to avoid shell injection
-        process.StartInfo.ArgumentList.Add("-h");
-        process.StartInfo.ArgumentList.Add(connectionParams.Host);
-        process.StartInfo.ArgumentList.Add("-p");
-        process.StartInfo.ArgumentList.Add(connectionParams.Port.ToString());
-        process.StartInfo.ArgumentList.Add("-U");
-        process.StartInfo.ArgumentList.Add(connectionParams.Username);
-        process.StartInfo.ArgumentList.Add("-d");
-        process.StartInfo.ArgumentList.Add(connectionParams.Database);
-        process.StartInfo.ArgumentList.Add("-F");
-        process.StartInfo.ArgumentList.Add("p");
-        process.StartInfo.ArgumentList.Add("-f");
-        process.StartInfo.ArgumentList.Add(filePath);
-
-        // Set password via environment variable
-        process.StartInfo.Environment["PGPASSWORD"] = connectionParams.Password;
+        using var process = new Process { StartInfo = PostgresTool("pg_dump", connectionParams, input: false) };
+        process.StartInfo.ArgumentList.Add("--format=plain");
 
         try
         {
             process.Start();
-            var stderr = await process.StandardError.ReadToEndAsync();
+
+            // pg_dump writes the dump to stdout inside the container; stream it into the file
+            // here, reading stderr at the same time so neither pipe can fill up and block.
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            await using (var file = File.Create(filePath))
+            {
+                await process.StandardOutput.BaseStream.CopyToAsync(file);
+            }
+            var stderr = await stderrTask;
             await process.WaitForExitAsync();
 
             if (process.ExitCode != 0)
             {
                 _logger.LogError("pg_dump failed with exit code {ExitCode}: {Error}", process.ExitCode, stderr);
+                File.Delete(filePath);
                 throw new Exception($"Backup failed: {stderr}");
             }
 
@@ -127,7 +105,9 @@ public class BackupService : IBackupService
 
             // Check if backup with same hash already exists
             var existingBackups = await ListBackupsAsync();
-            var duplicateBackup = existingBackups.FirstOrDefault(b => b.Md5Hash == md5Hash);
+            // The new file is already in the folder, so it would match itself and every backup
+            // was thrown away as a "duplicate" of itself - compare against the others only.
+            var duplicateBackup = existingBackups.FirstOrDefault(b => b.Md5Hash == md5Hash && b.FileName != fileName);
 
             if (duplicateBackup != null)
             {
@@ -155,8 +135,8 @@ public class BackupService : IBackupService
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
-            _logger.LogError(ex, "pg_dump tool not found. Please install PostgreSQL 17 via winget or run scripts/Install-PostgresTools.ps1");
-            throw new InvalidOperationException("PostgreSQL tools are not installed. Run: winget install -e --id PostgreSQL.PostgreSQL.17", ex);
+            _logger.LogError(ex, "Could not run docker to reach the database container {Container}", _postgresContainer);
+            throw new InvalidOperationException($"Docker is not available, so the database container {_postgresContainer} cannot be reached.", ex);
         }
         catch (Exception ex)
         {
@@ -230,50 +210,33 @@ public class BackupService : IBackupService
         // Drop and recreate the database
         await DropAndRecreateDatabaseAsync(connectionParams);
 
-        // Find psql path
-        var psqlPath = FindPostgresToolPath("psql");
-        if (string.IsNullOrEmpty(psqlPath))
-        {
-            throw new InvalidOperationException("psql tool not found. Please install PostgreSQL client tools.");
-        }
-
-        // Restore from backup using psql with properly escaped arguments
-        var process = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = psqlPath,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        // Add arguments individually to avoid shell injection
-        process.StartInfo.ArgumentList.Add("-h");
-        process.StartInfo.ArgumentList.Add(connectionParams.Host);
-        process.StartInfo.ArgumentList.Add("-p");
-        process.StartInfo.ArgumentList.Add(connectionParams.Port.ToString());
-        process.StartInfo.ArgumentList.Add("-U");
-        process.StartInfo.ArgumentList.Add(connectionParams.Username);
-        process.StartInfo.ArgumentList.Add("-d");
-        process.StartInfo.ArgumentList.Add(connectionParams.Database);
-        process.StartInfo.ArgumentList.Add("-f");
-        process.StartInfo.ArgumentList.Add(filePath);
-
-        process.StartInfo.Environment["PGPASSWORD"] = connectionParams.Password;
+        using var process = new Process { StartInfo = PostgresTool("psql", connectionParams, input: true) };
+        // Stop at the first error and report it. This used to carry on and log a warning, so
+        // a restore that failed half-way was reported as a success - over an emptied database.
+        process.StartInfo.ArgumentList.Add("--set=ON_ERROR_STOP=1");
+        process.StartInfo.ArgumentList.Add("--quiet");
 
         try
         {
             process.Start();
-            var stderr = await process.StandardError.ReadToEndAsync();
+
+            // The dump goes in through stdin: psql runs inside the container, which cannot
+            // see a file on this machine.
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            await using (var file = File.OpenRead(filePath))
+            {
+                await file.CopyToAsync(process.StandardInput.BaseStream);
+            }
+            process.StandardInput.Close();
+            await stdoutTask;
+            var stderr = await stderrTask;
             await process.WaitForExitAsync();
 
             if (process.ExitCode != 0)
             {
-                _logger.LogWarning("psql completed with warnings: {Error}", stderr);
-                // Don't throw - some warnings are normal during restore
+                _logger.LogError("psql failed with exit code {ExitCode}: {Error}", process.ExitCode, stderr);
+                throw new Exception($"Restore failed: {stderr}");
             }
 
             _logger.LogInformation("Backup restored successfully: {BackupId}", backupId);
@@ -283,8 +246,8 @@ public class BackupService : IBackupService
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
-            _logger.LogError(ex, "psql tool not found. Please install PostgreSQL 17 via winget or run scripts/Install-PostgresTools.ps1");
-            throw new InvalidOperationException("PostgreSQL tools are not installed. Run: winget install -e --id PostgreSQL.PostgreSQL.17", ex);
+            _logger.LogError(ex, "Could not run docker to reach the database container {Container}", _postgresContainer);
+            throw new InvalidOperationException($"Docker is not available, so the database container {_postgresContainer} cannot be reached.", ex);
         }
         catch (Exception ex)
         {
@@ -667,22 +630,13 @@ public class BackupService : IBackupService
     {
         try
         {
-            var pgDumpPath = FindPostgresToolPath("pg_dump");
-            var psqlPath = FindPostgresToolPath("psql");
-
-            if (string.IsNullOrEmpty(pgDumpPath) || string.IsNullOrEmpty(psqlPath))
+            // The tools come with the database container, so "available" means docker can
+            // reach that container and run pg_dump in it.
+            using var check = new Process
             {
-                _logger.LogWarning("PostgreSQL tools not found in PATH or standard installation locations");
-                return false;
-            }
-
-            // Verify pg_dump works
-            var pgDumpCheck = new Process
-            {
-                StartInfo = new ProcessStartInfo
+                StartInfo = new ProcessStartInfo("docker")
                 {
-                    FileName = pgDumpPath,
-                    ArgumentList = { "--version" },
+                    ArgumentList = { "exec", _postgresContainer, "pg_dump", "--version" },
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -690,109 +644,57 @@ public class BackupService : IBackupService
                 }
             };
 
-            pgDumpCheck.Start();
-            await pgDumpCheck.WaitForExitAsync();
+            check.Start();
+            var version = await check.StandardOutput.ReadToEndAsync();
+            var error = await check.StandardError.ReadToEndAsync();
+            await check.WaitForExitAsync();
 
-            if (pgDumpCheck.ExitCode != 0)
+            if (check.ExitCode != 0)
             {
-                _logger.LogWarning("pg_dump is not working properly");
+                _logger.LogWarning("Cannot run pg_dump in container {Container}: {Error}", _postgresContainer, error);
                 return false;
             }
 
-            // Verify psql works
-            var psqlCheck = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = psqlPath,
-                    ArgumentList = { "--version" },
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            psqlCheck.Start();
-            await psqlCheck.WaitForExitAsync();
-
-            if (psqlCheck.ExitCode != 0)
-            {
-                _logger.LogWarning("psql is not working properly");
-                return false;
-            }
-
-            _logger.LogInformation("PostgreSQL tools are available at: {PgDumpPath}, {PsqlPath}", pgDumpPath, psqlPath);
+            _logger.LogInformation("Backups use {Version} in container {Container}", version.Trim(), _postgresContainer);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PostgreSQL tools are not available. Please install PostgreSQL client tools or run the setup script.");
+            _logger.LogWarning(ex, "Docker is not available to reach the database container {Container}", _postgresContainer);
             return false;
         }
     }
 
-    private string? FindPostgresToolPath(string toolName)
+    /// <summary>
+    /// pg_dump/psql run inside the database container rather than from this machine: the
+    /// client then always matches the server's major version (pg_dump refuses to dump a newer
+    /// server, so host tools broke every backup the moment Postgres was upgraded), and the
+    /// installation needs no PostgreSQL install of its own. The password travels as an
+    /// environment variable that docker forwards by name, never on a command line.
+    /// </summary>
+    private ProcessStartInfo PostgresTool(string tool, ConnectionParams connection, bool input)
     {
-        var toolExe = $"{toolName}.exe";
-
-        // First, check if it's in PATH
-        try
+        var info = new ProcessStartInfo("docker")
         {
-            var checkProcess = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = toolName,
-                    ArgumentList = { "--version" },
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
+            RedirectStandardInput = input,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
 
-            checkProcess.Start();
-            checkProcess.WaitForExit(1000);
-
-            if (checkProcess.ExitCode == 0)
-            {
-                return toolName; // Available in PATH
-            }
-        }
-        catch
-        {
-            // Not in PATH, will check standard locations
-        }
-
-        // Check standard PostgreSQL installation paths (Windows)
-        if (OperatingSystem.IsWindows())
-        {
-            var possiblePaths = new[]
-            {
-                @"C:\Program Files\PostgreSQL\17\bin",
-                @"C:\Program Files\PostgreSQL\16\bin",
-                @"C:\Program Files\PostgreSQL\15\bin",
-                @"C:\Program Files\PostgreSQL\14\bin",
-                @"C:\Program Files (x86)\PostgreSQL\17\bin",
-                @"C:\Program Files (x86)\PostgreSQL\16\bin",
-                @"C:\Program Files (x86)\PostgreSQL\15\bin",
-                @"C:\Program Files (x86)\PostgreSQL\14\bin"
-            };
-
-            foreach (var path in possiblePaths)
-            {
-                var fullPath = Path.Combine(path, toolExe);
-                if (File.Exists(fullPath))
-                {
-                    _logger.LogInformation("Found {Tool} at: {Path}", toolName, fullPath);
-                    return fullPath;
-                }
-            }
-        }
-
-        _logger.LogWarning("{Tool} not found in PATH or standard installation locations", toolName);
-        return null;
+        info.ArgumentList.Add("exec");
+        if (input) info.ArgumentList.Add("--interactive");
+        info.ArgumentList.Add("--env");
+        info.ArgumentList.Add("PGPASSWORD");
+        info.ArgumentList.Add(_postgresContainer);
+        info.ArgumentList.Add(tool);
+        info.ArgumentList.Add("--username");
+        info.ArgumentList.Add(connection.Username);
+        info.ArgumentList.Add("--dbname");
+        info.ArgumentList.Add(connection.Database);
+        info.Environment["PGPASSWORD"] = connection.Password;
+        return info;
     }
 
     private async Task<string> CalculateMd5HashAsync(string filePath)

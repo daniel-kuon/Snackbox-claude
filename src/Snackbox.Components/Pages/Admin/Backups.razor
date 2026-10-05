@@ -47,18 +47,15 @@
     @if (!_toolsAvailable && !_checkingTools)
     {
         <div class="alert alert-warning" role="alert">
-            <h5>⚠️ PostgreSQL Tools Not Available</h5>
-            <p>The backup functionality requires PostgreSQL client tools (pg_dump, psql) to be installed.</p>
-            <p><strong>Windows users:</strong> Run the installation script to automatically download and install the tools:</p>
-            <pre class="bg-dark text-light p-2 rounded">.\scripts\Install-PostgresTools.ps1</pre>
+            <h5>⚠️ Database container not reachable</h5>
             <p class="mb-0">
-                <strong>Other platforms:</strong> See the
-                <a href="https://github.com/daniel-kuon/Snackbox-claude/blob/main/docs/BACKUP.md#prerequisites" target="_blank" class="alert-link">documentation</a>
-                for installation instructions.
+                Backups run <code>pg_dump</code> and <code>psql</code> inside the database container
+                (<code>snackbox-postgres</code>), so they always match its Postgres version. Check that
+                Docker is running and the container is up.
             </p>
             <div class="mt-2">
                 <button class="btn btn-sm btn-outline-secondary" @onclick="CheckToolsAvailability" disabled="@_checkingTools">
-                    @_checkingTools ? "Checking..." : "Re-check tools"
+                    @(_checkingTools ? "Checking..." : "Check again")
                 </button>
             </div>
         </div>
@@ -263,7 +260,7 @@
             // Guard: if tools are not available, provide a friendly message and skip the call
             if (!_toolsAvailable)
             {
-                Snackbar.Error("PostgreSQL tools are not available. Please install pg_dump/psql (see documentation above) and try again.");
+                Snackbar.Error("The database container cannot be reached - check that Docker is running.");
                 return;
             }
 
