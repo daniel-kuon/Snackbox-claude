@@ -10,4 +10,7 @@ public interface IScannerApi
 {
     [Post("/api/scanner/scan")]
     Task<ScanBarcodeResponse> ScanBarcodeAsync([Body] ScanBarcodeRequest request);
+
+    [Get("/api/scanner/recent")]
+    Task<List<RecentScanDto>> GetRecentAsync([Query] int count = 30);
 }

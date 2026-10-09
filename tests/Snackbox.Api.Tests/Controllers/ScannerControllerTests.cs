@@ -595,6 +595,23 @@ public class ScannerControllerTests : IDisposable
         Assert.Null(await _context.Purchases.FindAsync(101));
     }
 
+    [Fact]
+    public async Task GetRecent_ListsKnownAndUnknownScans_NewestFirst()
+    {
+        await _controller.ScanBarcode(new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" });
+        await _controller.ScanBarcode(new ScanBarcodeRequest { BarcodeCode = "NO-SUCH-CODE" });
+
+        var result = await _controller.GetRecent();
+        var scans = Assert.IsType<List<RecentScanDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+
+        Assert.Equal(2, scans.Count);
+        Assert.Equal("NO-SUCH-CODE", scans[0].Code);
+        Assert.Null(scans[0].UserId);  // not found
+        Assert.Equal("TEST-5EUR", scans[1].Code);
+        Assert.Equal("testuser", scans[1].Username);
+        Assert.Equal(5.00m, scans[1].Amount);
+    }
+
     public void Dispose()
     {
         _context.Database.EnsureDeleted();

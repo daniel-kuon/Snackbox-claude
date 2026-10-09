@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -180,6 +181,12 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Name is required" });
         }
 
+        // Required: the e-mail is how the admin reaches people about their balance
+        if (string.IsNullOrWhiteSpace(dto.Email) || !new EmailAddressAttribute().IsValid(dto.Email.Trim()))
+        {
+            return BadRequest(new { message = "A valid e-mail address is required" });
+        }
+
         var barcode = await _context.Barcodes
             .Include(b => b.User)
             .FirstOrDefaultAsync(b => b.Code == dto.BarcodeCode);
@@ -201,13 +208,14 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "This name is already taken" });
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.Email) && await _context.Users.AnyAsync(u => u.Email == dto.Email && u.Id != user.Id))
+        var email = dto.Email.Trim();
+        if (await _context.Users.AnyAsync(u => u.Email == email && u.Id != user.Id))
         {
             return BadRequest(new { message = "Email already exists" });
         }
 
         user.Username = username;
-        user.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+        user.Email = email;
         user.IsActive = true;
         await _context.SaveChangesAsync();
 

@@ -7,6 +7,7 @@
 @inject IPurchasesApi PurchasesApi
 @inject IUsersApi UsersApi
 @inject IBarcodesApi BarcodesApi
+@inject IScannerApi ScannerApi
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @implements IDisposable
@@ -75,6 +76,50 @@
                 else
                 {
                     <div class="empty">No products predicted to be empty soon.</div>
+                }
+            </section>
+
+            <section class="card wide">
+                <div class="list-header">
+                    <h3>Last scans</h3>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="LoadRecentScansAsync">↻ Refresh</button>
+                </div>
+                @if (_recentScans.Any())
+                {
+                    <div class="recent-scans">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Code</th>
+                                <th>User</th>
+                                <th>Amount</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var scan in _recentScans)
+                            {
+                                <tr class="@(scan.UserId == null ? "scan-unknown" : "")">
+                                    <td>@scan.ScannedAt.ToLocalTime().ToString("dd.MM. HH:mm:ss")</td>
+                                    <td><code>@scan.Code</code></td>
+                                    @if (scan.UserId is { } userId)
+                                    {
+                                        <td><a href="javascript:void(0)" @onclick="() => GoToUser(userId)">@scan.Username</a></td>
+                                        <td>@scan.Amount?.ToString("C")</td>
+                                    }
+                                    else
+                                    {
+                                        <td colspan="2"><span class="badge bg-danger">Barcode not found</span></td>
+                                    }
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty">No scans yet.</div>
                 }
             </section>
 
@@ -180,6 +225,8 @@
     .bar { width:8px; background:var(--brand-blue); border-radius:2px 2px 0 0; }
     .list-header { display:flex; justify-content: space-between; align-items:center; margin-bottom:.5rem; }
     .actions { display:flex; gap:.75rem; align-items:center; }
+    .recent-scans { max-height: 360px; overflow: auto; }
+    .scan-unknown td { background: rgba(220, 53, 69, .08); }
     @@media (max-width: 992px) { .grid { grid-template-columns: 1fr; } .charts { grid-template-columns: 1fr; } }
 </style>
 
@@ -206,6 +253,8 @@
     // Debtors
     private decimal _minDebt = 10m;
     private List<DebtorItem> _debtors = new();
+
+    private List<RecentScanDto> _recentScans = new();
     private bool _allSelected;
     private string? _reminderStatus;
 
@@ -222,7 +271,9 @@
             var purchasesTask = PurchasesApi.GetAllAsync();
             var usersTask = UsersApi.GetAllAsync();
 
-            await Task.WhenAll(productsTask, stockTask, purchasesTask, usersTask);
+            var recentTask = LoadRecentScansAsync();
+
+            await Task.WhenAll(productsTask, stockTask, purchasesTask, usersTask, recentTask);
 
             var products = (await productsTask).ToList();
             var stock = (await stockTask).ToList();
@@ -242,6 +293,11 @@
         {
             _loading = false;
         }
+    }
+
+    private async Task LoadRecentScansAsync()
+    {
+        _recentScans = await ScannerApi.GetRecentAsync(30);
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)

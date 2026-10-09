@@ -31,6 +31,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PurchaseDiscount> PurchaseDiscounts => Set<PurchaseDiscount>();
     public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
     public DbSet<UserWizardStep> UserWizardSteps => Set<UserWizardStep>();
+    public DbSet<UnknownScan> UnknownScans => Set<UnknownScan>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -116,6 +117,12 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<BarcodeScan>(entity =>
         {
             entity.HasIndex(e => e.LegacyPostenId).IsUnique().HasFilter("legacy_posten_id IS NOT NULL");
+        });
+
+        modelBuilder.Entity<UnknownScan>(entity =>
+        {
+            entity.Property(e => e.Code).HasMaxLength(100);
+            entity.HasIndex(e => e.ScannedAt);
         });
 
         modelBuilder.Entity<Product>(entity =>

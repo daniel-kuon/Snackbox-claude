@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
@@ -28,6 +29,37 @@ public class ScannerController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>The newest kiosk scans, recognised or not, newest first.</summary>
+    [HttpGet("recent")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<List<RecentScanDto>>> GetRecent([FromQuery] int count = 30)
+    {
+        count = Math.Clamp(count, 1, 200);
+
+        var known = await _context.BarcodeScans
+            .AsNoTracking()
+            .OrderByDescending(s => s.ScannedAt)
+            .Take(count)
+            .Select(s => new RecentScanDto
+            {
+                ScannedAt = s.ScannedAt,
+                Code = s.Barcode.Code,
+                Amount = s.Amount,
+                UserId = s.Purchase.UserId,
+                Username = s.Purchase.User.Username
+            })
+            .ToListAsync();
+
+        var unknown = await _context.UnknownScans
+            .AsNoTracking()
+            .OrderByDescending(s => s.ScannedAt)
+            .Take(count)
+            .Select(s => new RecentScanDto { ScannedAt = s.ScannedAt, Code = s.Code })
+            .ToListAsync();
+
+        return Ok(known.Concat(unknown).OrderByDescending(s => s.ScannedAt).Take(count).ToList());
+    }
+
     [HttpPost("scan")]
     public async Task<ActionResult<ScanBarcodeResponse>> ScanBarcode([FromBody] ScanBarcodeRequest request)
     {
@@ -48,15 +80,13 @@ public class ScannerController : ControllerBase
         {
             _logger.LogWarning("Barcode not found in database: {BarcodeCode}", request.BarcodeCode);
 
-            // Check if database has any barcodes at all - log some for debugging
-            var totalBarcodes = await _context.Barcodes.CountAsync();
-            var allBarcodeCodes = await _context.Barcodes
-                .AsNoTracking()
-                .Select(b => b.Code)
-                .Take(10)
-                .ToListAsync();
-            _logger.LogInformation("Total barcodes in database: {Count}. First few: {Codes}",
-                totalBarcodes, string.Join(", ", allBarcodeCodes));
+            // Kept for the admin dashboard's "last scans" - a failed scan leaves no other trace
+            _context.UnknownScans.Add(new UnknownScan
+            {
+                Code = request.BarcodeCode.Length > 100 ? request.BarcodeCode[..100] : request.BarcodeCode,
+                ScannedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
 
             return Ok(new ScanBarcodeResponse
             {

@@ -25,14 +25,14 @@
             @if (_currentStep == Step.Setup)
             {
                 <div class="sw-step-icon">👋</div>
-                <p class="sw-lead">You're using a spare card. It already works for buying — but purchases aren't tracked to anyone yet. Enter your name (and email, if you like) to claim this card so your balance is yours.</p>
+                <p class="sw-lead">You're using a spare card. It already works for buying — but purchases aren't tracked to anyone yet. Enter your name and e-mail to claim this card so your balance is yours.</p>
 
                 <div class="sw-form">
                     <label class="sw-label" for="sw-name">Your name <span class="sw-required">*</span></label>
                     <input id="sw-name" class="sw-input" @bind="_username" @bind:event="oninput"
                            placeholder="e.g. Jane Smith" maxlength="100" autocomplete="off" />
 
-                    <label class="sw-label" for="sw-email">Email (optional)</label>
+                    <label class="sw-label" for="sw-email">E-mail <span class="sw-required">*</span></label>
                     <input id="sw-email" class="sw-input" type="email" @bind="_email" @bind:event="oninput"
                            placeholder="you@company.com" maxlength="200" autocomplete="off" />
 
@@ -76,7 +76,7 @@
             @if (_currentStep == Step.Setup)
             {
                 <button class="sw-btn secondary" @onclick="CloseAsync">Do this later</button>
-                <button class="sw-btn primary" disabled="@(_isBusy || string.IsNullOrWhiteSpace(_username))" @onclick="SubmitSetupAsync">
+                <button class="sw-btn primary" disabled="@(_isBusy || !CanSubmitSetup)" @onclick="SubmitSetupAsync">
                     @(_isBusy ? "Saving…" : "Create my account")
                 </button>
             }
@@ -182,6 +182,9 @@
     private bool _isDisposed;
 
     private Step FirstIntroStep => (Step)1;
+
+    // The API checks the address properly; this only keeps the button off until both are filled in
+    private bool CanSubmitSetup => !string.IsNullOrWhiteSpace(_username) && _email.Contains('@');
 
     private IntroStep? CurrentIntroStep =>
         _currentStep != Step.Setup && (int)_currentStep - 1 < _visibleSteps.Count
@@ -334,7 +337,7 @@
 
     private async Task SubmitSetupAsync()
     {
-        if (_isBusy || string.IsNullOrWhiteSpace(_username))
+        if (_isBusy || !CanSubmitSetup)
             return;
 
         _isBusy = true;
@@ -345,7 +348,7 @@
             {
                 BarcodeCode = BarcodeCode,
                 Username = _username.Trim(),
-                Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim()
+                Email = _email.Trim()
             });
 
             await OnSetupCompleted.InvokeAsync(response.Username);

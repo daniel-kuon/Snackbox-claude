@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Snackbox.Components.Services;
 using Snackbox.Web.Configuration;
 using Timer = System.Timers.Timer;
@@ -20,13 +21,15 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
     private DateTime? _lastCodeTime;
     private readonly bool _autoFocusOnScan;
     private readonly IWindowService _windowService;
+    private readonly IServiceProvider _services;
     private DateTime _lastKeystrokeTime = DateTime.MinValue;
     private readonly List<DateTime> _keystrokeTimes = new();
 
     public event Action<string>? CodeReceived;
 
-    public WindowsScannerListener(IConfiguration configuration, IWindowService windowService)
+    public WindowsScannerListener(IConfiguration configuration, IWindowService windowService, IServiceProvider services)
     {
+        _services = services;
         _proc = HookCallback;
         _resetTimer = new Timer(200);
         _resetTimer.Elapsed += (_, _) => ResetBuffer();
@@ -103,7 +106,7 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
                     // Windows eventually evicts it, which would cost us scans.
                     if (_autoFocusOnScan)
                     {
-                        Task.Run(() => _windowService.BringToFront());
+                        Task.Run(BringToFrontUnlessAdminAsync);
                     }
 
                     // Ignore duplicate code within 500ms to prevent accidental scanning
@@ -125,6 +128,26 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
             }
         }
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
+    }
+
+    /// <summary>
+    /// An admin logged in on the kiosk is working in it - often remotely, or scanning new cards
+    /// into the card wizard - and a window that jumps to fullscreen on every scan gets in the way.
+    /// </summary>
+    private async Task BringToFrontUnlessAdminAsync()
+    {
+        try
+        {
+            using var scope = _services.CreateScope();
+            var user = await scope.ServiceProvider.GetRequiredService<IAuthenticationService>().GetCurrentUserInfoAsync();
+            if (user?.IsAdmin == true) return;
+        }
+        catch
+        {
+            // Unknown login state: behave like nobody is logged in
+        }
+
+        _windowService.BringToFront();
     }
 
     private bool IsDigit(VirtualKeys key) =>

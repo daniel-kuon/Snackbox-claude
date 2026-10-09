@@ -78,7 +78,8 @@ public class UsersControllerSetupTests : IDisposable
         var result = await _controller.CompleteSetup(new CompleteAccountSetupDto
         {
             BarcodeCode = "DOES-NOT-EXIST",
-            Username = "Jane Smith"
+            Username = "Jane Smith",
+            Email = "someone@example.com"
         });
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
@@ -90,7 +91,8 @@ public class UsersControllerSetupTests : IDisposable
         var result = await _controller.CompleteSetup(new CompleteAccountSetupDto
         {
             BarcodeCode = "OLD-CARD-50",
-            Username = "New Name"
+            Username = "New Name",
+            Email = "someone@example.com"
         });
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
@@ -104,12 +106,30 @@ public class UsersControllerSetupTests : IDisposable
         var result = await _controller.CompleteSetup(new CompleteAccountSetupDto
         {
             BarcodeCode = "NEW-CARD-50",
-            Username = "Existing User"
+            Username = "Existing User",
+            Email = "someone@example.com"
         });
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
         var user = await _context.Users.SingleAsync(u => u.Id == 1);
         Assert.False(user.IsActive);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  ")]
+    [InlineData("not-an-address")]
+    public async Task CompleteSetup_WithoutValidEmail_ReturnsBadRequest(string? email)
+    {
+        var result = await _controller.CompleteSetup(new CompleteAccountSetupDto
+        {
+            BarcodeCode = "NEW-CARD-50",
+            Username = "Jane Smith",
+            Email = email
+        });
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.False((await _context.Users.SingleAsync(u => u.Id == 1)).IsActive);
     }
 
     [Fact]

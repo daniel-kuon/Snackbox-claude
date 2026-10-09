@@ -29,7 +29,11 @@
 <div class="scanner-container">
     @if (_errorMessage != null)
     {
-        <div class="error-toast">@_errorMessage</div>
+        @* Click-through dimming: hard to miss from a few steps away, gone after a few seconds *@
+        <div class="error-toast" role="alert" @onclick="ClearError">
+            <span class="error-toast-icon">⚠️</span>
+            <span>@_errorMessage</span>
+        </div>
     }
 
     @if (!ScannerService.IsSessionActive)
@@ -161,7 +165,7 @@
                     <div class="user-info-box">
                         <div class="user-info-left">
                             <h2 class="user-name">@session.UserName</h2>
-                            <div class="user-balance">
+                            <div class="user-balance @SpotlightClass("payment", primary: false)">
                                 <span
                                     class="balance-label">@(session.OpenAmount > 0 ? "Open Payment:" : "Deposit:")</span>
                                 <span class="balance-amount @(session.OpenAmount > 0 ? "positive" : "negative")">
@@ -171,7 +175,8 @@
                         </div>
 
                         @* Inactive user alert - becomes a prominent call to action once they've actually bought something *@
-                        @if (session.IsUserInactive)
+                        @* Not while the setup wizard is open - it is the very dialog this banner points to *@
+                        @if (session.IsUserInactive && !_showSetupWizard)
                         {
                             var boughtSomething = session.ScannedBarcodes.Any();
                             @if (boughtSomething)
@@ -427,15 +432,35 @@
 
     .error-toast {
         position: fixed;
-        top: 20px;
-        right: 20px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(720px, 90vw);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 2rem 2.5rem;
         background: #dc3545;
         color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        z-index: 1000;
-        animation: slideIn 0.3s ease-out;
+        font-size: 2rem;
+        font-weight: 700;
+        text-align: center;
+        border-radius: 16px;
+        border: 4px solid #fff;
+        /* the second shadow dims the page around it */
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 9999px rgba(0, 0, 0, 0.45);
+        z-index: 2000;
+        cursor: pointer;
+        animation: error-shake 0.5s ease-in-out;
+    }
+
+    .error-toast-icon { font-size: 3rem; line-height: 1; }
+
+    @@keyframes error-shake {
+        0%, 100% { transform: translate(-50%, -50%); }
+        20%, 60% { transform: translate(calc(-50% - 14px), -50%); }
+        40%, 80% { transform: translate(calc(-50% + 14px), -50%); }
     }
 
     @@keyframes slideIn {
@@ -991,6 +1016,17 @@
         animation: sb-spotlight-pulse 1.6s ease-in-out infinite;
     }
 
+    /* A second element of the same step (e.g. the balance next to the PayPal QR): just the
+       ring, raised above the first element's dimming shadow, which would otherwise cover it */
+    .sb-spotlight-extra {
+        position: relative;
+        z-index: 1151;
+        background: #fff;
+        border-radius: 8px;
+        padding: 0.25rem 0.5rem;
+        box-shadow: 0 0 0 4px var(--brand-blue);
+    }
+
     @@keyframes sb-spotlight-pulse {
         0%, 100% { box-shadow: 0 0 0 4px var(--brand-blue), 0 0 0 9999px rgba(0, 0, 0, 0.72); }
         50% { box-shadow: 0 0 0 7px rgba(13, 110, 253, 0.75), 0 0 0 9999px rgba(0, 0, 0, 0.72); }
@@ -1233,7 +1269,7 @@
 
             if (!scanResult.IsSuccess)
             {
-                ShowError(scanResult.ErrorMessage ?? "Barcode not recognized");
+                ShowError($"{scanResult.ErrorMessage ?? "Barcode not recognized"}: {code}");
                 return;
             }
 
@@ -1409,6 +1445,12 @@
         _errorTimer.Start();
     }
 
+    private void ClearError()
+    {
+        _errorTimer?.Dispose();
+        _errorMessage = null;
+    }
+
     private string GetCurrentScanInfo()
     {
         if (ScannerService.CurrentSession == null)
@@ -1425,8 +1467,8 @@
     }
 
     // Highlights the element the current wizard step is talking about
-    private string SpotlightClass(string targetKey)
-        => _spotlightTarget == targetKey ? "sb-spotlight" : string.Empty;
+    private string SpotlightClass(string targetKey, bool primary = true)
+        => _spotlightTarget != targetKey ? string.Empty : primary ? "sb-spotlight" : "sb-spotlight-extra";
 
     private bool IsFeatureEnabled(string key)
         => ScannerService.CurrentSession?.EnabledFeatures.Contains(key) ?? false;
