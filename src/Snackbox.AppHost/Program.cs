@@ -58,6 +58,14 @@ var web = builder.AddProject<Snackbox_BlazorServer>("web").WithReference(api).Wi
 web.WithEnvironment("Telemetry__Otlp__AdditionalGrpcEndpoints__0", otelCollectorGrpcEndpoint);
 web.WithEnvironment("Telemetry__SignozUrl", "http://localhost:3301");
 
+// The API and the website take their environment from their own launchSettings.json, which
+// says Development - and in Development the API's test helper is live: a login without
+// password and a database reset, on the kiosk for anyone to click. They get the AppHost's own
+// environment instead: Development when run from the IDE, Production in an installation
+// (Snackbox.Updater starts the AppHost with the "Installed" launch profile).
+api.WithEnvironment("ASPNETCORE_ENVIRONMENT", builder.Environment.EnvironmentName);
+web.WithEnvironment("ASPNETCORE_ENVIRONMENT", builder.Environment.EnvironmentName);
+
 // Note: Windows native MAUI app should be run separately from Visual Studio/Rider
 // Run using: dotnet run --project src/Snackbox.Web -f net10.0-windows10.0.19041.0
 

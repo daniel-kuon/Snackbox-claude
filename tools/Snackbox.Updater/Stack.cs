@@ -130,11 +130,13 @@ public sealed class Stack(Installation installation, Log log)
     {
         log.Write("Starting the Aspire AppHost...");
 
+        // "Installed" runs the stack as Production - the default profile is for development and
+        // would switch the API's test helper (password bypass, database reset) on.
         // The AppHost outlives this updater, so it must not write into a pipe we own: once we
         // exit, its next log line hits a closed pipe. cmd hands it a file to write to instead.
         var output = Path.Combine(installation.StateDirectory, "apphost.log");
         var info = new ProcessStartInfo("cmd.exe",
-                                        $"/c dotnet run --project src/Snackbox.AppHost -c Release --no-build > \"{output}\" 2>&1")
+                                        $"/c dotnet run --project src/Snackbox.AppHost -c Release --no-build --launch-profile Installed > \"{output}\" 2>&1")
         {
             WorkingDirectory = installation.Root,
             // ShellExecute rather than CreateProcess: the AppHost must not inherit our console
