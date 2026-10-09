@@ -333,3 +333,6 @@ nul
 backups/
 appsettings.secrets.json
 
+
+# Working files of the Playwright browser tool
+.playwright-mcp/
