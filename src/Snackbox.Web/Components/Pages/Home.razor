@@ -435,15 +435,16 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: min(720px, 90vw);
+        /* sized by the screen, not in px: the kiosk is a small 4:3 display, dev PCs are 4K+ */
+        width: 70vw;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 1rem;
-        padding: 2rem 2.5rem;
+        gap: 3vmin;
+        padding: 5vmin 4vmin;
         background: #dc3545;
         color: white;
-        font-size: 2rem;
+        font-size: max(1.5rem, 4.5vmin);
         font-weight: 700;
         text-align: center;
         border-radius: 16px;
@@ -455,7 +456,7 @@
         animation: error-shake 0.5s ease-in-out;
     }
 
-    .error-toast-icon { font-size: 3rem; line-height: 1; }
+    .error-toast-icon { font-size: 1.6em; line-height: 1; }
 
     @@keyframes error-shake {
         0%, 100% { transform: translate(-50%, -50%); }
