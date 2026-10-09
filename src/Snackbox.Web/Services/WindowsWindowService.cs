@@ -1,6 +1,9 @@
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Windowing;
+using Snackbox.Api.Dtos;
+using Snackbox.ApiClient;
 using Snackbox.Web.Configuration;
 using WinRT.Interop;
 
@@ -11,20 +14,30 @@ public class WindowsWindowService : IWindowService, IDisposable
     private Window? _window;
     private IntPtr _windowHandle;
     private AppWindow? _appWindow;
-    private readonly bool _startFullscreen;
-    private readonly bool _startMinimized;
+    private readonly bool _fullscreenConfigured;
+    private readonly IServiceProvider _services;
+    private System.Threading.Timer? _modeTimer;
     private bool _isCurrentlyFullscreen;
     private bool _initialMinimizeDone;
     private WndProcDelegate? _wndProcDelegate;
     private IntPtr _oldWndProc;
     private bool _isMaximized = false;
 
-    public WindowsWindowService(IConfiguration configuration)
+    /// <summary>
+    /// Parallel-run mode: minimized, never pulled to the front. Starts from Window:StartMinimized
+    /// and then follows Admin -> Settings -> Kiosk window (polled), which wins once the API answers.
+    /// </summary>
+    public bool IsBackground { get; private set; }
+
+    // Background owns the window state: never fullscreen while in the background
+    private bool FullscreenWanted => _fullscreenConfigured && !IsBackground;
+
+    public WindowsWindowService(IConfiguration configuration, IServiceProvider services)
     {
         var windowConfig = configuration.GetSection("Window").Get<WindowConfiguration>() ?? new WindowConfiguration();
-        _startMinimized = windowConfig.StartMinimized;
-        // Parallel-run mode owns the window state: never go fullscreen while minimized
-        _startFullscreen = windowConfig.StartFullscreen && !_startMinimized;
+        IsBackground = windowConfig.StartMinimized;
+        _fullscreenConfigured = windowConfig.StartFullscreen;
+        _services = services;
     }
 
     public void SetWindow(Window window)
@@ -39,9 +52,9 @@ public class WindowsWindowService : IWindowService, IDisposable
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_windowHandle);
             _appWindow = AppWindow.GetFromWindowId(windowId);
 
-            if (_appWindow != null && (_startFullscreen || _startMinimized))
+            if (_appWindow != null)
             {
-                if (_startMinimized)
+                if (IsBackground)
                 {
                     ShowWindow(_windowHandle, SW_MINIMIZE);
                 }
@@ -54,6 +67,8 @@ public class WindowsWindowService : IWindowService, IDisposable
                 _wndProcDelegate = WndProc;
                 _oldWndProc = SetWindowLongPtr(_windowHandle, GWLP_WNDPROC,
                     Marshal.GetFunctionPointerForDelegate(_wndProcDelegate));
+
+                _modeTimer = new System.Threading.Timer(_ => _ = PollModeAsync(), null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
             }
         }
     }
@@ -69,7 +84,7 @@ public class WindowsWindowService : IWindowService, IDisposable
                     if (sizeType == SIZE_MAXIMIZED)
                     {
                         // Window was maximized - enter fullscreen if configured
-                        if (_startFullscreen && !_isCurrentlyFullscreen)
+                        if (FullscreenWanted && !_isCurrentlyFullscreen)
                         {
                             _isMaximized = true;
                             _window?.Dispatcher.Dispatch(() => SetFullscreen(true));
@@ -110,7 +125,7 @@ public class WindowsWindowService : IWindowService, IDisposable
                     // MAUI activates the window right after it is created, which undoes the
                     // minimize from SetWindow. Push it back down once - after that the user
                     // (or an admin) is free to open it.
-                    if (isActivating && _startMinimized && !_initialMinimizeDone)
+                    if (isActivating && IsBackground && !_initialMinimizeDone)
                     {
                         _initialMinimizeDone = true;
                         _window?.Dispatcher.Dispatch(() => ShowWindow(_windowHandle, SW_MINIMIZE));
@@ -185,7 +200,7 @@ public class WindowsWindowService : IWindowService, IDisposable
             // Go back to fullscreen. Losing focus drops the presenter back to Default (see
             // WM_ACTIVATE), so the window is usually not "zoomed" at this point - checking for
             // that would leave it windowed after every scan.
-            if (_startFullscreen && !_isCurrentlyFullscreen)
+            if (FullscreenWanted && !_isCurrentlyFullscreen)
             {
                 _isMaximized = true;
                 _window?.Dispatcher.Dispatch(() => SetFullscreen(true));
@@ -194,6 +209,39 @@ public class WindowsWindowService : IWindowService, IDisposable
         catch
         {
             // Silently fail if we can't bring window to foreground
+        }
+    }
+
+    private async Task PollModeAsync()
+    {
+        try
+        {
+            using var scope = _services.CreateScope();
+            var flags = await scope.ServiceProvider.GetRequiredService<IFeatureFlagsApi>().GetAllAsync();
+            var flag = flags.FirstOrDefault(f => f.Key == FeatureFlagKeys.KioskBackground);
+            if (flag == null) return;
+
+            var background = flag.Audience != FeatureAudience.Disabled;
+            if (background == IsBackground) return;
+
+            IsBackground = background;
+            _window?.Dispatcher.Dispatch(() =>
+            {
+                if (background)
+                {
+                    // Out of the way for the old Snackbox
+                    SetFullscreen(false);
+                    ShowWindow(_windowHandle, SW_MINIMIZE);
+                }
+                else
+                {
+                    BringToFront();
+                }
+            });
+        }
+        catch
+        {
+            // API not reachable (yet) - keep the current mode and try again on the next tick
         }
     }
 
@@ -222,6 +270,8 @@ public class WindowsWindowService : IWindowService, IDisposable
 
     public void Dispose()
     {
+        _modeTimer?.Dispose();
+
         // Restore original window procedure
         if (_windowHandle != IntPtr.Zero && _oldWndProc != IntPtr.Zero)
         {

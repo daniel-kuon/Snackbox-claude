@@ -18,12 +18,3 @@ public class FeatureFlag
 
     public DateTime UpdatedAt { get; set; }
 }
-
-/// <summary>
-/// Well-known feature flag keys.
-/// </summary>
-public static class FeatureFlagKeys
-{
-    /// <summary>Snackbox as an installable app on the user's phone (PWA + install guide).</summary>
-    public const string MobileApp = "mobile_app";
-}

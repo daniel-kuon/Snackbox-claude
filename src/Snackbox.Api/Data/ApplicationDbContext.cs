@@ -87,6 +87,15 @@ public class ApplicationDbContext : DbContext
                 Description = "Show users how to install Snackbox as an app on their phone (install guide QR on the scan screen and the matching introduction step).",
                 Audience = FeatureAudience.Disabled,
                 UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new FeatureFlag
+            {
+                Id = 2,
+                Key = FeatureFlagKeys.KioskBackground,
+                Name = "Kiosk in the background",
+                Description = "The kiosk window stays minimized and is never pulled to the front by a scan (parallel run with the old Snackbox). Scans are still recorded.",
+                Audience = FeatureAudience.Disabled,
+                UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );
 

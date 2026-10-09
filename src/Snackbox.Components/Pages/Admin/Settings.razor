@@ -162,6 +162,38 @@
                 }
             </div>
 
+            <!-- Kiosk window: stored like a feature flag, so it also applies without a restart -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <h3>Kiosk window</h3>
+                </div>
+                @if (KioskBackgroundFlag is { } kiosk)
+                {
+                    var background = kiosk.Audience != FeatureAudience.Disabled;
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="kioskWindow" id="kioskForeground"
+                               checked="@(!background)" disabled="@(_savingFlagKey == kiosk.Key)"
+                               @onchange="() => SetFeatureAudience(kiosk, nameof(FeatureAudience.Disabled))" />
+                        <label class="form-check-label" for="kioskForeground">
+                            <strong>Foreground</strong> - fullscreen, and every scan brings the kiosk to the front
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="kioskWindow" id="kioskBackground"
+                               checked="@background" disabled="@(_savingFlagKey == kiosk.Key)"
+                               @onchange="() => SetFeatureAudience(kiosk, nameof(FeatureAudience.Everyone))" />
+                        <label class="form-check-label" for="kioskBackground">
+                            <strong>Background</strong> - minimized, scans never bring it to the front (running alongside the old Snackbox)
+                        </label>
+                    </div>
+                    <small class="form-text text-muted">Scans are recorded either way. The kiosk picks a change up within 30 seconds.</small>
+                }
+                else if (_featureFlags == null)
+                {
+                    <div class="spinner-border spinner-border-sm"></div>
+                }
+            </div>
+
             <!-- Feature Flags: saved immediately, no restart needed -->
             <div class="settings-section">
                 <div class="settings-section-header">
@@ -175,7 +207,7 @@
                 }
                 else
                 {
-                    @foreach (var flag in _featureFlags)
+                    @foreach (var flag in _featureFlags.Where(f => f.Key != FeatureFlagKeys.KioskBackground))
                     {
                         <div class="form-group feature-flag">
                             <label class="form-label"><strong>@flag.Name</strong></label>
@@ -346,6 +378,7 @@
     private bool _saveSuccess;
 
     private List<FeatureFlagDto>? _featureFlags;
+    private FeatureFlagDto? KioskBackgroundFlag => _featureFlags?.FirstOrDefault(f => f.Key == FeatureFlagKeys.KioskBackground);
     private string? _savingFlagKey;
     private string? _flagMessage;
     private bool _flagSuccess;

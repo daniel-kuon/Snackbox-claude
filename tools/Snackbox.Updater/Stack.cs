@@ -31,12 +31,25 @@ public sealed class Stack(Installation installation, Log log)
 
     public void Stop()
     {
+        // Aspire's orchestrator (dcp.exe) outlives a killed AppHost and goes on shutting its
+        // resources down for a while - long enough to take the next AppHost's API and website
+        // with it, which left an installation without a backend after an update. Each DCP is
+        // told which AppHost to watch ("--monitor <pid>"), so only ours are stopped, not the
+        // DCP of some other Aspire app on the machine. Found before anything is killed, while
+        // the AppHosts still exist to be matched against.
+        var orchestrators = OrchestratorsMonitoring(Process.GetProcessesByName("Snackbox.AppHost").Select(p => p.Id));
+
         foreach (var pid in installation.RememberedProcesses())
         {
             KillTree(pid);
         }
 
         installation.ForgetProcesses();
+
+        foreach (var pid in orchestrators)
+        {
+            KillTree(pid);
+        }
 
         // Aspire's DCP starts the API and the website outside the AppHost's process tree, so
         // killing the "dotnet run" we remembered leaves them behind - and they hold the very
@@ -50,6 +63,22 @@ public sealed class Stack(Installation installation, Log log)
         }
 
         log.Write("Stack stopped.");
+    }
+
+    private List<int> OrchestratorsMonitoring(IEnumerable<int> appHostPids)
+    {
+        var pids = string.Join("|", appHostPids);
+        if (pids.Length == 0) return [];
+
+        // No .NET API reads another process's command line; WMI via PowerShell does
+        var script = "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'dcp.exe' -and " +
+                     $"$_.CommandLine -match '--monitor ({pids})( |$)' }} | ForEach-Object {{ $_.ProcessId }}";
+        var output = Installation.Run("powershell", $"-NoProfile -Command \"{script}\"", installation.Root, throwOnError: false);
+
+        return output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                     .Select(line => int.TryParse(line, out var pid) ? pid : 0)
+                     .Where(pid => pid > 0)
+                     .ToList();
     }
 
     private void KillTree(int pid)

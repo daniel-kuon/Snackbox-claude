@@ -37,9 +37,7 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
         _windowService = windowService;
 
         var windowConfig = configuration.GetSection("Window").Get<WindowConfiguration>() ?? new WindowConfiguration();
-        // While running in parallel with the old Snackbox the window must stay out of the way -
-        // the scan is still recorded, it just does not steal the screen.
-        _autoFocusOnScan = windowConfig.AutoFocusOnScan && !windowConfig.StartMinimized;
+        _autoFocusOnScan = windowConfig.AutoFocusOnScan;
     }
 
     public void Start()
@@ -136,6 +134,10 @@ public partial class WindowsScannerListener : IDisposable, IScannerListener
     /// </summary>
     private async Task BringToFrontUnlessAdminAsync()
     {
+        // While running in parallel with the old Snackbox the window must stay out of the way -
+        // the scan is still recorded, it just does not steal the screen.
+        if (_windowService.IsBackground) return;
+
         try
         {
             using var scope = _services.CreateScope();
