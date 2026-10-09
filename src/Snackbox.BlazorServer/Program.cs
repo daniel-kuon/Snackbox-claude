@@ -9,6 +9,12 @@ using Snackbox.ServiceDefaults.Tracing;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// An installation runs the build output (not a publish) as Production. Static web assets -
+// _framework/blazor.web.js and the Razor library files such as brand.css - are only mapped
+// automatically in Development; otherwise they are listed but not found, every one of them
+// answers 500 and the site renders without any interactivity.
+builder.WebHost.UseStaticWebAssets();
+
 builder.Services.AddSnackboxOpenTelemetry(builder.Configuration, new TelemetryInstrumentationOptions
 {
     ServiceName = "snackbox-blazor",
