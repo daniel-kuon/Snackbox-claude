@@ -37,6 +37,7 @@
 
     private ElementReference _inputElement;
     private DotNetObjectReference<BarcodeInput>? _objRef;
+    private readonly string _registrationKey = Guid.NewGuid().ToString("N");
     private bool _scannerActive;
 
     private string CurrentValue
@@ -57,7 +58,7 @@
         if (firstRender && !DisableGlobalScanner)
         {
             _objRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("barcodeScanner.register", _objRef);
+            await JS.InvokeVoidAsync("barcodeScanner.register", _registrationKey, _objRef);
         }
     }
 
@@ -79,7 +80,7 @@
     {
         if (_objRef != null && !DisableGlobalScanner)
         {
-            JS.InvokeVoidAsync("barcodeScanner.unregister", _objRef);
+            JS.InvokeVoidAsync("barcodeScanner.unregister", _registrationKey);
             _objRef.Dispose();
         }
     }

@@ -1,6 +1,9 @@
 // Global barcode scanner handler
 window.barcodeScanner = (function () {
-    const registeredComponents = [];
+    // Keyed by an id the component passes in. Each interop call hands JS a new proxy for the
+    // same .NET object, so looking a registration up by the object never found it and
+    // unregister silently did nothing - registrations piled up across pages.
+    const registeredComponents = new Map();
     let buffer = '';
     let lastKeyTime = 0;
     const KEY_TIMEOUT = 50; // milliseconds between keystrokes for barcode scanner
@@ -9,14 +12,24 @@ window.barcodeScanner = (function () {
 
     let isInCooldown = false;
 
+    function isEditable(element) {
+        return !!element && (element.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName));
+    }
+
     function handleKeyPress(e) {
+        // A focused field owns its keystrokes - the scan goes into it the normal way. This
+        // listener is for scans while no field has focus; it used to grab them everywhere and
+        // swallow the Enter of fields that take scans themselves (the card wizard).
+        if (isEditable(e.target)) {
+            buffer = '';
+            return;
+        }
+
         const currentTime = Date.now();
         const timeDiff = currentTime - lastKeyTime;
 
-        // Enter key signals end of barcode. Only swallow it when a BarcodeInput is actually
-        // listening: otherwise every scan's Enter was eaten page-wide, and fields that take
-        // scans on their own (the card wizard) never saw it.
-        if (e.key === 'Enter' && buffer.length >= MIN_LENGTH && registeredComponents.length > 0) {
+        // Enter key signals end of barcode - only taken when a BarcodeInput is listening
+        if (e.key === 'Enter' && buffer.length >= MIN_LENGTH && registeredComponents.size > 0) {
             e.preventDefault();
             
             if (!isInCooldown) {
@@ -67,18 +80,11 @@ window.barcodeScanner = (function () {
     document.addEventListener('keypress', handleKeyPress);
 
     return {
-        register: function (component) {
-            if (!registeredComponents.includes(component)) {
-                registeredComponents.push(component);
-                console.log('Registered barcode component, total:', registeredComponents.length);
-            }
+        register: function (key, component) {
+            registeredComponents.set(key, component);
         },
-        unregister: function (component) {
-            const index = registeredComponents.indexOf(component);
-            if (index > -1) {
-                registeredComponents.splice(index, 1);
-                console.log('Unregistered barcode component, remaining:', registeredComponents.length);
-            }
+        unregister: function (key) {
+            registeredComponents.delete(key);
         }
     };
 })();
