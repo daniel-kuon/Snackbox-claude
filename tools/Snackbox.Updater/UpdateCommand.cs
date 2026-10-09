@@ -36,6 +36,9 @@ public sealed class UpdateCommand(Installation installation, Stack stack, Log lo
                 Environment.NewLine + dirty);
         }
 
+        // A watchdog run that is under way would see the stopped stack and start it again
+        // mid-build - and its running executable would block the build from replacing it.
+        Watchdog.WaitForOtherUpdaters(log);
         stack.Stop();
 
         try

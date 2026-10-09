@@ -32,7 +32,10 @@
         @* Click-through dimming: hard to miss from a few steps away, gone after a few seconds *@
         <div class="error-toast" role="alert" @onclick="ClearError">
             <span class="error-toast-icon">⚠️</span>
-            <span>@_errorMessage</span>
+            <span>
+                @_errorMessage
+                <small class="error-toast-help">If this keeps happening, contact Daniel Kuon - daniel.kuon@cargonerds.com</small>
+            </span>
         </div>
     }
 
@@ -457,6 +460,7 @@
     }
 
     .error-toast-icon { font-size: 1.6em; line-height: 1; }
+    .error-toast-help { display: block; margin-top: 0.4em; font-size: 0.5em; font-weight: 400; opacity: 0.95; }
 
     @@keyframes error-shake {
         0%, 100% { transform: translate(-50%, -50%); }

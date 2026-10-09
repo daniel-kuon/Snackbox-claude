@@ -1,0 +1,99 @@
+@using Refit
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@inject IUsersApi UsersApi
+@inject NavigationManager Navigation
+
+@* Lost card: the replacement card was set up as a user of its own. This folds it into the
+   person's existing account and deletes it. *@
+<div class="merge-panel">
+    <h4>Move to another user</h4>
+    <p class="text-muted mb-2">
+        For a replacement card: barcodes, purchases, payments and achievements of <strong>@User.Username</strong>
+        move to the user picked below, and <strong>@User.Username</strong> is deleted. Their card then buys on that account.
+    </p>
+
+    @if (_users == null)
+    {
+        <div class="spinner-border spinner-border-sm"></div>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <select class="form-select merge-target" @bind="_targetId" disabled="@_busy">
+                <option value="0">Choose the user to move to...</option>
+                @foreach (var user in _users)
+                {
+                    <option value="@user.Id">@user.Username@(string.IsNullOrEmpty(user.Email) ? "" : $" ({user.Email})")</option>
+                }
+            </select>
+
+            @if (Target is { } target)
+            {
+                <button class="btn btn-danger" disabled="@_busy" @onclick="MergeAsync">
+                    Move everything to @target.Username and delete @User.Username
+                </button>
+            }
+            <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="OnCancel">Cancel</button>
+        </div>
+    }
+
+    @if (_error != null)
+    {
+        <div class="alert alert-danger mt-2 mb-0">@_error</div>
+    }
+</div>
+
+<style>
+    .merge-panel { margin: 1rem 0; padding: 1rem; border: 1px solid #dc3545; background: rgba(220, 53, 69, .04); }
+    .merge-panel h4 { font-size: 1.1rem; }
+    .merge-target { max-width: 28rem; }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public UserDto User { get; set; } = null!;
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private List<UserDto>? _users;
+    private int _targetId;
+    private bool _busy;
+    private string? _error;
+
+    private UserDto? Target => _users?.FirstOrDefault(u => u.Id == _targetId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _users = (await UsersApi.GetAllAsync())
+                .Where(u => u.Id != User.Id)
+                .OrderBy(u => u.Username)
+                .ToList();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            _users = new List<UserDto>();
+        }
+    }
+
+    private async Task MergeAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await UsersApi.MergeIntoAsync(User.Id, _targetId);
+            // The detail page loads its user once; a fresh load shows the target with everything moved
+            Navigation.NavigateTo($"/admin/users/{_targetId}", forceLoad: true);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Content ?? ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

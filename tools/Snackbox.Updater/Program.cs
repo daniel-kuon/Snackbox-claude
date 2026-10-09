@@ -9,6 +9,9 @@ using Snackbox.Updater;
 //   stop                           stop everything this tool started
 //   install-autostart [--no-kiosk] register a scheduled task that runs "start" at logon
 //   uninstall-autostart            remove that task
+//   watchdog [--no-kiosk]          restart the stack if it stopped answering (for a scheduled task)
+//   install-watchdog [--no-kiosk]  run "watchdog" every 5 minutes
+//   uninstall-watchdog             remove that task
 //
 // Every command takes --dir <installation>; it otherwise falls back to SNACKBOX_HOME and then
 // to the repository the updater itself sits in.
@@ -78,6 +81,17 @@ try
             Autostart.Uninstall(log);
             return 0;
 
+        case "watchdog":
+            return new Watchdog(stack, log).Run(withKiosk);
+
+        case "install-watchdog":
+            Watchdog.InstallTask(installation, withKiosk, log);
+            return 0;
+
+        case "uninstall-watchdog":
+            Watchdog.UninstallTask(log);
+            return 0;
+
         default:
             Console.Error.WriteLine($"Unknown command: {command}");
             PrintUsage();
@@ -131,6 +145,10 @@ static void PrintUsage()
           stop                            stop everything the updater started
           install-autostart [--no-kiosk]  run "start" at every logon
           uninstall-autostart             remove the autostart task
+          watchdog [--no-kiosk]           restart Snackbox if the API or website stopped
+                                          answering, start the kiosk if it is gone
+          install-watchdog [--no-kiosk]   run "watchdog" every 5 minutes (scheduled task)
+          uninstall-watchdog              remove the watchdog task
 
         Options
           --dir <path>                    the installation to act on (default: SNACKBOX_HOME,

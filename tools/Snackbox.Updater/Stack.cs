@@ -180,7 +180,7 @@ public sealed class Stack(Installation installation, Log log)
         log.Write($"AppHost started (pid {process.Id}), output in {output}.");
     }
 
-    private void StartKiosk()
+    public void StartKiosk()
     {
         var kiosk = Path.Combine(installation.Root, "src", "Snackbox.Web", "bin", "Release",
                                  KioskFramework, "win-x64", "Snackbox.Web.exe");

@@ -33,6 +33,10 @@ public interface IUsersApi
     [Post("/api/users/{id}/set-password")]
     Task AdminSetPasswordAsync(int id, [Body] AdminSetPasswordRequest request);
 
+    // Admin-only: fold a user (typically a replacement card) into another; the source is deleted
+    [Post("/api/users/{id}/merge-into/{targetId}")]
+    Task MergeIntoAsync(int id, int targetId);
+
     // Kiosk: complete setup of an inactive placeholder account (barcode = proof of card possession)
     [Post("/api/users/setup")]
     Task<CompleteAccountSetupResponse> CompleteSetupAsync([Body] CompleteAccountSetupDto dto);

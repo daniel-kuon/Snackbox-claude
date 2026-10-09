@@ -1,0 +1,77 @@
+@implements IDisposable
+@inject IHttpClientFactory HttpClientFactory
+
+@* A red bar over everything while the API does not answer. On the kiosk a scan then records
+   nothing, and without this it looks like it worked. *@
+@if (_down)
+{
+    <div class="backend-down" role="alert">
+        ⚠️ The Snackbox server is not reachable - scans are <strong>not</strong> being recorded right now.
+        Retrying automatically.
+    </div>
+}
+
+<style>
+    .backend-down {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 3000;
+        padding: 0.9rem 1.25rem; text-align: center;
+        background: #dc3545; color: #fff; font-size: 1.25rem; font-weight: 600;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+</style>
+
+@code {
+    private static readonly TimeSpan Interval = TimeSpan.FromSeconds(10);
+
+    // One missed answer is a hiccup; two in a row (10-20 s) is an outage worth shouting about
+    private const int FailuresBeforeAlert = 2;
+
+    private readonly CancellationTokenSource _cts = new();
+    private int _failures;
+    private bool _down;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // Not during prerendering on the website - only once the component is interactive
+        if (firstRender) _ = WatchAsync();
+    }
+
+    private async Task WatchAsync()
+    {
+        using var timer = new PeriodicTimer(Interval);
+        try
+        {
+            do
+            {
+                _failures = await AnswersAsync() ? 0 : _failures + 1;
+                var down = _failures >= FailuresBeforeAlert;
+                if (down == _down) continue;
+
+                _down = down;
+                await InvokeAsync(StateHasChanged);
+            }
+            while (await timer.WaitForNextTickAsync(_cts.Token));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task<bool> AnswersAsync()
+    {
+        try
+        {
+            using var http = HttpClientFactory.CreateClient("");
+            http.Timeout = TimeSpan.FromSeconds(5);
+            using var response = await http.GetAsync("health", _cts.Token);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception) when (!_cts.IsCancellationRequested)
+        {
+            return false;
+        }
+    }
+
+    // Cancelled, not disposed: the watch loop may still be reading the token
+    public void Dispose() => _cts.Cancel();
+}

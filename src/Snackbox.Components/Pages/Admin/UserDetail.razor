@@ -114,9 +114,20 @@
                                 <button class="btn btn-outline-danger btn-sm" @onclick="RetireUser" title="Retire this user and move barcodes to a new inactive placeholder" disabled="@(!_user.IsActive || _user.IsRetired)">
                                     🪦 Retire
                                 </button>
+                                @if (!_user.IsAdmin)
+                                {
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => _showMerge = !_showMerge"
+                                            title="Replacement card: move everything to the person's existing account">
+                                        🔀 Move to another user
+                                    </button>
+                                }
                                 <button class="btn btn-primary btn-sm" @onclick="StartEditUserInfo">Edit</button>
                             </div>
                         </div>
+                        @if (_showMerge)
+                        {
+                            <MergeUserPanel User="_user" OnCancel="() => _showMerge = false" />
+                        }
                         @if (_retireSuccessMessage != null)
                         {
                             <div class="alert alert-success">
@@ -1938,6 +1949,8 @@
             _isSaving = false;
         }
     }
+
+    private bool _showMerge;
 
     private async Task RetireUser()
     {

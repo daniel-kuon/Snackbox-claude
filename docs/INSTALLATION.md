@@ -57,6 +57,32 @@ $updater = "C:\Snackbox\tools\Snackbox.Updater\bin\Release\net10.0\Snackbox.Upda
 & $updater uninstall-autostart          # remove
 ```
 
+## Watchdog
+
+`Snackbox.Updater watchdog` checks that the API (`http://localhost:5057/health`) and the
+website (`http://localhost:5186/login`) answer - three tries, ten seconds apart. If they do not,
+it stops and restarts the whole stack; if only the kiosk window is gone, it starts the kiosk. It
+leaves the stack alone during the first 3 minutes after a start and while another updater runs
+(an update or a start), and it only writes to `updater.log` when it acts.
+
+Run it from a scheduled task every 5 minutes. `install-watchdog` registers exactly that for the
+logged-in user (a time trigger needs no administrator rights). It runs through
+`conhost.exe --headless`, so no console window flashes up and takes the focus from the kiosk:
+
+```powershell
+& $updater install-watchdog             # every 5 minutes (re-run to change options)
+& $updater install-watchdog --no-kiosk  # don't start the kiosk window
+& $updater uninstall-watchdog           # remove
+```
+
+To create the task by hand instead (Task Scheduler, "Run only when user is logged on"):
+
+```
+Program:   conhost.exe
+Arguments: --headless "C:\Snackbox\tools\Snackbox.Updater\bin\Release\net10.0\Snackbox.Updater.exe" watchdog --dir "C:\Snackbox"
+Trigger:   daily, repeat every 5 minutes indefinitely
+```
+
 ## Updating
 
 Open **Admin → Updates** in Snackbox. It shows the installed version, the newest GitHub release
