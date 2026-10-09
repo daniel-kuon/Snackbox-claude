@@ -1,0 +1,26 @@
+- generic [ref=f2e4]:
+  - generic [ref=f2e5]:
+    - heading "⚠️ Database Setup Required" [level=2] [ref=f2e6]
+    - paragraph [ref=f2e7]: The Snackbox database is not available. Please choose one of the following options to set up the database.
+  - generic [ref=f2e8]:
+    - generic [ref=f2e9]:
+      - generic [ref=f2e10]: 🔄
+      - heading "Restore from Backup" [level=3] [ref=f2e11]
+      - paragraph [ref=f2e12]: Restore your database from a previously saved backup file.
+      - generic [ref=f2e13] [cursor=pointer]: 📥 Upload Backup File
+      - button "📋 Browse Existing Backups" [ref=f2e14] [cursor=pointer]
+    - generic [ref=f2e15]:
+      - generic [ref=f2e16]: 📦
+      - heading "Create Empty Database" [level=3] [ref=f2e17]
+      - paragraph [ref=f2e18]: A fresh database with no data. Enter the first administrator - you log in with these, no card needed.
+      - generic [ref=f2e19]:
+        - textbox "Admin name" [ref=f2e20]
+        - textbox "E-mail (used to log in)" [ref=f2e21]
+        - textbox "Password (at least 6 characters)" [ref=f2e22]
+        - textbox "Repeat password" [ref=f2e23]
+      - button "➕ Create Empty" [disabled]
+    - generic [ref=f2e24]:
+      - generic [ref=f2e25]: 🌱
+      - heading "Create with Sample Data" [level=3] [ref=f2e26]
+      - paragraph [ref=f2e27]: Create a database with sample users, products, and transactions for testing.
+      - button "🚀 Create with Data" [ref=f2e28] [cursor=pointer]

@@ -13,8 +13,10 @@ window.barcodeScanner = (function () {
         const currentTime = Date.now();
         const timeDiff = currentTime - lastKeyTime;
 
-        // Enter key signals end of barcode
-        if (e.key === 'Enter' && buffer.length >= MIN_LENGTH) {
+        // Enter key signals end of barcode. Only swallow it when a BarcodeInput is actually
+        // listening: otherwise every scan's Enter was eaten page-wide, and fields that take
+        // scans on their own (the card wizard) never saw it.
+        if (e.key === 'Enter' && buffer.length >= MIN_LENGTH && registeredComponents.length > 0) {
             e.preventDefault();
             
             if (!isInCooldown) {

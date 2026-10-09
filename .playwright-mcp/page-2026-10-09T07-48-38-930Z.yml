@@ -1,0 +1,141 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e2]:
+    - generic [ref=f5e3]:
+      - generic [ref=f5e4]: Snackbox
+      - navigation [ref=f5e8]:
+        - generic [ref=f5e9]:
+          - generic [ref=f5e10]: Administration
+          - link "Dashboard" [ref=f5e12] [cursor=pointer]:
+            - /url: admin/dashboard
+          - link "Users" [ref=f5e15] [cursor=pointer]:
+            - /url: admin/users
+          - link "Products" [ref=f5e18] [cursor=pointer]:
+            - /url: admin/products
+          - link "Discounts" [ref=f5e21] [cursor=pointer]:
+            - /url: admin/discounts
+          - link "Invoices" [ref=f5e24] [cursor=pointer]:
+            - /url: admin/invoices
+          - link "Cash Register" [ref=f5e27] [cursor=pointer]:
+            - /url: admin/cash-register
+          - link "Backups" [ref=f5e30] [cursor=pointer]:
+            - /url: admin/backups
+          - link "Updates" [ref=f5e33] [cursor=pointer]:
+            - /url: admin/updates
+          - link "Old Snackbox" [ref=f5e36] [cursor=pointer]:
+            - /url: admin/legacy-import
+          - link "Settings" [ref=f5e39] [cursor=pointer]:
+            - /url: admin/settings
+          - link "SigNoz ↗" [ref=f5e42] [cursor=pointer]:
+            - /url: http://localhost:3301
+        - link "Change Password" [ref=f5e45] [cursor=pointer]:
+          - /url: change-password
+    - main [ref=f5e47]:
+      - article [ref=f5e49]:
+        - generic [ref=f5e50]:
+          - heading "Admin Dashboard" [level=2] [ref=f5e52]
+          - generic [ref=f5e54]:
+            - generic [ref=f5e55]: Scan Barcode (Product or User)
+            - textbox "Scan a product or user barcode..." [ref=f5e57]
+          - generic [ref=f5e58]:
+            - generic [ref=f5e59]:
+              - heading "Expiring Soon" [level=3] [ref=f5e60]
+              - paragraph [ref=f5e61]: Next 14 days
+              - generic [ref=f5e62]: No products expiring soon.
+            - generic [ref=f5e63]:
+              - heading "Likely Empty Soon" [level=3] [ref=f5e64]
+              - paragraph [ref=f5e65]: Projected from shelf stock and avg. weekly shelf additions
+              - generic [ref=f5e66]: No products predicted to be empty soon.
+            - generic [ref=f5e67]:
+              - heading "Purchases" [level=3] [ref=f5e68]
+              - generic [ref=f5e69]:
+                - generic [ref=f5e70]:
+                  - generic [ref=f5e71]: €0,00
+                  - generic [ref=f5e72]: This week
+                - generic [ref=f5e73]:
+                  - generic [ref=f5e74]: €0,00
+                  - generic [ref=f5e75]: This month
+              - generic [ref=f5e76]:
+                - generic [ref=f5e77]:
+                  - heading "Weekly (last 52 weeks)" [level=4] [ref=f5e78]
+                  - generic [ref=f5e79]:
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                - generic [ref=f5e80]:
+                  - heading "Monthly (last 12 months)" [level=4] [ref=f5e81]
+                  - generic [ref=f5e82]:
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+                    - generic "€0,00"
+            - generic [ref=f5e83]:
+              - generic [ref=f5e84]:
+                - heading "Users owing > €10" [level=3] [ref=f5e85]
+                - generic [ref=f5e86]:
+                  - generic [ref=f5e87]:
+                    - checkbox "Select all" [ref=f5e88]
+                    - text: Select all
+                  - button "Send Reminders" [disabled]
+              - generic [ref=f5e89]: No users above threshold.
+  - generic [ref=f5e90]:
+    - text: An unhandled error has occurred.
+    - link "Reload" [ref=f5e91] [cursor=pointer]:
+      - /url: .
+    - generic [ref=f5e92] [cursor=pointer]: 🗙

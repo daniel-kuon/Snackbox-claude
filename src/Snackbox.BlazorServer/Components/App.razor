@@ -25,6 +25,8 @@
     <Routes @rendermode="InteractiveServer" />
     <ReconnectModal  />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    @* BarcodeInput (Snackbox.Components) depends on it - without it every page with one crashed its circuit *@
+    <script src="@Assets["_content/Snackbox.Components/js/barcodeScanner.js"]"></script>
     <script src="app.js"></script>
 </body>
 
