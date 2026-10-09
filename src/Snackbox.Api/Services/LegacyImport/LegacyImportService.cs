@@ -91,6 +91,7 @@ public class LegacyImportService : ILegacyImportService
         var usedEmails = new HashSet<string>(
             existing.Where(u => u.Email != null).Select(u => u.Email!), StringComparer.OrdinalIgnoreCase);
         var usedNames = new HashSet<string>(existing.Select(u => u.Username), StringComparer.OrdinalIgnoreCase);
+        var usedCardNumbers = existing.Where(u => u.CardNumber != null).Select(u => u.CardNumber!.Value).ToHashSet();
 
         var map = new Dictionary<int, User>();
 
@@ -132,6 +133,8 @@ public class LegacyImportService : ILegacyImportService
                 Username = name,
                 Email = email,
                 IsActive = !isSpareCard,
+                // "Karte 05" -> card 5, so the card wizard knows the number is taken
+                CardNumber = isSpareCard ? ParseCardNumber(name, usedCardNumbers) : null,
                 CreatedAt = DateTime.UtcNow,
                 LegacyUserId = legacy.UserId
             };
@@ -142,6 +145,13 @@ public class LegacyImportService : ILegacyImportService
         }
 
         return map;
+    }
+
+    /// <summary>The digits after "Karte", if they form a number no other card has.</summary>
+    private static int? ParseCardNumber(string name, HashSet<int> used)
+    {
+        var digits = new string(name.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var number) && number > 0 && used.Add(number) ? number : null;
     }
 
     private static string? NormaliseEmail(string? email, HashSet<string> used, int legacyUserId, LegacyImportResultDto result)

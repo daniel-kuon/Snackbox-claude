@@ -16,6 +16,10 @@ public class User
     /// recognise users it already imported and lets the verification match the two sides.</summary>
     public int? LegacyUserId { get; set; }
 
+    /// <summary>Number printed on a pre-made card ("Karte 05"). Kept when someone claims the
+    /// card and renames the user, so the number never gets handed out twice.</summary>
+    public int? CardNumber { get; set; }
+
     // Navigation properties
     public ICollection<Barcode> Barcodes { get; set; } = new List<Barcode>();
     public ICollection<Purchase> Purchases { get; set; } = new List<Purchase>();

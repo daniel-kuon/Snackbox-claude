@@ -1,0 +1,267 @@
+@page "/admin/cards"
+@inherits AdminPageBase
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject ICardsApi CardsApi
+
+<PageTitle>Add cards - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Add cards</h2>
+        <p class="text-muted mb-0">
+            Every card gets a @Amount30.ToString("C") and a @Amount50.ToString("C") code. Pick a range, then scan
+            card by card - first the @Amount30.ToString("C") code, then the @Amount50.ToString("C") one. The next card
+            is selected automatically; click any card to scan its codes again.
+        </p>
+    </div>
+
+    @if (_cards == null)
+    {
+        <div class="settings-section">
+            <form class="row g-3 align-items-end" @onsubmit="LoadRangeAsync">
+                <div class="col-sm-4 col-md-3">
+                    <label class="form-label" for="firstNumber">First card number</label>
+                    <input id="firstNumber" type="number" min="1" class="form-control" @bind="_from" />
+                </div>
+                <div class="col-sm-4 col-md-3">
+                    <label class="form-label" for="cardCount">How many cards</label>
+                    <input id="cardCount" type="number" min="1" max="500" class="form-control" @bind="_count" />
+                </div>
+                <div class="col-sm-4 col-md-3">
+                    <button type="submit" class="btn btn-primary w-100" disabled="@_busy">Show cards</button>
+                </div>
+            </form>
+        </div>
+    }
+    else
+    {
+        <div class="settings-section scan-panel">
+            <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between">
+                <div class="scan-status">
+                    @if (Active is { } active)
+                    {
+                        <div class="scan-step">Card @active.Number</div>
+                        <div class="scan-prompt">
+                            Scan the <strong>@(_pending30 == null ? Amount30.ToString("C") : Amount50.ToString("C"))</strong> code
+                            @if (_pending30 != null)
+                            {
+                                <span class="text-muted">(@Amount30.ToString("C"): @_pending30)</span>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="scan-step">All cards in this range are set up ✓</div>
+                        <div class="scan-prompt text-muted">Click a card to scan its codes again.</div>
+                    }
+                </div>
+
+                @* The scanner types into this field and ends with Enter - typing a code by hand works too *@
+                <form class="scan-form" @onsubmit="SubmitScanAsync">
+                    <input @ref="_scanInput" class="form-control form-control-lg" placeholder="Scan here"
+                           @bind="_scanText" autocomplete="off" disabled="@(Active == null)" />
+                </form>
+
+                <button class="btn btn-outline-secondary" @onclick="ChangeRange">Other range</button>
+            </div>
+
+            @if (_error != null)
+            {
+                <div class="alert alert-danger mt-3 mb-0">@_error</div>
+            }
+        </div>
+
+        <div class="card-grid">
+            @foreach (var card in _cards)
+            {
+                var isActive = card.Number == _activeNumber;
+                <button type="button" class="card-tile @(isActive ? "active" : IsDone(card) ? "done" : "")"
+                        @onclick="() => Activate(card.Number)" title="Click to scan this card's codes again">
+                    <span class="card-number">@card.Number</span>
+                    @if (card.IsClaimed)
+                    {
+                        <span class="card-owner">@card.Username</span>
+                    }
+                    <span class="card-code">@Amount30.ToString("C") @(isActive && _pending30 != null ? _pending30 : card.Code30 ?? "-")</span>
+                    <span class="card-code">@Amount50.ToString("C") @(card.Code50 ?? "-")</span>
+                    @if (IsDone(card) && !isActive)
+                    {
+                        <span class="card-check">✓</span>
+                    }
+                </button>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .scan-panel { position: sticky; top: 0; z-index: 5; }
+    .scan-step { font-family: var(--brand-font-bold); font-weight: 700; font-size: 1.4rem; }
+    .scan-prompt { font-size: 1.1rem; }
+    .scan-form { flex: 1 1 18rem; max-width: 26rem; }
+
+    .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+        gap: .75rem;
+        margin-top: 1rem;
+    }
+
+    .card-tile {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .15rem;
+        padding: .75rem .9rem;
+        border: 1px solid var(--bs-border-color, #dee2e6);
+        background: #fff;
+        text-align: left;
+        transition: border-color .15s, box-shadow .15s;
+    }
+
+    .card-tile:hover { border-color: var(--brand-blue); }
+    .card-tile.done { border-color: rgba(25, 135, 84, .5); background: rgba(25, 135, 84, .05); }
+    .card-tile.active { border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(var(--brand-blue-rgb), .3); }
+
+    .card-number { font-family: var(--brand-font-bold); font-weight: 700; font-size: 1.5rem; line-height: 1; }
+    .card-owner { font-size: .8rem; color: var(--brand-blue); }
+    .card-code { font-size: .78rem; color: var(--brand-anthracite-soft); font-variant-numeric: tabular-nums; word-break: break-all; }
+    .card-check { position: absolute; top: .5rem; right: .7rem; color: #198754; font-weight: 700; }
+</style>
+
+@code {
+    private const decimal Amount30 = 0.30m;
+    private const decimal Amount50 = 0.50m;
+
+    private int _from = 1;
+    private int _count = 20;
+    private List<CardDto>? _cards;
+
+    private int? _activeNumber;
+    private string? _pending30;  // the €0.30 code of the active card, waiting for its €0.50 partner
+    private string _scanText = "";
+    private string? _error;
+    private bool _busy;
+
+    private ElementReference _scanInput;
+    private bool _focusScanInput;
+
+    private CardDto? Active => _cards?.FirstOrDefault(c => c.Number == _activeNumber);
+
+    private static bool IsDone(CardDto card) => card.Code30 != null && card.Code50 != null;
+
+    private async Task LoadRangeAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            _cards = await CardsApi.GetRangeAsync(_from, _count);
+            _activeNumber = _cards.FirstOrDefault(c => !IsDone(c))?.Number;
+            _pending30 = null;
+            _focusScanInput = true;
+        }
+        catch (ApiException ex)
+        {
+            _error = Message(ex);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void ChangeRange()
+    {
+        _cards = null;
+        _activeNumber = null;
+        _pending30 = null;
+        _error = null;
+    }
+
+    /// <summary>Selecting a card - done or not - starts its two scans from the beginning.</summary>
+    private void Activate(int number)
+    {
+        _activeNumber = number;
+        _pending30 = null;
+        _error = null;
+        _focusScanInput = true;
+    }
+
+    private async Task SubmitScanAsync()
+    {
+        var code = _scanText.Trim();
+        _scanText = "";
+        _focusScanInput = true;
+
+        if (code.Length == 0 || Active is not { } card || _busy) return;
+        _error = null;
+
+        // Caught right away for cards on screen; the server still checks every other card.
+        if (_cards!.FirstOrDefault(c => c.Number != card.Number && (c.Code30 == code || c.Code50 == code)) is { } other)
+        {
+            _error = $"Code {code} is already on card {other.Number}.";
+            return;
+        }
+
+        if (_pending30 == null)
+        {
+            _pending30 = code;
+            return;
+        }
+
+        if (code == _pending30)
+        {
+            _error = $"That was the {Amount30.ToString("C")} code again - scan the {Amount50.ToString("C")} one.";
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var saved = await CardsApi.SaveAsync(card.Number, new SaveCardDto { Code30 = _pending30, Code50 = code });
+            _cards![_cards.IndexOf(card)] = saved;
+            _pending30 = null;
+
+            // Move on to the next higher card that has not been scanned yet
+            _activeNumber = _cards.FirstOrDefault(c => c.Number > saved.Number && !IsDone(c))?.Number;
+        }
+        catch (ApiException ex)
+        {
+            // Start the card over: after a rejected code it is unclear which of the two was wrong
+            _pending30 = null;
+            _error = $"Card {card.Number}: {Message(ex)} Scan both codes again.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string Message(ApiException ex)
+    {
+        try
+        {
+            using var json = System.Text.Json.JsonDocument.Parse(ex.Content ?? "");
+            if (json.RootElement.TryGetProperty("message", out var message)) return message.GetString() ?? ex.Message;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+
+        return ex.Message;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Keep the scan field focused - a scanner types wherever the focus is
+        if (_focusScanInput && _cards != null && Active != null)
+        {
+            _focusScanInput = false;
+            await _scanInput.FocusAsync();
+        }
+    }
+}

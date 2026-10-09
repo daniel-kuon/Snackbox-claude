@@ -21,9 +21,9 @@
                 }
                 <span class="icon">✉</span> Send Payment Reminders (>€10)
             </button>
-            <button class="btn btn-outline-primary" @onclick="ShowCreateSpareCard">
-                <span class="icon">🎫</span> Add Spare Card
-            </button>
+            <a class="btn btn-outline-primary" href="admin/cards">
+                <span class="icon">🎫</span> Add cards
+            </a>
             <button class="btn btn-primary" @onclick="ShowCreateUser">
                 <span class="icon">+</span> Add User
             </button>
@@ -185,61 +185,6 @@
                                 <span class="spinner-border spinner-border-sm"></span>
                             }
                             Save
-                        </button>
-                    </div>
-                </EditForm>
-            </div>
-        </div>
-    </div>
-}
-
-@if (_showSpareModal)
-{
-    <div class="modal-backdrop" @onclick="CloseSpareModal"></div>
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add Spare Card</h3>
-                <button class="btn-close" @onclick="CloseSpareModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted">
-                    A spare card is known only by its number and its two purchase barcodes (€0.50 and €0.30).
-                    Purchases work immediately; the person claims it by entering their name on the scanner the first time they use it.
-                </p>
-                @if (_spareError != null)
-                {
-                    <div class="alert alert-danger">@_spareError</div>
-                }
-                <EditForm EditContext="@_spareEditContext" OnValidSubmit="@SaveSpareCard">
-                    <DataAnnotationsValidator />
-
-                    <div class="form-group">
-                        <label>Card number</label>
-                        <InputText @bind-Value="_spareForm.CardNumber" class="form-control" placeholder="e.g. 1" />
-                        <ValidationMessage For="@(() => _spareForm.CardNumber)" />
-                    </div>
-
-                    <div class="form-group">
-                        <label>Purchase Barcode 1 (€0.50)</label>
-                        <InputText @bind-Value="_spareForm.PurchaseBarcode1" class="form-control" />
-                        <ValidationMessage For="@(() => _spareForm.PurchaseBarcode1)" />
-                    </div>
-
-                    <div class="form-group">
-                        <label>Purchase Barcode 2 (€0.30)</label>
-                        <InputText @bind-Value="_spareForm.PurchaseBarcode2" class="form-control" />
-                        <ValidationMessage For="@(() => _spareForm.PurchaseBarcode2)" />
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @onclick="CloseSpareModal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" disabled="@_isSavingSpare">
-                            @if (_isSavingSpare)
-                            {
-                                <span class="spinner-border spinner-border-sm"></span>
-                            }
-                            Create Spare Card
                         </button>
                     </div>
                 </EditForm>
@@ -664,11 +609,6 @@
     private string _userSearch = string.Empty;
     private string _userSort = "username";
     private bool _userSortAsc = true;
-    private bool _showSpareModal;
-    private SpareCardFormModel _spareForm = new();
-    private EditContext? _spareEditContext;
-    private string? _spareError;
-    private bool _isSavingSpare;
     private bool _isSendingEmails;
     private HashSet<int> _selectedUserIds = new();
     private string _userFilter = string.Empty;
@@ -916,79 +856,6 @@
 
     private string SortIndicator(string column) =>
         _userSort != column ? "" : _userSortAsc ? "▲" : "▼";
-
-    private void ShowCreateSpareCard()
-    {
-        _spareForm = new SpareCardFormModel();
-        _spareEditContext = new EditContext(_spareForm);
-        _spareError = null;
-        _showSpareModal = true;
-    }
-
-    private async Task SaveSpareCard()
-    {
-        _isSavingSpare = true;
-        _spareError = null;
-        try
-        {
-            // Reuse the standard create endpoint: an inactive placeholder user known by number,
-            // with two purchase barcodes. The person claims it via the scanner setup wizard.
-            await UsersApi.CreateAsync(new CreateUserDto
-            {
-                Username = $"Spare card {_spareForm.CardNumber.Trim()}",
-                Email = null,
-                IsAdmin = false,
-                IsActive = false,
-                PurchaseBarcode1 = _spareForm.PurchaseBarcode1?.Trim(),
-                PurchaseBarcode2 = _spareForm.PurchaseBarcode2?.Trim()
-            });
-            CloseSpareModal();
-            await LoadUsers();
-        }
-        catch (ApiException ex)
-        {
-            _spareError = ex.Content ?? "Failed to create spare card. Please try again.";
-        }
-        catch (Exception ex)
-        {
-            _spareError = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            _isSavingSpare = false;
-        }
-    }
-
-    private void CloseSpareModal()
-    {
-        _showSpareModal = false;
-        _spareForm = new();
-        _spareEditContext = null;
-        _spareError = null;
-    }
-
-    private class SpareCardFormModel : IValidatableObject
-    {
-        [Required]
-        public string CardNumber { get; set; } = string.Empty;
-
-        [Required]
-        public string PurchaseBarcode1 { get; set; } = string.Empty;
-
-        [Required]
-        public string PurchaseBarcode2 { get; set; } = string.Empty;
-
-        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
-        {
-            if (!string.IsNullOrWhiteSpace(PurchaseBarcode1) &&
-                PurchaseBarcode1.Equals(PurchaseBarcode2, StringComparison.OrdinalIgnoreCase))
-            {
-                yield return new ValidationResult(
-                    "The two barcodes must be different",
-                    new[] { nameof(PurchaseBarcode2) });
-            }
-        }
-    }
 
     private class UserFormModel : IValidatableObject
     {

@@ -87,7 +87,7 @@
                     <div class="initial-admin text-start">
                         <input class="form-control mb-2" placeholder="Admin name" @bind="_admin.Username" @bind:event="oninput" autocomplete="off" />
                         <input class="form-control mb-2" type="email" placeholder="E-mail (used to log in)" @bind="_admin.Email" @bind:event="oninput" autocomplete="off" />
-                        <input class="form-control mb-2" type="password" placeholder="Password (at least 8 characters)" @bind="_admin.Password" @bind:event="oninput" autocomplete="new-password" />
+                        <input class="form-control mb-2" type="password" placeholder="Password (at least 6 characters)" @bind="_admin.Password" @bind:event="oninput" autocomplete="new-password" />
                         <input class="form-control mb-2" type="password" placeholder="Repeat password" @bind="_passwordRepeat" @bind:event="oninput" autocomplete="new-password" />
                         @if (AdminProblem is { } problem && (_admin.Password.Length > 0 || _passwordRepeat.Length > 0))
                         {
@@ -378,7 +378,7 @@
     private string? AdminProblem =>
         _admin.Username.Trim().Length < 2 ? "Enter a name for the administrator."
         : !_admin.Email.Contains('@') ? "Enter the administrator's e-mail address."
-        : _admin.Password.Length < 8 ? "The password needs at least 8 characters."
+        : _admin.Password.Length < 6 ? "The password needs at least 6 characters."
         : _admin.Password != _passwordRepeat ? "The passwords do not match."
         : null;
 

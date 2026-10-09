@@ -14,6 +14,6 @@ public class InitialAdminDto
     [Required, EmailAddress, StringLength(255)]
     public string Email { get; set; } = "";
 
-    [Required, StringLength(200, MinimumLength = 8)]
+    [Required, StringLength(200, MinimumLength = 6)]  // same rule as register / change password
     public string Password { get; set; } = "";
 }

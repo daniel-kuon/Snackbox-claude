@@ -98,6 +98,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Email).HasMaxLength(255).IsRequired(false);
             // Legacy keys are unique where set; rows created in this app leave them null.
             entity.HasIndex(e => e.LegacyUserId).IsUnique().HasFilter("legacy_user_id IS NOT NULL");
+            entity.HasIndex(e => e.CardNumber).IsUnique().HasFilter("card_number IS NOT NULL");
         });
 
         modelBuilder.Entity<Barcode>(entity =>
