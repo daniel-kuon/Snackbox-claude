@@ -16,6 +16,7 @@ public class BarcodeLookupProductDto
     public string? Brand { get; set; }
     public string? Description { get; set; }
     public string? Category { get; set; }
+    public string? ImageUrl { get; set; }
     public string Barcode { get; set; } = string.Empty;
 }
 
@@ -45,4 +46,35 @@ public class SearchUpcDataApiResponse
 
     [JsonPropertyName("createdAt")]
     public DateTime? CreatedAt { get; set; }
+}
+
+// Open Food Facts product API (https://world.openfoodfacts.org/api/v2/product/{code}.json)
+public class OpenFoodFactsResponse
+{
+    [JsonPropertyName("status")]
+    public int Status { get; set; }
+
+    [JsonPropertyName("product")]
+    public OpenFoodFactsProduct? Product { get; set; }
+}
+
+public class OpenFoodFactsProduct
+{
+    [JsonPropertyName("product_name")]
+    public string? ProductName { get; set; }
+
+    [JsonPropertyName("product_name_de")]
+    public string? ProductNameDe { get; set; }
+
+    [JsonPropertyName("brands")]
+    public string? Brands { get; set; }
+
+    [JsonPropertyName("categories")]
+    public string? Categories { get; set; }
+
+    [JsonPropertyName("quantity")]
+    public string? Quantity { get; set; }
+
+    [JsonPropertyName("image_front_url")]
+    public string? ImageFrontUrl { get; set; }
 }

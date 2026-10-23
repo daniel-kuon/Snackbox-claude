@@ -19,4 +19,8 @@ public interface IShelvingActionsApi
     
     [Post("/api/shelvingactions/batch")]
     Task<BatchShelvingResponse> CreateBatchAsync([Body] BatchShelvingRequest request);
+
+    /// <summary>Sets the counted shelf quantity and books the difference.</summary>
+    [Post("/api/shelvingactions/inventory")]
+    Task<ProductStockDto> CountShelfAsync([Body] InventoryCountRequest request);
 }

@@ -86,6 +86,81 @@ public class ShelvingActionsController : ControllerBase
         return Ok(action.ToDtoWithProduct());
     }
 
+    /// <summary>
+    /// Inventory count: the admin scans a product and enters how many are left on the shelf.
+    /// The difference to the booked shelf stock is booked - sold items leave the oldest batches
+    /// first; more than booked is taken from storage (oldest first) and only then added
+    /// directly to the shelf.
+    /// </summary>
+    [HttpPost("inventory")]
+    public async Task<ActionResult<ProductStockDto>> CountShelf([FromBody] InventoryCountRequest request)
+    {
+        if (request.ShelfQuantity < 0) return BadRequest(new { message = "The quantity cannot be negative" });
+
+        var product = await _context.Products
+            .Include(p => p.Barcodes)
+            .Include(p => p.Batches).ThenInclude(b => b.ShelvingActions)
+            .FirstOrDefaultAsync(p => p.Id == request.ProductId);
+        if (product == null) return NotFound(new { message = "Product not found" });
+
+        var now = DateTime.UtcNow;
+        var oldestFirst = product.Batches.OrderBy(b => b.BestBeforeDate).ToList();
+        var difference = request.ShelfQuantity - oldestFirst.Sum(b => _stockCalculation.CalculateShelfQuantity(b.ShelvingActions));
+
+        void Book(ProductBatch batch, int quantity, ShelvingActionType type)
+        {
+            var action = new ShelvingAction { Quantity = quantity, Type = type, ActionAt = now };
+            batch.ShelvingActions.Add(action);
+            _context.ShelvingActions.Add(action);
+        }
+
+        if (difference < 0)
+        {
+            var toRemove = -difference;
+            foreach (var batch in oldestFirst)
+            {
+                var take = Math.Min(toRemove, _stockCalculation.CalculateShelfQuantity(batch.ShelvingActions));
+                if (take <= 0) continue;
+                Book(batch, take, ShelvingActionType.RemovedFromShelf);
+                toRemove -= take;
+                if (toRemove == 0) break;
+            }
+        }
+        else if (difference > 0)
+        {
+            var toAdd = difference;
+            foreach (var batch in oldestFirst)
+            {
+                var take = Math.Min(toAdd, _stockCalculation.CalculateStorageQuantity(batch.ShelvingActions));
+                if (take <= 0) continue;
+                Book(batch, take, ShelvingActionType.MovedToShelf);
+                toAdd -= take;
+                if (toAdd == 0) break;
+            }
+
+            if (toAdd > 0)
+            {
+                // Nothing left in storage: the newest batch, or a new one when the product has none
+                var batch = oldestFirst.LastOrDefault();
+                if (batch == null)
+                {
+                    batch = new ProductBatch { Product = product, BestBeforeDate = DateTime.UtcNow.Date.AddDays(30), CreatedAt = now };
+                    product.Batches.Add(batch);
+                    _context.ProductBatches.Add(batch);
+                }
+                Book(batch, toAdd, ShelvingActionType.AddedToShelf);
+            }
+        }
+
+        await _context.SaveChangesAsync();
+        await _bestBeforeDateService.UpdateProductBestBeforeDatesAsync(product.Id);
+
+        _logger.LogInformation("Inventory count: {ProductName} has {Quantity} on the shelf ({Difference:+#;-#;0})",
+                               product.Name, request.ShelfQuantity, difference);
+
+        return Ok(product.ToStockDto(_stockCalculation));
+    }
+
     [HttpPost("batch")]
     public async Task<ActionResult<BatchShelvingResponse>> CreateBatch([FromBody] BatchShelvingRequest request)
     {

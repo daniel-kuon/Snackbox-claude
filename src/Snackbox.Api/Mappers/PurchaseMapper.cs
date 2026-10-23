@@ -16,6 +16,8 @@ public static partial class PurchaseMapper
     [MapperIgnoreSource(nameof(BarcodeScan.BarcodeId))]
     [MapperIgnoreSource(nameof(BarcodeScan.Purchase))]
     [MapperIgnoreSource(nameof(BarcodeScan.Barcode))]
+    [MapperIgnoreSource(nameof(BarcodeScan.Product))]
+    [MapperIgnoreSource(nameof(BarcodeScan.ProductId))]
     [MapperIgnoreTarget(nameof(PurchaseItemDto.ProductName))]
     public static partial PurchaseItemDto ToItemDto(this BarcodeScan source);
 
@@ -25,7 +27,7 @@ public static partial class PurchaseMapper
     public static PurchaseItemDto ToItemDtoWithProductName(this BarcodeScan source)
     {
         var dto = source.ToItemDto();
-        dto.ProductName = source.Barcode?.Code;
+        dto.ProductName = source.Product?.Name ?? source.Barcode?.Code;
         return dto;
     }
 

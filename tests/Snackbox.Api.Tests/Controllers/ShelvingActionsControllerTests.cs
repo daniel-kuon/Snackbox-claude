@@ -288,6 +288,51 @@ public class ShelvingActionsControllerTests : IDisposable
         Assert.NotNull(value);
     }
 
+    private async Task<ProductStockDto> Count(int productId, int onShelf) =>
+        (ProductStockDto)((OkObjectResult)(await _controller.CountShelf(new InventoryCountRequest { ProductId = productId, ShelfQuantity = onShelf })).Result!).Value!;
+
+    [Fact]
+    public async Task CountShelf_MoreThanBooked_IsTakenFromStorageFirst()
+    {
+        var stock = await Count(1, 10);
+
+        Assert.Equal((10, 40), (stock.TotalOnShelf, stock.TotalInStorage));
+
+        stock = await Count(1, 4); // six sold
+        Assert.Equal((4, 40), (stock.TotalOnShelf, stock.TotalInStorage));
+        Assert.Equal(6, (await _context.ShelvingActions.SingleAsync(a => a.Type == ShelvingActionType.RemovedFromShelf)).Quantity);
+    }
+
+    [Fact]
+    public async Task CountShelf_Sold_LeaveTheOldestBatchFirst()
+    {
+        var now = DateTime.UtcNow;
+        var older = new ProductBatch { ProductId = 1, BestBeforeDate = now.AddDays(10).Date, CreatedAt = now };
+        _context.ProductBatches.Add(older);
+        await _context.SaveChangesAsync();
+        _context.ShelvingActions.AddRange(
+            new ShelvingAction { ProductBatchId = older.Id, Quantity = 3, Type = ShelvingActionType.AddedToShelf, ActionAt = now },
+            new ShelvingAction { ProductBatchId = 1, Quantity = 5, Type = ShelvingActionType.MovedToShelf, ActionAt = now });
+        await _context.SaveChangesAsync();
+
+        var stock = await Count(1, 2);
+
+        Assert.Equal(0, stock.Batches.Single(b => b.BatchId == older.Id).QuantityOnShelf);
+        Assert.Equal(2, stock.Batches.Single(b => b.BatchId == 1).QuantityOnShelf);
+    }
+
+    [Fact]
+    public async Task CountShelf_ProductWithoutStock_IsAddedToTheShelf()
+    {
+        _context.Products.Add(new Product { Id = 2, Name = "Fresh", CreatedAt = DateTime.UtcNow });
+        await _context.SaveChangesAsync();
+
+        var stock = await Count(2, 5);
+
+        Assert.Equal(5, stock.TotalOnShelf);
+        Assert.Single(stock.Batches);
+    }
+
     public void Dispose()
     {
         _context.Database.EnsureDeleted();

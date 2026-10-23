@@ -9,6 +9,7 @@
            @bind:event="oninput"
            placeholder="@Placeholder"
            disabled="@Disabled"
+           @onkeydown="OnKeyDown"
            @ref="_inputElement" />
     @if (_scannerActive)
     {
@@ -34,6 +35,16 @@
 
     [Parameter]
     public bool DisableGlobalScanner { get; set; }
+
+    /// <summary>
+    /// A complete code: Enter in the field, or a scan while no field has focus. The field is
+    /// cleared for the next scan. Use this rather than ValueChanged to act on a scan -
+    /// ValueChanged fires for every single character the scanner types into the field.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnScan { get; set; }
+
+    public ValueTask FocusAsync() => _inputElement.FocusAsync();
 
     private ElementReference _inputElement;
     private DotNetObjectReference<BarcodeInput>? _objRef;
@@ -67,6 +78,12 @@
     {
         if (DisableGlobalScanner) return;
 
+        if (OnScan.HasDelegate)
+        {
+            await RaiseScan(barcode);
+            return;
+        }
+
         CurrentValue = barcode;
         _scannerActive = true;
         StateHasChanged();
@@ -74,6 +91,20 @@
         await Task.Delay(1000);
         _scannerActive = false;
         StateHasChanged();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && OnScan.HasDelegate && !string.IsNullOrWhiteSpace(Value))
+        {
+            await RaiseScan(Value);
+        }
+    }
+
+    private async Task RaiseScan(string code)
+    {
+        CurrentValue = string.Empty;
+        await OnScan.InvokeAsync(code.Trim());
     }
 
     public void Dispose()

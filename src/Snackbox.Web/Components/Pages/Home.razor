@@ -70,6 +70,11 @@
                     </div>
                     <h3 class="section-title">Scanned Amounts</h3>
 
+                    @if (session.IsTabletSession)
+                    {
+                        <div class="tablet-pick-hint">👉 Pick your snacks on the tablet</div>
+                    }
+
                     @if (session.ScannedBarcodes.Any())
                     {
                         <div class="items-list">
@@ -84,7 +89,7 @@
                     else
                     {
                         <div class="no-items">
-                            <p>Scan your personal barcodes to add amounts</p>
+                            <p>@(session.IsTabletSession ? "Tap what you take on the tablet next to the scanner" : "Scan your personal barcodes to add amounts")</p>
                         </div>
                     }
 
@@ -639,6 +644,16 @@
     .item-price {
         font-weight: 600;
         color: #333;
+    }
+
+    .tablet-pick-hint {
+        margin: 0.5rem 0 1rem;
+        padding: 1rem 1.25rem;
+        background: var(--brand-cyan, #00BCD4);
+        color: #fff;
+        font-size: 1.75rem;
+        font-weight: 700;
+        text-align: center;
     }
 
     .no-items {

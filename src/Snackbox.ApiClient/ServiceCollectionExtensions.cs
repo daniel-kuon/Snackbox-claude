@@ -62,6 +62,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IFeatureFlagsApi>();
         AddRefitClient<ILegacyImportApi>();
         AddRefitClient<IUpdatesApi>();
+        AddRefitClient<ITabletApi>();
         AddRefitClient<ICardsApi>();
 
         return services;
@@ -136,6 +137,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IFeatureFlagsApi>();
         AddRefitClient<ILegacyImportApi>();
         AddRefitClient<IUpdatesApi>();
+        AddRefitClient<ITabletApi>();
         AddRefitClient<ICardsApi>();
     }
 

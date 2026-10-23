@@ -79,10 +79,10 @@ public class DatabaseSeeder
         // Seed products
         var products = new[]
         {
-            new Product { Id = 1, Name = "Chips - Salt", CreatedAt = seedDate },
-            new Product { Id = 2, Name = "Chocolate Bar", CreatedAt = seedDate },
-            new Product { Id = 3, Name = "Energy Drink", CreatedAt = seedDate },
-            new Product { Id = 4, Name = "Cookies", CreatedAt = seedDate }
+            new Product { Id = 1, Name = "Chips - Salt", Price = 1.20m, CreatedAt = seedDate },
+            new Product { Id = 2, Name = "Chocolate Bar", Price = 0.80m, CreatedAt = seedDate },
+            new Product { Id = 3, Name = "Energy Drink", Price = 1.50m, CreatedAt = seedDate },
+            new Product { Id = 4, Name = "Cookies", Price = 0.50m, CreatedAt = seedDate }
         };
 
         _context.Products.AddRange(products);

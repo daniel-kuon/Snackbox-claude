@@ -20,6 +20,10 @@ public class User
     /// card and renames the user, so the number never gets handed out twice.</summary>
     public int? CardNumber { get; set; }
 
+    /// <summary>Picks products on the tablet instead of booking the fixed amounts printed on
+    /// the card: a scan of any of their codes opens a tablet session and books nothing itself.</summary>
+    public bool UsesTabletSelection { get; set; }
+
     // Navigation properties
     public ICollection<Barcode> Barcodes { get; set; } = new List<Barcode>();
     public ICollection<Purchase> Purchases { get; set; } = new List<Purchase>();

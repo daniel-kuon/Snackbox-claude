@@ -98,6 +98,8 @@ builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 
 // Register product matching service
 builder.Services.AddScoped<IProductMatchingService, ProductMatchingService>();
+builder.Services.AddScoped<IProductCatalogService, ProductCatalogService>();
+builder.Services.AddSingleton<TabletSessionStore>();
 
 // Register invoice parser services
 builder.Services.AddScoped<IInvoiceParserService, SonderpostenInvoiceParser>();

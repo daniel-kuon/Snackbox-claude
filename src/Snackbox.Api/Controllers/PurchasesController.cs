@@ -36,6 +36,8 @@ public class PurchasesController : ControllerBase
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
+            .Include(p => p.Scans)
+                .ThenInclude(s => s.Product)
             .Where(p => p.UserId == userId.Value)
             .OrderByDescending(p => p.UpdatedAt)
             .ToListAsync();
@@ -56,6 +58,8 @@ public class PurchasesController : ControllerBase
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
+            .Include(p => p.Scans)
+                .ThenInclude(s => s.Product)
             .FirstOrDefaultAsync(p => p.UserId == userId.Value && p.UpdatedAt >= timeoutThreshold);
 
         if (purchase == null)
@@ -74,6 +78,8 @@ public class PurchasesController : ControllerBase
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
+            .Include(p => p.Scans)
+                .ThenInclude(s => s.Product)
             .OrderByDescending(p => p.UpdatedAt)
             .ToListAsync();
 
@@ -88,6 +94,8 @@ public class PurchasesController : ControllerBase
             .Include(p => p.User)
             .Include(p => p.Scans)
                 .ThenInclude(s => s.Barcode)
+            .Include(p => p.Scans)
+                .ThenInclude(s => s.Product)
             .Include(p => p.AppliedDiscounts)
                 .ThenInclude(pd => pd.Discount)
             .Where(p => p.UserId == userId)
@@ -114,7 +122,7 @@ public class PurchasesController : ControllerBase
                 Items = p.Scans.Select(s => new PurchaseItemDto
                 {
                     Id = s.Id,
-                    ProductName = s.Barcode.Code,
+                    ProductName = s.Product != null ? s.Product.Name : s.Barcode.Code,
                     Amount = s.Amount,
                     ScannedAt = s.ScannedAt,
                     TraceId = s.TraceId // drives the "open in SigNoz" link in the admin UI

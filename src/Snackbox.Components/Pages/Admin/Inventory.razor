@@ -1,0 +1,234 @@
+@page "/admin/inventory"
+@inherits AdminPageBase
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@using Snackbox.Components.Components.Shared
+@inject IProductsApi ProductsApi
+@inject IShelvingActionsApi ShelvingActionsApi
+
+<PageTitle>Inventory - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>Inventory</h2>
+    </div>
+
+    <p class="text-muted">
+        Scan a product, type how many are left on the shelf and press Enter. The difference to the
+        booked shelf stock is booked: fewer means sold (oldest best-before first), more is taken
+        from storage. Unknown codes are looked up online like in the batch scan.
+    </p>
+
+    <div class="scan-box">
+        <label>Scan product</label>
+        <BarcodeInput @ref="_scanInput" @bind-Value="_scanValue" OnScan="OnScan" Placeholder="Scan a product barcode..." />
+    </div>
+
+    @if (_resolving > 0)
+    {
+        <div class="text-muted mb-2"><span class="spinner-border spinner-border-sm"></span> Looking up...</div>
+    }
+    @if (_error != null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+
+    @if (_rows.Any())
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Booked on shelf</th>
+                    <th>Counted on shelf</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    @* @key: rows are inserted at the top - without it the new row would reuse another row's field and its @ref would never be set *@
+                    <tr @key="row" class="@(row.Saved ? "saved-row" : row == _rows[0] ? "active-row" : "")">
+                        <td>
+                            @row.ProductName
+                            @if (row.Status == BarcodeResolveStatus.Created)
+                            {
+                                <span class="badge bg-info">new product</span>
+                            }
+                            else if (row.Status == BarcodeResolveStatus.AssignedToExisting)
+                            {
+                                <div class="small text-muted">Code added to this product (online: "@row.OnlineTitle")</div>
+                            }
+                        </td>
+                        <td>@row.BookedOnShelf</td>
+                        <td>
+                            @if (row.Saved)
+                            {
+                                <span>✓ @row.Counted</span>
+                                <span class="text-muted">(@Difference(row))</span>
+                            }
+                            else
+                            {
+                                <input class="form-control count-input" inputmode="numeric" autocomplete="off"
+                                       @bind="row.CountText" @bind:event="oninput"
+                                       @onkeydown="e => OnCountKey(e, row)"
+                                       @ref="row.Input" />
+                            }
+                        </td>
+                        <td>
+                            @if (row.Saved)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Edit(row)">Correct</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-primary" @onclick="() => Save(row)" disabled="@(!int.TryParse(row.CountText, out _))">Save</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<style>
+    .scan-box { max-width: 480px; margin-bottom: 1.5rem; }
+    .scan-box label { display: block; font-weight: 500; margin-bottom: 0.5rem; }
+    .count-input { width: 120px; font-size: 1.25rem; }
+    .active-row { background: #eef7fd; }
+    .saved-row { color: #555; }
+</style>
+
+@code {
+    // A count above this is the scanner typing the next product's code into the count field
+    private const int MaxCountDigits = 4;
+
+    private BarcodeInput? _scanInput;
+    private string _scanValue = string.Empty;
+    private readonly List<CountRow> _rows = new();
+    private int _resolving;
+    private string? _error;
+    private CountRow? _focusRow;
+    private bool _focusScan;
+
+    private async Task OnScan(string barcode)
+    {
+        _error = null;
+        _resolving++;
+        try
+        {
+            var result = await ProductsApi.ResolveBarcodeAsync(new BarcodeResolveRequest { Barcode = barcode });
+            if (result.Product == null)
+            {
+                _error = $"{barcode} is unknown here and online - add it with Products -> Start Batch first.";
+                return;
+            }
+
+            var stock = await ProductsApi.GetProductStockAsync(result.Product.Id);
+
+            // Scanning a product again counts it again
+            _rows.RemoveAll(r => r.ProductId == result.Product.Id);
+            var row = new CountRow
+            {
+                ProductId = result.Product.Id,
+                ProductName = result.Product.Name,
+                BookedOnShelf = stock.TotalOnShelf,
+                Status = result.Status,
+                OnlineTitle = result.OnlineTitle
+            };
+            _rows.Insert(0, row);
+            _focusRow = row;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Error looking up {barcode}: {ex.Message}";
+        }
+        finally
+        {
+            _resolving--;
+        }
+    }
+
+    private async Task OnCountKey(KeyboardEventArgs e, CountRow row)
+    {
+        if (e.Key != "Enter") return;
+
+        var text = row.CountText?.Trim() ?? "";
+        if (text.Length > MaxCountDigits)
+        {
+            // The scanner typed the next code into this field
+            row.CountText = "";
+            await OnScan(text);
+            return;
+        }
+
+        await Save(row);
+    }
+
+    private async Task Save(CountRow row)
+    {
+        if (!int.TryParse(row.CountText, out var counted) || counted < 0) return;
+
+        try
+        {
+            var stock = await ShelvingActionsApi.CountShelfAsync(new InventoryCountRequest { ProductId = row.ProductId, ShelfQuantity = counted });
+            row.Counted = stock.TotalOnShelf;
+            row.Saved = true;
+            _focusScan = true;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Content ?? ex.Message;
+        }
+    }
+
+    private void Edit(CountRow row)
+    {
+        row.BookedOnShelf = row.Counted;
+        row.Saved = false;
+        row.CountText = row.Counted.ToString();
+        _focusRow = row;
+    }
+
+    private static string Difference(CountRow row)
+    {
+        var difference = row.Counted - row.BookedOnShelf;
+        return difference == 0 ? "as booked" : difference.ToString("+0;-0");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) _focusScan = true;
+
+        // Scanned: type the count. Saved: ready for the next scan.
+        // On the website this can run for an earlier render, before the new row's field
+        // exists - then wait for the render that brings it
+        if (_focusRow != null)
+        {
+            if (_focusRow.Input.Id == null) return;
+            var row = _focusRow;
+            _focusRow = null;
+            await row.Input.FocusAsync();
+        }
+        else if (_focusScan && _scanInput != null)
+        {
+            _focusScan = false;
+            await _scanInput.FocusAsync();
+        }
+    }
+
+    private class CountRow
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = "";
+        public int BookedOnShelf { get; set; }
+        public string? CountText { get; set; }
+        public int Counted { get; set; }
+        public bool Saved { get; set; }
+        public BarcodeResolveStatus Status { get; set; }
+        public string? OnlineTitle { get; set; }
+        public ElementReference Input { get; set; }
+    }
+}

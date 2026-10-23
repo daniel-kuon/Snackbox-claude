@@ -35,6 +35,7 @@ public static partial class ProductMapper
             AverageProductsShelvedPerWeek = stockCalculation != null 
                 ? stockCalculation.CalculateAverageProductsShelvedPerWeek(source.Batches)
                 : 0,
+            Price = source.Price,
             Barcodes = source.Barcodes.ToDtoList()
         };
     }
@@ -45,5 +46,28 @@ public static partial class ProductMapper
     public static List<ProductDto> ToDtoList(this IEnumerable<Product> source, IStockCalculationService? stockCalculation = null)
     {
         return source.Select(p => p.ToDto(stockCalculation)).ToList();
+    }
+
+    /// <summary>Storage and shelf quantities per batch and in total.</summary>
+    public static ProductStockDto ToStockDto(this Product product, IStockCalculationService stockCalculation)
+    {
+        var batches = product.Batches.Select(b => new BatchStockInfo
+        {
+            BatchId = b.Id,
+            BestBeforeDate = b.BestBeforeDate,
+            QuantityInStorage = stockCalculation.CalculateStorageQuantity(b.ShelvingActions),
+            QuantityOnShelf = stockCalculation.CalculateShelfQuantity(b.ShelvingActions)
+        }).ToList();
+
+        return new ProductStockDto
+        {
+            ProductId = product.Id,
+            ProductName = product.Name,
+            ProductBarcode = product.Barcodes.OrderBy(b => b.Id).Select(b => b.Barcode).FirstOrDefault() ?? "",
+            Barcodes = product.Barcodes.ToDtoList(),
+            TotalInStorage = batches.Sum(b => b.QuantityInStorage),
+            TotalOnShelf = batches.Sum(b => b.QuantityOnShelf),
+            Batches = batches
+        };
     }
 }

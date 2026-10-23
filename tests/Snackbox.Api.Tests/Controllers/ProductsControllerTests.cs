@@ -25,7 +25,7 @@ public class ProductsControllerTests : IDisposable
         _context = new ApplicationDbContext(options);
         var logger = new Mock<ILogger<ProductsController>>();
         var stockCalculation = new StockCalculationService();
-        _controller = new ProductsController(_context, logger.Object, stockCalculation);
+        _controller = new ProductsController(_context, logger.Object, stockCalculation, new Mock<IProductCatalogService>().Object);
 
         SeedTestData();
     }

@@ -39,7 +39,7 @@ public class ScannerControllerTests : IDisposable
         var achievementService = new AchievementService(_context);
 
         _controller = new ScannerController(_context, _configuration, achievementService,
-            new FeatureFlagService(_context), NullLogger<ScannerController>.Instance);
+            new FeatureFlagService(_context), NullLogger<ScannerController>.Instance, new TabletSessionStore(_configuration));
 
         // Seed test data
         SeedTestData();

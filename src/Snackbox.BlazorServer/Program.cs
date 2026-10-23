@@ -67,6 +67,9 @@ builder.Services.AddHttpClient("", client => { client.BaseAddress = new Uri(apiU
 // For components that still use AddScoped<HttpClient> or inject HttpClient directly
 builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient(""));
 
+// Plain client for the tablet's product pictures - anonymous, no user token
+builder.Services.AddHttpClient("ProductImages", client => { client.BaseAddress = new Uri(apiUrl); });
+
 // Development-only UI test helper (API only answers in Development with TestHelper:Enabled)
 builder.Services.AddHttpClient<TestHelperClient>(client => { client.BaseAddress = new Uri(apiUrl); });
 
@@ -89,7 +92,10 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 
 // /install must stay reachable over plain HTTP: a phone cannot load the HTTPS
 // site until it has installed the self-signed certificate offered on that page.
-app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/install"),
+// Local connections stay on HTTP too: the tablet reaches the site over USB through
+// `adb reverse`, which forwards only this port and arrives from the loopback address.
+app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/install") &&
+                   !(ctx.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip)),
             b => b.UseHttpsRedirection());
 
 app.UseAntiforgery();
@@ -112,6 +118,18 @@ app.MapGet("/install/certificate", (IConfiguration config) =>
 
     // DER-encoded public certificate only - never the private key
     return Results.File(cert.Export(X509ContentType.Cert), "application/x-x509-ca-cert", "snackbox.crt");
+});
+
+// Product pictures for the tablet page; the tablet's browser cannot reach the API itself
+app.MapGet("/tablet/image/{id:int}", async (int id, IHttpClientFactory httpClientFactory, HttpContext ctx) =>
+{
+    using var http = httpClientFactory.CreateClient("ProductImages");
+    using var response = await http.GetAsync($"api/products/{id}/image", ctx.RequestAborted);
+    if (!response.IsSuccessStatusCode) return Results.NotFound();
+
+    ctx.Response.Headers.CacheControl = "public, max-age=3600";
+    var bytes = await response.Content.ReadAsByteArrayAsync(ctx.RequestAborted);
+    return Results.File(bytes, response.Content.Headers.ContentType?.MediaType ?? "image/jpeg");
 });
 
 // Plain-HTML install guide (works before the certificate is trusted)

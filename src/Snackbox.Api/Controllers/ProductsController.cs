@@ -17,13 +17,25 @@ public class ProductsController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ProductsController> _logger;
     private readonly IStockCalculationService _stockCalculation;
+    private readonly IProductCatalogService _catalog;
 
-    public ProductsController(ApplicationDbContext context, ILogger<ProductsController> logger, IStockCalculationService stockCalculation)
+    public ProductsController(ApplicationDbContext context, ILogger<ProductsController> logger, IStockCalculationService stockCalculation, IProductCatalogService catalog)
     {
         _context = context;
         _logger = logger;
         _stockCalculation = stockCalculation;
+        _catalog = catalog;
     }
+
+    // The picture bytes stay out of product queries; only whether there is one
+    private async Task<T> WithImageFlags<T>(T dtos) where T : IEnumerable<ProductDto>
+    {
+        var withImage = (await _context.ProductImages.Select(i => i.ProductId).ToListAsync()).ToHashSet();
+        foreach (var dto in dtos) dto.HasImage = withImage.Contains(dto.Id);
+        return dtos;
+    }
+
+    private async Task<ProductDto> WithImageFlag(ProductDto dto) => (await WithImageFlags(new[] { dto }))[0];
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
@@ -34,7 +46,7 @@ public class ProductsController : ControllerBase
             .ThenInclude(b => b.ShelvingActions)
             .ToListAsync();
 
-        return Ok(products.ToDtoList(_stockCalculation));
+        return Ok(await WithImageFlags(products.ToDtoList(_stockCalculation)));
     }
 
     [HttpGet("{id}")]
@@ -51,7 +63,7 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        return Ok(product.ToDto(_stockCalculation));
+        return Ok(await WithImageFlag(product.ToDto(_stockCalculation)));
     }
 
     [HttpPost]
@@ -60,6 +72,7 @@ public class ProductsController : ControllerBase
         var product = new Product
         {
             Name = dto.Name,
+            Price = dto.Price,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -86,12 +99,13 @@ public class ProductsController : ControllerBase
         }
 
         product.Name = dto.Name;
+        product.Price = dto.Price;
 
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Product updated: {ProductId} - {ProductName}", product.Id, product.Name);
 
-        return Ok(product.ToDto(_stockCalculation));
+        return Ok(await WithImageFlag(product.ToDto(_stockCalculation)));
     }
 
     [HttpDelete("{id}")]
@@ -135,7 +149,82 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        return Ok(productBarcode.Product.ToDto(_stockCalculation));
+        return Ok(await WithImageFlag(productBarcode.Product.ToDto(_stockCalculation)));
+    }
+
+    /// <summary>
+    /// A scanned product barcode, unknown ones included: looked up online and assigned to a
+    /// matching product or turned into a new one. Used by the bulk shelving and inventory scans.
+    /// </summary>
+    [HttpPost("resolve-barcode")]
+    public async Task<ActionResult<BarcodeResolveResultDto>> ResolveBarcode([FromBody] BarcodeResolveRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Barcode)) return BadRequest(new { message = "Barcode is required" });
+        if (request.Barcode.Trim().Length > 50) return BadRequest(new { message = "Barcode is too long" });
+
+        return Ok(await _catalog.ResolveAsync(request));
+    }
+
+    // Anonymous: the tablet shows these pictures to everyone in front of the shelf
+    [HttpGet("{id}/image")]
+    [AllowAnonymous]
+    public async Task<ActionResult> GetImage(int id)
+    {
+        var image = await _context.ProductImages.AsNoTracking().FirstOrDefaultAsync(i => i.ProductId == id);
+        if (image == null) return NotFound();
+
+        Response.Headers.CacheControl = "public, max-age=3600";
+        return File(image.Data, image.ContentType, lastModified: image.UpdatedAt, entityTag: null);
+    }
+
+    [HttpPut("{id}/image")]
+    [RequestSizeLimit(3 * 1024 * 1024)]
+    public async Task<ActionResult> UploadImage(int id, IFormFile file)
+    {
+        if (!await _context.Products.AnyAsync(p => p.Id == id)) return NotFound(new { message = "Product not found" });
+        if (!file.ContentType.StartsWith("image/") || file.Length > 2 * 1024 * 1024)
+            return BadRequest(new { message = "Please upload a picture of at most 2 MB" });
+
+        await using var stream = new MemoryStream();
+        await file.CopyToAsync(stream);
+        var image = await _context.ProductImages.FindAsync(id);
+        if (image == null)
+        {
+            _context.ProductImages.Add(new ProductImage { ProductId = id, Data = stream.ToArray(), ContentType = file.ContentType, UpdatedAt = DateTime.UtcNow });
+        }
+        else
+        {
+            image.Data = stream.ToArray();
+            image.ContentType = file.ContentType;
+            image.UpdatedAt = DateTime.UtcNow;
+        }
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>Fetches the picture from the online lookup of one of the product's barcodes.</summary>
+    [HttpPost("{id}/image/fetch")]
+    public async Task<ActionResult> FetchImage(int id, [FromServices] IBarcodeLookupService lookup)
+    {
+        var barcodes = await _context.ProductBarcodes.Where(pb => pb.ProductId == id).Select(pb => pb.Barcode).ToListAsync();
+        foreach (var barcode in barcodes)
+        {
+            var online = await lookup.LookupBarcodeAsync(barcode);
+            if (online.Product?.ImageUrl is { } url && await _catalog.DownloadImageAsync(id, url)) return NoContent();
+        }
+        return NotFound(new { message = "No picture found online for this product's barcodes" });
+    }
+
+    [HttpDelete("{id}/image")]
+    public async Task<ActionResult> DeleteImage(int id)
+    {
+        var image = await _context.ProductImages.FindAsync(id);
+        if (image != null)
+        {
+            _context.ProductImages.Remove(image);
+            await _context.SaveChangesAsync();
+        }
+        return NoContent();
     }
 
     [HttpGet("{id}/stock")]

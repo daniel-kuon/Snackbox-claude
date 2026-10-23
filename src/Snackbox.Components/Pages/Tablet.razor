@@ -1,0 +1,258 @@
+@page "/tablet"
+@layout EmptyLayout
+@implements IDisposable
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@inject ITabletApi TabletApi
+
+@* The Android tablet next to the scanner (Chrome over USB, see docs/TABLET.md). Shows what is on
+   the shelf; after a card scan of someone who picks on the tablet, taps book products into
+   their purchase. *@
+
+<PageTitle>Snackbox</PageTitle>
+
+<div class="tablet @(_state.Active ? "tablet-active" : "")">
+    <header class="tablet-head">
+        @if (_state.Active)
+        {
+            <div>
+                <div class="tablet-hello">Hi @_state.Username!</div>
+                <div class="tablet-sub">Tap what you take</div>
+            </div>
+            <div class="tablet-timer" title="Seconds until your purchase is closed">@_state.SecondsLeft s</div>
+        }
+        else
+        {
+            <div>
+                <div class="tablet-hello">Snackbox</div>
+                <div class="tablet-sub">Scan your card, then tap what you take</div>
+            </div>
+        }
+    </header>
+
+    @if (_hint != null)
+    {
+        <div class="tablet-hint" @onclick="() => _hint = null">@_hint</div>
+    }
+
+    <div class="tablet-body">
+        <div class="tablet-grid">
+            @if (_products.Count == 0)
+            {
+                <div class="tablet-empty">Nothing on the shelf with a price yet.</div>
+            }
+            @foreach (var product in _products)
+            {
+                var quantity = _state.Items.Where(i => i.ProductId == product.Id).Sum(i => i.Quantity);
+                <button class="tablet-product @(quantity > 0 ? "picked" : "")" @onclick="() => Add(product)" disabled="@_busy">
+                    <div class="tablet-picture">
+                        @if (product.HasImage)
+                        {
+                            <img src="tablet/image/@product.Id" alt="" loading="lazy" />
+                        }
+                        else
+                        {
+                            <span class="tablet-placeholder">🍫</span>
+                        }
+                        @if (quantity > 0)
+                        {
+                            <span class="tablet-count">@quantity</span>
+                        }
+                    </div>
+                    <div class="tablet-name">@product.Name</div>
+                    <div class="tablet-price">@product.Price.ToString("0.00") €</div>
+                </button>
+            }
+        </div>
+
+        @if (_state.Active)
+        {
+            <aside class="tablet-cart">
+                <h2>Your purchase</h2>
+                @if (_state.Items.Count == 0)
+                {
+                    <p class="tablet-cart-empty">Nothing yet - tap a product.</p>
+                }
+                @foreach (var item in _state.Items)
+                {
+                    <div class="tablet-line">
+                        <div class="tablet-line-name">@item.Name</div>
+                        <div class="tablet-line-controls">
+                            <button class="tablet-round" @onclick="() => Remove(item, false)" disabled="@_busy" aria-label="One less">−</button>
+                            <span class="tablet-line-qty">@item.Quantity</span>
+                            <button class="tablet-round" @onclick="() => AddById(item.ProductId)" disabled="@_busy" aria-label="One more">+</button>
+                            <span class="tablet-line-sum">@((item.UnitPrice * item.Quantity).ToString("0.00")) €</span>
+                            <button class="tablet-remove" @onclick="() => Remove(item, true)" disabled="@_busy" aria-label="Remove">✕</button>
+                        </div>
+                    </div>
+                }
+                <div class="tablet-total">
+                    <span>Total</span>
+                    <span>
+                        @if (_state.DiscountedTotal < _state.Total)
+                        {
+                            <s class="tablet-old">@_state.Total.ToString("0.00") €</s>
+                        }
+                        @_state.DiscountedTotal.ToString("0.00") €
+                    </span>
+                </div>
+                <button class="tablet-done" @onclick="Done" disabled="@_busy">Done</button>
+            </aside>
+        }
+    </div>
+</div>
+
+<style>
+    html, body { background: var(--brand-anthracite, #191E1E); }
+    .tablet { min-height: 100vh; display: flex; flex-direction: column; color: #fff; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
+    .tablet-head { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; }
+    .tablet-hello { font-size: 2rem; font-weight: 700; }
+    .tablet-sub { font-size: 1.1rem; opacity: 0.85; }
+    .tablet-timer { font-size: 1.5rem; font-weight: 600; padding: 0.4rem 0.9rem; border: 2px solid #fff; }
+    .tablet-hint { margin: 0 1.5rem 0.75rem; padding: 0.9rem 1.2rem; background: #ffc107; color: #191E1E; font-size: 1.25rem; font-weight: 600; text-align: center; }
+    .tablet-body { flex: 1; display: flex; gap: 1rem; padding: 0 1rem 1rem; min-height: 0; }
+    .tablet-grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; align-content: start; overflow-y: auto; }
+    .tablet-empty { grid-column: 1 / -1; padding: 3rem; text-align: center; font-size: 1.25rem; opacity: 0.8; }
+    .tablet-product { background: #fff; color: #191E1E; border: 3px solid transparent; padding: 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; cursor: pointer; }
+    .tablet-product:active { transform: scale(0.97); }
+    .tablet-product.picked { border-color: var(--brand-cyan, #00BCD4); }
+    .tablet-active .tablet-product:disabled { opacity: 0.8; }
+    .tablet-picture { position: relative; width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+    .tablet-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .tablet-placeholder { font-size: 3.5rem; }
+    .tablet-count { position: absolute; top: 0; right: 0; min-width: 2rem; height: 2rem; padding: 0 0.4rem; background: var(--brand-cyan, #00BCD4); color: #fff; font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; border-radius: 1rem; }
+    .tablet-name { font-weight: 600; text-align: center; line-height: 1.2; min-height: 2.4em; }
+    .tablet-price { font-size: 1.2rem; font-weight: 700; color: var(--brand-blue, #0082CD); }
+    .tablet-cart { width: 340px; background: #fff; color: #191E1E; padding: 1rem; display: flex; flex-direction: column; overflow-y: auto; }
+    .tablet-cart h2 { font-size: 1.4rem; margin: 0 0 0.75rem; }
+    .tablet-cart-empty { opacity: 0.7; }
+    .tablet-line { padding: 0.5rem 0; border-bottom: 1px solid #e5e5e5; }
+    .tablet-line-name { font-weight: 600; }
+    .tablet-line-controls { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; }
+    .tablet-round { width: 2.6rem; height: 2.6rem; border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-size: 1.5rem; font-weight: 700; line-height: 1; }
+    .tablet-line-qty { min-width: 1.8rem; text-align: center; font-size: 1.25rem; font-weight: 700; }
+    .tablet-line-sum { margin-left: auto; font-weight: 600; }
+    .tablet-remove { width: 2.6rem; height: 2.6rem; border: none; background: #dc3545; color: #fff; font-size: 1.2rem; }
+    .tablet-total { display: flex; justify-content: space-between; font-size: 1.5rem; font-weight: 700; margin-top: auto; padding-top: 1rem; }
+    .tablet-old { opacity: 0.5; font-weight: 400; margin-right: 0.4rem; }
+    .tablet-done { margin-top: 0.75rem; padding: 1rem; border: none; background: var(--brand-blue, #0082CD); color: #fff; font-size: 1.5rem; font-weight: 700; }
+</style>
+
+@code {
+    private static readonly TimeSpan StateInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan ProductsInterval = TimeSpan.FromSeconds(60);
+
+    private readonly CancellationTokenSource _cts = new();
+    private List<TabletProductDto> _products = new();
+    private TabletStateDto _state = new();
+    private DateTime _productsLoadedAt = DateTime.MinValue;
+    private string? _hint;
+    private DateTime _hintUntil;
+    private bool _busy;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // Interactive only - not during the website's prerendering
+        if (firstRender) _ = PollAsync();
+    }
+
+    private async Task PollAsync()
+    {
+        using var timer = new PeriodicTimer(StateInterval);
+        try
+        {
+            do
+            {
+                try
+                {
+                    var wasActive = _state.Active;
+                    if (!_busy) _state = await TabletApi.GetStateAsync();
+
+                    // Fresh shelf after a purchase, and once a minute in case an admin changed it
+                    if (DateTime.UtcNow - _productsLoadedAt > ProductsInterval || (wasActive && !_state.Active))
+                    {
+                        _products = await TabletApi.GetProductsAsync();
+                        _productsLoadedAt = DateTime.UtcNow;
+                    }
+
+                    if (_hint != null && DateTime.UtcNow > _hintUntil) _hint = null;
+                }
+                catch (Exception) when (!_cts.IsCancellationRequested)
+                {
+                    // The API is down - BackendStatus shows it; keep trying
+                }
+                await InvokeAsync(StateHasChanged);
+            }
+            while (await timer.WaitForNextTickAsync(_cts.Token));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private Task Add(TabletProductDto product) => AddById(product.Id);
+
+    private async Task AddById(int productId)
+    {
+        if (!_state.Active)
+        {
+            ShowHint("Scan your card first");
+            return;
+        }
+
+        await Change(() => TabletApi.AddItemAsync(productId));
+    }
+
+    private Task Remove(TabletItemDto item, bool all) => Change(() => TabletApi.RemoveItemAsync(item.ProductId, all));
+
+    private async Task Change(Func<Task<TabletStateDto>> call)
+    {
+        _busy = true;
+        try
+        {
+            _state = await call();
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            _state = new TabletStateDto();
+            ShowHint("Your time ran out - scan your card again");
+        }
+        catch (Exception)
+        {
+            ShowHint("That did not work - please try again");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task Done()
+    {
+        _busy = true;
+        try
+        {
+            await TabletApi.CompleteAsync();
+            _state = new TabletStateDto();
+            ShowHint("Thanks - enjoy!");
+            _productsLoadedAt = DateTime.MinValue;
+        }
+        catch (Exception)
+        {
+            ShowHint("That did not work - please try again");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void ShowHint(string hint)
+    {
+        _hint = hint;
+        _hintUntil = DateTime.UtcNow.AddSeconds(4);
+    }
+
+    // Cancelled, not disposed: the poll loop may still be reading the token
+    public void Dispose() => _cts.Cancel();
+}

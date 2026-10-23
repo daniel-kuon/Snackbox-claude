@@ -27,6 +27,7 @@ public sealed class Stack(Installation installation, Log log)
         EnsureDockerRunning();
         StartAppHost();
         if (withKiosk) StartKiosk();
+        Tablet.Connect(log);
     }
 
     public void Stop()

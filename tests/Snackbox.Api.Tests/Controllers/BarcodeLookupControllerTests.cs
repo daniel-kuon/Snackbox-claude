@@ -125,6 +125,35 @@ public class BarcodeLookupServiceTests : IDisposable
             .Returns("test-api-key");
 
         _service = new BarcodeLookupService(_httpClient, _mockConfiguration.Object, _mockLogger.Object);
+
+        // Open Food Facts is asked first; these tests are about the searchupcdata fallback
+        SetupOpenFoodFacts(() => new HttpResponseMessage(HttpStatusCode.NotFound));
+    }
+
+    private void SetupOpenFoodFacts(Func<HttpResponseMessage> response) =>
+        _mockHttpHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.Host == "world.openfoodfacts.org"),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(response);
+
+    [Fact]
+    public async Task LookupBarcodeAsync_FoundOnOpenFoodFacts_UsesItsNameAndPicture()
+    {
+        SetupOpenFoodFacts(() => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                {"status":1,"product":{"product_name":"Marzipan chocolate","product_name_de":"Marzipan","brands":"Ritter Sport,Alfred Ritter","quantity":"100 g","image_front_url":"https://images.example/front.jpg"}}
+                """, System.Text.Encoding.UTF8, "application/json")
+        });
+
+        var result = await _service.LookupBarcodeAsync("4000417025005");
+
+        Assert.True(result.Success);
+        Assert.Equal("Marzipan 100 g", result.Product!.Title);
+        Assert.Equal("Ritter Sport", result.Product.Brand);
+        Assert.Equal("https://images.example/front.jpg", result.Product.ImageUrl);
     }
 
     public void Dispose()
@@ -155,7 +184,7 @@ public class BarcodeLookupServiceTests : IDisposable
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.Host == "searchupcdata.com"),
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(httpResponse);
 
@@ -187,7 +216,7 @@ public class BarcodeLookupServiceTests : IDisposable
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.Host == "searchupcdata.com"),
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(httpResponse);
 
@@ -227,7 +256,7 @@ public class BarcodeLookupServiceTests : IDisposable
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.Host == "searchupcdata.com"),
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(httpResponse);
 
@@ -248,7 +277,7 @@ public class BarcodeLookupServiceTests : IDisposable
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.Host == "searchupcdata.com"),
                 ItExpr.IsAny<CancellationToken>())
             .ThrowsAsync(new HttpRequestException("Network error"));
 

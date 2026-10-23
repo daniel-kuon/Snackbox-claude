@@ -46,6 +46,44 @@
             </div>
         </div>
 
+        <div class="barcodes-section tablet-section">
+            <h3>Tablet</h3>
+            <div class="tablet-row">
+                <div class="tablet-picture">
+                    @if (_imageDataUrl != null)
+                    {
+                        <img src="@_imageDataUrl" alt="@_productStock.ProductName" />
+                    }
+                    else
+                    {
+                        <span class="text-muted">No picture</span>
+                    }
+                </div>
+                <div class="tablet-fields">
+                    <label>Price per item (EUR)</label>
+                    <div class="d-flex gap-2 mb-2">
+                        <input type="number" step="0.01" min="0" class="form-control" style="max-width: 140px" @bind="_price" />
+                        <button class="btn btn-primary" @onclick="SavePrice">Save price</button>
+                    </div>
+                    <small class="text-muted d-block mb-2">Products without a price are not offered on the tablet.</small>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <label class="btn btn-outline-primary mb-0">
+                            Upload picture <InputFile OnChange="UploadPicture" accept="image/*" style="display: none" />
+                        </label>
+                        <button class="btn btn-outline-primary" @onclick="FetchPicture">Picture from the internet</button>
+                        @if (_imageDataUrl != null)
+                        {
+                            <button class="btn btn-outline-danger" @onclick="RemovePicture">Remove picture</button>
+                        }
+                    </div>
+                    @if (_tabletMessage != null)
+                    {
+                        <div class="small mt-2">@_tabletMessage</div>
+                    }
+                </div>
+            </div>
+        </div>
+
         <div class="barcodes-section">
             <h3>Barcodes</h3>
             <div class="barcodes-list">
@@ -464,6 +502,11 @@
 }
 
 <style>
+    .tablet-row { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
+    .tablet-picture { width: 160px; height: 160px; border: 1px solid #dee2e6; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; }
+    .tablet-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .tablet-fields label { font-weight: 500; }
+
     .page-header {
         display: flex;
         justify-content: space-between;
@@ -976,6 +1019,75 @@
         await LoadProductStock();
     }
 
+    // Tablet: price and picture
+    private string _productName = "";
+    private decimal? _price;
+    private string? _imageDataUrl;
+    private string? _tabletMessage;
+
+    private async Task LoadPicture(bool hasImage)
+    {
+        _imageDataUrl = null;
+        if (!hasImage) return;
+
+        // As a data URL: the kiosk's WebView cannot load pictures from the API's address
+        using var response = await ProductsApi.GetImageAsync(ProductId);
+        if (!response.IsSuccessStatusCode) return;
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var type = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+        _imageDataUrl = $"data:{type};base64,{Convert.ToBase64String(bytes)}";
+    }
+
+    private async Task SavePrice()
+    {
+        try
+        {
+            await ProductsApi.UpdateAsync(ProductId, new UpdateProductDto { Name = _productName, Price = _price });
+            _tabletMessage = _price == null ? "Price removed - the product is no longer on the tablet." : $"Price saved: {_price:0.00} €";
+        }
+        catch (ApiException ex)
+        {
+            _tabletMessage = ex.Content ?? ex.Message;
+        }
+    }
+
+    private async Task UploadPicture(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            await using var stream = e.File.OpenReadStream(2 * 1024 * 1024);
+            await ProductsApi.UploadImageAsync(ProductId, new Refit.StreamPart(stream, e.File.Name, e.File.ContentType));
+            await LoadPicture(true);
+            _tabletMessage = "Picture saved.";
+        }
+        catch (Exception ex)
+        {
+            _tabletMessage = $"Could not save the picture (at most 2 MB): {ex.Message}";
+        }
+    }
+
+    private async Task FetchPicture()
+    {
+        _tabletMessage = "Looking for a picture...";
+        try
+        {
+            await ProductsApi.FetchImageAsync(ProductId);
+            await LoadPicture(true);
+            _tabletMessage = "Picture saved.";
+        }
+        catch (ApiException)
+        {
+            _tabletMessage = "No picture found online for this product's barcodes.";
+        }
+    }
+
+    private async Task RemovePicture()
+    {
+        await ProductsApi.DeleteImageAsync(ProductId);
+        _imageDataUrl = null;
+        _tabletMessage = "Picture removed.";
+    }
+
     private async Task LoadProductStock()
     {
         _isLoading = true;
@@ -984,6 +1096,10 @@
         try
         {
             _productStock = await ProductsApi.GetProductStockAsync(ProductId);
+            var product = await ProductsApi.GetByIdAsync(ProductId);
+            _productName = product.Name;
+            _price = product.Price;
+            await LoadPicture(product.HasImage);
         }
         catch (ApiException ex)
         {

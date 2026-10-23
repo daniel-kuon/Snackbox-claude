@@ -41,4 +41,21 @@ public interface IProductsApi
     
     [Delete("/api/products/{productId}/barcodes/{barcodeId}")]
     Task DeleteBarcodeAsync(int productId, int barcodeId);
+
+    /// <summary>Known, or looked up online and matched / created (bulk shelving, inventory).</summary>
+    [Post("/api/products/resolve-barcode")]
+    Task<BarcodeResolveResultDto> ResolveBarcodeAsync([Body] BarcodeResolveRequest request);
+
+    [Get("/api/products/{id}/image")]
+    Task<HttpResponseMessage> GetImageAsync(int id);
+
+    [Multipart]
+    [Put("/api/products/{id}/image")]
+    Task UploadImageAsync(int id, [AliasAs("file")] StreamPart file);
+
+    [Post("/api/products/{id}/image/fetch")]
+    Task FetchImageAsync(int id);
+
+    [Delete("/api/products/{id}/image")]
+    Task DeleteImageAsync(int id);
 }

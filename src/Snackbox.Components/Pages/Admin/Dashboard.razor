@@ -22,7 +22,7 @@
     <div class="scan-bar">
         <div class="scan-input">
             <label>Scan Barcode (Product or User)</label>
-            <BarcodeInput Value="@_scanValue" ValueChanged="@OnBarcodeScanned" Placeholder="Scan a product or user barcode..." DisableGlobalScanner="@(!_isActivePage)" />
+            <BarcodeInput @bind-Value="_scanValue" OnScan="@OnBarcodeScanned" Placeholder="Scan a product or user barcode..." DisableGlobalScanner="@(!_isActivePage)" />
         </div>
     </div>
 

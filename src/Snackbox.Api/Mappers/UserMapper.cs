@@ -60,5 +60,7 @@ public static partial class UserMapper
         target.Email = source.Email;
         target.IsAdmin = source.IsAdmin;
         target.IsActive = source.IsActive;
+        target.IsBetaTester = source.IsBetaTester;
+        target.UsesTabletSelection = source.UsesTabletSelection;
     }
 }

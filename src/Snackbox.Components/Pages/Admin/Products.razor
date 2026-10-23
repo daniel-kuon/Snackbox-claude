@@ -48,7 +48,7 @@
             <div class="batch-mode-header">
                 <div>
                     <h3>Batch Scan Mode</h3>
-                    <p class="text-muted">Scan product barcodes continuously to add items to the batch</p>
+                    <p class="text-muted">Keep scanning - the same product again counts up its row. Unknown codes are looked up online and added to a matching product, or become a new one.</p>
                 </div>
                 <button class="btn btn-secondary" @onclick="ExitBatchMode">
                     <i class="bi bi-x-lg" aria-hidden="true"></i> Exit Batch Mode
@@ -66,20 +66,34 @@
                 </div>
                 <div class="control-group flex-grow">
                     <label>Scan Barcode</label>
-                    <BarcodeInput Value="@_batchBarcode"
-                                  ValueChanged="@OnBarcodeChanged"
+                    <BarcodeInput @bind-Value="_batchBarcode"
+                                  OnScan="@OnBatchScan"
                                   Placeholder="Scan or enter barcode..." />
                 </div>
             </div>
+
+            @if (_batchResolving > 0)
+            {
+                <div class="text-muted mb-2"><span class="spinner-border spinner-border-sm"></span> Looking up @_batchResolving code(s)...</div>
+            }
+
+            @if (_batchError != null)
+            {
+                <div class="alert alert-danger">@_batchError</div>
+            }
+            @if (_batchSuccess != null)
+            {
+                <div class="alert alert-success">@_batchSuccess</div>
+            }
 
             @if (_batchScannedItems.Any())
             {
                 <div class="batch-items">
                     <div class="batch-header">
-                        <h4>Scanned Items (@_batchScannedItems.Count)</h4>
+                        <h4>Scanned Items (@_batchScannedItems.Sum(i => i.Quantity))</h4>
                         <div class="batch-actions">
                             <button class="btn btn-outline-secondary btn-sm" @onclick="ClearBatchItems">Clear All</button>
-                            <button class="btn btn-success btn-sm" @onclick="ProcessBatchItems" disabled="@_isBatchProcessing">
+                            <button class="btn btn-success btn-sm" @onclick="ProcessBatchItems" disabled="@(_isBatchProcessing || _batchScannedItems.Any(i => i.ProductId == 0))">
                                 @if (_isBatchProcessing)
                                 {
                                     <span class="spinner-border spinner-border-sm"></span>
@@ -88,15 +102,6 @@
                             </button>
                         </div>
                     </div>
-
-                    @if (_batchError != null)
-                    {
-                        <div class="alert alert-danger">@_batchError</div>
-                    }
-                    @if (_batchSuccess != null)
-                    {
-                        <div class="alert alert-success">@_batchSuccess</div>
-                    }
 
                     <table class="table table-sm">
                         <thead>
@@ -111,9 +116,34 @@
                         <tbody>
                             @foreach (var item in _batchScannedItems)
                             {
-                                <tr>
-                                    <td>@item.ProductName</td>
-                                    <td><code>@item.Barcode</code></td>
+                                <tr @key="item" class="@(item.ProductId == 0 ? "unknown-row" : "")">
+                                    <td>
+                                        @if (item.ProductId == 0)
+                                        {
+                                            <div class="small text-danger mb-1">Not found online - name the new product:</div>
+                                            <div class="d-flex gap-1">
+                                                <input class="form-control form-control-sm" @bind="item.NewName" @bind:event="oninput" placeholder="Product name" />
+                                                <button class="btn btn-sm btn-primary" @onclick="() => CreateUnknownProduct(item)"
+                                                        disabled="@string.IsNullOrWhiteSpace(item.NewName)">Create</button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            @item.ProductName
+                                            @if (item.Status == BarcodeResolveStatus.Created)
+                                            {
+                                                <span class="badge badge-info">new product</span>
+                                            }
+                                            else if (item.Status == BarcodeResolveStatus.AssignedToExisting)
+                                            {
+                                                <div class="small text-muted">
+                                                    Code added to this product (online: "@item.OnlineTitle").
+                                                    <button class="btn btn-link btn-sm p-0" @onclick="() => MakeSeparateProduct(item)">Wrong? Make it a new product</button>
+                                                </div>
+                                            }
+                                        }
+                                    </td>
+                                    <td><code>@string.Join(", ", item.Barcodes)</code></td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm" style="width: 80px;"
                                                @bind="item.Quantity" min="1" />
@@ -172,6 +202,7 @@
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Price</th>
                         <th>Avg/Week</th>
                         <th>Best before in Stock</th>
                         <th>Best before on Shelf</th>
@@ -188,7 +219,8 @@
                         var rowClass = (hasExpiredInStock || hasExpiredOnShelf) ? "expired-row" : (hasExpiringInStock || hasExpiringOnShelf) ? "expiring-row" : "";
 
                         <tr @onclick="() => NavigateToProductDetail(product.Id)" style="cursor: pointer;" class="@rowClass">
-                            <td>@product.Name</td>
+                            <td>@product.Name @(product.HasImage ? "🖼" : "")</td>
+                            <td>@(product.Price?.ToString("0.00 €") ?? "-")</td>
                             <td>@product.AverageProductsShelvedPerWeek.ToString("F1")</td>
                             <td class="@(hasExpiredInStock ? "expired-cell" : hasExpiringInStock ? "expiring-cell" : "")">
                                 @(product.BestBeforeInStock?.ToString("yyyy-MM-dd") ?? "-")
@@ -258,6 +290,12 @@
                         <ValidationMessage For="@(() => _productForm.Name)" />
                     </div>
 
+                    <div class="form-group">
+                        <label>Price per item (EUR, for the tablet)</label>
+                        <InputNumber @bind-Value="_productForm.Price" class="form-control" step="0.01" min="0" />
+                        <small class="text-muted">Leave empty to keep the product off the tablet.</small>
+                    </div>
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
                         <button type="submit" class="btn btn-primary" disabled="@_isSaving">
@@ -306,7 +344,6 @@
 }
 
 <BarcodeLookupModal IsVisible="@_showBarcodeLookupModal"
-                    InitialBarcode="@_pendingBarcodeForBatch"
                     OnClose="@CloseBarcodeLookup"
                     OnProductCreated="@OnProductCreatedFromLookup" />
 
@@ -659,6 +696,15 @@
         gap: 0.5rem;
     }
 
+    .unknown-row {
+        background-color: #fff5f5;
+    }
+
+    .badge-info {
+        background-color: var(--brand-cyan, #17a2b8);
+        color: white;
+    }
+
     .alert-success {
         background-color: #d4edda;
         border: 1px solid #c3e6cb;
@@ -757,6 +803,7 @@
         _productForm = new ProductFormModel
         {
             Name = product.Name,
+            Price = product.Price,
         };
         _modalError = null;
         _showCreateEditModal = true;
@@ -781,6 +828,7 @@
                 var createDto = new CreateProductDto
                 {
                     Name = _productForm.Name,
+                    Price = _productForm.Price,
                 };
                 await ProductsApi.CreateAsync(createDto);
             }
@@ -789,6 +837,7 @@
                 var updateDto = new UpdateProductDto
                 {
                     Name = _productForm.Name,
+                    Price = _productForm.Price,
                 };
                 await ProductsApi.UpdateAsync(_editingProduct.Id, updateDto);
             }
@@ -853,9 +902,9 @@
     private string _batchBarcode = string.Empty;
     private List<BatchScannedItem> _batchScannedItems = new();
     private bool _isBatchProcessing;
+    private int _batchResolving;
     private string? _batchError;
     private string? _batchSuccess;
-    private string? _pendingBarcodeForBatch;
 
     private void ShowBarcodeLookup()
     {
@@ -865,22 +914,11 @@
     private void CloseBarcodeLookup()
     {
         _showBarcodeLookupModal = false;
-        _pendingBarcodeForBatch = null;
     }
 
     private async Task OnProductCreatedFromLookup()
     {
-        // Capture and clear pending barcode before any await to avoid races with CloseBarcodeLookup()
-        var pendingBarcode = _pendingBarcodeForBatch;
-        _pendingBarcodeForBatch = null;
-
         await LoadProducts();
-
-        // If we had a pending barcode from batch mode, try to add it again
-        if (!string.IsNullOrWhiteSpace(pendingBarcode))
-        {
-            await LookupAndAddBatchProduct(pendingBarcode);
-        }
     }
 
     private void StartBatchMode()
@@ -896,91 +934,144 @@
         ClearBatchItems();
     }
 
-    private async Task OnBarcodeChanged(string newValue)
+    // Scans can come faster than the online lookup answers - each one is handled on its own
+    private async Task OnBatchScan(string barcode)
     {
-        _batchBarcode = newValue;
-
-        if (!string.IsNullOrWhiteSpace(_batchBarcode))
-        {
-            await LookupAndAddBatchProduct(_batchBarcode.Trim());
-            _batchBarcode = string.Empty;
-        }
-    }
-
-    private async Task HandleBatchBarcodeInput(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_batchBarcode))
-        {
-            await LookupAndAddBatchProduct(_batchBarcode.Trim());
-            _batchBarcode = string.Empty;
-        }
-    }
-
-    private async Task LookupAndAddBatchProduct(string barcode)
-    {
+        if (string.IsNullOrWhiteSpace(barcode)) return;
         _batchError = null;
         _batchSuccess = null;
 
+        // A code already in the list counts up its row without asking the server again
+        var existing = _batchScannedItems.FirstOrDefault(i => i.Barcodes.Contains(barcode) && i.ActionType == _batchActionType);
+        if (existing != null)
+        {
+            existing.Quantity += existing.BarcodeQuantities[barcode];
+            MoveToTop(existing);
+            return;
+        }
+
+        _batchResolving++;
         try
         {
-            // Get product by barcode
-            var product = await ProductsApi.GetByBarcodeAsync(barcode);
-            if (product == null)
-            {
-                // Product not found, open barcode lookup modal
-                _pendingBarcodeForBatch = barcode;
-                _showBarcodeLookupModal = true;
-                return;
-            }
-
-            // Get barcode quantity
-            int barcodeQuantity = 1;
-            var scannedBarcode = product.Barcodes.FirstOrDefault(b => b.Barcode == barcode);
-            if (scannedBarcode != null)
-            {
-                barcodeQuantity = scannedBarcode.Quantity;
-            }
-
-            // Get stock information
-            var stock = await ProductsApi.GetProductStockAsync(product.Id);
-
-            var item = new BatchScannedItem
-            {
-                ProductId = product.Id,
-                ProductName = product.Name,
-                Barcode = barcode,
-                Quantity = barcodeQuantity,
-                ActionType = _batchActionType,
-                // Only set default date for AddedToStorage and AddedToShelf
-                BestBeforeDate = (_batchActionType == "MovedToShelf") ? "" : DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
-            };
-
-            // For MovedToShelf, populate available dates with storage stock
-            if (_batchActionType == "MovedToShelf")
-            {
-                item.AvailableDates = stock.Batches
-                    .Where(b => b.QuantityInStorage > 0)
-                    .Select(b => b.BestBeforeDate)
-                    .OrderBy(d => d)
-                    .ToList();
-
-                if (item.AvailableDates.Any())
-                {
-                    item.SelectedDate = item.AvailableDates.First().ToString("yyyy-MM-dd");
-                }
-            }
-
-            _batchScannedItems.Add(item);
-        }
-        catch (ApiException)
-        {
-            // Product not found, open barcode lookup modal
-            _pendingBarcodeForBatch = barcode;
-            _showBarcodeLookupModal = true;
+            var result = await ProductsApi.ResolveBarcodeAsync(new BarcodeResolveRequest { Barcode = barcode });
+            await AddResolved(barcode, result);
         }
         catch (Exception ex)
         {
-            _batchError = $"Error looking up product: {ex.Message}";
+            _batchError = $"Error looking up {barcode}: {ex.Message}";
+        }
+        finally
+        {
+            _batchResolving--;
+        }
+    }
+
+    private async Task AddResolved(string barcode, BarcodeResolveResultDto result)
+    {
+        if (result.Product == null)
+        {
+            // Unknown here and online: a row that asks for a name, scanning goes on meanwhile
+            _batchScannedItems.Insert(0, new BatchScannedItem
+            {
+                Barcodes = { barcode },
+                BarcodeQuantities = { [barcode] = 1 },
+                Quantity = 1,
+                Status = BarcodeResolveStatus.NotFound,
+                ActionType = _batchActionType,
+                BestBeforeDate = DefaultBestBefore()
+            });
+            return;
+        }
+
+        var row = _batchScannedItems.FirstOrDefault(i => i.ProductId == result.Product.Id && i.ActionType == _batchActionType);
+        if (row != null)
+        {
+            row.Barcodes.Add(barcode);
+            row.BarcodeQuantities[barcode] = result.BarcodeQuantity;
+            row.Quantity += result.BarcodeQuantity;
+            MoveToTop(row);
+            return;
+        }
+
+        row = new BatchScannedItem
+        {
+            ProductId = result.Product.Id,
+            ProductName = result.Product.Name,
+            Barcodes = { barcode },
+            BarcodeQuantities = { [barcode] = result.BarcodeQuantity },
+            Quantity = result.BarcodeQuantity,
+            Status = result.Status,
+            OnlineTitle = result.OnlineTitle,
+            ActionType = _batchActionType,
+            BestBeforeDate = DefaultBestBefore()
+        };
+
+        // For MovedToShelf, populate available dates with storage stock
+        if (_batchActionType == "MovedToShelf")
+        {
+            var stock = await ProductsApi.GetProductStockAsync(result.Product.Id);
+            row.AvailableDates = stock.Batches
+                .Where(b => b.QuantityInStorage > 0)
+                .Select(b => b.BestBeforeDate)
+                .OrderBy(d => d)
+                .ToList();
+            if (row.AvailableDates.Any()) row.SelectedDate = row.AvailableDates[0].ToString("yyyy-MM-dd");
+        }
+
+        _batchScannedItems.Insert(0, row);
+    }
+
+    // Only set a default date for AddedToStorage and AddedToShelf
+    private string DefaultBestBefore() =>
+        _batchActionType == "MovedToShelf" ? "" : DateTime.Today.AddDays(30).ToString("yyyy-MM-dd");
+
+    private void MoveToTop(BatchScannedItem item)
+    {
+        _batchScannedItems.Remove(item);
+        _batchScannedItems.Insert(0, item);
+    }
+
+    private async Task CreateUnknownProduct(BatchScannedItem item)
+    {
+        var barcode = item.Barcodes[0];
+        try
+        {
+            var result = await ProductsApi.ResolveBarcodeAsync(new BarcodeResolveRequest { Barcode = barcode, Name = item.NewName });
+            var quantity = item.Quantity;
+            _batchScannedItems.Remove(item);
+            await AddResolved(barcode, result);
+            _batchScannedItems.First(i => i.Barcodes.Contains(barcode)).Quantity = quantity;
+        }
+        catch (Exception ex)
+        {
+            _batchError = $"Could not create the product: {ex.Message}";
+        }
+    }
+
+    // The name match was wrong: take the code off that product and give it a product of its own
+    private async Task MakeSeparateProduct(BatchScannedItem item)
+    {
+        try
+        {
+            var product = await ProductsApi.GetByIdAsync(item.ProductId);
+            foreach (var code in item.Barcodes)
+            {
+                var assigned = product.Barcodes.First(b => b.Barcode == code);
+                await ProductsApi.DeleteBarcodeAsync(item.ProductId, assigned.Id);
+            }
+
+            var quantity = item.Quantity;
+            _batchScannedItems.Remove(item);
+            foreach (var code in item.Barcodes)
+            {
+                var result = await ProductsApi.ResolveBarcodeAsync(new BarcodeResolveRequest { Barcode = code, ForceNewProduct = true });
+                await AddResolved(code, result);
+            }
+            _batchScannedItems.First(i => i.Barcodes.Contains(item.Barcodes[0])).Quantity = quantity;
+        }
+        catch (Exception ex)
+        {
+            _batchError = $"Could not split the product: {ex.Message}";
         }
     }
 
@@ -1006,64 +1097,48 @@
 
         try
         {
-            var actions = new List<object>();
+            var request = new BatchShelvingRequest();
 
             foreach (var item in _batchScannedItems)
             {
-                // Determine the best before date to use
-                string bestBeforeDate;
-                if (item.ActionType == "MovedToShelf")
-                {
-                    bestBeforeDate = item.SelectedDate ?? item.BestBeforeDate;
-                }
-                else
-                {
-                    bestBeforeDate = item.BestBeforeDate;
-                }
-
+                var bestBeforeDate = item.ActionType == "MovedToShelf" ? item.SelectedDate ?? item.BestBeforeDate : item.BestBeforeDate;
                 if (!DateTime.TryParse(bestBeforeDate, out var parsedDate))
                 {
-                    _batchError = $"Invalid date format for product '{item.Barcode}': {bestBeforeDate}";
+                    _batchError = $"Invalid best before date for '{item.ProductName}': {bestBeforeDate}";
                     return;
                 }
 
-                actions.Add(new
+                request.Actions.Add(new CreateShelvingActionDto
                 {
-                    productBarcode = item.Barcode,
-                    bestBeforeDate = parsedDate,
-                    quantity = item.Quantity,
-                    type = item.ActionType
+                    ProductId = item.ProductId,
+                    BestBeforeDate = DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc),
+                    Quantity = item.Quantity,
+                    Type = Enum.Parse<ShelvingActionType>(item.ActionType)
                 });
             }
 
-            var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", new { actions });
+            var response = await Http.PostAsJsonAsync("api/shelvingactions/batch", request);
+            var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
 
-            if (response.IsSuccessStatusCode)
+            if (result?.Errors.Any() == true)
             {
-                var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
-
-                if (result?.Errors.Any() == true)
-                {
-                    _batchError = string.Join(", ", result.Errors);
-                    if (result.Results.Any())
-                    {
-                        _batchSuccess = $"Successfully processed {result.Results.Count} items.";
-                    }
-                }
-                else
-                {
-                    _batchSuccess = $"Successfully processed {_batchScannedItems.Count} items.";
-                    _batchScannedItems.Clear();
-                    await LoadProducts(); // Refresh product list
-                }
+                // Keep only the rows that failed, so a retry does not book the rest twice
+                var booked = result.Results.Select(r => r.ProductId).ToHashSet();
+                _batchScannedItems.RemoveAll(i => booked.Contains(i.ProductId));
+                _batchError = string.Join(", ", result.Errors);
+                if (result.Results.Any()) _batchSuccess = $"Successfully processed {result.Results.Count} items.";
+            }
+            else if (response.IsSuccessStatusCode)
+            {
+                _batchSuccess = $"Successfully processed {_batchScannedItems.Count} items.";
+                _batchScannedItems.Clear();
             }
             else
             {
-                var result = await response.Content.ReadFromJsonAsync<BatchShelvingResponse>();
-                _batchError = result?.Errors.Any() == true
-                    ? string.Join(", ", result.Errors)
-                    : "Failed to process batch items.";
+                _batchError = "Failed to process batch items.";
             }
+
+            await LoadProducts(); // Refresh product list
         }
         catch (Exception ex)
         {
@@ -1079,8 +1154,12 @@
     {
         public int ProductId { get; set; }
         public string ProductName { get; set; } = string.Empty;
-        public string Barcode { get; set; } = string.Empty;
+        public List<string> Barcodes { get; } = new();
+        public Dictionary<string, int> BarcodeQuantities { get; } = new();
         public int Quantity { get; set; }
+        public BarcodeResolveStatus Status { get; set; }
+        public string? OnlineTitle { get; set; }
+        public string? NewName { get; set; }
         public string ActionType { get; set; } = string.Empty;
         public string BestBeforeDate { get; set; } = string.Empty;
         public string? SelectedDate { get; set; }
@@ -1091,6 +1170,9 @@
     {
         [Required(ErrorMessage = "Product name is required")]
         public string Name { get; set; } = string.Empty;
+
+        [Range(0, 100, ErrorMessage = "Price must be between 0 and 100")]
+        public decimal? Price { get; set; }
     }
 }
 

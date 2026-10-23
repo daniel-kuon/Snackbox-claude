@@ -1,4 +1,4 @@
-﻿namespace Snackbox.Components.Models;
+namespace Snackbox.Components.Models;
 
 public class PurchaseSession
 {
@@ -16,6 +16,7 @@ public class PurchaseSession
     public decimal DiscountedAmount { get; set; }
     public decimal TotalSavings => AppliedDiscounts.Sum(d => d.DiscountAmount);
     public bool IsUserInactive { get; set; }
+    public bool IsTabletSession { get; set; } // Picks on the tablet - the card scan booked nothing
     public List<string> PendingWizardSteps { get; set; } = new();
     public List<string> EnabledFeatures { get; set; } = new();
     public string ScannedCardCode { get; set; } = string.Empty; // Last scanned barcode code - identifies the card for setup/intro API calls

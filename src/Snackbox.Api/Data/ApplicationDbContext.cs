@@ -32,6 +32,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
     public DbSet<UserWizardStep> UserWizardSteps => Set<UserWizardStep>();
     public DbSet<UnknownScan> UnknownScans => Set<UnknownScan>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -126,6 +127,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<BarcodeScan>(entity =>
         {
             entity.HasIndex(e => e.LegacyPostenId).IsUnique().HasFilter("legacy_posten_id IS NOT NULL");
+            // A product with tablet sales can still be deleted - the money stays booked
+            entity.HasOne(e => e.Product).WithMany().HasForeignKey(e => e.ProductId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<UnknownScan>(entity =>
@@ -137,6 +140,16 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Product>(entity =>
         {
             entity.Property(e => e.Name).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<ProductImage>(entity =>
+        {
+            entity.HasKey(e => e.ProductId);
+            entity.Property(e => e.ContentType).HasMaxLength(100);
+            entity.HasOne(e => e.Product)
+                .WithOne(p => p.Image)
+                .HasForeignKey<ProductImage>(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ProductBarcode>(entity =>

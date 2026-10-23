@@ -56,6 +56,7 @@ public class UsersController : ControllerBase
                 IsActive = x.User.IsActive,
                 IsRetired = x.User.IsRetired,
                 IsBetaTester = x.User.IsBetaTester,
+                UsesTabletSelection = x.User.UsesTabletSelection,
                 Balance = x.Balance,
                 CreatedAt = x.User.CreatedAt,
                 HasPurchases = x.User.Purchases.Any(),

@@ -6,9 +6,13 @@ public class Product
     public required string Name { get; set; }
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>Price per item on the tablet. Products without one are not offered there.</summary>
+    public decimal? Price { get; set; }
+
     // Navigation properties
     public ICollection<ProductBarcode> Barcodes { get; set; } = new List<ProductBarcode>();
     public ICollection<ProductBatch> Batches { get; set; } = new List<ProductBatch>();
     public DateTime? BestBeforeInStock { get; set; }
     public DateTime? BestBeforeOnShelf { get; set; }
+    public ProductImage? Image { get; set; }
 }

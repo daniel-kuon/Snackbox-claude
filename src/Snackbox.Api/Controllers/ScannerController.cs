@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +18,12 @@ public class ScannerController : ControllerBase
     private readonly IAchievementService _achievementService;
     private readonly IFeatureFlagService _featureFlags;
     private readonly ILogger<ScannerController> _logger;
+    private readonly TabletSessionStore _tablet;
     private const int DefaultTimeoutSeconds = 60;
 
-    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, IFeatureFlagService featureFlags, ILogger<ScannerController> logger)
+    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, IFeatureFlagService featureFlags, ILogger<ScannerController> logger, TabletSessionStore tablet)
     {
+        _tablet = tablet;
         _context = context;
         _configuration = configuration;
         _achievementService = achievementService;
@@ -102,6 +104,10 @@ public class ScannerController : ControllerBase
 
         var user = barcode.User;
         var isInactive = !user.IsActive;
+        _tablet.EndUnlessUser(user.Id);
+
+        // A converted user's card opens the tablet instead of booking its printed amount
+        var picksOnTablet = user.UsesTabletSelection && barcode is PurchaseBarcode;
 
         // Which intro steps this user still needs, given the features enabled *for them*
         // (a beta-only feature is visible to beta testers only)
@@ -145,8 +151,12 @@ public class ScannerController : ControllerBase
                 .OrderByDescending(s => s.ScannedAt)
                 .FirstOrDefault();
 
-            // If last scan was within timeout window, add to existing purchase
-            if (lastScan != null && lastScan.ScannedAt >= timeoutThreshold)
+            // A tablet session's purchase may have no scans yet; its activity is UpdatedAt.
+            // Manual purchases (admin entries, corrections) never count as open.
+            var lastActivity = lastScan?.ScannedAt ?? (lastPurchase.ManualAmount == null ? lastPurchase.UpdatedAt : null);
+
+            // If the last activity was within timeout window, add to existing purchase
+            if (lastActivity >= timeoutThreshold)
             {
                 currentPurchase = lastPurchase;
             }
@@ -196,22 +206,31 @@ public class ScannerController : ControllerBase
             isNewPurchase = true;
         }
 
-        // Add the barcode scan to the purchase
-        var barcodeScan = new BarcodeScan
+        // Add the barcode scan to the purchase - unless the user picks on the tablet, where
+        // each picked product becomes a scan instead
+        if (!picksOnTablet)
         {
-            Purchase = currentPurchase,
-            BarcodeId = barcode.Id,
-            Amount = barcode.Amount,
-            ScannedAt = DateTime.UtcNow,
-            // Remember which trace produced this scan so the admin UI can open it in SigNoz
-            TraceId = Activity.Current?.TraceId.ToHexString()
-        };
-        _context.BarcodeScans.Add(barcodeScan);
+            var barcodeScan = new BarcodeScan
+            {
+                Purchase = currentPurchase,
+                BarcodeId = barcode.Id,
+                Amount = barcode.Amount,
+                ScannedAt = DateTime.UtcNow,
+                // Remember which trace produced this scan so the admin UI can open it in SigNoz
+                TraceId = Activity.Current?.TraceId.ToHexString()
+            };
+            _context.BarcodeScans.Add(barcodeScan);
+        }
 
         // Update the purchase timestamp
         currentPurchase.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        if (picksOnTablet)
+        {
+            _tablet.Start(new TabletSessionStore.Session(user.Id, user.Username, currentPurchase.Id, barcode.Id, DateTime.UtcNow));
+        }
 
         // Reload the purchase's scans with their barcodes. This must run for BOTH paths: when
         // adding to an existing purchase the scan just created has only BarcodeId set, so
@@ -319,58 +338,7 @@ public class ScannerController : ControllerBase
         // Calculate total amount before discounts
         var totalAmount = currentPurchase.Scans.Sum(s => s.Amount);
 
-        // Find applicable discounts
-        var now = DateTime.UtcNow;
-        var applicableDiscounts = await _context.Discounts
-            .Where(d => d.IsActive
-                && d.ValidFrom <= now
-                && d.ValidTo >= now
-                && d.MinimumPurchaseAmount <= totalAmount)
-            .ToListAsync();
-
-        // Remove any existing discounts for this purchase (in case items were removed)
-        var existingDiscounts = await _context.PurchaseDiscounts
-            .Where(pd => pd.PurchaseId == currentPurchase.Id)
-            .ToListAsync();
-        _context.PurchaseDiscounts.RemoveRange(existingDiscounts);
-
-        // Calculate and save discount amounts for ALL applicable discounts
-        var appliedDiscounts = new List<AppliedDiscountDto>();
-        var discountedAmount = totalAmount;
-        var totalDiscountAmount = 0m;
-
-        foreach (var discount in applicableDiscounts)
-        {
-            var discountAmount = discount.Type == DiscountType.FixedAmount
-                ? Math.Min(discount.Value, totalAmount)
-                : totalAmount * (discount.Value / 100);
-
-            totalDiscountAmount += discountAmount;
-
-            // Save the discount to the database immediately
-            var purchaseDiscount = new PurchaseDiscount
-            {
-                PurchaseId = currentPurchase.Id,
-                DiscountId = discount.Id,
-                DiscountAmount = discountAmount
-            };
-            _context.PurchaseDiscounts.Add(purchaseDiscount);
-
-            appliedDiscounts.Add(new AppliedDiscountDto
-            {
-                DiscountId = discount.Id,
-                Name = discount.Name,
-                Type = discount.Type.ToString(),
-                Value = discount.Value,
-                DiscountAmount = discountAmount
-            });
-        }
-
-        // Apply all discounts (but don't go below zero)
-        discountedAmount = Math.Max(0, totalAmount - totalDiscountAmount);
-
-        // Save the discounts to the database
-        await _context.SaveChangesAsync();
+        var (appliedDiscounts, discountedAmount) = await PurchaseDiscountCalculator.ApplyAsync(_context, currentPurchase.Id, totalAmount);
 
         // Build response
         var response = new ScanBarcodeResponse
@@ -379,6 +347,7 @@ public class ScannerController : ControllerBase
             UserId = user.Id,
             Username = user.Username,
             IsUserInactive = isInactive,
+            IsTabletSession = picksOnTablet,
             PendingWizardSteps = pendingWizardSteps,
             EnabledFeatures = enabledFeatures,
             PurchaseId = currentPurchase.Id,

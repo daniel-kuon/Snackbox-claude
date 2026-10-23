@@ -594,6 +594,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("legacy_posten_id");
 
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("integer")
+                        .HasColumnName("product_id");
+
                     b.Property<int>("PurchaseId")
                         .HasColumnType("integer")
                         .HasColumnName("purchase_id");
@@ -613,6 +617,8 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("LegacyPostenId")
                         .IsUnique()
                         .HasFilter("legacy_posten_id IS NOT NULL");
+
+                    b.HasIndex("ProductId");
 
                     b.HasIndex("PurchaseId");
 
@@ -1024,6 +1030,11 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
+                    b.Property<decimal?>("Price")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("price");
+
                     b.HasKey("Id");
 
                     b.ToTable("products");
@@ -1092,6 +1103,32 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("product_batches");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.ProductImage", b =>
+                {
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer")
+                        .HasColumnName("product_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("data");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("ProductId");
+
+                    b.ToTable("product_images");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.Purchase", b =>
@@ -1288,6 +1325,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("username");
 
+                    b.Property<bool>("UsesTabletSelection")
+                        .HasColumnType("boolean")
+                        .HasColumnName("uses_tablet_selection");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CardNumber")
@@ -1447,6 +1488,11 @@ namespace Snackbox.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Snackbox.Api.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Snackbox.Api.Models.Purchase", "Purchase")
                         .WithMany("Scans")
                         .HasForeignKey("PurchaseId")
@@ -1454,6 +1500,8 @@ namespace Snackbox.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Barcode");
+
+                    b.Navigation("Product");
 
                     b.Navigation("Purchase");
                 });
@@ -1565,6 +1613,17 @@ namespace Snackbox.Api.Migrations
                     b.HasOne("Snackbox.Api.Models.Product", "Product")
                         .WithMany("Batches")
                         .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.ProductImage", b =>
+                {
+                    b.HasOne("Snackbox.Api.Models.Product", "Product")
+                        .WithOne("Image")
+                        .HasForeignKey("Snackbox.Api.Models.ProductImage", "ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1699,6 +1758,8 @@ namespace Snackbox.Api.Migrations
                     b.Navigation("Barcodes");
 
                     b.Navigation("Batches");
+
+                    b.Navigation("Image");
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.ProductBatch", b =>

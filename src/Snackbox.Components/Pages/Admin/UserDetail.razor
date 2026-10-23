@@ -52,6 +52,10 @@
                     {
                         <span class="badge bg-success">Active</span>
                     }
+                    @if (_user.UsesTabletSelection)
+                    {
+                        <span class="badge bg-info" title="Picks products on the tablet">Tablet</span>
+                    }
                 </div>
             </div>
             <div class="summary-card">
@@ -236,6 +240,13 @@
                                 <InputCheckbox @bind-Value="_userEditForm.IsBetaTester" class="form-check-input" id="isBetaCheckEdit" />
                                 <label class="form-check-label" for="isBetaCheckEdit">
                                     Beta tester <small class="text-muted">— also sees features released to beta testers</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="_userEditForm.UsesTabletSelection" class="form-check-input" id="tabletCheckEdit" />
+                                <label class="form-check-label" for="tabletCheckEdit">
+                                    Picks products on the tablet <small class="text-muted">— a scan of any of their codes opens the tablet and books nothing itself; the fixed amounts on their card no longer apply</small>
                                 </label>
                             </div>
 
@@ -1857,7 +1868,8 @@
             Email = _user.Email ?? string.Empty,
             Role = _user.IsAdmin ? "Admin" : "User",
             IsActive = _user.IsActive,
-            IsBetaTester = _user.IsBetaTester
+            IsBetaTester = _user.IsBetaTester,
+            UsesTabletSelection = _user.UsesTabletSelection
         };
         _editError = null;
         _isEditingUserInfo = true;
@@ -1885,7 +1897,8 @@
                 email = _userEditForm.Email,
                 isAdmin = _userEditForm.Role == "Admin",
                 isActive = _userEditForm.IsActive,
-                isBetaTester = _userEditForm.IsBetaTester
+                isBetaTester = _userEditForm.IsBetaTester,
+                usesTabletSelection = _userEditForm.UsesTabletSelection
             });
 
             if (response.IsSuccessStatusCode)
@@ -2032,6 +2045,8 @@
         public bool IsActive { get; set; } = true;
 
         public bool IsBetaTester { get; set; }
+
+        public bool UsesTabletSelection { get; set; }
     }
 
     private class ManualPurchaseFormModel

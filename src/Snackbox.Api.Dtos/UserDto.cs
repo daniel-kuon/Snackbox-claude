@@ -9,6 +9,7 @@ public class UserDto
     public bool IsActive { get; set; }
     public bool IsRetired { get; set; }
     public bool IsBetaTester { get; set; }
+    public bool UsesTabletSelection { get; set; }
     public decimal Balance { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool HasPurchases { get; set; }
@@ -42,4 +43,5 @@ public class UpdateUserDto
     public bool IsAdmin { get; set; }
     public bool IsActive { get; set; }
     public bool IsBetaTester { get; set; }
+    public bool UsesTabletSelection { get; set; }
 }

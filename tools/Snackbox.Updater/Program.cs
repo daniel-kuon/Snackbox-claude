@@ -12,6 +12,7 @@ using Snackbox.Updater;
 //   watchdog [--no-kiosk]          restart the stack if it stopped answering (for a scheduled task)
 //   install-watchdog [--no-kiosk]  run "watchdog" every 5 minutes
 //   uninstall-watchdog             remove that task
+//   tablet                         forward the USB tablet's localhost:5186 to the website (adb reverse)
 //
 // Every command takes --dir <installation>; it otherwise falls back to SNACKBOX_HOME and then
 // to the repository the updater itself sits in.
@@ -92,6 +93,10 @@ try
             Watchdog.UninstallTask(log);
             return 0;
 
+        case "tablet":
+            Tablet.Connect(log, verbose: true);
+            return 0;
+
         default:
             Console.Error.WriteLine($"Unknown command: {command}");
             PrintUsage();
@@ -149,6 +154,8 @@ static void PrintUsage()
                                           answering, start the kiosk if it is gone
           install-watchdog [--no-kiosk]   run "watchdog" every 5 minutes (scheduled task)
           uninstall-watchdog              remove the watchdog task
+          tablet                          let the USB tablet reach the website (adb reverse;
+                                          also done by start and every watchdog run)
 
         Options
           --dir <path>                    the installation to act on (default: SNACKBOX_HOME,

@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
 using Snackbox.Api.Dtos;
@@ -102,6 +102,7 @@ public class ScannerService : IScannerService
                 StartTime = result.ScannedBarcodes.FirstOrDefault()?.ScannedAt ?? DateTime.UtcNow,
                 RecentPurchases = DtoToModelMapper.ToRecentPurchases(result.RecentPurchases),
                 IsUserInactive = result.IsUserInactive,
+                IsTabletSession = result.IsTabletSession,
                 PendingWizardSteps = result.PendingWizardSteps,
                 EnabledFeatures = result.EnabledFeatures,
                 ScannedCardCode = barcodeCode,

@@ -1,4 +1,4 @@
-﻿namespace Snackbox.Api.Dtos;
+namespace Snackbox.Api.Dtos;
 
 public class ScanBarcodeResponse
 {
@@ -10,6 +10,7 @@ public class ScanBarcodeResponse
     public required string Username { get; set; }
     public bool IsLoginOnly { get; set; } // True if this is a login-only barcode
     public bool IsUserInactive { get; set; } // True if the user's barcode is inactive
+    public bool IsTabletSession { get; set; } // The user picks on the tablet - this scan booked nothing itself
     public List<string> PendingWizardSteps { get; set; } = new(); // Intro steps this user has not seen yet (already filtered by enabled features)
     public List<string> EnabledFeatures { get; set; } = new(); // Keys of the currently enabled feature flags
 
