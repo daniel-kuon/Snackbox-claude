@@ -102,6 +102,7 @@ builder.Services.AddScoped<IProductCatalogService, ProductCatalogService>();
 builder.Services.AddScoped<IProductImageSearch, ProductImageSearch>();
 builder.Services.AddHttpClient(PublicInternet.HttpClientName).ConfigurePrimaryHttpMessageHandler(PublicInternet.CreateHandler);
 builder.Services.AddSingleton<TabletSessionStore>();
+builder.Services.AddSingleton<TabletDisplay>();
 
 // Register invoice parser services
 builder.Services.AddScoped<IInvoiceParserService, SonderpostenInvoiceParser>();

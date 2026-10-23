@@ -30,7 +30,7 @@ public class TabletControllerTests : IDisposable
         var achievements = new AchievementService(_context);
 
         _scanner = new ScannerController(_context, configuration, achievements, new FeatureFlagService(_context),
-                                         NullLogger<ScannerController>.Instance, sessions);
+                                         NullLogger<ScannerController>.Instance, sessions, NoTabletDisplay);
         _tablet = new TabletController(_context, sessions, new StockCalculationService(), achievements,
                                        new Moq.Mock<IProductBestBeforeDateService>().Object);
 
@@ -173,4 +173,9 @@ public class TabletControllerTests : IDisposable
     }
 
     public void Dispose() => _context.Dispose();
+
+    // Off in tests: no adb calls
+    private static readonly TabletDisplay NoTabletDisplay = new(
+        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Tablet:WakeOnScan"] = "false" }).Build(),
+        NullLogger<TabletDisplay>.Instance);
 }

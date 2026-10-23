@@ -19,11 +19,13 @@ public class ScannerController : ControllerBase
     private readonly IFeatureFlagService _featureFlags;
     private readonly ILogger<ScannerController> _logger;
     private readonly TabletSessionStore _tablet;
+    private readonly TabletDisplay _tabletDisplay;
     private const int DefaultTimeoutSeconds = 60;
 
-    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, IFeatureFlagService featureFlags, ILogger<ScannerController> logger, TabletSessionStore tablet)
+    public ScannerController(ApplicationDbContext context, IConfiguration configuration, IAchievementService achievementService, IFeatureFlagService featureFlags, ILogger<ScannerController> logger, TabletSessionStore tablet, TabletDisplay tabletDisplay)
     {
         _tablet = tablet;
+        _tabletDisplay = tabletDisplay;
         _context = context;
         _configuration = configuration;
         _achievementService = achievementService;
@@ -108,6 +110,9 @@ public class ScannerController : ControllerBase
 
         // A converted user's card opens the tablet instead of booking its printed amount
         var picksOnTablet = user.UsesTabletSelection && barcode is PurchaseBarcode;
+
+        // Someone is at the box: light up the tablet (it shows the shelf, or their session)
+        if (barcode is PurchaseBarcode) _tabletDisplay.Wake();
 
         // Which intro steps this user still needs, given the features enabled *for them*
         // (a beta-only feature is visible to beta testers only)

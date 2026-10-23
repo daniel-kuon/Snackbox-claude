@@ -21,7 +21,14 @@ by the scanner timeout (60 s after the last tap or scan), exactly like scanning 
    ```
    It runs `adb reverse tcp:5186 tcp:5186`: the tablet's `localhost:5186` is now the PC's website.
 5. In Chrome on the tablet open `http://localhost:5186/tablet`, then *⋮ → Add to Home screen* and
-   start it from there (full screen). Keep the screen on: *Developer options → Stay awake*.
+   start it from there (full screen).
+6. Screen: *Settings → Security → Screen lock → None* (a PIN or pattern cannot be skipped), and
+   a short *Settings → Display → Screen timeout* (e.g. 1 minute). Leave *Developer options →
+   Stay awake* off. Every card scan wakes the screen through the same USB connection
+   (`adb shell input keyevent KEYCODE_WAKEUP`, then `wm dismiss-keyguard`), so no app is needed
+   on the tablet. After a long sleep the page reconnects (or reloads) by itself within a few
+   seconds of waking. `Tablet:WakeOnScan=false` in the API's settings turns the wake-up off;
+   `Tablet:AdbPath` points it at adb if it is not in one of the usual places.
 
 **Trust model**: like the kiosk's scan, the tablet needs no login - it can only add to the
 session a card scan opened in the last minute. That is fine while the website is reachable only
@@ -47,5 +54,6 @@ plain HTTP from the loopback address, so the website does not redirect it to HTT
   product attached - balance, history, achievements and discounts work unchanged, and the
   purchase history shows the product names.
 
-Tablet purchases do not reduce the shelf stock (like all purchases); the inventory count
-(Admin → Inventory) corrects it.
+Unlike card scans, a tablet pick says which product was taken: each one takes an item off the
+shelf (from the batch with the oldest best-before date), and − / ✕ put it back. Card scans still
+leave the shelf alone; the inventory count (Admin → Inventory) corrects the shelf for those.

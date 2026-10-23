@@ -39,7 +39,7 @@ public class ScannerControllerTests : IDisposable
         var achievementService = new AchievementService(_context);
 
         _controller = new ScannerController(_context, _configuration, achievementService,
-            new FeatureFlagService(_context), NullLogger<ScannerController>.Instance, new TabletSessionStore(_configuration));
+            new FeatureFlagService(_context), NullLogger<ScannerController>.Instance, new TabletSessionStore(_configuration), NoTabletDisplay);
 
         // Seed test data
         SeedTestData();
@@ -617,4 +617,9 @@ public class ScannerControllerTests : IDisposable
         _context.Database.EnsureDeleted();
         _context.Dispose();
     }
+
+    // Off in tests: no adb calls
+    private static readonly TabletDisplay NoTabletDisplay = new(
+        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Tablet:WakeOnScan"] = "false" }).Build(),
+        NullLogger<TabletDisplay>.Instance);
 }
