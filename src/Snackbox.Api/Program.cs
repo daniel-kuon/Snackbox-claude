@@ -99,6 +99,8 @@ builder.Services.AddScoped<IStockCalculationService, StockCalculationService>();
 // Register product matching service
 builder.Services.AddScoped<IProductMatchingService, ProductMatchingService>();
 builder.Services.AddScoped<IProductCatalogService, ProductCatalogService>();
+builder.Services.AddScoped<IProductImageSearch, ProductImageSearch>();
+builder.Services.AddHttpClient(PublicInternet.HttpClientName).ConfigurePrimaryHttpMessageHandler(PublicInternet.CreateHandler);
 builder.Services.AddSingleton<TabletSessionStore>();
 
 // Register invoice parser services

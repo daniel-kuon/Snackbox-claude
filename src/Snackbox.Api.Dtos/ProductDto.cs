@@ -80,3 +80,26 @@ public class InventoryCountRequest
     public int ProductId { get; set; }
     public int ShelfQuantity { get; set; }
 }
+
+public class ImageSuggestionDto
+{
+    public required string ImageUrl { get; set; }
+    public required string ThumbnailUrl { get; set; }
+    public string? Title { get; set; }
+
+    /// <summary>"Open Food Facts" or "Google Images"</summary>
+    public required string Source { get; set; }
+}
+
+public class ImageSuggestionsDto
+{
+    public List<ImageSuggestionDto> Suggestions { get; set; } = new();
+
+    /// <summary>False while no SerpApi key is configured - the page then offers a Google Images link.</summary>
+    public bool GoogleImagesEnabled { get; set; }
+}
+
+public class ImageFromUrlRequest
+{
+    public required string Url { get; set; }
+}

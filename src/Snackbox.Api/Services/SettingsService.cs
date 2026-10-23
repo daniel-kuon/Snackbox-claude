@@ -42,7 +42,8 @@ public class SettingsService : ISettingsService
             },
             BarcodeLookupSettings = new BarcodeLookupSettingsDto
             {
-                ApiKey = _configuration["SearchUpcData:ApiKey"] ?? ""
+                ApiKey = _configuration["SearchUpcData:ApiKey"] ?? "",
+                ImageSearchApiKey = _configuration["ImageSearch:SerpApiKey"] ?? ""
             }
         };
 
@@ -91,6 +92,12 @@ public class SettingsService : ISettingsService
             writer.WritePropertyName("SearchUpcData");
             writer.WriteStartObject();
             writer.WriteString("ApiKey", settings.BarcodeLookupSettings.ApiKey);
+            writer.WriteEndObject();
+
+            // Picture suggestions from Google Images (serpapi.com)
+            writer.WritePropertyName("ImageSearch");
+            writer.WriteStartObject();
+            writer.WriteString("SerpApiKey", settings.BarcodeLookupSettings.ImageSearchApiKey);
             writer.WriteEndObject();
 
             writer.WriteEndObject();

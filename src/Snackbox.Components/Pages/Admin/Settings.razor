@@ -154,6 +154,16 @@
                     </small>
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label">SerpApi key (Google Images picture suggestions)</label>
+                    <input type="text" class="form-control" @bind="_settings.BarcodeLookupSettings.ImageSearchApiKey" placeholder="optional" />
+                    <small class="form-text text-muted">
+                        Products → a product → <em>Suggest pictures</em> then also shows Google Images results.
+                        Key at <a href="https://serpapi.com/" target="_blank" rel="noopener">serpapi.com</a> (free plan with a monthly search quota).
+                        Google's own image search API takes no new customers.
+                    </small>
+                </div>
+
                 @if (!string.IsNullOrEmpty(_barcodeTestResult))
                 {
                     <div class="alert @(_barcodeTestSuccess ? "alert-success" : "alert-danger")">

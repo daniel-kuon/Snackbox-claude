@@ -53,8 +53,11 @@ public interface IProductsApi
     [Put("/api/products/{id}/image")]
     Task UploadImageAsync(int id, [AliasAs("file")] StreamPart file);
 
-    [Post("/api/products/{id}/image/fetch")]
-    Task FetchImageAsync(int id);
+    [Get("/api/products/{id}/image/suggestions")]
+    Task<ImageSuggestionsDto> GetImageSuggestionsAsync(int id);
+
+    [Post("/api/products/{id}/image/from-url")]
+    Task ImageFromUrlAsync(int id, [Body] ImageFromUrlRequest request);
 
     [Delete("/api/products/{id}/image")]
     Task DeleteImageAsync(int id);

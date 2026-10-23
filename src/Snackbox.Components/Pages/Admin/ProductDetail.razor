@@ -70,11 +70,24 @@
                         <label class="btn btn-outline-primary mb-0">
                             Upload picture <InputFile OnChange="UploadPicture" accept="image/jpeg,image/png,image/webp,image/gif" style="display: none" />
                         </label>
-                        <button class="btn btn-outline-primary" @onclick="FetchPicture">Picture from the internet</button>
+                        <button class="btn btn-outline-primary" @onclick="SuggestPictures" disabled="@_suggesting">
+                            @if (_suggesting)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            Suggest pictures
+                        </button>
+                        <a class="btn btn-outline-secondary" target="_blank" rel="noopener"
+                           href="@($"https://www.google.com/search?udm=2&q={Uri.EscapeDataString(_productName)}")">Search Google Images ↗</a>
                         @if (_imageDataUrl != null)
                         {
                             <button class="btn btn-outline-danger" @onclick="RemovePicture">Remove picture</button>
                         }
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <input class="form-control" style="max-width: 420px" placeholder="…or paste a picture address (right-click a picture → Copy image address)"
+                               @bind="_pictureUrl" @bind:event="oninput" />
+                        <button class="btn btn-outline-primary" @onclick="() => UsePicture(_pictureUrl)" disabled="@string.IsNullOrWhiteSpace(_pictureUrl)">Use</button>
                     </div>
                     @if (_tabletMessage != null)
                     {
@@ -82,6 +95,29 @@
                     }
                 </div>
             </div>
+            @if (_suggestions != null)
+            {
+                @if (_suggestions.Suggestions.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No pictures found - try <em>Search Google Images</em> and paste the picture's address.</p>
+                }
+                else
+                {
+                    <div class="picture-suggestions">
+                        @foreach (var suggestion in _suggestions.Suggestions)
+                        {
+                            <button class="picture-suggestion" title="@($"{suggestion.Title} ({suggestion.Source})")" @onclick="() => UsePicture(suggestion.ImageUrl)">
+                                <img src="@suggestion.ThumbnailUrl" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                                <span>@suggestion.Source</span>
+                            </button>
+                        }
+                    </div>
+                }
+                @if (!_suggestions.GoogleImagesEnabled)
+                {
+                    <small class="text-muted d-block mt-2">Google Images suggestions appear here once a SerpApi key is set in Admin → Settings → Barcode Lookup API.</small>
+                }
+            }
         </div>
 
         <div class="barcodes-section">
@@ -506,6 +542,11 @@
     .tablet-picture { width: 160px; height: 160px; border: 1px solid #dee2e6; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; }
     .tablet-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
     .tablet-fields label { font-weight: 500; }
+    .picture-suggestions { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.5rem; margin-top: 1rem; }
+    .picture-suggestion { border: 2px solid #dee2e6; background: #fff; padding: 0.25rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+    .picture-suggestion:hover { border-color: var(--brand-blue); }
+    .picture-suggestion img { width: 100%; height: 100px; object-fit: contain; }
+    .picture-suggestion span { font-size: 0.7rem; color: #6c757d; }
 
     .page-header {
         display: flex;
@@ -1066,18 +1107,40 @@
         }
     }
 
-    private async Task FetchPicture()
+    private ImageSuggestionsDto? _suggestions;
+    private bool _suggesting;
+    private string _pictureUrl = "";
+
+    private async Task SuggestPictures()
     {
-        _tabletMessage = "Looking for a picture...";
+        _suggesting = true;
         try
         {
-            await ProductsApi.FetchImageAsync(ProductId);
+            _suggestions = await ProductsApi.GetImageSuggestionsAsync(ProductId);
+        }
+        catch (ApiException ex)
+        {
+            _tabletMessage = ex.Content ?? ex.Message;
+        }
+        finally
+        {
+            _suggesting = false;
+        }
+    }
+
+    private async Task UsePicture(string url)
+    {
+        _tabletMessage = "Saving the picture...";
+        try
+        {
+            await ProductsApi.ImageFromUrlAsync(ProductId, new ImageFromUrlRequest { Url = url });
             await LoadPicture(true);
+            _pictureUrl = "";
             _tabletMessage = "Picture saved.";
         }
         catch (ApiException)
         {
-            _tabletMessage = "No picture found online for this product's barcodes.";
+            _tabletMessage = "That address did not give a JPEG, PNG, WebP or GIF picture of at most 2 MB - try another one.";
         }
     }
 

@@ -102,7 +102,8 @@ public partial class ProductCatalogService(
 
         try
         {
-            using var http = httpClientFactory.CreateClient();
+            // Addresses come from searches and from admins pasting them: public internet only
+            using var http = httpClientFactory.CreateClient(PublicInternet.HttpClientName);
             http.Timeout = TimeSpan.FromSeconds(15);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Snackbox/1.0 (+https://github.com/daniel-kuon/Snackbox-claude)");
             using var response = await http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);

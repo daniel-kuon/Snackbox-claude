@@ -205,17 +205,23 @@ public class ProductsController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Fetches the picture from the online lookup of one of the product's barcodes.</summary>
-    [HttpPost("{id}/image/fetch")]
-    public async Task<ActionResult> FetchImage(int id, [FromServices] IBarcodeLookupService lookup)
+    /// <summary>Pictures to choose from: Open Food Facts, and Google Images when a SerpApi key is set.</summary>
+    [HttpGet("{id}/image/suggestions")]
+    public async Task<ActionResult<ImageSuggestionsDto>> SuggestImages(int id, [FromServices] IProductImageSearch imageSearch)
     {
-        var barcodes = await _context.ProductBarcodes.Where(pb => pb.ProductId == id).Select(pb => pb.Barcode).ToListAsync();
-        foreach (var barcode in barcodes)
-        {
-            var online = await lookup.LookupBarcodeAsync(barcode);
-            if (online.Product?.ImageUrl is { } url && await _catalog.DownloadImageAsync(id, url)) return NoContent();
-        }
-        return NotFound(new { message = "No picture found online for this product's barcodes" });
+        if (!await _context.Products.AnyAsync(p => p.Id == id)) return NotFound(new { message = "Product not found" });
+        return Ok(await imageSearch.SuggestAsync(id));
+    }
+
+    /// <summary>Downloads a picture from an address - a suggestion or one the admin pasted.</summary>
+    [HttpPost("{id}/image/from-url")]
+    public async Task<ActionResult> ImageFromUrl(int id, [FromBody] ImageFromUrlRequest request)
+    {
+        if (!await _context.Products.AnyAsync(p => p.Id == id)) return NotFound(new { message = "Product not found" });
+
+        return await _catalog.DownloadImageAsync(id, request.Url.Trim())
+            ? NoContent()
+            : BadRequest(new { message = "Could not load a JPEG, PNG, WebP or GIF picture of at most 2 MB from that address" });
     }
 
     [HttpDelete("{id}/image")]

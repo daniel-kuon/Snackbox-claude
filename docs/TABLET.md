@@ -36,8 +36,11 @@ plain HTTP from the loopback address, so the website does not redirect it to HTT
 ## Products and users
 
 - **Price and picture**: Admin → Products → a product → *Tablet*. Only products with a price
-  **and** stock on the shelf are shown. *Picture from the internet* fetches it from Open Food
-  Facts by the product's barcodes; products created by the batch scan get one automatically.
+  **and** stock on the shelf are shown. *Suggest pictures* shows pictures from Open Food Facts
+  (by barcode and by name) and - with a SerpApi key in Admin → Settings - from Google Images;
+  click one to use it. *Search Google Images* opens Google in a new tab: right-click a picture,
+  *Copy image address*, paste it into the address field. Products created by the batch scan get
+  the Open Food Facts picture automatically.
 - **Users**: Admin → Users → a user → Edit → *Picks products on the tablet*. Unticking it puts
   them back on the fixed amounts printed on their card.
 - Each tap is stored as a scan of the card code they scanned, at the product's price, with the

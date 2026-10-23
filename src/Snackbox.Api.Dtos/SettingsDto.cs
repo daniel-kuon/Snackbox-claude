@@ -22,6 +22,9 @@ public class BackupSettingsDto
 public class BarcodeLookupSettingsDto
 {
     public string ApiKey { get; set; } = string.Empty;
+
+    /// <summary>serpapi.com key: Google Images results as picture suggestions for products.</summary>
+    public string ImageSearchApiKey { get; set; } = string.Empty;
 }
 
 public class ApplicationSettingsDto
