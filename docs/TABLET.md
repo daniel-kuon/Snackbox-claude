@@ -23,6 +23,12 @@ by the scanner timeout (60 s after the last tap or scan), exactly like scanning 
 5. In Chrome on the tablet open `http://localhost:5186/tablet`, then *⋮ → Add to Home screen* and
    start it from there (full screen). Keep the screen on: *Developer options → Stay awake*.
 
+**Trust model**: like the kiosk's scan, the tablet needs no login - it can only add to the
+session a card scan opened in the last minute. That is fine while the website is reachable only
+on the PC itself (the default: Aspire binds it to 127.0.0.1, and the tablet comes in through
+`adb reverse`). If the website is ever opened to the Wi-Fi for the phone app, anyone there could
+open `/tablet` and tap onto someone's open purchase - restrict `/tablet` to loopback first.
+
 The forwarding is lost when the cable is unplugged or the tablet restarts; the watchdog task
 (every 5 minutes) sets it again, or run the `tablet` command by hand. The tablet connects over
 plain HTTP from the loopback address, so the website does not redirect it to HTTPS.
