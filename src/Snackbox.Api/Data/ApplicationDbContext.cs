@@ -216,6 +216,11 @@ public class ApplicationDbContext : DbContext
                 .WithMany(ii => ii.ShelvingActions)
                 .HasForeignKey(sa => sa.InvoiceItemId)
                 .OnDelete(DeleteBehavior.SetNull);
+            // A deleted tablet pick (or its purchase) puts the item back on the shelf
+            entity.HasOne(sa => sa.BarcodeScan)
+                .WithMany()
+                .HasForeignKey(sa => sa.BarcodeScanId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Achievement>(entity =>

@@ -22,7 +22,8 @@ public class TabletController(
     ApplicationDbContext context,
     TabletSessionStore sessions,
     IStockCalculationService stockCalculation,
-    IAchievementService achievementService) : ControllerBase
+    IAchievementService achievementService,
+    IProductBestBeforeDateService bestBeforeDates) : ControllerBase
 {
     /// <summary>Products with a price that are on the shelf.</summary>
     [HttpGet("products")]
@@ -61,7 +62,7 @@ public class TabletController(
         if (product?.Price == null) return NotFound(new { message = "Product not available" });
 
         var now = DateTime.UtcNow;
-        context.BarcodeScans.Add(new BarcodeScan
+        var scan = new BarcodeScan
         {
             PurchaseId = session.PurchaseId,
             BarcodeId = session.BarcodeId,
@@ -69,8 +70,11 @@ public class TabletController(
             Amount = product.Price.Value,
             ScannedAt = now,
             TraceId = Activity.Current?.TraceId.ToHexString()
-        });
+        };
+        context.BarcodeScans.Add(scan);
+        await TakeOffShelfAsync(product.Id, scan, now);
         await TouchPurchaseAsync(session, now);
+        await bestBeforeDates.UpdateProductBestBeforeDatesAsync(product.Id);
 
         await achievementService.CheckImmediateAchievementsAsync(session.UserId, session.PurchaseId);
 
@@ -88,8 +92,14 @@ public class TabletController(
             .Where(s => s.PurchaseId == session.PurchaseId && s.ProductId == productId)
             .OrderByDescending(s => s.ScannedAt)
             .ToListAsync();
-        context.BarcodeScans.RemoveRange(all ? scans : scans.Take(1));
+        var removed = (all ? scans : scans.Take(1)).ToList();
+        var removedIds = removed.Select(s => s.Id).ToList();
+
+        // Back on the shelf. The database cascades this too; done here so it does not depend on it.
+        context.ShelvingActions.RemoveRange(await context.ShelvingActions.Where(a => a.BarcodeScanId != null && removedIds.Contains(a.BarcodeScanId.Value)).ToListAsync());
+        context.BarcodeScans.RemoveRange(removed);
         await TouchPurchaseAsync(session, DateTime.UtcNow);
+        await bestBeforeDates.UpdateProductBestBeforeDatesAsync(productId);
 
         return Ok(await BuildStateAsync(sessions.Current ?? session));
     }
@@ -100,6 +110,31 @@ public class TabletController(
     {
         sessions.End();
         return NoContent();
+    }
+
+    /// <summary>
+    /// Unlike card scans, a tablet pick says which product left the shelf: one item comes off
+    /// the batch with the oldest best-before date that still has some on the shelf. Nothing on
+    /// the shelf (the count is off) books nothing - the inventory count fixes the shelf later.
+    /// </summary>
+    private async Task TakeOffShelfAsync(int productId, BarcodeScan scan, DateTime now)
+    {
+        var batches = await context.ProductBatches
+            .Include(b => b.ShelvingActions)
+            .Where(b => b.ProductId == productId)
+            .OrderBy(b => b.BestBeforeDate)
+            .ToListAsync();
+        var batch = batches.FirstOrDefault(b => stockCalculation.CalculateShelfQuantity(b.ShelvingActions) > 0);
+        if (batch == null) return;
+
+        context.ShelvingActions.Add(new ShelvingAction
+        {
+            ProductBatchId = batch.Id,
+            Quantity = 1,
+            Type = ShelvingActionType.RemovedFromShelf,
+            ActionAt = now,
+            BarcodeScan = scan
+        });
     }
 
     private async Task TouchPurchaseAsync(TabletSessionStore.Session session, DateTime now)

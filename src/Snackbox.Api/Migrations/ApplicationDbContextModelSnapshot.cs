@@ -1222,6 +1222,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("action_at");
 
+                    b.Property<int?>("BarcodeScanId")
+                        .HasColumnType("integer")
+                        .HasColumnName("barcode_scan_id");
+
                     b.Property<int?>("InvoiceItemId")
                         .HasColumnType("integer")
                         .HasColumnName("invoice_item_id");
@@ -1239,6 +1243,8 @@ namespace Snackbox.Api.Migrations
                         .HasColumnName("type");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BarcodeScanId");
 
                     b.HasIndex("InvoiceItemId");
 
@@ -1668,6 +1674,11 @@ namespace Snackbox.Api.Migrations
 
             modelBuilder.Entity("Snackbox.Api.Models.ShelvingAction", b =>
                 {
+                    b.HasOne("Snackbox.Api.Models.BarcodeScan", "BarcodeScan")
+                        .WithMany()
+                        .HasForeignKey("BarcodeScanId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("Snackbox.Api.Models.InvoiceItem", "InvoiceItem")
                         .WithMany("ShelvingActions")
                         .HasForeignKey("InvoiceItemId")
@@ -1676,6 +1687,8 @@ namespace Snackbox.Api.Migrations
                     b.HasOne("Snackbox.Api.Models.ProductBatch", "ProductBatch")
                         .WithMany("ShelvingActions")
                         .HasForeignKey("ProductBatchId");
+
+                    b.Navigation("BarcodeScan");
 
                     b.Navigation("InvoiceItem");
 

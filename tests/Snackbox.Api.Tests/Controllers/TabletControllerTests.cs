@@ -31,7 +31,8 @@ public class TabletControllerTests : IDisposable
 
         _scanner = new ScannerController(_context, configuration, achievements, new FeatureFlagService(_context),
                                          NullLogger<ScannerController>.Instance, sessions);
-        _tablet = new TabletController(_context, sessions, new StockCalculationService(), achievements);
+        _tablet = new TabletController(_context, sessions, new StockCalculationService(), achievements,
+                                       new Moq.Mock<IProductBestBeforeDateService>().Object);
 
         var now = DateTime.UtcNow;
         _context.Users.AddRange(
@@ -137,6 +138,30 @@ public class TabletControllerTests : IDisposable
 
         Assert.False((await State()).Active);
         Assert.Equal(1, await _context.BarcodeScans.CountAsync());
+    }
+
+    private int OnShelf(int batchId) =>
+        new StockCalculationService().CalculateShelfQuantity(_context.ShelvingActions.Where(a => a.ProductBatchId == batchId).ToList());
+
+    [Fact]
+    public async Task Picks_TakeItemsOffTheOldestBatchOnTheShelf_AndUndoPutsThemBack()
+    {
+        // A newer batch of Mars with stock, and the older one (batch 1) with 5 on the shelf
+        var now = DateTime.UtcNow;
+        _context.ProductBatches.Add(new ProductBatch { Id = 2, ProductId = 1, BestBeforeDate = now.AddMonths(6), CreatedAt = now });
+        _context.ShelvingActions.Add(new ShelvingAction { ProductBatchId = 2, Quantity = 4, Type = ShelvingActionType.AddedToShelf, ActionAt = now });
+        await _context.SaveChangesAsync();
+        await Scan("TINA-50");
+
+        await _tablet.AddItem(1);
+        await _tablet.AddItem(1);
+        Assert.Equal((3, 4), (OnShelf(1), OnShelf(2)));
+
+        await _tablet.RemoveItem(1);
+        Assert.Equal((4, 4), (OnShelf(1), OnShelf(2)));
+
+        await _tablet.RemoveItem(1, all: true);
+        Assert.Equal(5, OnShelf(1));
     }
 
     [Fact]
