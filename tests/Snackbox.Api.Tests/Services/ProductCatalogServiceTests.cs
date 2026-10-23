@@ -105,6 +105,17 @@ public class ProductCatalogServiceTests : IDisposable
         Assert.NotEqual(1, result.Product!.Id);
     }
 
+    [Theory]
+    [InlineData("image/jpeg", true)]
+    [InlineData("image/png", true)]
+    [InlineData("image/svg+xml", false)] // a document that can run script where it is shown
+    [InlineData("text/html", false)]
+    [InlineData(null, false)]
+    public void OnlyRasterPicturesAreAccepted(string? contentType, bool allowed)
+    {
+        Assert.Equal(allowed, ProductCatalogService.IsAllowedImageType(contentType));
+    }
+
     private void SetupOnline(string barcode, string title, string? brand) =>
         _lookup.Setup(l => l.LookupBarcodeAsync(barcode)).ReturnsAsync(new BarcodeLookupResponseDto
         {

@@ -29,6 +29,11 @@ public partial class ProductCatalogService(
 {
     private const int MaxImageBytes = 2 * 1024 * 1024;
 
+    // Raster pictures only: an SVG is a document that can run script where it is shown
+    private static readonly HashSet<string> AllowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+    public static bool IsAllowedImageType(string? contentType) => contentType != null && AllowedImageTypes.Contains(contentType);
+
     public async Task<BarcodeResolveResultDto> ResolveAsync(BarcodeResolveRequest request)
     {
         var barcode = request.Barcode.Trim();
@@ -102,13 +107,13 @@ public partial class ProductCatalogService(
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Snackbox/1.0 (+https://github.com/daniel-kuon/Snackbox-claude)");
             using var response = await http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
             var contentType = response.Content.Headers.ContentType?.MediaType;
-            if (!response.IsSuccessStatusCode || contentType?.StartsWith("image/") != true) return false;
+            if (!response.IsSuccessStatusCode || !IsAllowedImageType(contentType)) return false;
             if (response.Content.Headers.ContentLength > MaxImageBytes) return false;
 
             var data = await response.Content.ReadAsByteArrayAsync();
             if (data.Length > MaxImageBytes) return false;
 
-            await SaveImageAsync(productId, data, contentType);
+            await SaveImageAsync(productId, data, contentType!);
             return true;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)

@@ -68,7 +68,7 @@
                     <small class="text-muted d-block mb-2">Products without a price are not offered on the tablet.</small>
                     <div class="d-flex gap-2 flex-wrap">
                         <label class="btn btn-outline-primary mb-0">
-                            Upload picture <InputFile OnChange="UploadPicture" accept="image/*" style="display: none" />
+                            Upload picture <InputFile OnChange="UploadPicture" accept="image/jpeg,image/png,image/webp,image/gif" style="display: none" />
                         </label>
                         <button class="btn btn-outline-primary" @onclick="FetchPicture">Picture from the internet</button>
                         @if (_imageDataUrl != null)

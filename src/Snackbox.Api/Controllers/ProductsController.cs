@@ -171,9 +171,12 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult> GetImage(int id)
     {
         var image = await _context.ProductImages.AsNoTracking().FirstOrDefaultAsync(i => i.ProductId == id);
-        if (image == null) return NotFound();
+        // Rows written before the type allowlist, or by hand, are not trusted to be inert
+        if (image == null || !ProductCatalogService.IsAllowedImageType(image.ContentType)) return NotFound();
 
         Response.Headers.CacheControl = "public, max-age=3600";
+        Response.Headers.XContentTypeOptions = "nosniff";
+        Response.Headers.ContentSecurityPolicy = "default-src 'none'; sandbox";
         return File(image.Data, image.ContentType, lastModified: image.UpdatedAt, entityTag: null);
     }
 
@@ -182,8 +185,8 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult> UploadImage(int id, IFormFile file)
     {
         if (!await _context.Products.AnyAsync(p => p.Id == id)) return NotFound(new { message = "Product not found" });
-        if (!file.ContentType.StartsWith("image/") || file.Length > 2 * 1024 * 1024)
-            return BadRequest(new { message = "Please upload a picture of at most 2 MB" });
+        if (!ProductCatalogService.IsAllowedImageType(file.ContentType) || file.Length > 2 * 1024 * 1024)
+            return BadRequest(new { message = "Please upload a JPEG, PNG, WebP or GIF picture of at most 2 MB" });
 
         await using var stream = new MemoryStream();
         await file.CopyToAsync(stream);

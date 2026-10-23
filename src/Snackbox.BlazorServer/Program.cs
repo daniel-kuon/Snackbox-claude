@@ -125,11 +125,16 @@ app.MapGet("/tablet/image/{id:int}", async (int id, IHttpClientFactory httpClien
 {
     using var http = httpClientFactory.CreateClient("ProductImages");
     using var response = await http.GetAsync($"api/products/{id}/image", ctx.RequestAborted);
-    if (!response.IsSuccessStatusCode) return Results.NotFound();
+    var contentType = response.Content.Headers.ContentType?.MediaType;
+    if (!response.IsSuccessStatusCode || contentType is not ("image/jpeg" or "image/png" or "image/webp" or "image/gif"))
+        return Results.NotFound();
 
+    // Served from the app's own origin - must never be something a browser would run
     ctx.Response.Headers.CacheControl = "public, max-age=3600";
+    ctx.Response.Headers.XContentTypeOptions = "nosniff";
+    ctx.Response.Headers.ContentSecurityPolicy = "default-src 'none'; sandbox";
     var bytes = await response.Content.ReadAsByteArrayAsync(ctx.RequestAborted);
-    return Results.File(bytes, response.Content.Headers.ContentType?.MediaType ?? "image/jpeg");
+    return Results.File(bytes, contentType);
 });
 
 // Plain-HTML install guide (works before the certificate is trusted)
