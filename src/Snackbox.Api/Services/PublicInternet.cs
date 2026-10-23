@@ -15,6 +15,8 @@ public static class PublicInternet
     public static SocketsHttpHandler CreateHandler() => new()
     {
         ConnectCallback = ConnectAsync,
+        // With a proxy the callback would vet the proxy, not the target
+        UseProxy = false,
         AllowAutoRedirect = true,
         MaxAutomaticRedirections = 5
     };
@@ -51,11 +53,22 @@ public static class PublicInternet
                      || (b[0] == 192 && b[1] == 168)               // private
                      || (b[0] == 169 && b[1] == 254)               // link-local
                      || (b[0] == 100 && b[1] >= 64 && b[1] <= 127) // carrier-grade NAT
+                     || (b[0] == 192 && b[1] == 0 && b[2] is 0 or 2)  // IETF protocol assignments, documentation
+                     || (b[0] == 198 && b[1] is 18 or 19)          // benchmarking
+                     || (b[0] == 198 && b[1] == 51 && b[2] == 100) // documentation
+                     || (b[0] == 203 && b[1] == 0 && b[2] == 113)  // documentation
                      || b[0] == 0 || b[0] >= 224);                 // "this network", multicast, reserved
         }
 
-        // IPv6: link-local, site-local, unique local (fc00::/7) and multicast are not public
-        return !(address.IsIPv6LinkLocal || address.IsIPv6SiteLocal || address.IsIPv6Multicast
-                 || (address.GetAddressBytes()[0] & 0xFE) == 0xFC);
+        // IPv6: an allowlist, not a denylist - only global unicast (2000::/3). That leaves out
+        // loopback, link-local, unique local, multicast, IPv4-mapped/-compatible and NAT64
+        // (64:ff9b::/96), which can all lead back into the local network. Within 2000::/3,
+        // 6to4 (2002::/16) and Teredo (2001::/32) carry an IPv4 address too, 2001:db8::/32 is
+        // documentation.
+        var v6 = address.GetAddressBytes();
+        if ((v6[0] & 0xE0) != 0x20) return false;
+        if (v6[0] == 0x20 && v6[1] == 0x02) return false;
+        if (v6[0] == 0x20 && v6[1] == 0x01 && ((v6[2] == 0x00 && v6[3] == 0x00) || (v6[2] == 0x0D && v6[3] == 0xB8))) return false;
+        return true;
     }
 }

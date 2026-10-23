@@ -82,6 +82,13 @@ public class ProductImageSearchTests : IDisposable
     [InlineData("::1", false)]
     [InlineData("fd00::1", false)]
     [InlineData("::ffff:192.168.1.1", false)]
+    [InlineData("64:ff9b::a00:1", false)]    // NAT64 of 10.0.0.1
+    [InlineData("2002:c0a8:101::1", false)]  // 6to4 of 192.168.1.1
+    [InlineData("2001:0:4136:e378::1", false)] // Teredo
+    [InlineData("::a00:1", false)]           // IPv4-compatible
+    [InlineData("2001:db8::1", false)]
+    [InlineData("198.18.0.1", false)]
+    [InlineData("192.0.0.8", false)]
     public void PublicInternet_RefusesLocalAddresses(string address, bool isPublic)
     {
         Assert.Equal(isPublic, PublicInternet.IsPublic(IPAddress.Parse(address)));
