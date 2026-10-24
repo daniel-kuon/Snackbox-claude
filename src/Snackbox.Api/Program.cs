@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -103,6 +104,10 @@ builder.Services.AddScoped<IProductImageSearch, ProductImageSearch>();
 builder.Services.AddHttpClient(PublicInternet.HttpClientName).ConfigurePrimaryHttpMessageHandler(PublicInternet.CreateHandler);
 builder.Services.AddSingleton<TabletSessionStore>();
 builder.Services.AddSingleton<TabletDisplay>();
+builder.Services.AddSingleton<OneDriveBackup>();
+// Protects the OneDrive refresh token and the backup passphrase at rest (DPAPI on Windows).
+// A fixed name so the keys survive the installation moving to another folder.
+builder.Services.AddDataProtection().SetApplicationName("Snackbox.Api");
 
 // Register invoice parser services
 builder.Services.AddScoped<IInvoiceParserService, SonderpostenInvoiceParser>();
@@ -287,7 +292,10 @@ app.Use(async (context, next) =>
 // Never log bodies of endpoints that carry credentials or issue tokens
 app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api/auth")
                    && !ctx.Request.Path.StartsWithSegments("/api/testhelper")
-                   && !ctx.Request.Path.StartsWithSegments("/api/legacyimport"),
+                   && !ctx.Request.Path.StartsWithSegments("/api/legacyimport")
+                   // SMTP password and API keys; the backup passphrase and OneDrive sign-in; backup files
+                   && !ctx.Request.Path.StartsWithSegments("/api/settings")
+                   && !ctx.Request.Path.StartsWithSegments("/api/backup"),
             b => b.UseHttpLogging());
 
 app.UseHttpsRedirection();

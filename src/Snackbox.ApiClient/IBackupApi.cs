@@ -22,7 +22,7 @@ public interface IBackupApi
 
     [Multipart]
     [Post("/api/backup/import")]
-    Task<BackupMetadataDto> ImportBackupAsync([AliasAs("file")] StreamPart file);
+    Task<BackupMetadataDto> ImportBackupAsync([AliasAs("file")] StreamPart file, [AliasAs("passphrase")] string? passphrase = null);
 
     [Multipart]
     [Post("/api/backup/restore-from-upload")]
@@ -42,6 +42,25 @@ public interface IBackupApi
 
     [Post("/api/backup/database/create-seeded")]
     Task CreateSeededDatabaseAsync();
+
+    // OneDrive: encrypted off-site copies of the automatic backups
+    [Get("/api/backup/onedrive")]
+    Task<OneDriveStatusDto> GetOneDriveStatusAsync();
+
+    [Put("/api/backup/onedrive/settings")]
+    Task<OneDriveStatusDto> SaveOneDriveSettingsAsync([Body] OneDriveSettingsDto settings);
+
+    [Post("/api/backup/onedrive/connect")]
+    Task<OneDriveSignInDto> StartOneDriveSignInAsync();
+
+    [Post("/api/backup/onedrive/connect/poll")]
+    Task<OneDrivePollDto> PollOneDriveSignInAsync();
+
+    [Post("/api/backup/onedrive/disconnect")]
+    Task DisconnectOneDriveAsync();
+
+    [Post("/api/backup/onedrive/upload-latest")]
+    Task<OneDriveStatusDto> UploadLatestToOneDriveAsync();
 
     [Get("/api/backup/tools/check")]
     Task<ToolsCheckResponse> CheckPostgresToolsAsync();

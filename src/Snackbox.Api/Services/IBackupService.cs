@@ -55,6 +55,9 @@ public interface IBackupService
     /// <returns>File stream of the backup</returns>
     Task<Stream> GetBackupStreamAsync(string backupId);
 
+    /// <summary>Where a backup's file lies on disk</summary>
+    string GetBackupFilePath(BackupMetadata backup);
+
     /// <summary>
     /// Checks if the database exists and is accessible
     /// </summary>

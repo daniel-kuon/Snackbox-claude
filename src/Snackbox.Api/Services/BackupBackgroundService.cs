@@ -82,6 +82,12 @@ public class BackupBackgroundService : BackgroundService
             _logger.LogInformation("Creating {Type} backup", backupType);
             var backup = await backupService.CreateBackupAsync(backupType);
 
+            // Off-site copy, encrypted. Null: identical to the previous backup, already uploaded.
+            if (backup != null)
+            {
+                await scope.ServiceProvider.GetRequiredService<OneDriveBackup>().UploadAsync(backupService.GetBackupFilePath(backup));
+            }
+
             // Send email once per week (on weekly backup day)
             if (backupType == BackupType.Weekly && ShouldSendWeeklyEmail())
             {

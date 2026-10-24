@@ -9,16 +9,46 @@ namespace Snackbox.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+// Admins only: a backup is the whole database - e-mails, password hashes, balances. This used to
+// be plain [Authorize], so any user could create, download or delete one. The setup endpoints
+// opt out with [AllowAnonymousIfNoDatabase] / [AllowAnonymous].
+[Authorize(Roles = "Admin")]
 public class BackupController : ControllerBase
 {
     private readonly IBackupService _backupService;
     private readonly ILogger<BackupController> _logger;
+    private readonly OneDriveBackup _oneDrive;
 
-    public BackupController(IBackupService backupService, ILogger<BackupController> logger)
+    public BackupController(IBackupService backupService, ILogger<BackupController> logger, OneDriveBackup oneDrive)
     {
         _backupService = backupService;
         _logger = logger;
+        _oneDrive = oneDrive;
+    }
+
+    /// <summary>
+    /// An uploaded backup as plain SQL: a file encrypted for OneDrive is decrypted with the
+    /// passphrase sent along, or this machine's. Null result: wrong or missing passphrase.
+    /// </summary>
+    private async Task<(Stream? Plain, string FileName, string? Error)> ReadUploadAsync(IFormFile file, string? passphrase)
+    {
+        await using var input = file.OpenReadStream();
+        var bytes = new MemoryStream();
+        await input.CopyToAsync(bytes);
+        var data = bytes.ToArray();
+        if (!BackupEncryption.IsEncrypted(data)) return (new MemoryStream(data), file.FileName, null);
+
+        var key = string.IsNullOrEmpty(passphrase) ? _oneDrive.Passphrase : passphrase;
+        if (key == null) return (null, file.FileName, "This backup is encrypted - enter its passphrase.");
+        try
+        {
+            var name = file.FileName.EndsWith(BackupEncryption.FileExtension) ? file.FileName[..^BackupEncryption.FileExtension.Length] : file.FileName;
+            return (new MemoryStream(BackupEncryption.Decrypt(data, key)), name, null);
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+            return (null, file.FileName, "Wrong passphrase, or the backup file is damaged.");
+        }
     }
 
     /// <summary>
@@ -140,7 +170,7 @@ public class BackupController : ControllerBase
     [HttpPost("import")]
     [RequestSizeLimit(1_000_000_000)] // 1GB limit
     [AllowAnonymousIfNoDatabase]
-    public async Task<ActionResult<BackupMetadataDto>> ImportBackup(IFormFile file)
+    public async Task<ActionResult<BackupMetadataDto>> ImportBackup(IFormFile file, [FromForm] string? passphrase = null)
     {
         if (file == null || file.Length == 0)
         {
@@ -149,8 +179,10 @@ public class BackupController : ControllerBase
 
         try
         {
-            using var stream = file.OpenReadStream();
-            var backup = await _backupService.ImportBackupAsync(stream, file.FileName);
+            var (stream, fileName, error) = await ReadUploadAsync(file, passphrase);
+            if (stream == null) return BadRequest(new { error });
+            await using var _ = stream;
+            var backup = await _backupService.ImportBackupAsync(stream, fileName);
             return Ok(ToDto(backup));
         }
         catch (Exception ex)
@@ -166,7 +198,7 @@ public class BackupController : ControllerBase
     [HttpPost("restore-from-upload")]
     [RequestSizeLimit(1_000_000_000)] // 1GB limit
     [AllowAnonymousIfNoDatabase]
-    public async Task<ActionResult> RestoreFromUpload(IFormFile file)
+    public async Task<ActionResult> RestoreFromUpload(IFormFile file, [FromForm] string? passphrase = null)
     {
         if (file == null || file.Length == 0)
         {
@@ -181,8 +213,10 @@ public class BackupController : ControllerBase
                 return StatusCode(503, new { error = "The database container cannot be reached", details = "Backups run pg_dump/psql inside the snackbox-postgres container. Check that Docker is running and the container is up." });
             }
 
-            using var stream = file.OpenReadStream();
-            var backup = await _backupService.ImportBackupAsync(stream, file.FileName);
+            var (stream, fileName, error) = await ReadUploadAsync(file, passphrase);
+            if (stream == null) return BadRequest(new { error });
+            await using var _ = stream;
+            var backup = await _backupService.ImportBackupAsync(stream, fileName);
             await _backupService.RestoreBackupAsync(backup.Id, createBackupBeforeRestore: false);
             return Ok(new { message = "Backup restored successfully" });
         }

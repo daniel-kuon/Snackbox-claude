@@ -367,6 +367,8 @@ public class BackupService : IBackupService
         _logger.LogInformation("Backup cleanup completed");
     }
 
+    public string GetBackupFilePath(BackupMetadata backup) => Path.Combine(_backupDirectory, backup.FileName);
+
     public async Task<Stream> GetBackupStreamAsync(string backupId)
     {
         var metadata = await GetBackupMetadataAsync(backupId);

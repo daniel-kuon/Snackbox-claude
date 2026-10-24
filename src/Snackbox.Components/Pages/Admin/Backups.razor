@@ -21,7 +21,7 @@
             <label class="btn btn-secondary" for="importBackupFile">
                 <span class="icon">📥</span> Import Backup
             </label>
-            <InputFile id="importBackupFile" OnChange="ImportBackup" style="display: none;" accept=".sql" />
+            <InputFile id="importBackupFile" OnChange="ImportBackup" style="display: none;" accept=".sql,.enc" />
         </div>
     </div>
 
@@ -43,6 +43,8 @@
             </div>
         </div>
     }
+
+    <OneDriveBackupPanel />
 
     @if (!_toolsAvailable && !_checkingTools)
     {
@@ -334,10 +336,20 @@
             using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000_000); // 1GB
             using var memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
-            memoryStream.Position = 0;
+            var data = memoryStream.ToArray();
 
-            var streamPart = new StreamPart(memoryStream, file.Name, "application/octet-stream");
-            var backup = await BackupApi.ImportBackupAsync(streamPart);
+            BackupMetadataDto backup;
+            try
+            {
+                backup = await BackupApi.ImportBackupAsync(new StreamPart(new MemoryStream(data), file.Name, "application/octet-stream"));
+            }
+            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest && file.Name.EndsWith(".enc"))
+            {
+                // Encrypted (from OneDrive) and this machine's passphrase is missing or different
+                var passphrase = await JSRuntime.InvokeAsync<string?>("prompt", "This backup is encrypted. Passphrase:");
+                if (string.IsNullOrEmpty(passphrase)) return;
+                backup = await BackupApi.ImportBackupAsync(new StreamPart(new MemoryStream(data), file.Name, "application/octet-stream"), passphrase);
+            }
 
             Snackbar.Success($"Backup imported successfully: {backup.FileName}");
 

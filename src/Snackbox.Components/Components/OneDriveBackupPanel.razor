@@ -1,0 +1,221 @@
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@implements IDisposable
+@inject IBackupApi BackupApi
+
+@* Admin -> Backups: encrypted copies of the automatic backups on a OneDrive (docs/ONEDRIVE-BACKUP.md) *@
+
+<div class="onedrive-panel">
+    <h3>☁️ OneDrive - encrypted off-site copies</h3>
+
+    @if (_status == null)
+    {
+        <p class="text-muted">Loading...</p>
+    }
+    else
+    {
+        <p class="text-muted">
+            Every automatic backup is encrypted with your passphrase and uploaded to the folder
+            <code>Snackbox-Backups</code>; OneDrive keeps the newest @_status.Keep.
+        </p>
+
+        <div class="row-fields">
+            <div>
+                <label>App registration (client id)</label>
+                <input class="form-control" @bind="_clientId" placeholder="00000000-0000-0000-0000-000000000000" />
+            </div>
+            <div>
+                <label>Passphrase @(_status.HasPassphrase ? "(set - type to change)" : "")</label>
+                <input class="form-control" type="password" autocomplete="new-password" @bind="_passphrase"
+                       placeholder="@(_status.HasPassphrase ? "••••••••••••" : $"at least {MinPassphrase} characters")" />
+            </div>
+            <div class="align-end">
+                <button class="btn btn-primary" @onclick="SaveSettings">Save</button>
+            </div>
+        </div>
+        <small class="text-warning d-block mb-2">
+            Keep the passphrase in your password manager too - without it the uploaded backups cannot
+            be opened, and it is stored on this PC only in a form no other machine can read.
+        </small>
+
+        @if (_signIn != null)
+        {
+            <div class="alert alert-info">
+                Open <a href="@_signIn.VerificationUri" target="_blank" rel="noopener">@_signIn.VerificationUri</a>
+                on any device and enter the code <strong class="user-code">@_signIn.UserCode</strong>,
+                then sign in with the Microsoft account whose OneDrive should hold the backups. Waiting...
+            </div>
+        }
+        else if (_status.Connected)
+        {
+            <p>
+                Connected to <strong>@_status.Account</strong>.
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Disconnect">Disconnect</button>
+                <button class="btn btn-sm btn-outline-primary" @onclick="UploadLatest" disabled="@(_busy || !_status.HasPassphrase)">
+                    Upload the newest backup now
+                </button>
+            </p>
+        }
+        else
+        {
+            <button class="btn btn-outline-primary" @onclick="Connect" disabled="@(_busy || string.IsNullOrEmpty(_status.ClientId))">Connect OneDrive</button>
+        }
+
+        @if (_status.LastUploadAt != null)
+        {
+            <div class="small">Last upload: @_status.LastUploadAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") - @_status.LastUploadFile</div>
+        }
+        @if (_status.LastError != null)
+        {
+            <div class="alert alert-danger mt-2 mb-0">
+                Last upload failed@(_status.LastErrorAt is { } at ? $" ({at.ToLocalTime():dd.MM.yyyy HH:mm})" : ""): @_status.LastError
+            </div>
+        }
+        @if (_message != null)
+        {
+            <div class="small mt-2">@_message</div>
+        }
+    }
+</div>
+
+<style>
+    .onedrive-panel { margin-top: 1rem; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+    .onedrive-panel h3 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    .onedrive-panel .row-fields { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.25rem; }
+    .onedrive-panel .row-fields > div { flex: 1 1 260px; }
+    .onedrive-panel .row-fields > .align-end { flex: 0 0 auto; display: flex; align-items: flex-end; }
+    .onedrive-panel label { font-weight: 500; font-size: 0.875rem; }
+    .onedrive-panel .user-code { font-size: 1.4rem; letter-spacing: 0.15em; }
+</style>
+
+@code {
+    private const int MinPassphrase = 12;
+
+    private readonly CancellationTokenSource _cts = new();
+    private OneDriveStatusDto? _status;
+    private OneDriveSignInDto? _signIn;
+    private string? _clientId;
+    private string? _passphrase;
+    private string? _message;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try
+        {
+            _status = await BackupApi.GetOneDriveStatusAsync();
+            _clientId = _status.ClientId;
+        }
+        catch (ApiException ex)
+        {
+            _message = Error(ex);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            _status = await BackupApi.SaveOneDriveSettingsAsync(new OneDriveSettingsDto { ClientId = _clientId, Passphrase = _passphrase });
+            _passphrase = null;
+            _message = "Saved.";
+        }
+        catch (ApiException ex)
+        {
+            _message = Error(ex);
+        }
+    }
+
+    private async Task Connect()
+    {
+        _busy = true;
+        try
+        {
+            _signIn = await BackupApi.StartOneDriveSignInAsync();
+            _message = null;
+            _ = WaitForSignInAsync(_signIn);
+        }
+        catch (ApiException ex)
+        {
+            _message = Error(ex);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task WaitForSignInAsync(OneDriveSignInDto signIn)
+    {
+        var until = DateTime.UtcNow.AddSeconds(signIn.ExpiresInSeconds);
+        try
+        {
+            while (DateTime.UtcNow < until)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(signIn.IntervalSeconds), _cts.Token);
+                var result = (await BackupApi.PollOneDriveSignInAsync()).Result;
+                if (result == "pending") continue;
+
+                _message = result == "connected" ? "OneDrive connected." : $"Sign-in did not work: {result}";
+                break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+        }
+
+        _signIn = null;
+        await Load();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Disconnect()
+    {
+        await BackupApi.DisconnectOneDriveAsync();
+        await Load();
+    }
+
+    private async Task UploadLatest()
+    {
+        _busy = true;
+        _message = "Uploading...";
+        try
+        {
+            _status = await BackupApi.UploadLatestToOneDriveAsync();
+            _message = _status.LastError == null ? "Uploaded." : null;
+        }
+        catch (ApiException ex)
+        {
+            _message = Error(ex);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    // The API answers errors as {"message": "..."}
+    private static string Error(ApiException ex)
+    {
+        try
+        {
+            using var json = System.Text.Json.JsonDocument.Parse(ex.Content ?? "");
+            if (json.RootElement.TryGetProperty("message", out var message)) return message.GetString() ?? ex.Message;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+        return ex.Content ?? ex.Message;
+    }
+
+    // Cancelled, not disposed: the wait loop may still be reading the token
+    public void Dispose() => _cts.Cancel();
+}
