@@ -188,8 +188,10 @@ public class TabletController(
     [HttpGet("summary")]
     public async Task<ActionResult<TabletSummaryDto>> Summary()
     {
+        // Like every tablet endpoint without a login (see docs/TABLET.md, trust model) - and only in
+        // the seconds after Done, the one moment the tablet shows it
         var session = sessions.Current;
-        if (session == null) return Ok(new TabletSummaryDto());
+        if (session is not { Completed: true } || !sessions.MayStartNewPurchase(session)) return Ok(new TabletSummaryDto());
 
         var summary = new TabletSummaryDto();
         if (session.ClosedPurchaseId is { } closedId)
