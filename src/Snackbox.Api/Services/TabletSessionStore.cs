@@ -14,7 +14,7 @@ public class TabletSessionStore(IConfiguration configuration)
     /// <param name="PurchaseId">Null after Done until the next pick starts a new purchase.</param>
     /// <param name="Picking">The user picks products here; otherwise the tablet only shows their card scans.</param>
     public record Session(int UserId, string Username, int? PurchaseId, int BarcodeId, bool Picking, DateTime LastActivity,
-                          bool Completed = false, bool Paused = false);
+                          bool Completed = false, bool Paused = false, DateTime? CompletedAt = null);
 
     public static readonly TimeSpan AfterDone = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan PausedIdle = TimeSpan.FromMinutes(2);
@@ -61,13 +61,21 @@ public class TabletSessionStore(IConfiguration configuration)
                 _closedPurchases.AddLast(id);
                 if (_closedPurchases.Count > ClosedPurchasesKept) _closedPurchases.RemoveFirst();
             }
-            if (_current != null) _current = _current with { PurchaseId = null, Completed = true, Paused = false, LastActivity = DateTime.UtcNow };
+            if (_current != null) _current = _current with { PurchaseId = null, Completed = true, Paused = false, LastActivity = DateTime.UtcNow, CompletedAt = DateTime.UtcNow };
         }
     }
 
+    /// <summary>
+    /// After Done a pick may start a new purchase for the same user only in the first seconds -
+    /// counted from Done, not from the last touch, so reading a dialog cannot keep the card
+    /// "open" for whoever steps up next.
+    /// </summary>
+    public bool MayStartNewPurchase(Session session) =>
+        session.CompletedAt is { } completedAt && DateTime.UtcNow <= completedAt + AfterDone;
+
     /// <summary>A pick after Done: the session goes on with a new purchase.</summary>
     public void StartNewPurchase(int purchaseId) =>
-        Update(s => s with { PurchaseId = purchaseId, Completed = false, LastActivity = DateTime.UtcNow });
+        Update(s => s with { PurchaseId = purchaseId, Completed = false, CompletedAt = null, LastActivity = DateTime.UtcNow });
 
     /// <summary>Ended with Done: the scanner must not add the next scan to it, however soon it comes.</summary>
     public bool IsClosed(int purchaseId)

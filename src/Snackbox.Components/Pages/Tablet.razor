@@ -90,7 +90,7 @@
 {
     <div class="overlay" @onclick="CloseAsync">
         <div class="panel" @onclick:stopPropagation="true">
-            <h2>Your purchase</h2>
+            @PanelHead("Your purchase")
             @foreach (var item in _state.Items)
             {
                 <div class="line">
@@ -108,7 +108,6 @@
             {
                 <p>Nothing picked.</p>
             }
-            <button class="primary" @onclick="CloseAsync">Close</button>
         </div>
     </div>
 }
@@ -117,10 +116,9 @@
 {
     <div class="overlay" @onclick="CloseAsync">
         <div class="panel pay-panel" @onclick:stopPropagation="true">
-            <h2>Pay @Math.Abs(_state.OpenAmount).ToString("0.00") € with PayPal</h2>
+            @PanelHead($"Pay {Math.Abs(_state.OpenAmount):0.00} € with PayPal")
             <QRCodeComponent Url="@PayPal.PayUrl(_state.OpenAmount)" Size="420" />
             <p class="muted">Scan with your phone. Payments show up once the admin has booked them.</p>
-            <button class="primary" @onclick="CloseAsync">Close</button>
         </div>
     </div>
 }
@@ -129,7 +127,7 @@
 {
     <div class="overlay" @onclick="CloseAsync">
         <div class="panel" @onclick:stopPropagation="true">
-            <h2>🏆 Your achievements</h2>
+            @PanelHead($"🏆 Your achievements{(_achievements is { Count: > 0 } ? $" ({_achievements.Count})" : "")}")
             @if (_achievements == null)
             {
                 <p>Loading...</p>
@@ -140,16 +138,31 @@
             }
             else
             {
-                @foreach (var achievement in _achievements)
+                @foreach (var month in _achievements.GroupBy(a => new DateTime(a.EarnedAt.ToLocalTime().Year, a.EarnedAt.ToLocalTime().Month, 1)))
                 {
-                    <div class="line achievement-line">
-                        <div class="line-name">@achievement.Name</div>
-                        <div class="muted">@achievement.Description</div>
-                        <div class="earned">@achievement.EarnedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
-                    </div>
+                    <h3 class="month">@month.Key.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</h3>
+                    @foreach (var achievement in month)
+                    {
+                        <div class="achievement-line">
+                            <div class="achievement-icon">
+                                @if (!string.IsNullOrEmpty(achievement.ImageUrl))
+                                {
+                                    @((MarkupString)achievement.ImageUrl)
+                                }
+                                else
+                                {
+                                    <span>🏆</span>
+                                }
+                            </div>
+                            <div class="achievement-text">
+                                <div class="line-name">@achievement.Name</div>
+                                <div class="muted">@achievement.Description</div>
+                                <div class="earned">@achievement.EarnedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                            </div>
+                        </div>
+                    }
                 }
             }
-            <button class="primary" @onclick="CloseAsync">Close</button>
         </div>
     </div>
 }
@@ -189,6 +202,8 @@
 <style>
     html, body { margin: 0; background: var(--brand-anthracite, #191E1E); overflow: hidden; }
     .tablet { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
+    /* A long press on a picture would open Firefox's image menu (save, share, open in new tab) */
+    .tablet img { pointer-events: none; -webkit-touch-callout: none; }
     .toolbar { display: flex; align-items: center; gap: 6px; padding: 8px; background: #fff; color: #191E1E; font-size: 1.15rem; }
     .toolbar button { border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-weight: 700; padding: 0.5rem 0.55rem; font-size: 1.1rem; white-space: nowrap; flex: 0 0 auto; }
     .toolbar .who { font-weight: 700; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; }
@@ -238,8 +253,13 @@
     .timer { flex: 0 0 auto; min-width: 3.2rem; display: flex; align-items: center; justify-content: center; border: 2px solid #191E1E; font-weight: 800; font-size: 1.25rem; }
     .hint { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 0.6rem 1rem; background: #ffc107; color: #191E1E; font-weight: 700; z-index: 30; }
     .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 40; }
-    .panel { background: #fff; color: #191E1E; width: 88vw; max-height: 88vh; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; }
-    .panel h2 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    .panel { background: #fff; color: #191E1E; width: 88vw; max-height: 88vh; overflow-y: auto; padding: 0 1.25rem 1rem; display: flex; flex-direction: column; }
+    /* Header with the close button stays put while the dialog scrolls */
+    .panel-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 0.75rem; padding: 0.9rem 0 0.6rem; background: #fff; border-bottom: 1px solid #e5e5e5; margin-bottom: 0.5rem; }
+    .panel-head h2 { margin: 0; font-size: 1.5rem; flex: 1; }
+    .panel-close { flex: 0 0 auto; width: 3.4rem; height: 3.4rem; border: none; border-radius: 50%; background: var(--brand-blue, #0082CD); color: #fff; font-size: 1.6rem; font-weight: 700; }
+    /* The history dialogs (shared with the kiosk) - their close button sized for fingers */
+    .sb-close { width: 3.4rem; height: 3.4rem; font-size: 1.8rem !important; }
     .panel .primary { margin-top: 1rem; padding: 1rem; font-size: 1.3rem; font-weight: 700; border: none; background: var(--brand-blue, #0082CD); color: #fff; }
     .pay-panel { align-items: center; text-align: center; }
     .muted { opacity: 0.7; }
@@ -264,6 +284,11 @@
     .intro-autobar { height: 4px; margin-bottom: 0.8rem; background: #eee; overflow: hidden; }
     .intro-autobar-fill { height: 100%; width: 100%; background: var(--brand-blue, #0082CD); transform-origin: left; animation-name: intro-autobar-grow; animation-timing-function: linear; animation-fill-mode: forwards; }
     @@keyframes intro-autobar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .month { font-size: 1.15rem; margin: 1rem 0 0.4rem; color: var(--brand-blue, #0082CD); text-transform: uppercase; letter-spacing: 0.04em; }
+    .achievement-line { display: flex; gap: 0.9rem; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #e5e5e5; }
+    .achievement-icon { flex: 0 0 64px; height: 64px; display: flex; align-items: center; justify-content: center; font-size: 2.6rem; }
+    .achievement-icon svg { width: 64px; height: 64px; }
+    .achievement-text { flex: 1; min-width: 0; }
     .achievement-line .earned { font-size: 0.95rem; color: var(--brand-blue, #0082CD); font-weight: 600; margin-top: 0.2rem; }
     .thanks { font-size: 1.3rem; }
     .paused { font-size: 1rem; opacity: 0.7; }
@@ -366,6 +391,14 @@
                     <span class="timer" title="Seconds until the purchase closes by itself">@(_state.Paused ? "⏸" : _state.SecondsLeft.ToString())</span>
                 </div>
             }
+        </div>
+    };
+
+    private RenderFragment PanelHead(string title) => __builder =>
+    {
+        <div class="panel-head">
+            <h2>@title</h2>
+            <button class="panel-close" @onclick="CloseAsync" aria-label="Close">✕</button>
         </div>
     };
 

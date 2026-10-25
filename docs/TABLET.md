@@ -80,7 +80,8 @@ the top left of the page's bar once - a page may only go full screen after a tou
 installs a page as an app only over HTTPS). *Done* closes the purchase - achievements earned with
 it show right away, with a close button - and the tablet stays on 5 seconds: a tap on a product
 starts a new purchase, the toolbar still works; then it goes dark, as it does when a purchase runs
-out. While a purchase is open the page keeps the screen from dimming (Screen Wake Lock); between
+out. Those 5 seconds count from *Done*: reading a dialog may keep the screen on, but a pick after
+that needs a new scan, so whoever steps up next cannot book onto the previous card. While a purchase is open the page keeps the screen from dimming (Screen Wake Lock); between
 purchases Android's own screen timeout applies (Settings → Display).
 
 The introduction plays by itself with a progress bar (as on the kiosk) until a button is tapped;

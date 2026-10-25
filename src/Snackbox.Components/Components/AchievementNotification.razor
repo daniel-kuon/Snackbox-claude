@@ -53,10 +53,11 @@
 </div>
 
 <style>
+    /* Floats at the top right of the screen - the cards may be taller than the screen */
     .achievement-close {
-        position: absolute; top: 0.5rem; right: 0.5rem; width: 3rem; height: 3rem;
+        position: fixed; top: 1rem; right: 1rem; width: 3.4rem; height: 3.4rem;
         border: none; border-radius: 50%; background: rgba(255, 255, 255, 0.9); color: #191E1E;
-        font-size: 1.5rem; font-weight: 700; cursor: pointer; z-index: 2;
+        font-size: 1.6rem; font-weight: 700; cursor: pointer; z-index: 10001; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
     }
     .achievement-header { position: relative; }
     .achievement-overlay {

@@ -80,6 +80,8 @@ public class TabletController(
         var now = DateTime.UtcNow;
         if (session.PurchaseId == null)
         {
+            if (!sessions.MayStartNewPurchase(session)) return Conflict(new { message = "Scan your card to start a new purchase" });
+
             // A pick in the seconds after Done: a new purchase
             var purchase = new Purchase { UserId = session.UserId, CreatedAt = now, UpdatedAt = now };
             context.Purchases.Add(purchase);

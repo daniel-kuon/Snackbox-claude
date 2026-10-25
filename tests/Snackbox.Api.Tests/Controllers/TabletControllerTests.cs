@@ -17,6 +17,8 @@ public class TabletControllerTests : IDisposable
     private readonly ScannerController _scanner;
     private readonly TabletController _tablet;
 
+    private readonly TabletSessionStore _sessions;
+
     public TabletControllerTests()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -26,7 +28,7 @@ public class TabletControllerTests : IDisposable
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Scanner:TimeoutSeconds"] = "60" })
             .Build();
-        var sessions = new TabletSessionStore(configuration);
+        var sessions = _sessions = new TabletSessionStore(configuration);
         var achievements = new AchievementService(_context);
 
         _scanner = new ScannerController(_context, configuration, achievements, new FeatureFlagService(_context),
@@ -193,6 +195,21 @@ public class TabletControllerTests : IDisposable
         Assert.Equal(0.80m, state.Total);
         Assert.Equal(2, await _context.Purchases.CountAsync());
         Assert.NotEqual(first, (await _context.BarcodeScans.OrderBy(s => s.Id).LastAsync()).PurchaseId);
+    }
+
+    [Fact]
+    public async Task AfterDone_KeepingADialogOpen_DoesNotExtendTheWindowForANewPurchase()
+    {
+        await Scan("TINA-50");
+        await _tablet.Complete();
+        // Done was a while ago, a touch on a dialog kept the screen alive since
+        _sessions.Start(_sessions.Current! with { CompletedAt = DateTime.UtcNow.AddSeconds(-30) });
+        _tablet.Pause(true);
+
+        var result = await _tablet.AddItem(1);
+
+        Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.Equal(0, await _context.BarcodeScans.CountAsync());
     }
 
     [Fact]
