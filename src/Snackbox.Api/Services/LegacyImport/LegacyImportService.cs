@@ -21,7 +21,7 @@ public class LegacyImportService : ILegacyImportService
     /// Marks the correcting payment that carries a user's old balance over. Re-running the
     /// import replaces it instead of stacking a second one on top.
     /// </summary>
-    private const string BalanceAnchorNote = "Balance carried over from the old Snackbox";
+    public const string BalanceAnchorNote = "Balance carried over from the old Snackbox";
 
     private const string ImportedPaymentNote = "Imported from the old Snackbox";
 

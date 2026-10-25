@@ -175,7 +175,7 @@ public class TabletControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Done_ClosesThePurchase_AndAPickRightAfterStartsANewOne()
+    public async Task Done_ClosesThePurchase_AndNewPurchaseStartsANewOne()
     {
         await Scan("TINA-50");
         await _tablet.AddItem(1);
@@ -189,6 +189,10 @@ public class TabletControllerTests : IDisposable
         Assert.True(state.Completed);
         Assert.Empty(state.Items);
 
+        // The products are hidden behind the summary: a pick needs New purchase first
+        Assert.IsType<ConflictObjectResult>((await _tablet.AddItem(1)).Result);
+
+        await _tablet.NewPurchase();
         await _tablet.AddItem(1);
         state = await State();
         Assert.False(state.Completed);
@@ -206,10 +210,28 @@ public class TabletControllerTests : IDisposable
         _sessions.Start(_sessions.Current! with { CompletedAt = DateTime.UtcNow.AddSeconds(-30) });
         _tablet.Pause(true);
 
-        var result = await _tablet.AddItem(1);
-
-        Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.IsType<ConflictObjectResult>((await _tablet.NewPurchase()).Result);
+        Assert.IsType<ConflictObjectResult>((await _tablet.AddItem(1)).Result);
         Assert.Equal(0, await _context.BarcodeScans.CountAsync());
+    }
+
+    [Fact]
+    public async Task Summary_ShowsTheClosedPurchase_TheMonthsPurchases_AndTheLastPayment()
+    {
+        _context.Payments.Add(new Payment { UserId = 1, Amount = 5m, PaidAt = DateTime.UtcNow.AddDays(-1) });
+        _context.Payments.Add(new Payment { UserId = 2, Amount = 9m, PaidAt = DateTime.UtcNow }); // someone else's
+        await _context.SaveChangesAsync();
+        await Scan("TINA-50");
+        await _tablet.AddItem(1);
+        await _tablet.AddItem(1);
+        await _tablet.Complete();
+
+        var summary = (TabletSummaryDto)((OkObjectResult)(await _tablet.Summary()).Result!).Value!;
+
+        Assert.Equal(2, summary.Items.Single().Quantity);
+        Assert.Equal(1.60m, summary.Total);
+        Assert.Equal(1.60m, summary.RecentPurchases.Single().Total);
+        Assert.Equal(5m, summary.LastPayment!.Amount);
     }
 
     [Fact]

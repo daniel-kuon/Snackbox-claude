@@ -26,6 +26,12 @@ public interface ITabletApi
     [Post("/api/tablet/sleep")]
     Task SleepAsync();
 
+    [Post("/api/tablet/new-purchase")]
+    Task<TabletStateDto> NewPurchaseAsync();
+
+    [Get("/api/tablet/summary")]
+    Task<TabletSummaryDto> GetSummaryAsync();
+
     [Post("/api/tablet/pause")]
     Task PauseAsync([Query] bool paused);
 

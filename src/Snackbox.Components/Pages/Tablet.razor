@@ -64,6 +64,12 @@
         <div class="toolbar idle-bar">Snackbox · scan your card</div>
     }
 
+    @if (_state.Active && _state.Completed)
+    {
+        @Summary()
+    }
+    else
+    {
     <div class="shelf @Spot("shelf") @(Unplaced.Count > 0 ? "shelf-extra" : "")">
         @for (var slot = 1; slot <= 9; slot++)
         {
@@ -94,6 +100,7 @@
             </div>
         }
     </div>
+    }
 </div>
 
 @if (_overlay == Overlay.Correction && _state.Active)
@@ -310,7 +317,18 @@
     .achievement-icon svg { width: 64px; height: 64px; }
     .achievement-text { flex: 1; min-width: 0; }
     .achievement-line .earned { font-size: 0.95rem; color: var(--brand-blue, #0082CD); font-weight: 600; margin-top: 0.2rem; }
-    .thanks { font-size: 1.3rem; }
+    /* After Done: the summary takes the shelf's place */
+    .summary { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
+    .summary-head { display: flex; align-items: center; gap: 12px; color: #fff; }
+    .summary-head .hello { flex: 1; font-size: 2.2rem; }
+    .summary-head .timer { border-color: #fff; color: #fff; min-height: 3.2rem; }
+    .summary-box { background: #fff; color: #191E1E; padding: 12px 16px; }
+    .summary-box h3 { margin: 0 0 6px; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--brand-blue, #0082CD); }
+    .summary-line { display: flex; justify-content: space-between; gap: 12px; font-size: 1.3rem; padding: 4px 0; border-bottom: 1px solid #eee; }
+    .summary-line:last-child { border-bottom: none; }
+    .summary-line.sum { font-weight: 800; border-top: 2px solid #191E1E; border-bottom: none; margin-top: 4px; }
+    .summary .muted { color: #666; }
+    .btn-new { background: var(--brand-blue, #0082CD); color: #fff; border: none; font-size: 1.8rem; font-weight: 800; padding: 1.1rem; }
     .paused { font-size: 1rem; opacity: 0.7; }
 </style>
 
@@ -339,6 +357,7 @@
     private readonly CancellationTokenSource _cts = new();
     private List<TabletProductDto> _products = new();
     private TabletStateDto _state = new();
+    private TabletSummaryDto? _summary;
     private DateTime _productsLoadedAt = DateTime.MinValue;
     private string? _hint;
     private DateTime _hintUntil;
@@ -375,14 +394,6 @@
                 <div class="hello">Snackbox</div>
                 <div class="sub">Scan your card, then tap what you take</div>
             }
-            else if (_state.Completed)
-            {
-                <div class="hello">Thanks, @FirstName!</div>
-                <div class="thanks">@(_state.Picking ? "Tap a snack to start a new purchase" : "Enjoy your snack")</div>
-                <div class="actions" style="justify-content: center">
-                    <span class="timer" title="Seconds until the screen turns off">@_state.SecondsLeft</span>
-                </div>
-            }
             else
             {
                 <div class="hello">Hi @FirstName!</div>
@@ -409,6 +420,73 @@
                     }
                     <button class="btn-done @Spot("done")" @onclick="Done" disabled="@_busy">Done</button>
                     <span class="timer" title="Seconds until the purchase closes by itself">@(_state.Paused ? "⏸" : _state.SecondsLeft.ToString())</span>
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment Summary() => __builder =>
+    {
+        <div class="summary">
+            <div class="summary-head">
+                <div class="hello">Thanks, @FirstName!</div>
+                <span class="timer" title="Seconds until the screen turns off">@_state.SecondsLeft</span>
+            </div>
+            @if (_state.Picking)
+            {
+                <button class="btn-new" @onclick="NewPurchase" disabled="@_busy">🛒 New purchase</button>
+            }
+            @if (_summary == null)
+            {
+                <div class="summary-box">Loading...</div>
+            }
+            else
+            {
+                <div class="summary-box">
+                    <h3>You bought</h3>
+                    @foreach (var item in _summary.Items)
+                    {
+                        <div class="summary-line">
+                            <span>@item.Quantity × @item.Name</span>
+                            <span>@((item.UnitPrice * item.Quantity).ToString("0.00")) €</span>
+                        </div>
+                    }
+                    @if (_summary.Items.Count == 0)
+                    {
+                        <div class="summary-line muted">Nothing</div>
+                    }
+                    <div class="summary-line sum">
+                        <span>Total</span>
+                        <span>@_summary.Total.ToString("0.00") €</span>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3>Your last purchases this month</h3>
+                    @foreach (var purchase in _summary.RecentPurchases)
+                    {
+                        <div class="summary-line">
+                            <span>@purchase.At.ToLocalTime().ToString("dd.MM. HH:mm") <span class="muted">· @purchase.ItemCount @(purchase.ItemCount == 1 ? "item" : "items")</span></span>
+                            <span>@purchase.Total.ToString("0.00") €</span>
+                        </div>
+                    }
+                    @if (_summary.RecentPurchases.Count == 0)
+                    {
+                        <div class="summary-line muted">None</div>
+                    }
+                </div>
+                <div class="summary-box">
+                    <h3>Your last payment</h3>
+                    <div class="summary-line">
+                        @if (_summary.LastPayment is { } payment)
+                        {
+                            <span>@payment.At.ToLocalTime().ToString("dd.MM.yyyy")</span>
+                            <span>@payment.Amount.ToString("0.00") €</span>
+                        }
+                        else
+                        {
+                            <span class="muted">No payment yet</span>
+                        }
+                    </div>
                 </div>
             }
         </div>
@@ -493,6 +571,9 @@
 
                     if (wasActive && (!_state.Active || _state.UserId != previousUser)) ResetView();
 
+                    // After Done (also when the page was reloaded meanwhile)
+                    if (_state.Completed && _summary == null && !_busy) _summary = await TabletApi.GetSummaryAsync();
+
                     // No dimming while someone is choosing; between purchases Android's own timeout applies
                     if (wasActive != _state.Active) await JS.InvokeVoidAsync("snackboxKeepScreenOn", _state.Active);
 
@@ -547,6 +628,7 @@
         _payments = null;
         _achievements = null;
         _newAchievements = new();
+        _summary = null;
     }
 
     // Introduction and dialogs stop the purchase countdown; 2 minutes without a touch end it anyway
@@ -613,7 +695,38 @@
             // The purchase is closed; the tablet stays on a few seconds for the next one
             _state = await TabletApi.CompleteAsync();
             _overlay = Overlay.None;
+            _summary = null;
+            try
+            {
+                _summary = await TabletApi.GetSummaryAsync();
+            }
+            catch (Exception)
+            {
+                _summary = new TabletSummaryDto(); // the summary is a nicety - Done itself worked
+            }
             await ShowNewAchievementsAsync();
+        }
+        catch (Exception)
+        {
+            ShowHint("That did not work - please try again");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    // The summary's button: back to the shelf, a new purchase starts with the first pick
+    private async Task NewPurchase()
+    {
+        _busy = true;
+        try
+        {
+            _state = await TabletApi.NewPurchaseAsync();
+        }
+        catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            ShowHint("Your time ran out - scan your card again");
         }
         catch (Exception)
         {

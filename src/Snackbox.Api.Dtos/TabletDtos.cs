@@ -19,7 +19,7 @@ public class TabletStateDto
     /// <summary>False while nobody has scanned: the tablet just shows the products.</summary>
     public bool Active { get; set; }
 
-    /// <summary>Done was tapped: the purchase is closed; a pick in the next seconds starts a new one.</summary>
+    /// <summary>Done was tapped: the purchase is closed; the tablet shows a summary and *New purchase*.</summary>
     public bool Completed { get; set; }
 
     /// <summary>Introduction or a dialog open: the countdown stands still.</summary>
@@ -56,4 +56,30 @@ public class TabletItemDto
     public required string Name { get; set; }
     public decimal UnitPrice { get; set; }
     public int Quantity { get; set; }
+}
+
+/// <summary>Shown for a few seconds after Done.</summary>
+public class TabletSummaryDto
+{
+    /// <summary>What Done just closed.</summary>
+    public List<TabletItemDto> Items { get; set; } = new();
+    public decimal Total { get; set; }
+
+    /// <summary>The newest purchases of this month (the closed one included), newest first.</summary>
+    public List<TabletPurchaseLineDto> RecentPurchases { get; set; } = new();
+
+    public TabletPaymentLineDto? LastPayment { get; set; }
+}
+
+public class TabletPurchaseLineDto
+{
+    public DateTime At { get; set; }
+    public decimal Total { get; set; }
+    public int ItemCount { get; set; }
+}
+
+public class TabletPaymentLineDto
+{
+    public DateTime At { get; set; }
+    public decimal Amount { get; set; }
 }

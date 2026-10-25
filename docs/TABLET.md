@@ -84,10 +84,12 @@ nothing, so nobody leaves it by accident. Holding Back + app switcher together e
 `tablet --lock`.
 
 Screen: dark between customers. A scan wakes it (see full screen above). *Done* closes the purchase - achievements earned with
-it show right away, with a close button - and the tablet stays on 5 seconds: a tap on a product
-starts a new purchase, the toolbar still works; then it goes dark, as it does when a purchase runs
-out. Those 5 seconds count from *Done*: reading a dialog may keep the screen on, but a pick after
-that needs a new scan, so whoever steps up next cannot book onto the previous card. While a
+it show right away, with a close button - and for 10 seconds the shelf makes way for a summary:
+what was just bought, the month's last 5 purchases, the last payment, and **New purchase**, which
+brings the shelf back for another purchase (the toolbar still works too); then it goes dark, as
+it does when a purchase runs out. *New purchase* works only in the 10 seconds after *Done*:
+reading a dialog may keep the screen on, but after that it needs a new scan, so whoever steps up
+next cannot book onto the previous card. While a
 purchase is open the page keeps the screen from dimming (Screen Wake Lock); between Android's own screen timeout applies (Settings → Display).
 
 The introduction plays by itself with a progress bar (as on the kiosk) until a button is tapped;

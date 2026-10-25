@@ -80,9 +80,10 @@ public class TabletController(
         var now = DateTime.UtcNow;
         if (session.PurchaseId == null)
         {
-            if (!sessions.MayStartNewPurchase(session)) return Conflict(new { message = "Scan your card to start a new purchase" });
+            // After Done only through New purchase (which reopens the session)
+            if (session.Completed) return Conflict(new { message = "Tap New purchase first" });
 
-            // A pick in the seconds after Done: a new purchase
+            // The first pick after New purchase: a new purchase
             var purchase = new Purchase { UserId = session.UserId, CreatedAt = now, UpdatedAt = now };
             context.Purchases.Add(purchase);
             await context.SaveChangesAsync();
@@ -164,6 +165,79 @@ public class TabletController(
 
         sessions.Complete(session.PurchaseId);
         return Ok(await BuildStateAsync(sessions.Current ?? session));
+    }
+
+    /// <summary>*New purchase* on the summary after Done - only in the seconds right after it.</summary>
+    [HttpPost("new-purchase")]
+    public async Task<ActionResult<TabletStateDto>> NewPurchase()
+    {
+        var session = sessions.Current;
+        if (session == null || !session.Picking) return Conflict(new { message = "Scan your card first" });
+        if (session.Completed)
+        {
+            if (!sessions.MayStartNewPurchase(session)) return Conflict(new { message = "Scan your card to start a new purchase" });
+            sessions.Reopen();
+        }
+        return Ok(await BuildStateAsync(sessions.Current ?? session));
+    }
+
+    /// <summary>
+    /// After Done: what was just bought, the month's last purchases and the last payment - of the
+    /// session's user only.
+    /// </summary>
+    [HttpGet("summary")]
+    public async Task<ActionResult<TabletSummaryDto>> Summary()
+    {
+        var session = sessions.Current;
+        if (session == null) return Ok(new TabletSummaryDto());
+
+        var summary = new TabletSummaryDto();
+        if (session.ClosedPurchaseId is { } closedId)
+        {
+            var scans = await context.BarcodeScans
+                .AsNoTracking()
+                .Where(s => s.PurchaseId == closedId)
+                .Select(s => new { s.ProductId, ProductName = s.Product != null ? s.Product.Name : null, s.Amount })
+                .ToListAsync();
+            summary.Items = scans
+                .GroupBy(s => new { s.ProductId, s.ProductName, s.Amount })
+                .Select(g => new TabletItemDto
+                {
+                    ProductId = g.Key.ProductId ?? 0,
+                    Name = g.Key.ProductName ?? $"Card code {g.Key.Amount:0.00} €",
+                    UnitPrice = g.Key.Amount,
+                    Quantity = g.Count()
+                })
+                .ToList();
+            var discounts = await context.PurchaseDiscounts.Where(pd => pd.PurchaseId == closedId).SumAsync(pd => pd.DiscountAmount);
+            summary.Total = Math.Max(0, scans.Sum(s => s.Amount) - discounts);
+        }
+
+        // Same total rule as the purchase history: ManualAmount, otherwise scans minus discounts
+        var now = DateTime.UtcNow;
+        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        summary.RecentPurchases = await context.Purchases
+            .AsNoTracking()
+            .Where(p => p.UserId == session.UserId && p.UpdatedAt >= monthStart && (p.ManualAmount != null || p.Scans.Any()))
+            .OrderByDescending(p => p.UpdatedAt)
+            .Take(5)
+            .Select(p => new TabletPurchaseLineDto
+            {
+                At = p.UpdatedAt,
+                Total = p.ManualAmount ?? p.Scans.Sum(s => s.Amount) - p.AppliedDiscounts.Sum(pd => pd.DiscountAmount),
+                ItemCount = p.Scans.Count
+            })
+            .ToListAsync();
+
+        summary.LastPayment = await context.Payments
+            .AsNoTracking()
+            // Money paid in: not the import's balance correction, not a refund or reversal
+            .Where(p => p.UserId == session.UserId && p.Amount > 0 && p.Notes != Services.LegacyImport.LegacyImportService.BalanceAnchorNote)
+            .OrderByDescending(p => p.PaidAt)
+            .Select(p => new TabletPaymentLineDto { At = p.PaidAt, Amount = p.Amount })
+            .FirstOrDefaultAsync();
+
+        return Ok(summary);
     }
 
     /// <summary>
