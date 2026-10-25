@@ -27,7 +27,7 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
     private const string InputWakeCommand =
         "shell \"wm dismiss-keyguard >/dev/null 2>&1 & input keyevent KEYCODE_WAKEUP; sleep 1; " +
         "dumpsys window policy | grep -q mTopIsFullscreen=true || input tap 400 250; true\"";
-    private const string SleepCommand = "shell input keyevent KEYCODE_SLEEP";
+    private const string InputSleepCommand = "shell input keyevent KEYCODE_SLEEP";
 
     /// <summary>The purchase is over: dark until the next scan.</summary>
     public void Sleep()
@@ -38,7 +38,7 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
         lock (_lock) _lastWake = DateTime.MinValue;
 
         var adb = FindAdb();
-        if (adb != null) _ = Task.Run(() => Run(adb, SleepCommand));
+        if (adb != null) _ = Task.Run(() => Run(adb, SleepCommand(adb)));
     }
 
     public void Wake()
@@ -70,9 +70,7 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
 
         // Straight into the kernel's input devices (`sendevent`, no Java start): the screen is on
         // and the page full screen within a second of the scan, before anyone touches it
-        var wake = devices.PowerKey is { } key
-            ? $"sendevent {key} 1 116 1; sendevent {key} 0 0 0; sendevent {key} 1 116 0; sendevent {key} 0 0 0"
-            : "input keyevent KEYCODE_WAKEUP";
+        var wake = devices.PowerKey is { } key ? PowerKeyPress(key) : "input keyevent KEYCODE_WAKEUP";
         // Middle of the top middle compartment - the tablet's own cell, text only: harmless even if
         // the page got full screen in the meantime
         var (x, y) = (400 * devices.MaxX / devices.Width, 250 * devices.MaxY / devices.Height);
@@ -86,6 +84,15 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
                $"dumpsys power | grep -q mWakefulness=Awake || {{ {wake}; sleep 0.5; }}; " +
                $"dumpsys window policy | grep -q mTopIsFullscreen=true || {{ {tap}; }}; true\"";
     }
+
+    // The page has just put its welcome screen up - dark right away, not 2 seconds later
+    private string SleepCommand(string adb) =>
+        (_devices ??= FindInputDevices(adb))?.PowerKey is { } key
+            ? $"shell \"dumpsys power | grep -q mWakefulness=Awake && {{ {PowerKeyPress(key)}; }}; true\""
+            : InputSleepCommand;
+
+    private static string PowerKeyPress(string key) =>
+        $"sendevent {key} 1 116 1; sendevent {key} 0 0 0; sendevent {key} 1 116 0; sendevent {key} 0 0 0";
 
     private sealed record InputDevices(string Touch, int MaxX, int MaxY, int Width, int Height, string? PowerKey);
 

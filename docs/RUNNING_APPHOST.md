@@ -14,11 +14,10 @@ These are automatically set when running the executable if the environment varia
 
 ## Running the AppHost
 
-### Option 1: Using the Batch File (Recommended)
-Simply double-click or run:
-```
-run-apphost.bat
-```
+### Option 1: On an installation
+Double-click `start-snackbox.bat` in the installation folder. It runs `Snackbox.Updater stop` and
+`start`: Docker, the AppHost from the Release build as Production, and the kiosk window - the
+same as autostart. The AppHost alone does not start the kiosk.
 
 ### Option 2: Manual Execution
 1. Build the project:

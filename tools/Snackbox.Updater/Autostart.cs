@@ -52,14 +52,17 @@ public static class Autostart
         try
         {
             // /f replaces an existing task, so re-running this is how the options are changed.
+            // Every quote inside /tr "..." has to be escaped - the --dir path's too.
             Installation.Run("schtasks",
-                             $"/create /tn \"{TaskName}\" /tr \"\\\"{updater}\\\" {arguments}\" /sc onlogon /f",
+                             $"/create /tn \"{TaskName}\" /tr \"\\\"{updater}\\\" {arguments.Replace("\"", "\\\"")}\" /sc onlogon /f",
                              installation.Root);
             return true;
         }
         catch (UpdaterException ex)
         {
-            log.Write($"Could not create the scheduled task ({ex.Message.Split('\n')[0].Trim()}).");
+            // Usually a logon trigger without an elevated shell ("Zugriff verweigert") - schtasks says which
+            log.Write("Could not create the scheduled task: " +
+                      string.Join(" ", ex.Message.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim())));
             return false;
         }
     }

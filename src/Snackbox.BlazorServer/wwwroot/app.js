@@ -30,6 +30,8 @@ document.addEventListener('touchend', snackboxTabletFullscreen, true);
 // behind it. Its text is pinned to the middle of the physical screen - mozInnerScreenY is where the
 // page starts on it - so nothing moves; the welcome screen goes once the page has its full-screen size.
 const snackboxTabletWelcome = () => {
+    // Screen off: whatever is up stays up for the wake-up
+    if (document.hidden) return;
     const root = document.documentElement;
     // Screen pixels to page pixels: the page may be scaled to the screen (Firefox's desktop mode)
     const scale = innerWidth / screen.width;
@@ -40,7 +42,17 @@ const snackboxTabletWelcome = () => {
 };
 document.addEventListener('fullscreenchange', snackboxTabletWelcome);
 window.addEventListener('resize', snackboxTabletWelcome);
+document.addEventListener('visibilitychange', snackboxTabletWelcome);
 snackboxTabletWelcome();
+
+// Before the screen goes dark the welcome screen goes up (resolves once it is painted), so the
+// screen wakes up with it rather than with the last purchase. Still on 3 seconds later (a scan came
+// in, the server kept the screen on): back to whatever full screen says
+window.snackboxTabletDark = () => {
+    document.documentElement.classList.add('sb-welcome');
+    setTimeout(snackboxTabletWelcome, 3000);
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+};
 
 // The tablet keeps its screen on while a purchase is open (Screen Wake Lock API - needs a secure
 // context, which http://127.0.0.1 is); released afterwards, so Android's timeout dims it again.

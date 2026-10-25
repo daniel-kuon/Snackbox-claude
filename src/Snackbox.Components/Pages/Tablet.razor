@@ -496,7 +496,11 @@
                     if (wasActive != _state.Active) await JS.InvokeVoidAsync("snackboxKeepScreenOn", _state.Active);
 
                     // Over (Done plus a few seconds, ran out, or 2 minutes untouched): dark until the next scan
-                    if (wasActive && !_state.Active) await TabletApi.SleepAsync();
+                    if (wasActive && !_state.Active)
+                    {
+                        await JS.InvokeVoidAsync("snackboxTabletDark");
+                        await TabletApi.SleepAsync();
+                    }
 
                     if (_state.Active && (!wasActive || _state.UserId != previousUser))
                     {
