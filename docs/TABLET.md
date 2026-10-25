@@ -50,6 +50,25 @@ The forwarding is lost when the cable is unplugged or the tablet restarts; the w
 (every 5 minutes) sets it again, or run the `tablet` command by hand. The tablet connects over
 plain HTTP from the loopback address, so the website does not redirect it to HTTPS.
 
+## Who uses it
+
+The feature switch **Admin → Settings → Features → "Picking products on the tablet"** starts at
+*beta testers*. A scan opens the tablet for users who have *Picks products on the tablet* ticked
+**and** see the feature - everyone else keeps paying the fixed card amounts. Set the switch to
+*Everyone* once it has proven itself.
+
+## The screen
+
+The shelf has 3×3 compartments and the tablet sits in the top middle one, so the screen is the
+same 3×3 grid: every product shows in its compartment (Admin → Products → a product → *Tablet* →
+*Compartment*; several products may share one), products without a compartment in a row below.
+The tablet's own cell holds the greeting, the total, **Correct** (the list with − / + / ✕) and
+**Done**. The kiosk screen follows the tablet: it shows what was picked, the total and the open
+amount, keeps the same countdown, and ends with the tablet's session.
+
+Full screen: the page asks for it on the first tap (Android confirms once with *OK*); an app
+added to the home screen from Firefox starts full screen anyway.
+
 ## Products and users
 
 - **Price and picture**: Admin → Products → a product → *Tablet*. Only products with a price

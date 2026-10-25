@@ -795,6 +795,15 @@ namespace Snackbox.Api.Migrations
                             Key = "kiosk_background",
                             Name = "Kiosk in the background",
                             UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Audience = 1,
+                            Description = "Users with \"picks products on the tablet\" ticked choose their snacks on the tablet next to the scanner instead of paying the fixed amounts printed on their card.",
+                            Key = "tablet",
+                            Name = "Picking products on the tablet",
+                            UpdatedAt = new DateTime(2026, 10, 25, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
 
@@ -1035,9 +1044,16 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("price");
 
+                    b.Property<int?>("ShelfSlot")
+                        .HasColumnType("integer")
+                        .HasColumnName("shelf_slot");
+
                     b.HasKey("Id");
 
-                    b.ToTable("products");
+                    b.ToTable("products", t =>
+                        {
+                            t.HasCheckConstraint("ck_products_shelf_slot", "shelf_slot IS NULL OR (shelf_slot BETWEEN 1 AND 9 AND shelf_slot <> 2)");
+                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.ProductBarcode", b =>

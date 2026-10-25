@@ -108,9 +108,6 @@ public class ScannerController : ControllerBase
         var isInactive = !user.IsActive;
         _tablet.EndUnlessUser(user.Id);
 
-        // A converted user's card opens the tablet instead of booking its printed amount
-        var picksOnTablet = user.UsesTabletSelection && barcode is PurchaseBarcode;
-
         // Someone is at the box: light up the tablet (it shows the shelf, or their session)
         if (barcode is PurchaseBarcode) _tabletDisplay.Wake();
 
@@ -122,6 +119,10 @@ public class ScannerController : ControllerBase
             .Select(s => s.StepKey)
             .ToListAsync();
         var pendingWizardSteps = WizardStepCatalog.GetPendingSteps(seenSteps, enabledFeatures.ToHashSet());
+
+        // A converted user's card opens the tablet instead of booking its printed amount -
+        // while the tablet feature is on for them (at first: beta testers only)
+        var picksOnTablet = user.UsesTabletSelection && barcode is PurchaseBarcode && enabledFeatures.Contains(FeatureFlagKeys.Tablet);
 
         // Check if this is a login barcode - return success with user info but don't create a purchase
         if (barcode is LoginBarcode)

@@ -5,142 +5,140 @@
 @using Snackbox.ApiClient
 @inject ITabletApi TabletApi
 
-@* The Android tablet next to the scanner (Chrome over USB, see docs/TABLET.md). Shows what is on
-   the shelf; after a card scan of someone who picks on the tablet, taps book products into
-   their purchase. *@
+@* The Android tablet in the shelf (Firefox over USB, see docs/TABLET.md). The shelf has 3x3
+   compartments; the tablet sits in the top middle one, so the screen is the same 3x3 grid: each
+   product shows where it lies, and the tablet's own cell holds the total and the buttons. After
+   a card scan of someone who picks on the tablet, taps book products into their purchase. *@
 
 <PageTitle>Snackbox</PageTitle>
 
-<div class="tablet @(_state.Active ? "tablet-active" : "")">
-    <header class="tablet-head">
-        @if (_state.Active)
+<div class="shelf @(_state.Active ? "shelf-active" : "") @(Unplaced.Count > 0 ? "shelf-extra" : "")">
+    @for (var slot = 1; slot <= 9; slot++)
+    {
+        var s = slot;
+        if (s == TabletSlot)
         {
-            <div>
-                <div class="tablet-hello">Hi @_state.Username!</div>
-                <div class="tablet-sub">Tap what you take</div>
+            <div class="cell cell-tablet">
+                @if (_state.Active)
+                {
+                    <div class="hello">Hi @_state.Username!</div>
+                    <div class="timer">@_state.SecondsLeft s</div>
+                    <div class="total">
+                        @if (_state.DiscountedTotal < _state.Total)
+                        {
+                            <s class="total-old">@_state.Total.ToString("0.00") €</s>
+                        }
+                        @_state.DiscountedTotal.ToString("0.00") €
+                    </div>
+                    <div class="actions">
+                        <button class="btn-correct" @onclick="() => _showCorrection = true" disabled="@(_busy || _state.Items.Count == 0)">Correct</button>
+                        <button class="btn-done" @onclick="Done" disabled="@_busy">Done</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="hello">Snackbox</div>
+                    <div class="sub">Scan your card, then tap what you take</div>
+                }
+                @if (_hint != null)
+                {
+                    <div class="hint" @onclick="() => _hint = null">@_hint</div>
+                }
             </div>
-            <div class="tablet-timer" title="Seconds until your purchase is closed">@_state.SecondsLeft s</div>
         }
         else
         {
-            <div>
-                <div class="tablet-hello">Snackbox</div>
-                <div class="tablet-sub">Scan your card, then tap what you take</div>
+            var products = InSlot(s);
+            <div class="cell @(products.Count > 1 ? "cell-many" : "") @(products.Count > 2 ? "cell-four" : "")">
+                @foreach (var product in products)
+                {
+                    @ProductTile(product)
+                }
             </div>
         }
-    </header>
-
-    @if (_hint != null)
-    {
-        <div class="tablet-hint" @onclick="() => _hint = null">@_hint</div>
     }
 
-    <div class="tablet-body">
-        <div class="tablet-grid">
-            @if (_products.Count == 0)
+    @if (Unplaced.Count > 0)
+    {
+        <div class="extra">
+            @foreach (var product in Unplaced)
             {
-                <div class="tablet-empty">Nothing on the shelf with a price yet.</div>
-            }
-            @foreach (var product in _products)
-            {
-                var quantity = _state.Items.Where(i => i.ProductId == product.Id).Sum(i => i.Quantity);
-                <button class="tablet-product @(quantity > 0 ? "picked" : "")" @onclick="() => Add(product)" disabled="@_busy">
-                    <div class="tablet-picture">
-                        @if (product.HasImage)
-                        {
-                            <img src="tablet/image/@(product.Id)?v=@(product.ImageVersion)" alt="" loading="lazy" />
-                        }
-                        else
-                        {
-                            <span class="tablet-placeholder">🍫</span>
-                        }
-                        @if (quantity > 0)
-                        {
-                            <span class="tablet-count">@quantity</span>
-                        }
-                    </div>
-                    <div class="tablet-name">@product.Name</div>
-                    <div class="tablet-price">@product.Price.ToString("0.00") €</div>
-                </button>
+                @ProductTile(product)
             }
         </div>
-
-        @if (_state.Active)
-        {
-            <aside class="tablet-cart">
-                <h2>Your purchase</h2>
-                @if (_state.Items.Count == 0)
-                {
-                    <p class="tablet-cart-empty">Nothing yet - tap a product.</p>
-                }
-                @foreach (var item in _state.Items)
-                {
-                    <div class="tablet-line">
-                        <div class="tablet-line-name">@item.Name</div>
-                        <div class="tablet-line-controls">
-                            <button class="tablet-round" @onclick="() => Remove(item, false)" disabled="@_busy" aria-label="One less">−</button>
-                            <span class="tablet-line-qty">@item.Quantity</span>
-                            <button class="tablet-round" @onclick="() => AddById(item.ProductId)" disabled="@_busy" aria-label="One more">+</button>
-                            <span class="tablet-line-sum">@((item.UnitPrice * item.Quantity).ToString("0.00")) €</span>
-                            <button class="tablet-remove" @onclick="() => Remove(item, true)" disabled="@_busy" aria-label="Remove">✕</button>
-                        </div>
-                    </div>
-                }
-                <div class="tablet-total">
-                    <span>Total</span>
-                    <span>
-                        @if (_state.DiscountedTotal < _state.Total)
-                        {
-                            <s class="tablet-old">@_state.Total.ToString("0.00") €</s>
-                        }
-                        @_state.DiscountedTotal.ToString("0.00") €
-                    </span>
-                </div>
-                <button class="tablet-done" @onclick="Done" disabled="@_busy">Done</button>
-            </aside>
-        }
-    </div>
+    }
 </div>
 
+@if (_showCorrection && _state.Active)
+{
+    <div class="overlay" @onclick="() => _showCorrection = false">
+        <div class="correction" @onclick:stopPropagation="true">
+            <h2>Your purchase</h2>
+            @foreach (var item in _state.Items)
+            {
+                <div class="line">
+                    <div class="line-name">@item.Name</div>
+                    <div class="line-controls">
+                        <button class="round" @onclick="() => Remove(item, false)" disabled="@_busy" aria-label="One less">−</button>
+                        <span class="qty">@item.Quantity</span>
+                        <button class="round" @onclick="() => AddById(item.ProductId)" disabled="@_busy" aria-label="One more">+</button>
+                        <span class="sum">@((item.UnitPrice * item.Quantity).ToString("0.00")) €</span>
+                        <button class="remove" @onclick="() => Remove(item, true)" disabled="@_busy" aria-label="Remove">✕</button>
+                    </div>
+                </div>
+            }
+            @if (_state.Items.Count == 0)
+            {
+                <p>Nothing picked.</p>
+            }
+            <button class="btn-done" @onclick="() => _showCorrection = false">Close</button>
+        </div>
+    </div>
+}
+
 <style>
-    html, body { background: var(--brand-anthracite, #191E1E); }
-    .tablet { min-height: 100vh; display: flex; flex-direction: column; color: #fff; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
-    .tablet-head { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; }
-    .tablet-hello { font-size: 2rem; font-weight: 700; }
-    .tablet-sub { font-size: 1.1rem; opacity: 0.85; }
-    .tablet-timer { font-size: 1.5rem; font-weight: 600; padding: 0.4rem 0.9rem; border: 2px solid #fff; }
-    .tablet-hint { margin: 0 1.5rem 0.75rem; padding: 0.9rem 1.2rem; background: #ffc107; color: #191E1E; font-size: 1.25rem; font-weight: 600; text-align: center; }
-    .tablet-body { flex: 1; display: flex; gap: 1rem; padding: 0 1rem 1rem; min-height: 0; }
-    .tablet-grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; align-content: start; overflow-y: auto; }
-    .tablet-empty { grid-column: 1 / -1; padding: 3rem; text-align: center; font-size: 1.25rem; opacity: 0.8; }
-    .tablet-product { background: #fff; color: #191E1E; border: 3px solid transparent; padding: 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; cursor: pointer; }
-    .tablet-product:active { transform: scale(0.97); }
-    .tablet-product.picked { border-color: var(--brand-cyan, #00BCD4); }
-    .tablet-active .tablet-product:disabled { opacity: 0.8; }
-    .tablet-picture { position: relative; width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
-    .tablet-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .tablet-placeholder { font-size: 3.5rem; }
-    .tablet-count { position: absolute; top: 0; right: 0; min-width: 2rem; height: 2rem; padding: 0 0.4rem; background: var(--brand-cyan, #00BCD4); color: #fff; font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; border-radius: 1rem; }
-    .tablet-name { font-weight: 600; text-align: center; line-height: 1.2; min-height: 2.4em; }
-    .tablet-price { font-size: 1.2rem; font-weight: 700; color: var(--brand-blue, #0082CD); }
-    .tablet-cart { width: 340px; background: #fff; color: #191E1E; padding: 1rem; display: flex; flex-direction: column; overflow-y: auto; }
-    .tablet-cart h2 { font-size: 1.4rem; margin: 0 0 0.75rem; }
-    .tablet-cart-empty { opacity: 0.7; }
-    .tablet-line { padding: 0.5rem 0; border-bottom: 1px solid #e5e5e5; }
-    .tablet-line-name { font-weight: 600; }
-    .tablet-line-controls { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; }
-    .tablet-round { width: 2.6rem; height: 2.6rem; border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-size: 1.5rem; font-weight: 700; line-height: 1; }
-    .tablet-line-qty { min-width: 1.8rem; text-align: center; font-size: 1.25rem; font-weight: 700; }
-    .tablet-line-sum { margin-left: auto; font-weight: 600; }
-    .tablet-remove { width: 2.6rem; height: 2.6rem; border: none; background: #dc3545; color: #fff; font-size: 1.2rem; }
-    .tablet-total { display: flex; justify-content: space-between; font-size: 1.5rem; font-weight: 700; margin-top: auto; padding-top: 1rem; }
-    .tablet-old { opacity: 0.5; font-weight: 400; margin-right: 0.4rem; }
-    /* The ODYS tablet stands upright (800 x 1280): the purchase goes below the products */
-    @@media (orientation: portrait) {
-        .tablet-body { flex-direction: column; }
-        .tablet-cart { width: auto; max-height: 42vh; }
-    }
-    .tablet-done { margin-top: 0.75rem; padding: 1rem; border: none; background: var(--brand-blue, #0082CD); color: #fff; font-size: 1.5rem; font-weight: 700; }
+    html, body { margin: 0; background: var(--brand-anthracite, #191E1E); overflow: hidden; }
+    /* dvh: the height that is actually visible, without the browser's address bar */
+    .shelf { height: 100vh; height: 100dvh; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px; padding: 6px; box-sizing: border-box; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
+    .shelf-extra { grid-template-rows: repeat(3, 1fr) auto; }
+    .cell { background: rgba(255, 255, 255, 0.12); display: grid; gap: 4px; padding: 4px; min-height: 0; min-width: 0; }
+    .cell-many { grid-template-columns: 1fr 1fr; }
+    .cell-four { grid-template-rows: 1fr 1fr; }
+    .cell-tablet { background: #fff; color: #191E1E; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8px; position: relative; }
+    .hello { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+    .sub { margin-top: 0.5rem; font-size: 1rem; opacity: 0.8; }
+    .timer { font-size: 0.95rem; opacity: 0.7; margin-top: 2px; }
+    .total { font-size: 2.6rem; font-weight: 800; color: var(--brand-blue, #0082CD); margin: 0.4rem 0; }
+    .total-old { font-size: 1.1rem; font-weight: 400; opacity: 0.5; margin-right: 0.3rem; color: #191E1E; }
+    .actions { display: flex; gap: 6px; width: 100%; }
+    .actions button { flex: 1; padding: 0.8rem 0.2rem; font-size: 1.1rem; font-weight: 700; border: none; }
+    .btn-correct { background: #fff; color: var(--brand-blue, #0082CD); border: 2px solid var(--brand-blue, #0082CD) !important; }
+    .btn-done { background: var(--brand-blue, #0082CD); color: #fff; }
+    .hint { position: absolute; left: 4px; right: 4px; bottom: 4px; padding: 0.5rem; background: #ffc107; font-weight: 700; }
+    .tile { position: relative; background: #fff; color: #191E1E; border: 3px solid transparent; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 0; min-width: 0; overflow: hidden; }
+    .tile:active { transform: scale(0.97); }
+    .tile.picked { border-color: var(--brand-cyan, #00BCD4); }
+    .tile-picture { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .tile-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .tile-placeholder { font-size: 3rem; }
+    .tile-name { font-weight: 600; font-size: 0.95rem; text-align: center; line-height: 1.15; max-height: 2.3em; overflow: hidden; }
+    .tile-price { font-size: 1.15rem; font-weight: 800; color: var(--brand-blue, #0082CD); }
+    .cell-four .tile-name { font-size: 0.8rem; }
+    .cell-four .tile-price { font-size: 0.95rem; }
+    .count { position: absolute; top: 4px; right: 4px; min-width: 2rem; height: 2rem; padding: 0 0.4rem; border-radius: 1rem; background: var(--brand-cyan, #00BCD4); color: #fff; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
+    .extra { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; max-height: 22vh; overflow-y: auto; }
+    .extra .tile { height: 150px; }
+    .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
+    .correction { background: #fff; color: #191E1E; width: 88vw; max-height: 85vh; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; }
+    .correction h2 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    .correction .btn-done { margin-top: 1rem; padding: 1rem; font-size: 1.3rem; font-weight: 700; border: none; }
+    .line { padding: 0.6rem 0; border-bottom: 1px solid #e5e5e5; }
+    .line-name { font-weight: 600; font-size: 1.15rem; }
+    .line-controls { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; }
+    .round { width: 3rem; height: 3rem; border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-size: 1.6rem; font-weight: 700; }
+    .qty { min-width: 2rem; text-align: center; font-size: 1.4rem; font-weight: 700; }
+    .sum { margin-left: auto; font-weight: 700; font-size: 1.15rem; }
+    .remove { width: 3rem; height: 3rem; border: none; background: #dc3545; color: #fff; font-size: 1.3rem; }
 </style>
 
 @code {
@@ -154,6 +152,39 @@
     private string? _hint;
     private DateTime _hintUntil;
     private bool _busy;
+    private bool _showCorrection;
+
+    // Compartments of the 3x3 shelf, numbered row by row; the tablet sits in the top middle one
+    private const int TabletSlot = 2;
+
+    private List<TabletProductDto> InSlot(int slot) => _products.Where(p => p.ShelfSlot == slot).ToList();
+
+    // Not placed (yet): shown in a row below the shelf rather than not at all
+    private List<TabletProductDto> Unplaced =>
+        _products.Where(p => p.ShelfSlot is not (>= 1 and <= 9) || p.ShelfSlot == TabletSlot).ToList();
+
+    private RenderFragment ProductTile(TabletProductDto product) => __builder =>
+    {
+        var quantity = _state.Items.Where(i => i.ProductId == product.Id).Sum(i => i.Quantity);
+        <button class="tile @(quantity > 0 ? "picked" : "")" @onclick="() => Add(product)" disabled="@_busy">
+            <div class="tile-picture">
+                @if (product.HasImage)
+                {
+                    <img src="tablet/image/@(product.Id)?v=@(product.ImageVersion)" alt="" loading="lazy" />
+                }
+                else
+                {
+                    <span class="tile-placeholder">🍫</span>
+                }
+            </div>
+            <div class="tile-name">@product.Name</div>
+            <div class="tile-price">@product.Price.ToString("0.00") €</div>
+            @if (quantity > 0)
+            {
+                <span class="count">@quantity</span>
+            }
+        </button>
+    };
 
     protected override void OnAfterRender(bool firstRender)
     {
@@ -172,6 +203,7 @@
                 {
                     var wasActive = _state.Active;
                     if (!_busy) _state = await TabletApi.GetStateAsync();
+                    if (!_state.Active) _showCorrection = false;
 
                     // Fresh shelf after a purchase, and once a minute in case an admin changed it
                     if (DateTime.UtcNow - _productsLoadedAt > ProductsInterval || (wasActive && !_state.Active))

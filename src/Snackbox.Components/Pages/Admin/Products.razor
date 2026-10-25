@@ -838,6 +838,7 @@
                 {
                     Name = _productForm.Name,
                     Price = _productForm.Price,
+                    ShelfSlot = _editingProduct.ShelfSlot, // set on the product page
                 };
                 await ProductsApi.UpdateAsync(_editingProduct.Id, updateDto);
             }

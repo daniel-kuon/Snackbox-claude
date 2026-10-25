@@ -36,11 +36,14 @@ public class TabletControllerTests : IDisposable
 
         var now = DateTime.UtcNow;
         _context.Users.AddRange(
-            new User { Id = 1, Username = "Tina", UsesTabletSelection = true, CreatedAt = now },
-            new User { Id = 2, Username = "Carl", CreatedAt = now });
+            new User { Id = 1, Username = "Tina", UsesTabletSelection = true, IsBetaTester = true, CreatedAt = now },
+            new User { Id = 2, Username = "Carl", CreatedAt = now },
+            new User { Id = 3, Username = "Nina", UsesTabletSelection = true, CreatedAt = now });
+        _context.FeatureFlags.Add(new FeatureFlag { Id = 3, Key = FeatureFlagKeys.Tablet, Name = "Tablet", Description = "", Audience = FeatureAudience.BetaTesters, UpdatedAt = now });
         _context.Barcodes.AddRange(
             new PurchaseBarcode { Id = 1, UserId = 1, Code = "TINA-50", Amount = 0.50m, CreatedAt = now },
-            new PurchaseBarcode { Id = 2, UserId = 2, Code = "CARL-50", Amount = 0.50m, CreatedAt = now });
+            new PurchaseBarcode { Id = 2, UserId = 2, Code = "CARL-50", Amount = 0.50m, CreatedAt = now },
+            new PurchaseBarcode { Id = 3, UserId = 3, Code = "NINA-50", Amount = 0.50m, CreatedAt = now });
         _context.Products.AddRange(
             new Product { Id = 1, Name = "Mars", Price = 0.80m, CreatedAt = now },
             new Product { Id = 2, Name = "Chips", Price = 1.20m, CreatedAt = now },
@@ -80,6 +83,17 @@ public class TabletControllerTests : IDisposable
         var state = await State();
         Assert.True(state.Active);
         Assert.Equal("Tina", state.Username);
+    }
+
+    [Fact]
+    public async Task TabletUserWhoIsNoBetaTester_StillPaysTheCardAmount()
+    {
+        // The feature starts with beta testers only; ticking "picks on the tablet" is not enough
+        var response = await Scan("NINA-50");
+
+        Assert.False(response.IsTabletSession);
+        Assert.Equal(0.50m, response.TotalAmount);
+        Assert.False((await State()).Active);
     }
 
     [Fact]

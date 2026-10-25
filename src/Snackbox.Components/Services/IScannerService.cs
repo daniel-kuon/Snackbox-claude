@@ -1,4 +1,4 @@
-﻿using Snackbox.Api.Dtos;
+using Snackbox.Api.Dtos;
 using Snackbox.Components.Models;
 
 namespace Snackbox.Components.Services;
@@ -19,6 +19,13 @@ public interface IScannerService
     void SignalActivity();
     void PauseTimeout();
     void ResumeTimeout();
+
+    /// <summary>
+    /// Takes over what the user picked on the tablet so far (items, totals, open amount) and
+    /// restarts the timeout. A tablet session that ended (Done, someone else scanned, timeout)
+    /// ends the kiosk's session too.
+    /// </summary>
+    void ApplyTabletState(TabletStateDto state);
     Task<IEnumerable<PurchaseDto>> GetMyPurchasesAsync();
     Task<IEnumerable<PaymentDto>> GetMyPaymentsAsync();
 }

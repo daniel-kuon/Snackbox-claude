@@ -66,13 +66,18 @@ public class ProductsController : ControllerBase
         return Ok(await WithImageFlag(product.ToDto(_stockCalculation)));
     }
 
+    private static bool ValidSlot(int? slot) => slot is null or (>= 1 and <= 9 and not 2);
+
     [HttpPost]
     public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductDto dto)
     {
+        if (!ValidSlot(dto.ShelfSlot)) return BadRequest(new { message = "Compartment must be 1-9 except 2 (the tablet's)" });
+
         var product = new Product
         {
             Name = dto.Name,
             Price = dto.Price,
+            ShelfSlot = dto.ShelfSlot,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -98,8 +103,10 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
+        if (!ValidSlot(dto.ShelfSlot)) return BadRequest(new { message = "Compartment must be 1-9 except 2 (the tablet's)" });
         product.Name = dto.Name;
         product.Price = dto.Price;
+        product.ShelfSlot = dto.ShelfSlot;
 
         await _context.SaveChangesAsync();
 

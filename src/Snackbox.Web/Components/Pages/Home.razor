@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @inject TestHelperClient TestHelper
+@inject Snackbox.ApiClient.ITabletApi TabletApi
 @using System.Net
 @using System.Net.Sockets
 @using System.Timers
@@ -68,14 +69,25 @@
                             <span class="timer-text">@_remainingSeconds</span>
                         </div>
                     </div>
-                    <h3 class="section-title">Scanned Amounts</h3>
+                    <h3 class="section-title">@(session.IsTabletSession ? "Your snacks" : "Scanned Amounts")</h3>
 
-                    @if (session.IsTabletSession)
+                    @if (session.IsTabletSession && session.TabletItems is { Count: > 0 } picked)
+                    {
+                        <div class="items-list">
+                            @foreach (var item in picked)
+                            {
+                                <div class="purchase-item">
+                                    <span class="item-price">@item.Quantity x @item.Name</span>
+                                    <span class="item-price">@((item.UnitPrice * item.Quantity).ToString("C"))</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (session.IsTabletSession)
                     {
                         <div class="tablet-pick-hint">👉 Pick your snacks on the tablet</div>
                     }
-
-                    @if (session.ScannedBarcodes.Any())
+                    else if (session.ScannedBarcodes.Any())
                     {
                         <div class="items-list">
                             @foreach (var barcode in session.ScannedBarcodes.GroupBy(c => c.Amount))
@@ -89,7 +101,7 @@
                     else
                     {
                         <div class="no-items">
-                            <p>@(session.IsTabletSession ? "Tap what you take on the tablet next to the scanner" : "Scan your personal barcodes to add amounts")</p>
+                            <p>Scan your personal barcodes to add amounts</p>
                         </div>
                     }
 
@@ -1305,8 +1317,50 @@
         }
     }
 
+    // While a tablet purchase is open the kiosk shows what is picked there and keeps the same
+    // countdown; when the tablet's session ends (Done, the next person scans) the kiosk's does too
+    private CancellationTokenSource? _tabletWatch;
+
+    private void WatchTablet(PurchaseSession session)
+    {
+        if (!session.IsTabletSession || _tabletWatch != null) return;
+        _tabletWatch = new CancellationTokenSource();
+        _ = WatchTabletAsync(_tabletWatch.Token);
+    }
+
+    private async Task WatchTabletAsync(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                if (ScannerService.CurrentSession is not { IsTabletSession: true }) break;
+                try
+                {
+                    var state = await TabletApi.GetStateAsync();
+                    ScannerService.ApplyTabletState(state);
+                    if (state.Active && !AnyPopupOpen) _remainingSeconds = state.SecondsLeft;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (Exception) when (!token.IsCancellationRequested)
+                {
+                    // API hiccup - the backend banner shows a real outage; try again next second
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _tabletWatch = null;
+        }
+    }
+
     private void HandlePurchaseStarted(PurchaseSession session)
     {
+        WatchTablet(session);
         _remainingSeconds = ScannerService.TimeoutSeconds;
         StartCountdownTimer();
         MaybeAutoOpenSetupWizard(session);
@@ -1316,6 +1370,7 @@
 
     private void HandlePurchaseUpdated(PurchaseSession session)
     {
+        WatchTablet(session);
         ResetCountdownTimer();
         UpdateTimerState();
         InvokeAsync(StateHasChanged);
@@ -1606,6 +1661,7 @@
     public void Dispose()
     {
         ScannerListener.CodeReceived -= HandleCodeScanned;
+        _tabletWatch?.Cancel();
         ScannerService.OnPurchaseStarted -= HandlePurchaseStarted;
         ScannerService.OnPurchaseUpdated -= HandlePurchaseUpdated;
         ScannerService.OnPurchaseCompleted -= HandlePurchaseCompleted;

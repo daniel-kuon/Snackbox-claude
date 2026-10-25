@@ -97,6 +97,15 @@ public class ApplicationDbContext : DbContext
                 Description = "The kiosk window stays minimized and is never pulled to the front by a scan (parallel run with the old Snackbox). Scans are still recorded.",
                 Audience = FeatureAudience.Disabled,
                 UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new FeatureFlag
+            {
+                Id = 3,
+                Key = FeatureFlagKeys.Tablet,
+                Name = "Picking products on the tablet",
+                Description = "Users with \"picks products on the tablet\" ticked choose their snacks on the tablet next to the scanner instead of paying the fixed amounts printed on their card.",
+                Audience = FeatureAudience.BetaTesters,
+                UpdatedAt = new DateTime(2026, 10, 25, 0, 0, 0, DateTimeKind.Utc)
             }
         );
 
@@ -140,6 +149,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Product>(entity =>
         {
             entity.Property(e => e.Name).HasMaxLength(200);
+            // Compartment of the 3x3 shelf, 1-9 row by row; 2 (top middle) holds the tablet
+            entity.ToTable(t => t.HasCheckConstraint("ck_products_shelf_slot", "shelf_slot IS NULL OR (shelf_slot BETWEEN 1 AND 9 AND shelf_slot <> 2)"));
         });
 
         modelBuilder.Entity<ProductImage>(entity =>

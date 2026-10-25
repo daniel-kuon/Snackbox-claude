@@ -36,6 +36,7 @@ public static partial class ProductMapper
                 ? stockCalculation.CalculateAverageProductsShelvedPerWeek(source.Batches)
                 : 0,
             Price = source.Price,
+            ShelfSlot = source.ShelfSlot,
             Barcodes = source.Barcodes.ToDtoList()
         };
     }

@@ -15,4 +15,10 @@ public static class FeatureFlagKeys
     /// Settings page shows it as its own switch (on = <see cref="FeatureAudience.Everyone"/>).
     /// </summary>
     public const string KioskBackground = "kiosk_background";
+
+    /// <summary>
+    /// Picking products on the tablet next to the scanner. Takes effect for users who also have
+    /// "picks on the tablet" ticked; starts with beta testers only.
+    /// </summary>
+    public const string Tablet = "tablet";
 }

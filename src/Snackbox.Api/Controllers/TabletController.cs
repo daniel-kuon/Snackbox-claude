@@ -47,6 +47,7 @@ public class TabletController(
                 Id = p.Id,
                 Name = p.Name,
                 Price = p.Price!.Value,
+                ShelfSlot = p.ShelfSlot,
                 HasImage = imageVersions.ContainsKey(p.Id),
                 ImageVersion = imageVersions.GetValueOrDefault(p.Id)
             })

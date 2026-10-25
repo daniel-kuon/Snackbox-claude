@@ -159,6 +159,33 @@ public class ScannerService : IScannerService
         }
     }
 
+    [NotTraced] // called every second while a tablet purchase is open
+    public void ApplyTabletState(TabletStateDto state)
+    {
+        var session = CurrentSession;
+        if (session is not { IsTabletSession: true }) return;
+
+        if (!state.Active || state.Username != session.UserName)
+        {
+            ResetSession();
+            return;
+        }
+
+        var changed = session.TabletTotal != state.Total || session.TabletItems?.Sum(i => i.Quantity) != state.Items.Sum(i => i.Quantity);
+
+        // The open amount from the scan already holds the purchase as it was then
+        session.OpenAmount += state.DiscountedTotal - session.DiscountedAmount;
+        session.DiscountedAmount = state.DiscountedTotal;
+        session.TabletTotal = state.Total;
+        session.TabletItems = state.Items;
+
+        if (changed)
+        {
+            ResetTimeoutTimer();
+            OnPurchaseUpdated?.Invoke(session);
+        }
+    }
+
     // Stop the auto-complete countdown while a blocking popup (wizard, achievements) is shown.
     public void PauseTimeout()
     {

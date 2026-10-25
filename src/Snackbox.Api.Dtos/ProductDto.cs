@@ -9,6 +9,7 @@ public class ProductDto
     public required DateTime? BestBeforeOnShelf { get; set; }
     public double AverageProductsShelvedPerWeek { get; set; }
     public decimal? Price { get; set; }
+    public int? ShelfSlot { get; set; }
     public bool HasImage { get; set; }
     public List<ProductBarcodeDto> Barcodes { get; set; } = new();
 }
@@ -26,12 +27,16 @@ public class CreateProductDto
 {
     public required string Name { get; set; }
     public decimal? Price { get; set; }
+    public int? ShelfSlot { get; set; }
 }
 
 public class UpdateProductDto
 {
     public required string Name { get; set; }
     public decimal? Price { get; set; }
+
+    /// <summary>1-9 except 2 (the tablet's), or null</summary>
+    public int? ShelfSlot { get; set; }
 }
 
 public class CreateProductBarcodeDto
