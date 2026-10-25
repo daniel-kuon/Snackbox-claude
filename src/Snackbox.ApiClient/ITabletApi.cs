@@ -21,13 +21,19 @@ public interface ITabletApi
     Task<TabletStateDto> RemoveItemAsync(int productId, [Query] bool all = false);
 
     [Post("/api/tablet/complete")]
-    Task CompleteAsync();
+    Task<TabletStateDto> CompleteAsync();
 
     [Post("/api/tablet/sleep")]
     Task SleepAsync();
 
-    [Post("/api/tablet/keepalive")]
-    Task KeepAliveAsync();
+    [Post("/api/tablet/pause")]
+    Task PauseAsync([Query] bool paused);
+
+    [Post("/api/tablet/achievements/claim")]
+    Task<List<AchievementDto>> ClaimAchievementsAsync();
+
+    [Get("/api/tablet/achievements")]
+    Task<List<AchievementDto>> GetAchievementsAsync();
 
     [Post("/api/tablet/intro-seen")]
     Task IntroSeenAsync();

@@ -165,7 +165,7 @@ public class ScannerService : IScannerService
         var session = CurrentSession;
         if (session is not { IsTabletSession: true }) return;
 
-        if (!state.Active || state.Username != session.UserName)
+        if (!state.Active || state.Completed || state.Username != session.UserName)
         {
             ResetSession();
             return;

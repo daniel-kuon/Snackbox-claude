@@ -163,7 +163,8 @@ public class ScannerController : ControllerBase
             var lastActivity = lastScan?.ScannedAt ?? (lastPurchase.ManualAmount == null ? lastPurchase.UpdatedAt : null);
 
             // If the last activity was within timeout window, add to existing purchase
-            if (lastActivity >= timeoutThreshold)
+            // ... and the purchase was not ended with Done on the tablet
+            if (lastActivity >= timeoutThreshold && !_tablet.IsClosed(lastPurchase.Id))
             {
                 currentPurchase = lastPurchase;
             }
@@ -286,39 +287,9 @@ public class ScannerController : ControllerBase
         // Log for debugging
         Console.WriteLine($"User {user.Id} - Found {recentPurchases.Count} recent purchases");
 
-        // Get newly earned achievements (not yet shown to user)
-        var newAchievements = await _context.UserAchievements
-            .Include(ua => ua.Achievement)
-            .Where(ua => ua.UserId == user.Id && !ua.HasBeenShown)
-            .Select(ua => new AchievementDto
-            {
-                Id = ua.Achievement.Id,
-                Code = ua.Achievement.Code,
-                Name = ua.Achievement.Name,
-                Description = ua.Achievement.Description,
-                Category = ua.Achievement.Category.ToString(),
-                ImageUrl = ua.Achievement.ImageUrl,
-                EarnedAt = ua.EarnedAt
-            })
-            .ToListAsync();
-
-        Console.WriteLine($"User {user.Id} - Found {newAchievements.Count} new achievements to show");
-
-        // Mark achievements as shown
-        if (newAchievements.Any())
-        {
-            var achievementIds = newAchievements.Select(a => a.Id).ToList();
-            var userAchievementsToUpdate = await _context.UserAchievements
-                .Where(ua => ua.UserId == user.Id && achievementIds.Contains(ua.AchievementId))
-                .ToListAsync();
-
-            foreach (var ua in userAchievementsToUpdate)
-            {
-                ua.HasBeenShown = true;
-            }
-            await _context.SaveChangesAsync();
-            Console.WriteLine($"User {user.Id} - Marked {userAchievementsToUpdate.Count} achievements as shown");
-        }
+        // Newly earned achievements (not yet shown): on the kiosk - unless the user has the tablet,
+        // which shows them after Done
+        var newAchievements = usesTablet ? new List<AchievementDto>() : await UnshownAchievements.ClaimAsync(_context, user.Id);
 
         // Calculate total amount before discounts
         var totalAmount = currentPurchase.Scans.Sum(s => s.Amount);

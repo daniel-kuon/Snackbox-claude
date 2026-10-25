@@ -16,8 +16,14 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
     private bool _warnedNoAdb;
 
     // `wm dismiss-keyguard` only exists from Android 8 - on older tablets (screen lock "None")
-    // there is no keyguard to dismiss, so its failure is ignored
-    private const string WakeCommand = "shell \"input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard >/dev/null 2>&1; true\"";
+    // there is no keyguard to dismiss, so its failure is ignored.
+    // A browser page may only go full screen after a touch, and loses it when the screen goes off;
+    // Firefox installs a page as an app (which would start full screen) only over HTTPS. So when
+    // Android says the page is not full screen, one tap on a spot that is never a button - the
+    // top left of the page's own bar, below Firefox's address bar - lets the page ask for it.
+    private const string WakeCommand =
+        "shell \"input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard >/dev/null 2>&1; sleep 1; " +
+        "dumpsys window policy | grep -q mTopIsFullscreen=true || input tap 30 110; true\"";
     private const string SleepCommand = "shell input keyevent KEYCODE_SLEEP";
 
     /// <summary>The purchase is over: dark until the next scan.</summary>

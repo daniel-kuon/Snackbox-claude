@@ -7,6 +7,10 @@
     {
         <div class="achievement-container">
             <div class="achievement-header">
+                @if (ShowCloseButton)
+                {
+                    <button class="achievement-close" @onclick="CloseAsync" aria-label="Close">✕</button>
+                }
                 <h2 class="achievement-title">
                     🎉 @(_displayAchievements.Count > 1 ? $"{_displayAchievements.Count} Achievements Unlocked!" : "Achievement Unlocked!") 🎉
                 </h2>
@@ -49,6 +53,12 @@
 </div>
 
 <style>
+    .achievement-close {
+        position: absolute; top: 0.5rem; right: 0.5rem; width: 3rem; height: 3rem;
+        border: none; border-radius: 50%; background: rgba(255, 255, 255, 0.9); color: #191E1E;
+        font-size: 1.5rem; font-weight: 700; cursor: pointer; z-index: 2;
+    }
+    .achievement-header { position: relative; }
     .achievement-overlay {
         position: fixed;
         top: 0;
@@ -226,6 +236,10 @@
     [Parameter]
     public EventCallback OnAllAchievementsShown { get; set; }
 
+    /// <summary>A close button, so nobody has to wait for the cards to go away by themselves.</summary>
+    [Parameter]
+    public bool ShowCloseButton { get; set; }
+
     private const int BaseDisplayMs = 4000;
     private const int ExtraMsPerCard = 1500;
 
@@ -261,24 +275,32 @@
         var displayMs = BaseDisplayMs + ExtraMsPerCard * (_displayAchievements.Count - 1);
         _displayTimer?.Dispose();
         _displayTimer = new System.Timers.Timer(displayMs);
-        _displayTimer.Elapsed += async (_, _) =>
-        {
-            if (_isDisposed)
-                return;
-
-            _isVisible = false;
-            await InvokeAsync(StateHasChanged);
-
-            // Let the fade-out finish before notifying the parent (which removes the component)
-            await Task.Delay(500);
-            if (_isDisposed)
-                return;
-
-            _isDisplaying = false;
-            await InvokeAsync(async () => await OnAllAchievementsShown.InvokeAsync());
-        };
+        _displayTimer.Elapsed += async (_, _) => await HideAsync();
         _displayTimer.AutoReset = false;
         _displayTimer.Start();
+    }
+
+    private async Task CloseAsync()
+    {
+        _displayTimer?.Stop();
+        await HideAsync();
+    }
+
+    private async Task HideAsync()
+    {
+        if (_isDisposed || !_isVisible)
+            return;
+
+        _isVisible = false;
+        await InvokeAsync(StateHasChanged);
+
+        // Let the fade-out finish before notifying the parent (which removes the component)
+        await Task.Delay(500);
+        if (_isDisposed)
+            return;
+
+        _isDisplaying = false;
+        await InvokeAsync(async () => await OnAllAchievementsShown.InvokeAsync());
     }
 
     public void Dispose()

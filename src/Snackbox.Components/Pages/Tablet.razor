@@ -4,6 +4,7 @@
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
 @using Snackbox.Components.Components.History
+@using Snackbox.Components.Mappers
 @inject ITabletApi TabletApi
 @inject IPurchasesApi PurchasesApi
 @inject IPaymentsApi PaymentsApi
@@ -31,14 +32,15 @@
             <span class="who">👤 @_state.Username</span>
             <button @onclick="ShowPurchases">🧾 Purchases</button>
             <button @onclick="ShowPayments">💶 Payments</button>
+            <button @onclick="ShowAchievements" aria-label="Achievements">🏆</button>
             <span class="open @(_state.OpenAmount > 0 ? "owes" : "credit")">
                 @(_state.OpenAmount > 0 ? "Open" : "Credit") @Math.Abs(_state.OpenAmount).ToString("0.00") €
             </span>
             @if (_state.OpenAmount > 0)
             {
-                <button class="pay" @onclick="() => Open(Overlay.Pay)">Pay</button>
+                <button class="pay" @onclick="() => OpenAsync(Overlay.Pay)">Pay</button>
             }
-            <button class="help @Spot("help")" @onclick="() => StartIntro(auto: false)" aria-label="Help">?</button>
+            <button class="help @Spot("help")" @onclick="() => StartIntroAsync(auto: false)" aria-label="Help">?</button>
         </div>
         @if (ShowReminder)
         {
@@ -86,7 +88,7 @@
 
 @if (_overlay == Overlay.Correction && _state.Active)
 {
-    <div class="overlay" @onclick="Close">
+    <div class="overlay" @onclick="CloseAsync">
         <div class="panel" @onclick:stopPropagation="true">
             <h2>Your purchase</h2>
             @foreach (var item in _state.Items)
@@ -106,25 +108,59 @@
             {
                 <p>Nothing picked.</p>
             }
-            <button class="primary" @onclick="Close">Close</button>
+            <button class="primary" @onclick="CloseAsync">Close</button>
         </div>
     </div>
 }
 
 @if (_overlay == Overlay.Pay && _state.Active)
 {
-    <div class="overlay" @onclick="Close">
+    <div class="overlay" @onclick="CloseAsync">
         <div class="panel pay-panel" @onclick:stopPropagation="true">
             <h2>Pay @Math.Abs(_state.OpenAmount).ToString("0.00") € with PayPal</h2>
             <QRCodeComponent Url="@PayPal.PayUrl(_state.OpenAmount)" Size="420" />
             <p class="muted">Scan with your phone. Payments show up once the admin has booked them.</p>
-            <button class="primary" @onclick="Close">Close</button>
+            <button class="primary" @onclick="CloseAsync">Close</button>
         </div>
     </div>
 }
 
-<PurchasesHistoryModal IsOpen="@(_overlay == Overlay.Purchases)" OnClose="Close" Purchases="@_purchases" />
-<PaymentsHistoryModal IsOpen="@(_overlay == Overlay.Payments)" OnClose="Close" Payments="@_payments" />
+@if (_overlay == Overlay.Achievements && _state.Active)
+{
+    <div class="overlay" @onclick="CloseAsync">
+        <div class="panel" @onclick:stopPropagation="true">
+            <h2>🏆 Your achievements</h2>
+            @if (_achievements == null)
+            {
+                <p>Loading...</p>
+            }
+            else if (_achievements.Count == 0)
+            {
+                <p>None yet - keep snacking.</p>
+            }
+            else
+            {
+                @foreach (var achievement in _achievements)
+                {
+                    <div class="line achievement-line">
+                        <div class="line-name">@achievement.Name</div>
+                        <div class="muted">@achievement.Description</div>
+                        <div class="earned">@achievement.EarnedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                    </div>
+                }
+            }
+            <button class="primary" @onclick="CloseAsync">Close</button>
+        </div>
+    </div>
+}
+
+<PurchasesHistoryModal IsOpen="@(_overlay == Overlay.Purchases)" OnClose="CloseAsync" Purchases="@_purchases" />
+<PaymentsHistoryModal IsOpen="@(_overlay == Overlay.Payments)" OnClose="CloseAsync" Payments="@_payments" />
+
+@if (_newAchievements.Count > 0)
+{
+    <AchievementNotification Achievements="@_newAchievements" ShowCloseButton="true" OnAllAchievementsShown="AchievementsShownAsync" />
+}
 
 @if (_intro != null)
 {
@@ -133,13 +169,19 @@
     <div class="intro-caption">
         <div class="intro-count">@(_introStep + 1) / @_intro.Count</div>
         <div class="intro-text">@step.Text</div>
+        @if (_introAutoAdvancing)
+        {
+            <div class="intro-autobar" title="Continues on its own - tap a button to take over">
+                <div class="intro-autobar-fill" @key="_introStep" style="animation-duration:@(StepMs(step))ms"></div>
+            </div>
+        }
         <div class="intro-buttons">
-            <button @onclick="EndIntro">Skip</button>
+            <button @onclick="() => IntroButtonAsync(IntroAction.Skip)">Skip</button>
             @if (_introStep > 0)
             {
-                <button @onclick="() => _introStep--">Back</button>
+                <button @onclick="() => IntroButtonAsync(IntroAction.Back)">Back</button>
             }
-            <button class="primary" @onclick="NextIntroStep">@(_introStep == _intro.Count - 1 ? "Let's go" : "Next")</button>
+            <button class="primary" @onclick="() => IntroButtonAsync(IntroAction.Next)">@(_introStep == _intro.Count - 1 ? "Let's go" : "Next")</button>
         </div>
     </div>
 }
@@ -147,9 +189,9 @@
 <style>
     html, body { margin: 0; background: var(--brand-anthracite, #191E1E); overflow: hidden; }
     .tablet { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
-    .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fff; color: #191E1E; font-size: 1.3rem; }
-    .toolbar button { border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-weight: 700; padding: 0.55rem 0.75rem; font-size: 1.2rem; }
-    .toolbar .who { font-weight: 700; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .toolbar { display: flex; align-items: center; gap: 6px; padding: 8px; background: #fff; color: #191E1E; font-size: 1.15rem; }
+    .toolbar button { border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-weight: 700; padding: 0.5rem 0.55rem; font-size: 1.1rem; white-space: nowrap; flex: 0 0 auto; }
+    .toolbar .who { font-weight: 700; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; }
     .toolbar .open { font-weight: 800; padding: 0 0.3rem; white-space: nowrap; }
     .toolbar .owes { color: #c62828; }
     .toolbar .credit { color: #2e7d32; }
@@ -218,12 +260,18 @@
     .intro-buttons { display: flex; gap: 8px; justify-content: flex-end; }
     .intro-buttons button { padding: 0.7rem 1.1rem; font-size: 1.05rem; font-weight: 700; border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); }
     .intro-buttons .primary { background: var(--brand-blue, #0082CD); color: #fff; }
+    /* Idle auto-advance, as in the kiosk's introduction */
+    .intro-autobar { height: 4px; margin-bottom: 0.8rem; background: #eee; overflow: hidden; }
+    .intro-autobar-fill { height: 100%; width: 100%; background: var(--brand-blue, #0082CD); transform-origin: left; animation-name: intro-autobar-grow; animation-timing-function: linear; animation-fill-mode: forwards; }
+    @@keyframes intro-autobar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .achievement-line .earned { font-size: 0.95rem; color: var(--brand-blue, #0082CD); font-weight: 600; margin-top: 0.2rem; }
+    .thanks { font-size: 1.3rem; }
+    .paused { font-size: 1rem; opacity: 0.7; }
 </style>
 
 @code {
     private static readonly TimeSpan StateInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan ProductsInterval = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan KeepAliveInterval = TimeSpan.FromSeconds(10);
 
     // Compartments of the 3x3 shelf, numbered row by row; the tablet sits in the top middle one
     private const int TabletSlot = 2;
@@ -231,7 +279,15 @@
     // More products than this in a compartment: name and price go over the picture
     private const int DenseFrom = 3;
 
-    private enum Overlay { None, Correction, Pay, Purchases, Payments }
+    private enum Overlay { None, Correction, Pay, Purchases, Payments, Achievements }
+
+    private enum IntroAction { Next, Back, Skip }
+
+    // Reading time per introduction step, as in the kiosk's introduction
+    private const int AutoAdvanceBaseMs = 3500;
+    private const int AutoAdvancePerCharMs = 45;
+    private const int AutoAdvanceMinMs = 4000;
+    private const int AutoAdvanceMaxMs = 22000;
 
     private record IntroStep(string Target, string Text);
 
@@ -239,18 +295,20 @@
     private List<TabletProductDto> _products = new();
     private TabletStateDto _state = new();
     private DateTime _productsLoadedAt = DateTime.MinValue;
-    private DateTime _lastKeepAlive = DateTime.MinValue;
     private string? _hint;
     private DateTime _hintUntil;
     private bool _busy;
-    private bool _endedByDone;
     private Overlay _overlay;
     private IEnumerable<PurchaseDto>? _purchases;
     private IEnumerable<PaymentDto>? _payments;
     private List<IntroStep>? _intro;
     private int _introStep;
     private bool _introAuto;
+    private bool _introAutoAdvancing;
+    private Timer? _introTimer;
     private int? _introShownForUser;
+    private List<AchievementDto>? _achievements;
+    private List<Snackbox.Components.Models.Achievement> _newAchievements = new();
 
     private bool ShowReminder => _state.Active && _state.OpenAmount >= 10;
 
@@ -271,6 +329,14 @@
             {
                 <div class="hello">Snackbox</div>
                 <div class="sub">Scan your card, then tap what you take</div>
+            }
+            else if (_state.Completed)
+            {
+                <div class="hello">Thanks, @FirstName!</div>
+                <div class="thanks">@(_state.Picking ? "Tap a snack to start a new purchase" : "Enjoy your snack")</div>
+                <div class="actions" style="justify-content: center">
+                    <span class="timer" title="Seconds until the screen turns off">@_state.SecondsLeft</span>
+                </div>
             }
             else
             {
@@ -294,10 +360,10 @@
                 <div class="actions">
                     @if (_state.Picking)
                     {
-                        <button class="btn-correct" @onclick="() => Open(Overlay.Correction)" disabled="@(_busy || _state.Items.Count == 0)">Correct</button>
+                        <button class="btn-correct" @onclick="() => OpenAsync(Overlay.Correction)" disabled="@(_busy || _state.Items.Count == 0)">Correct</button>
                     }
                     <button class="btn-done @Spot("done")" @onclick="Done" disabled="@_busy">Done</button>
-                    <span class="timer" title="Seconds until the purchase closes by itself">@_state.SecondsLeft</span>
+                    <span class="timer" title="Seconds until the purchase closes by itself">@(_state.Paused ? "⏸" : _state.SecondsLeft.ToString())</span>
                 </div>
             }
         </div>
@@ -377,22 +443,20 @@
                     // No dimming while someone is choosing; between purchases Android's own timeout applies
                     if (wasActive != _state.Active) await JS.InvokeVoidAsync("snackboxKeepScreenOn", _state.Active);
 
-                    // Ran out without Done: dark until the next scan (Done does that on the server)
-                    if (wasActive && !_state.Active && !_endedByDone) await TabletApi.SleepAsync();
-                    if (_state.Active) _endedByDone = false;
+                    // Over (Done plus a few seconds, ran out, or 2 minutes untouched): dark until the next scan
+                    if (wasActive && !_state.Active) await TabletApi.SleepAsync();
 
-                    // First time on the tablet: the introduction, once per scan
-                    if (_state.Active && _state.ShowIntro && _intro == null && _introShownForUser != _state.UserId)
+                    if (_state.Active && (!wasActive || _state.UserId != previousUser))
                     {
-                        _introShownForUser = _state.UserId;
-                        StartIntro(auto: true);
-                    }
+                        // Achievements left from a purchase that ran out without Done
+                        await ShowNewAchievementsAsync();
 
-                    // Reading counts as activity, so the purchase does not close meanwhile
-                    if (_state.Active && (_intro != null || _overlay != Overlay.None) && DateTime.UtcNow - _lastKeepAlive > KeepAliveInterval)
-                    {
-                        _lastKeepAlive = DateTime.UtcNow;
-                        await TabletApi.KeepAliveAsync();
+                        // First time on the tablet: the introduction, once per scan
+                        if (_state.ShowIntro && _intro == null && _introShownForUser != _state.UserId)
+                        {
+                            _introShownForUser = _state.UserId;
+                            await StartIntroAsync(auto: true);
+                        }
                     }
 
                     // Fresh shelf after a purchase, and once a minute in case an admin changed it
@@ -420,10 +484,28 @@
     private void ResetView()
     {
         _overlay = Overlay.None;
+        StopIntroTimer();
         _intro = null;
         _purchases = null;
         _payments = null;
+        _achievements = null;
+        _newAchievements = new();
     }
+
+    // Introduction and dialogs stop the purchase countdown; 2 minutes without a touch end it anyway
+    private async Task PauseAsync(bool paused)
+    {
+        try
+        {
+            await TabletApi.PauseAsync(paused);
+        }
+        catch (Exception)
+        {
+            // The next poll shows whether the session is still there
+        }
+    }
+
+    private bool AnythingOpen => _overlay != Overlay.None || _intro != null || _newAchievements.Count > 0;
 
     private Task Add(TabletProductDto product) => AddById(product.Id);
 
@@ -471,15 +553,13 @@
         _busy = true;
         try
         {
-            _endedByDone = true;
-            await TabletApi.CompleteAsync();
-            _state = new TabletStateDto();
-            ResetView();
-            _productsLoadedAt = DateTime.MinValue;
+            // The purchase is closed; the tablet stays on a few seconds for the next one
+            _state = await TabletApi.CompleteAsync();
+            _overlay = Overlay.None;
+            await ShowNewAchievementsAsync();
         }
         catch (Exception)
         {
-            _endedByDone = false;
             ShowHint("That did not work - please try again");
         }
         finally
@@ -488,27 +568,66 @@
         }
     }
 
-    private void Open(Overlay overlay) => _overlay = overlay;
+    private async Task OpenAsync(Overlay overlay)
+    {
+        _overlay = overlay;
+        await PauseAsync(true);
+    }
 
-    private void Close() => _overlay = Overlay.None;
+    private async Task CloseAsync()
+    {
+        _overlay = Overlay.None;
+        if (!AnythingOpen) await PauseAsync(false);
+    }
 
     private async Task ShowPurchases()
     {
-        _overlay = Overlay.Purchases;
+        await OpenAsync(Overlay.Purchases);
         _purchases = await PurchasesApi.GetByUserIdAsync(_state.UserId);
     }
 
     private async Task ShowPayments()
     {
-        _overlay = Overlay.Payments;
+        await OpenAsync(Overlay.Payments);
         _payments = await PaymentsApi.GetByUserIdAsync(_state.UserId);
     }
 
-    private void StartIntro(bool auto)
+    private async Task ShowAchievements()
+    {
+        _achievements = null;
+        await OpenAsync(Overlay.Achievements);
+        _achievements = await TabletApi.GetAchievementsAsync();
+    }
+
+    // Earned but not seen yet: shown here, once (users without the tablet see them on the kiosk)
+    private async Task ShowNewAchievementsAsync()
+    {
+        try
+        {
+            var claimed = await TabletApi.ClaimAchievementsAsync();
+            if (claimed.Count == 0) return;
+            _newAchievements = DtoToModelMapper.ToAchievements(claimed);
+            await PauseAsync(true);
+        }
+        catch (Exception)
+        {
+            // Shown next time
+        }
+    }
+
+    private async Task AchievementsShownAsync()
+    {
+        _newAchievements = new();
+        if (!AnythingOpen) await PauseAsync(false);
+    }
+
+    private async Task StartIntroAsync(bool auto)
     {
         _overlay = Overlay.None;
         _introAuto = auto;
         _introStep = 0;
+        _introAutoAdvancing = true;
+        await PauseAsync(true);
         _intro = _state.Picking
             ? [
                 new("shelf", "Every compartment of the shelf is shown where it is. Tap a snack to take it - the number shows how many you have."),
@@ -523,17 +642,70 @@
                 new("toolbar", "Your purchases, your payments and what is still open. \"Pay\" shows the PayPal code."),
                 new("help", "This button shows the introduction again.")
             ];
+        ArmIntroTimer();
     }
 
-    private async Task NextIntroStep()
+    private static int StepMs(IntroStep step) =>
+        Math.Clamp(AutoAdvanceBaseMs + step.Text.Length * AutoAdvancePerCharMs, AutoAdvanceMinMs, AutoAdvanceMaxMs);
+
+    // Plays by itself until the first tap on one of its buttons hands control to the user
+    private void ArmIntroTimer()
     {
-        if (_intro != null && _introStep < _intro.Count - 1) _introStep++;
-        else await EndIntro();
+        StopIntroTimer();
+        if (_intro == null || !_introAutoAdvancing) return;
+
+        _introTimer = new Timer(_ => InvokeAsync(async () =>
+        {
+            if (_intro == null || !_introAutoAdvancing) return;
+            await NextIntroStepAsync();
+            StateHasChanged();
+        }), null, StepMs(_intro[_introStep]), Timeout.Infinite);
+    }
+
+    private void StopIntroTimer()
+    {
+        _introTimer?.Dispose();
+        _introTimer = null;
+    }
+
+    private async Task IntroButtonAsync(IntroAction action)
+    {
+        _introAutoAdvancing = false;
+        StopIntroTimer();
+        await PauseAsync(true); // a touch: the 2 minutes start again
+
+        switch (action)
+        {
+            case IntroAction.Back when _introStep > 0:
+                _introStep--;
+                break;
+            case IntroAction.Next:
+                await NextIntroStepAsync();
+                break;
+            case IntroAction.Skip:
+                await EndIntro();
+                break;
+        }
+    }
+
+    private async Task NextIntroStepAsync()
+    {
+        if (_intro != null && _introStep < _intro.Count - 1)
+        {
+            _introStep++;
+            ArmIntroTimer();
+        }
+        else
+        {
+            await EndIntro();
+        }
     }
 
     private async Task EndIntro()
     {
+        StopIntroTimer();
         _intro = null;
+        if (!AnythingOpen) await PauseAsync(false);
         if (!_introAuto) return;
 
         try
@@ -556,6 +728,7 @@
     public void Dispose()
     {
         _cts.Cancel();
+        StopIntroTimer();
         _persisting.Dispose();
     }
 }

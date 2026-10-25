@@ -75,9 +75,19 @@ nothing, so nobody leaves it by accident. Holding Back + app switcher together e
 `Snackbox.Updater tablet --unlock` unpins it and keeps the watchdog from pinning again until
 `tablet --lock`.
 
-Screen: dark between customers. A scan wakes it, *Done* or the end of the purchase turns it off
-again, and while a purchase is open the page keeps it from dimming (Screen Wake Lock). Between
+Screen: dark between customers. A scan wakes it (and, if the page is not full screen, the PC taps
+the top left of the page's bar once - a page may only go full screen after a touch, and Firefox
+installs a page as an app only over HTTPS). *Done* closes the purchase - achievements earned with
+it show right away, with a close button - and the tablet stays on 5 seconds: a tap on a product
+starts a new purchase, the toolbar still works; then it goes dark, as it does when a purchase runs
+out. While a purchase is open the page keeps the screen from dimming (Screen Wake Lock); between
 purchases Android's own screen timeout applies (Settings → Display).
+
+The introduction plays by itself with a progress bar (as on the kiosk) until a button is tapped;
+it and the dialogs (correct, pay, purchases, payments, achievements) stop the countdown - 2 minutes
+without a touch close the screen all the same. Achievements of users with the tablet feature show
+on the tablet (after Done, or left over at the next scan), everyone else's on the kiosk as before;
+the 🏆 button lists all of them with the date they were earned.
 
 Who scans sees their purchase on the tablet - with the tablet feature, everyone: users who pay with
 their card codes see their scanned amounts and total (taps on products are refused), tablet users

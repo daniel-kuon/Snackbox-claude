@@ -97,7 +97,11 @@ else if (OpenAmount >= 10)
 }
 
 <style>
-    .balance-notification { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; }
+    .balance-notification { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; animation: pulseReminder 2s ease-in-out infinite; }
+    @@keyframes pulseReminder {
+        0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3); }
+        50% { transform: scale(1.02); box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5); }
+    }
     .balance-notification.info { background: #d1ecf1; border-left: 4px solid #0dcaf0; }
     .balance-notification.warning { background: #fff3cd; border-left: 4px solid #ffc107; }
     .balance-notification.danger { background: #f8d7da; border-left: 4px solid #dc3545; }

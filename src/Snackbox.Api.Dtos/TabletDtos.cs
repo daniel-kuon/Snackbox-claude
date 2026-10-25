@@ -19,6 +19,12 @@ public class TabletStateDto
     /// <summary>False while nobody has scanned: the tablet just shows the products.</summary>
     public bool Active { get; set; }
 
+    /// <summary>Done was tapped: the purchase is closed; a pick in the next seconds starts a new one.</summary>
+    public bool Completed { get; set; }
+
+    /// <summary>Introduction or a dialog open: the countdown stands still.</summary>
+    public bool Paused { get; set; }
+
     /// <summary>The user picks products here; otherwise the tablet shows their card scans.</summary>
     public bool Picking { get; set; }
     public int UserId { get; set; }

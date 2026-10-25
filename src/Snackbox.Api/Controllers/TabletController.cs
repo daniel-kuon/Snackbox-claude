@@ -78,9 +78,19 @@ public class TabletController(
         if (product?.Price == null) return NotFound(new { message = "Product not available" });
 
         var now = DateTime.UtcNow;
+        if (session.PurchaseId == null)
+        {
+            // A pick in the seconds after Done: a new purchase
+            var purchase = new Purchase { UserId = session.UserId, CreatedAt = now, UpdatedAt = now };
+            context.Purchases.Add(purchase);
+            await context.SaveChangesAsync();
+            sessions.StartNewPurchase(purchase.Id);
+            session = sessions.Current ?? session with { PurchaseId = purchase.Id };
+        }
+
         var scan = new BarcodeScan
         {
-            PurchaseId = session.PurchaseId,
+            PurchaseId = session.PurchaseId!.Value,
             BarcodeId = session.BarcodeId,
             ProductId = product.Id,
             Amount = product.Price.Value,
@@ -92,7 +102,7 @@ public class TabletController(
         await TouchPurchaseAsync(session, now);
         await bestBeforeDates.UpdateProductBestBeforeDatesAsync(product.Id);
 
-        await achievementService.CheckImmediateAchievementsAsync(session.UserId, session.PurchaseId);
+        await achievementService.CheckImmediateAchievementsAsync(session.UserId, session.PurchaseId.Value);
 
         return Ok(await BuildStateAsync(sessions.Current ?? session));
     }
@@ -104,6 +114,7 @@ public class TabletController(
         var session = sessions.Current;
         if (session == null) return Conflict(new { message = "Scan your card first" });
         if (!session.Picking) return Conflict(new { message = "You pay with your card codes" });
+        if (session.PurchaseId == null) return Ok(await BuildStateAsync(session));
 
         var scans = await context.BarcodeScans
             .Where(s => s.PurchaseId == session.PurchaseId && s.ProductId == productId)
@@ -121,13 +132,79 @@ public class TabletController(
         return Ok(await BuildStateAsync(sessions.Current ?? session));
     }
 
-    /// <summary>Done: the purchase stays booked, the tablet goes back to showing the shelf.</summary>
+    /// <summary>
+    /// Done: the purchase is closed right away (achievements included - the tablet shows them
+    /// next), and the next scan starts a new one. The tablet stays on a few seconds: a pick
+    /// starts a new purchase, the toolbar still works; then it goes dark.
+    /// </summary>
     [HttpPost("complete")]
-    public ActionResult Complete()
+    public async Task<ActionResult<TabletStateDto>> Complete()
     {
-        sessions.End();
-        display.Sleep();
+        var session = sessions.Current;
+        if (session == null) return Ok(new TabletStateDto());
+
+        if (session.PurchaseId is { } purchaseId)
+        {
+            var purchase = await context.Purchases.Include(p => p.Scans).FirstOrDefaultAsync(p => p.Id == purchaseId);
+            if (purchase != null && purchase.Scans.Count > 0)
+            {
+                purchase.UpdatedAt = purchase.Scans.Max(s => s.ScannedAt);
+                await context.SaveChangesAsync();
+                await achievementService.CheckAndAwardAchievementsAsync(session.UserId, purchaseId);
+            }
+            else if (purchase is { ManualAmount: null })
+            {
+                // Opened by a scan, nothing picked: nothing to keep
+                context.Purchases.Remove(purchase);
+                await context.SaveChangesAsync();
+            }
+        }
+
+        sessions.Complete(session.PurchaseId);
+        return Ok(await BuildStateAsync(sessions.Current ?? session));
+    }
+
+    /// <summary>
+    /// Introduction or a dialog open: the countdown stops (2 minutes without a touch end the
+    /// session all the same); closed again: it runs from the full timeout. Also a touch while open.
+    /// </summary>
+    [HttpPost("pause")]
+    public ActionResult Pause([FromQuery] bool paused)
+    {
+        sessions.SetPaused(paused);
         return NoContent();
+    }
+
+    /// <summary>Achievements earned but not seen yet - handed out once.</summary>
+    [HttpPost("achievements/claim")]
+    public async Task<ActionResult<List<AchievementDto>>> ClaimAchievements()
+    {
+        var session = sessions.Current;
+        if (session == null) return Ok(new List<AchievementDto>());
+        return Ok(await UnshownAchievements.ClaimAsync(context, session.UserId));
+    }
+
+    /// <summary>Everything the user earned, newest first (toolbar).</summary>
+    [HttpGet("achievements")]
+    public async Task<ActionResult<List<AchievementDto>>> GetAchievements()
+    {
+        var session = sessions.Current;
+        if (session == null) return Ok(new List<AchievementDto>());
+
+        return Ok(await context.UserAchievements
+            .Where(ua => ua.UserId == session.UserId)
+            .OrderByDescending(ua => ua.EarnedAt)
+            .Select(ua => new AchievementDto
+            {
+                Id = ua.Achievement.Id,
+                Code = ua.Achievement.Code,
+                Name = ua.Achievement.Name,
+                Description = ua.Achievement.Description,
+                Category = ua.Achievement.Category.ToString(),
+                ImageUrl = ua.Achievement.ImageUrl,
+                EarnedAt = ua.EarnedAt
+            })
+            .ToListAsync());
     }
 
     /// <summary>The session ran out (no Done): the tablet asks to go dark. Ignored while someone uses it.</summary>
@@ -135,14 +212,6 @@ public class TabletController(
     public ActionResult Sleep()
     {
         if (sessions.Current == null) display.Sleep();
-        return NoContent();
-    }
-
-    /// <summary>Reading the introduction, the history or the PayPal code counts as activity.</summary>
-    [HttpPost("keepalive")]
-    public ActionResult KeepAlive()
-    {
-        sessions.Touch();
         return NoContent();
     }
 
@@ -187,12 +256,13 @@ public class TabletController(
 
     private async Task TouchPurchaseAsync(TabletSessionStore.Session session, DateTime now)
     {
-        var purchase = await context.Purchases.FindAsync(session.PurchaseId);
+        var purchaseId = session.PurchaseId!.Value;
+        var purchase = await context.Purchases.FindAsync(purchaseId);
         if (purchase != null) purchase.UpdatedAt = now;
         await context.SaveChangesAsync();
 
-        var total = await context.BarcodeScans.Where(s => s.PurchaseId == session.PurchaseId).SumAsync(s => s.Amount);
-        await PurchaseDiscountCalculator.ApplyAsync(context, session.PurchaseId, total);
+        var total = await context.BarcodeScans.Where(s => s.PurchaseId == purchaseId).SumAsync(s => s.Amount);
+        await PurchaseDiscountCalculator.ApplyAsync(context, purchaseId, total);
         sessions.Touch();
     }
 
@@ -211,6 +281,8 @@ public class TabletController(
         return new TabletStateDto
         {
             Active = true,
+            Completed = session.Completed,
+            Paused = session.Paused,
             Picking = session.Picking,
             UserId = session.UserId,
             Username = session.Username,
@@ -229,7 +301,10 @@ public class TabletController(
                 .ToList(),
             Total = total,
             DiscountedTotal = Math.Max(0, total - discounts),
-            SecondsLeft = Math.Max(0, (int)(session.LastActivity + sessions.Timeout - DateTime.UtcNow).TotalSeconds)
+            // Paused (introduction, a dialog): the purchase countdown stands at the full timeout
+            SecondsLeft = session.Paused
+                ? (int)sessions.Timeout.TotalSeconds
+                : Math.Max(0, (int)Math.Ceiling((sessions.ExpiresAt(session) - DateTime.UtcNow).TotalSeconds))
         };
     }
 }

@@ -173,15 +173,79 @@ public class TabletControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Done_EndsTheSessionButKeepsThePurchase()
+    public async Task Done_ClosesThePurchase_AndAPickRightAfterStartsANewOne()
     {
         await Scan("TINA-50");
         await _tablet.AddItem(1);
+        var first = (await _context.BarcodeScans.SingleAsync()).PurchaseId;
 
-        _tablet.Complete();
+        await _tablet.Complete();
 
-        Assert.False((await State()).Active);
-        Assert.Equal(1, await _context.BarcodeScans.CountAsync());
+        // The tablet stays on for a few seconds, the purchase is over
+        var state = await State();
+        Assert.True(state.Active);
+        Assert.True(state.Completed);
+        Assert.Empty(state.Items);
+
+        await _tablet.AddItem(1);
+        state = await State();
+        Assert.False(state.Completed);
+        Assert.Equal(0.80m, state.Total);
+        Assert.Equal(2, await _context.Purchases.CountAsync());
+        Assert.NotEqual(first, (await _context.BarcodeScans.OrderBy(s => s.Id).LastAsync()).PurchaseId);
+    }
+
+    [Fact]
+    public async Task AScanRightAfterDone_StartsANewPurchase()
+    {
+        await Scan("TINA-50");
+        await _tablet.AddItem(1);
+        await _tablet.Complete();
+
+        await Scan("TINA-50");
+        await _tablet.AddItem(1);
+
+        Assert.Equal(2, await _context.Purchases.CountAsync());
+    }
+
+    [Fact]
+    public async Task Done_WithoutAPick_LeavesNoEmptyPurchase()
+    {
+        await Scan("TINA-50");
+        await _tablet.Complete();
+
+        Assert.Equal(0, await _context.Purchases.CountAsync());
+    }
+
+    [Fact]
+    public async Task Pause_StopsTheCountdown()
+    {
+        await Scan("TINA-50");
+        _tablet.Pause(true);
+
+        var state = await State();
+        Assert.True(state.Paused);
+        Assert.Equal(60, state.SecondsLeft);
+    }
+
+    [Fact]
+    public async Task TabletUsers_GetTheirNewAchievementsOnTheTablet_OthersOnTheKiosk()
+    {
+        var now = DateTime.UtcNow;
+        _context.Achievements.Add(new Achievement { Id = 1, Code = "TEST", Name = "Test", Description = "d", Category = AchievementCategory.SinglePurchase });
+        _context.UserAchievements.AddRange(
+            new UserAchievement { UserId = 1, AchievementId = 1, EarnedAt = now },
+            new UserAchievement { UserId = 2, AchievementId = 1, EarnedAt = now });
+        await _context.SaveChangesAsync();
+
+        var tina = await Scan("TINA-50");
+        Assert.Empty(tina.NewAchievements); // kept for the tablet
+        var claimed = (List<AchievementDto>)((OkObjectResult)(await _tablet.ClaimAchievements()).Result!).Value!;
+        Assert.Equal("Test", claimed.Single().Name);
+        Assert.Empty((List<AchievementDto>)((OkObjectResult)(await _tablet.ClaimAchievements()).Result!).Value!);
+
+        var carl = await Scan("CARL-50"); // no tablet feature: the kiosk shows it, as before
+        Assert.Equal("Test", carl.NewAchievements.Single().Name);
     }
 
     private int OnShelf(int batchId) =>
