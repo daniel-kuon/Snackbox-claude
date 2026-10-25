@@ -34,12 +34,22 @@ public class TabletController(
             .Where(p => p.Price != null)
             .Include(p => p.Batches).ThenInclude(b => b.ShelvingActions)
             .ToListAsync();
-        var withImage = (await context.ProductImages.Select(i => i.ProductId).ToListAsync()).ToHashSet();
+        // Only the two columns - not the picture bytes
+        var imageVersions = await context.ProductImages
+            .Select(i => new { i.ProductId, i.UpdatedAt })
+            .ToDictionaryAsync(i => i.ProductId, i => i.UpdatedAt.Ticks);
 
         return Ok(products
             .Where(p => p.Batches.Sum(b => stockCalculation.CalculateShelfQuantity(b.ShelvingActions)) > 0)
             .OrderBy(p => p.Name)
-            .Select(p => new TabletProductDto { Id = p.Id, Name = p.Name, Price = p.Price!.Value, HasImage = withImage.Contains(p.Id) })
+            .Select(p => new TabletProductDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Price = p.Price!.Value,
+                HasImage = imageVersions.ContainsKey(p.Id),
+                ImageVersion = imageVersions.GetValueOrDefault(p.Id)
+            })
             .ToList());
     }
 

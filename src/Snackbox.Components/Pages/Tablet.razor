@@ -48,7 +48,7 @@
                     <div class="tablet-picture">
                         @if (product.HasImage)
                         {
-                            <img src="tablet/image/@product.Id" alt="" loading="lazy" />
+                            <img src="tablet/image/@(product.Id)?v=@(product.ImageVersion)" alt="" loading="lazy" />
                         }
                         else
                         {

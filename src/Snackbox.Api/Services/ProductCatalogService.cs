@@ -152,8 +152,10 @@ public partial class ProductCatalogService(
         return dto;
     }
 
+    // The brand goes in front unless the title already names it ("Snickers 50 g", not
+    // "Snickers Snickers 50 g"; "Nestlé" counts as named by "Nestle")
     private static string ProductName(BarcodeLookupProductDto found) =>
-        string.IsNullOrWhiteSpace(found.Brand) || found.Title.Contains(found.Brand, StringComparison.OrdinalIgnoreCase)
+        string.IsNullOrWhiteSpace(found.Brand) || Words(found.Brand).Overlaps(Words(found.Title))
             ? found.Title
             : $"{found.Brand} {found.Title}";
 
@@ -161,14 +163,17 @@ public partial class ProductCatalogService(
     /// The existing product whose name is fully contained, word by word, in the online title and
     /// brand - "Mars" matches "Mars Riegel 51g" but not "Marshmallows". The most specific name
     /// wins ("Ritter Sport Marzipan" over "Ritter Sport"); a tie is ambiguous and matches nothing,
-    /// so a new product is created rather than stock booked onto the wrong one.
+    /// so a new product is created rather than stock booked onto the wrong one. At least one word
+    /// has to come from the title: the brand alone is the manufacturer, so "Mars" must not match
+    /// a Twix whose brand is "Mars Wrigley".
     /// </summary>
     public static int? FindMatch(string title, string? brand, IEnumerable<(int Id, string Name)> products)
     {
+        var titleWords = Words(title);
         var online = Words($"{title} {brand}");
         var matches = products
             .Select(p => (p.Id, Words: Words(p.Name)))
-            .Where(p => p.Words.Count > 0 && p.Words.IsSubsetOf(online))
+            .Where(p => p.Words.Count > 0 && p.Words.IsSubsetOf(online) && p.Words.Overlaps(titleWords))
             .OrderByDescending(p => p.Words.Count)
             .ToList();
 
@@ -177,12 +182,18 @@ public partial class ProductCatalogService(
         return matches[0].Id;
     }
 
-    // Words of a name without sizes and weights ("51g", "6x", "0,5l") - those differ between packs
+    // Words of a name without sizes and weights ("51g", "6x", "0,5l") - those differ between packs -
+    // and without accents, as the databases spell "Nestlé" either way
     private static HashSet<string> Words(string name) =>
-        WordRegex().Matches(name.ToLowerInvariant())
+        WordRegex().Matches(WithoutAccents(name.ToLowerInvariant()))
                    .Select(m => m.Value)
                    .Where(w => w.Length > 1 && !w.Any(char.IsDigit))
                    .ToHashSet();
+
+    private static string WithoutAccents(string text) =>
+        new(text.Normalize(System.Text.NormalizationForm.FormD)
+                .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                .ToArray());
 
     [GeneratedRegex(@"[\p{L}\p{N}]+")]
     private static partial Regex WordRegex();

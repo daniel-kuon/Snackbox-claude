@@ -6,6 +6,9 @@ public class TabletProductDto
     public required string Name { get; set; }
     public decimal Price { get; set; }
     public bool HasImage { get; set; }
+
+    /// <summary>Changes with every new picture: part of its address, so a cached old one is never shown.</summary>
+    public long ImageVersion { get; set; }
 }
 
 public class TabletStateDto

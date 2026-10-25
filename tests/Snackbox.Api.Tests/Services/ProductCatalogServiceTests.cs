@@ -41,6 +41,8 @@ public class ProductCatalogServiceTests : IDisposable
     [InlineData("Ritter Sport Nuss", null, 2)]
     [InlineData("Chips Paprika 175g", null, null)]           // two names equally specific: ambiguous
     [InlineData("Haribo Goldbären", "Haribo", null)]
+    [InlineData("Twix", "Mars Wrigley", null)]               // the brand alone is the manufacturer, not the product
+    [InlineData("Bounty Trio 85g", "Mars norge as", null)]
     public void FindMatch_MatchesWholeWordsAndPrefersTheMostSpecificName(string title, string? brand, int? expected)
     {
         Assert.Equal(expected, ProductCatalogService.FindMatch(title, brand, Products));

@@ -68,8 +68,13 @@ public class BarcodeLookupService : IBarcodeLookupService
                 Success = true,
                 Product = new BarcodeLookupProductDto
                 {
-                    Title = string.IsNullOrWhiteSpace(product.Quantity) ? name : $"{name} {product.Quantity.Trim()}",
-                    Brand = product.Brands?.Split(',')[0].Trim(),
+                    Title = string.IsNullOrWhiteSpace(product.Quantity) || Squeezed(name).Contains(Squeezed(product.Quantity))
+                        ? name
+                        : $"{name} {product.Quantity.Trim()}",
+                    // Often "Mars Wrigley Confectionery UK Limited, Snickers": the shortest is the brand
+                    // people know, the long ones are the manufacturer
+                    Brand = product.Brands?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                          .OrderBy(b => b.Length).FirstOrDefault(),
                     Category = product.Categories?.Split(',')[0].Trim(),
                     ImageUrl = product.ImageFrontUrl,
                     Barcode = barcode
@@ -82,6 +87,9 @@ public class BarcodeLookupService : IBarcodeLookupService
             return new BarcodeLookupResponseDto { Success = false, ErrorMessage = "Network error occurred while looking up barcode" };
         }
     }
+
+    // "Bounty Trio 85g" already says "85 g"
+    private static string Squeezed(string text) => text.Replace(" ", "").ToLowerInvariant();
 
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
