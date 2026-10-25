@@ -43,7 +43,9 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
         {
             // No redirected output: if this call starts the adb server, the server would inherit
             // the pipes and keep them open
-            using var process = Process.Start(new ProcessStartInfo(adb, "shell \"input keyevent KEYCODE_WAKEUP && wm dismiss-keyguard\"")
+            // `wm dismiss-keyguard` only exists from Android 8 - on older tablets (screen lock
+            // "None") there is no keyguard to dismiss, so its failure is ignored
+            using var process = Process.Start(new ProcessStartInfo(adb, "shell \"input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard >/dev/null 2>&1; true\"")
             {
                 CreateNoWindow = true,
                 UseShellExecute = false

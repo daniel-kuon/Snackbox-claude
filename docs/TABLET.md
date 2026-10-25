@@ -11,7 +11,10 @@ by the scanner timeout (60 s after the last tap or scan), exactly like scanning 
 1. On the tablet: *Settings → About tablet*, tap *Build number* seven times, then
    *Settings → Developer options → USB debugging* on.
 2. Connect it to the Snackbox PC with the USB cable and allow USB debugging for this PC when the
-   tablet asks (tick *Always allow*).
+   tablet asks (tick *Always allow*). Android 7 or newer works.
+   If `adb devices` lists nothing and Windows shows the tablet only as a media device (MTP),
+   USB debugging is still off, or (some no-name tablets) Windows lacks the ADB driver: install
+   Google's USB driver from the Android SDK manager or the tablet maker's driver.
 3. The PC needs `adb.exe` (Android *platform-tools*). The updater looks on `PATH`, in
    `%LOCALAPPDATA%\Android\Sdk\platform-tools`, in `C:\platform-tools`, or wherever
    `SNACKBOX_ADB` points.
@@ -25,7 +28,8 @@ by the scanner timeout (60 s after the last tap or scan), exactly like scanning 
 6. Screen: *Settings → Security → Screen lock → None* (a PIN or pattern cannot be skipped), and
    a short *Settings → Display → Screen timeout* (e.g. 1 minute). Leave *Developer options →
    Stay awake* off. Every card scan wakes the screen through the same USB connection
-   (`adb shell input keyevent KEYCODE_WAKEUP`, then `wm dismiss-keyguard`), so no app is needed
+   (`adb shell input keyevent KEYCODE_WAKEUP`, then `wm dismiss-keyguard` - which exists only
+   from Android 8, so on Android 7 the screen lock really has to be *None*), so no app is needed
    on the tablet. After a long sleep the page reconnects (or reloads) by itself within a few
    seconds of waking. `Tablet:WakeOnScan=false` in the API's settings turns the wake-up off;
    `Tablet:AdbPath` points it at adb if it is not in one of the usual places.
