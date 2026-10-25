@@ -69,6 +69,25 @@ amount, keeps the same countdown, and ends with the tablet's session.
 Full screen: the page asks for it on the first tap (Android confirms once with *OK*); an app
 added to the home screen from Firefox starts full screen anyway.
 
+Pinned to the page: the updater (`start`, `tablet`, every watchdog run) pins Firefox with the page
+(Android's *screen pinning*, confirm once on the tablet) - Home, app switcher and notifications do
+nothing, so nobody leaves it by accident. Holding Back + app switcher together ends it on purpose;
+`Snackbox.Updater tablet --unlock` unpins it and keeps the watchdog from pinning again until
+`tablet --lock`.
+
+Screen: dark between customers. A scan wakes it, *Done* or the end of the purchase turns it off
+again, and while a purchase is open the page keeps it from dimming (Screen Wake Lock). Between
+purchases Android's own screen timeout applies (Settings → Display).
+
+Who scans sees their purchase on the tablet - with the tablet feature, everyone: users who pay with
+their card codes see their scanned amounts and total (taps on products are refused), tablet users
+pick. The toolbar shows purchases, payments, the open amount with *Pay* (the PayPal QR) and *?*
+(the introduction again). The payment reminder of the kiosk shows below it. The introduction plays
+on the first scan (`user_wizard_steps` "tablet_intro").
+
+Layout: a compartment's products share its height, so few products show big; with more than three
+in one compartment, name and price go over the picture.
+
 ## Products and users
 
 - **Price and picture**: Admin → Products → a product → *Tablet*. Only products with a price

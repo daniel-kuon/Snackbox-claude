@@ -8,6 +8,8 @@ namespace Snackbox.Updater;
 /// </summary>
 public sealed class Stack(Installation installation, Log log)
 {
+    public Installation Installation => installation;
+
     private const string KioskFramework = "net10.0-windows10.0.19041.0";
 
     /// <summary>
@@ -27,7 +29,7 @@ public sealed class Stack(Installation installation, Log log)
         EnsureDockerRunning();
         StartAppHost();
         if (withKiosk) StartKiosk();
-        Tablet.Connect(log);
+        Tablet.Connect(installation, log);
     }
 
     public void Stop()

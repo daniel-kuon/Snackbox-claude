@@ -24,3 +24,18 @@ const snackboxTabletFullscreen = () => {
 };
 document.addEventListener('click', snackboxTabletFullscreen, true);
 document.addEventListener('touchend', snackboxTabletFullscreen, true);
+
+// The tablet keeps its screen on while a purchase is open (Screen Wake Lock API - needs a secure
+// context, which http://127.0.0.1 is); released afterwards, so Android's timeout dims it again.
+let snackboxWakeLock = null;
+window.snackboxKeepScreenOn = async (on) => {
+    try {
+        if (on && !snackboxWakeLock && navigator.wakeLock) {
+            snackboxWakeLock = await navigator.wakeLock.request('screen');
+            snackboxWakeLock.addEventListener('release', () => { snackboxWakeLock = null; });
+        } else if (!on && snackboxWakeLock) {
+            await snackboxWakeLock.release();
+            snackboxWakeLock = null;
+        }
+    } catch { /* not supported or not allowed - the system timeout applies */ }
+};

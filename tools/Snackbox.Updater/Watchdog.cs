@@ -23,7 +23,7 @@ public sealed class Watchdog(Stack stack, Log log)
         if (OtherUpdatersRunning()) return 0;
 
         // Re-plugged tablet or restarted adb: its forwarding to the website is gone
-        Tablet.Connect(log);
+        Tablet.Connect(stack.Installation, log);
 
         var appHost = Process.GetProcessesByName("Snackbox.AppHost").FirstOrDefault();
         if (appHost != null && DateTime.Now - appHost.StartTime < StartupGrace) return 0;

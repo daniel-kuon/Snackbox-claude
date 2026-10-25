@@ -7,6 +7,7 @@
 @inject ITabletApi TabletApi
 @inject IPurchasesApi PurchasesApi
 @inject IPaymentsApi PaymentsApi
+@inject IJSRuntime JS
 
 @* The Android tablet in the shelf (Firefox over USB, see docs/TABLET.md). The shelf has 3x3
    compartments and the tablet sits in the top middle one, so the screen is the same 3x3 grid:
@@ -54,8 +55,9 @@
             }
             else
             {
-                <div class="cell">
-                    @foreach (var product in InSlot(s))
+                var products = InSlot(s);
+                <div class="cell @(products.Count > DenseFrom ? "dense" : "")">
+                    @foreach (var product in products)
                     {
                         @ProductRow(product)
                     }
@@ -65,7 +67,7 @@
 
         @if (Unplaced.Count > 0)
         {
-            <div class="cell extra">
+            <div class="cell extra dense">
                 @foreach (var product in Unplaced)
                 {
                     @ProductRow(product)
@@ -138,45 +140,53 @@
 <style>
     html, body { margin: 0; background: var(--brand-anthracite, #191E1E); overflow: hidden; }
     .tablet { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
-    .toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #fff; color: #191E1E; font-size: 1rem; }
-    .toolbar button { border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-weight: 700; padding: 0.45rem 0.6rem; font-size: 0.95rem; }
+    .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fff; color: #191E1E; font-size: 1.3rem; }
+    .toolbar button { border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-weight: 700; padding: 0.55rem 0.75rem; font-size: 1.2rem; }
     .toolbar .who { font-weight: 700; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .toolbar .open { font-weight: 800; padding: 0 0.3rem; white-space: nowrap; }
     .toolbar .owes { color: #c62828; }
     .toolbar .credit { color: #2e7d32; }
     .toolbar .pay { background: var(--brand-blue, #0082CD); color: #fff; }
-    .toolbar .help { width: 2.4rem; border-radius: 50%; padding: 0.45rem 0; }
-    .idle-bar { justify-content: center; font-weight: 700; font-size: 1.2rem; background: transparent; color: #fff; }
-    .reminder { padding: 4px 6px 0; }
-    .reminder .balance-notification { padding: 0.4rem 0.7rem; }
-    .reminder .balance-notification p { font-size: 0.8rem; }
+    .toolbar .help { width: 2.9rem; border-radius: 50%; padding: 0.55rem 0; }
+    .idle-bar { justify-content: center; font-weight: 700; font-size: 1.5rem; background: transparent; color: #fff; }
+    .reminder { padding: 6px 6px 0; }
+    .reminder .balance-notification { padding: 0.5rem 0.8rem; }
+    .reminder .balance-notification .notification-icon { font-size: 2rem; }
+    .reminder .balance-notification strong { font-size: 1.25rem; }
+    .reminder .balance-notification p { font-size: 1.05rem; }
     .shelf { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px; padding: 6px; box-sizing: border-box; }
     .shelf-extra { grid-template-rows: repeat(3, 1fr) auto; }
     .cell { background: rgba(255, 255, 255, 0.14); display: flex; flex-direction: column; gap: 4px; padding: 4px; min-height: 0; min-width: 0; overflow-y: auto; }
     .extra { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; max-height: 18vh; }
-    .extra .row { width: calc(33.33% - 3px); }
-    /* Bars are wide and flat: one product per row, picture over name and price */
-    .row { position: relative; flex: 0 0 auto; background: #fff; color: #191E1E; border: 3px solid transparent; padding: 4px 6px; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+    .extra .row { width: calc(33.33% - 3px); height: 90px; flex: 0 0 auto; }
+    /* Bars are wide and flat: one product per row, picture over name and price. The rows share the
+       compartment's height, so a compartment with few products shows them big. */
+    .row { position: relative; flex: 1 1 0; min-height: 70px; background: #fff; color: #191E1E; border: 3px solid transparent; padding: 4px 6px; display: flex; flex-direction: column; gap: 2px; text-align: left; overflow: hidden; }
     .row:active { transform: scale(0.98); }
     .row.picked { border-color: var(--brand-cyan, #00BCD4); }
-    .row-picture { height: 58px; display: flex; align-items: center; justify-content: center; }
+    .row-picture { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
     .row-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .row-placeholder { font-size: 2rem; }
+    .row-placeholder { font-size: 3rem; }
     .row-text { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
-    .row-name { font-weight: 600; font-size: 0.9rem; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .row-price { font-weight: 800; color: var(--brand-blue, #0082CD); white-space: nowrap; }
-    .count { position: absolute; top: 3px; right: 3px; min-width: 1.8rem; height: 1.8rem; padding: 0 0.35rem; border-radius: 0.9rem; background: var(--brand-cyan, #00BCD4); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+    .row-name { font-weight: 700; font-size: 1.2rem; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-price { font-weight: 800; font-size: 1.3rem; color: var(--brand-blue, #0082CD); white-space: nowrap; }
+    /* More than 3 in a compartment: name and price over the picture, which then gets the whole row */
+    .dense .row { padding: 2px; }
+    .dense .row-text { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 6px; background: rgba(25, 30, 30, 0.72); }
+    .dense .row-name { color: #fff; font-size: 1.05rem; }
+    .dense .row-price { color: #fff; font-size: 1.1rem; }
+    .count { position: absolute; top: 4px; right: 4px; min-width: 2.2rem; height: 2.2rem; padding: 0 0.4rem; border-radius: 1.1rem; background: var(--brand-cyan, #00BCD4); color: #fff; font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; z-index: 1; width: max-content; left: auto; /* Firefox stretches it inside a button otherwise */ }
     .tablet-cell { background: #fff; color: #191E1E; align-items: center; justify-content: center; text-align: center; padding: 8px; gap: 4px; overflow: hidden; }
-    .hello { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
-    .sub { font-size: 1rem; opacity: 0.8; }
-    .scans { font-size: 1.05rem; }
+    .hello { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+    .sub { font-size: 1.2rem; opacity: 0.8; }
+    .scans { font-size: 1.3rem; }
     .total { font-size: 2.5rem; font-weight: 800; color: var(--brand-blue, #0082CD); }
     .total-old { font-size: 1.1rem; font-weight: 400; opacity: 0.5; margin-right: 0.3rem; color: #191E1E; }
     .actions { display: flex; gap: 6px; width: 100%; align-items: stretch; }
-    .actions button { flex: 1; padding: 0.75rem 0.2rem; font-size: 1.05rem; font-weight: 700; border: none; }
+    .actions button { flex: 1; padding: 0.8rem 0.2rem; font-size: 1.25rem; font-weight: 700; border: none; }
     .btn-correct { background: #fff; color: var(--brand-blue, #0082CD); border: 2px solid var(--brand-blue, #0082CD) !important; }
     .btn-done { background: var(--brand-blue, #0082CD); color: #fff; }
-    .timer { flex: 0 0 auto; min-width: 3.2rem; display: flex; align-items: center; justify-content: center; border: 2px solid #191E1E; font-weight: 800; font-size: 1.05rem; }
+    .timer { flex: 0 0 auto; min-width: 3.2rem; display: flex; align-items: center; justify-content: center; border: 2px solid #191E1E; font-weight: 800; font-size: 1.25rem; }
     .hint { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 0.6rem 1rem; background: #ffc107; color: #191E1E; font-weight: 700; z-index: 30; }
     .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 40; }
     .panel { background: #fff; color: #191E1E; width: 88vw; max-height: 88vh; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; }
@@ -210,6 +220,9 @@
 
     // Compartments of the 3x3 shelf, numbered row by row; the tablet sits in the top middle one
     private const int TabletSlot = 2;
+
+    // More products than this in a compartment: name and price go over the picture
+    private const int DenseFrom = 3;
 
     private enum Overlay { None, Correction, Pay, Purchases, Payments }
 
@@ -328,6 +341,9 @@
                     if (!_busy) _state = await TabletApi.GetStateAsync();
 
                     if (wasActive && (!_state.Active || _state.UserId != previousUser)) ResetView();
+
+                    // No dimming while someone is choosing; between purchases Android's own timeout applies
+                    if (wasActive != _state.Active) await JS.InvokeVoidAsync("snackboxKeepScreenOn", _state.Active);
 
                     // Ran out without Done: dark until the next scan (Done does that on the server)
                     if (wasActive && !_state.Active && !_endedByDone) await TabletApi.SleepAsync();

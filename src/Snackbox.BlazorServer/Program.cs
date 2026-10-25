@@ -98,6 +98,20 @@ app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/install") &&
                    !(ctx.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip)),
             b => b.UseHttpsRedirection());
 
+// The tablet page shows whose purchase is open and what they owe: only for this PC itself, which
+// includes the USB tablet (adb reverse arrives from the loopback address) - not for phones on the
+// Wi-Fi, should the website ever be opened up for the phone app
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/tablet") &&
+        !(ctx.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip)))
+    {
+        ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+    await next();
+});
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
