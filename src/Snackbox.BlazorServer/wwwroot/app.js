@@ -20,7 +20,15 @@ window.downloadFile = function (filename, base64Content) {
 const snackboxTabletFullscreen = () => {
     if (!location.pathname.startsWith('/tablet') || document.fullscreenElement) return;
     const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => { /* not allowed here - fine */ });
+    if (!el.requestFullscreen) return;
+    // The bars go away and the page grows a frame before anything can be moved back: the welcome
+    // screen's text goes at the tap, so nothing is seen jumping. Back with the welcome screen's
+    // next showing, or if full screen was refused - checked a second later: a tap fires touchend
+    // and click, and Firefox refuses the second request while the first is still under way
+    el.classList.add('sb-welcome-leaving');
+    el.requestFullscreen({ navigationUI: 'hide' }).catch(() => setTimeout(() => {
+        if (!document.fullscreenElement) el.classList.remove('sb-welcome-leaving');
+    }, 1000));
 };
 document.addEventListener('click', snackboxTabletFullscreen, true);
 document.addEventListener('touchend', snackboxTabletFullscreen, true);
@@ -39,6 +47,8 @@ const snackboxTabletWelcome = () => {
     const welcome = () => location.pathname.startsWith('/tablet') && document.fullscreenEnabled && !document.fullscreenElement;
     if (welcome()) root.classList.add('sb-welcome');
     else setTimeout(() => { if (!welcome()) root.classList.remove('sb-welcome'); }, 150);
+    // Faded out (0.3 s): the text may come back for the next time
+    if (!welcome()) setTimeout(() => { if (!welcome()) root.classList.remove('sb-welcome-leaving'); }, 600);
 };
 document.addEventListener('fullscreenchange', snackboxTabletWelcome);
 window.addEventListener('resize', snackboxTabletWelcome);

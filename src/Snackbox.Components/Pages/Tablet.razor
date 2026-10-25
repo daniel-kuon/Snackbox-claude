@@ -214,9 +214,10 @@
     .tablet { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
     /* Welcome screen: hidden unless app.js marks the page as not full screen yet. Its text sits at
        the middle of the physical screen (--sb-screen-mid), so it stays put while the bars go */
-    .welcome { position: fixed; inset: 0; z-index: 1000; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); color: #fff;
+    .welcome { position: fixed; inset: 0; z-index: 1000; background: var(--brand-blue, #0082CD); color: #fff; /* plain: a gradient would stretch with the page */
                opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0s 0.3s; user-select: none; -webkit-user-select: none; }
     html.sb-welcome .welcome { opacity: 1; visibility: visible; transition: none; }
+    html.sb-welcome-leaving .welcome-text { visibility: hidden; }
     .welcome-text { position: absolute; left: 0; right: 0; top: var(--sb-screen-mid, 50%); transform: translateY(-50%); text-align: center; }
     .welcome-logo { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.8; }
     .welcome-hello { font-size: 3.2rem; font-weight: 700; margin: 0.4rem 0 1rem; }
