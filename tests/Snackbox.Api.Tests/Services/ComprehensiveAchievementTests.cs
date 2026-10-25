@@ -188,7 +188,7 @@ public class ComprehensiveAchievementTests : IDisposable
     public async Task DailyBuyer_ExactThreshold_AwardsAchievement()
     {
         // Arrange: Make exactly 3 purchases in one day
-        var today = DateTime.UtcNow;
+        var today = DateTime.UtcNow.Date.AddHours(8); // all on one day, whenever the test runs
         for (int i = 1; i <= 3; i++)
         {
             var purchase = CreatePurchase(i, 1.00m, completedAt: today.AddMinutes(i * 10));
@@ -207,7 +207,7 @@ public class ComprehensiveAchievementTests : IDisposable
     public async Task DailyBuyer_BelowThreshold_DoesNotAwardAchievement()
     {
         // Arrange: Make only 2 purchases in one day
-        var today = DateTime.UtcNow;
+        var today = DateTime.UtcNow.Date.AddHours(8); // all on one day, whenever the test runs
         for (int i = 1; i <= 2; i++)
         {
             var purchase = CreatePurchase(i, 1.00m, completedAt: today.AddMinutes(i * 10));
@@ -226,7 +226,7 @@ public class ComprehensiveAchievementTests : IDisposable
     public async Task DailyBuyer_MultipleThresholds_AwardsAllQualified()
     {
         // Arrange: Make 10 purchases in one day
-        var today = DateTime.UtcNow;
+        var today = DateTime.UtcNow.Date.AddHours(8); // all on one day, whenever the test runs
         for (int i = 1; i <= 10; i++)
         {
             var purchase = CreatePurchase(i, 1.00m, completedAt: today.AddMinutes(i * 5));
@@ -247,7 +247,7 @@ public class ComprehensiveAchievementTests : IDisposable
     public async Task DailyBuyer_PurchasesOnDifferentDays_DoesNotCount()
     {
         // Arrange: Make 5 purchases across 2 days
-        var today = DateTime.UtcNow;
+        var today = DateTime.UtcNow.Date.AddHours(8); // all on one day, whenever the test runs
         for (int i = 1; i <= 3; i++)
         {
             var purchase = CreatePurchase(i, 1.00m, completedAt: today.AddMinutes(i * 10));
