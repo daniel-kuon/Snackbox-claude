@@ -135,6 +135,11 @@
     .tablet-remove { width: 2.6rem; height: 2.6rem; border: none; background: #dc3545; color: #fff; font-size: 1.2rem; }
     .tablet-total { display: flex; justify-content: space-between; font-size: 1.5rem; font-weight: 700; margin-top: auto; padding-top: 1rem; }
     .tablet-old { opacity: 0.5; font-weight: 400; margin-right: 0.4rem; }
+    /* The ODYS tablet stands upright (800 x 1280): the purchase goes below the products */
+    @@media (orientation: portrait) {
+        .tablet-body { flex-direction: column; }
+        .tablet-cart { width: auto; max-height: 42vh; }
+    }
     .tablet-done { margin-top: 0.75rem; padding: 1rem; border: none; background: var(--brand-blue, #0082CD); color: #fff; font-size: 1.5rem; font-weight: 700; }
 </style>
 

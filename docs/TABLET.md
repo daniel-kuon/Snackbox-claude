@@ -23,8 +23,14 @@ by the scanner timeout (60 s after the last tap or scan), exactly like scanning 
    & "C:\Snackbox\tools\Snackbox.Updater\bin\Release\net10.0\Snackbox.Updater.exe" tablet
    ```
    It runs `adb reverse tcp:5186 tcp:5186`: the tablet's `localhost:5186` is now the PC's website.
-5. In Chrome on the tablet open `http://localhost:5186/tablet`, then *⋮ → Add to Home screen* and
-   start it from there (full screen).
+5. On the tablet open **`http://127.0.0.1:5186/tablet`** - not `localhost`: Firefox resolves that
+   to the IPv6 address, which `adb reverse` does not forward ("connection interrupted"). Then
+   *⋮ → Add to Home screen* / *Install* and start it from there: the tablet page has its own app
+   manifest, so it opens full screen on `/tablet`.
+   Browser: the Chrome that comes with old tablets is too old for the page, and after a reset the
+   Play Store may refuse to sign in. Firefox 143 (the last version for Android 7, official APK from
+   `archive.mozilla.org/pub/fenix/releases/143.0.4/android/`, armeabi-v7a for 32-bit tablets)
+   installs over the cable with `adb install`.
 6. Screen: *Settings → Security → Screen lock → None* (a PIN or pattern cannot be skipped), and
    a short *Settings → Display → Screen timeout* (e.g. 1 minute). Leave *Developer options →
    Stay awake* off. Every card scan wakes the screen through the same USB connection

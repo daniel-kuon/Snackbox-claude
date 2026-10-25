@@ -45,7 +45,7 @@ public static class Tablet
 
             if (process.ExitCode == 0)
             {
-                if (verbose) log.Write($"Tablet: localhost:{WebsitePort} on the tablet now reaches the website.");
+                if (verbose) log.Write($"Tablet: http://127.0.0.1:{WebsitePort}/tablet on the tablet now reaches the website.");
             }
             else if (verbose)
             {
