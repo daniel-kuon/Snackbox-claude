@@ -25,6 +25,23 @@ const snackboxTabletFullscreen = () => {
 document.addEventListener('click', snackboxTabletFullscreen, true);
 document.addEventListener('touchend', snackboxTabletFullscreen, true);
 
+// Until the tablet page is full screen it shows a welcome screen over everything (Tablet.razor):
+// the first tap only starts full screen, and the page's jump when Firefox's bars go away happens
+// behind it. Its text is pinned to the middle of the physical screen - mozInnerScreenY is where the
+// page starts on it - so nothing moves; the welcome screen goes once the page has its full-screen size.
+const snackboxTabletWelcome = () => {
+    const root = document.documentElement;
+    // Screen pixels to page pixels: the page may be scaled to the screen (Firefox's desktop mode)
+    const scale = innerWidth / screen.width;
+    root.style.setProperty('--sb-screen-mid', (screen.height / 2 - (window.mozInnerScreenY || 0)) * scale + 'px');
+    const welcome = () => location.pathname.startsWith('/tablet') && document.fullscreenEnabled && !document.fullscreenElement;
+    if (welcome()) root.classList.add('sb-welcome');
+    else setTimeout(() => { if (!welcome()) root.classList.remove('sb-welcome'); }, 150);
+};
+document.addEventListener('fullscreenchange', snackboxTabletWelcome);
+window.addEventListener('resize', snackboxTabletWelcome);
+snackboxTabletWelcome();
+
 // The tablet keeps its screen on while a purchase is open (Screen Wake Lock API - needs a secure
 // context, which http://127.0.0.1 is); released afterwards, so Android's timeout dims it again.
 let snackboxWakeLock = null;

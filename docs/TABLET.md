@@ -25,18 +25,22 @@ by the scanner timeout (60 s after the last tap or scan), exactly like scanning 
    It runs `adb reverse tcp:5186 tcp:5186`: the tablet's `localhost:5186` is now the PC's website.
 5. On the tablet open **`http://127.0.0.1:5186/tablet`** - not `localhost`: Firefox resolves that
    to the IPv6 address, which `adb reverse` does not forward ("connection interrupted"). Then
-   *⋮ → Add to Home screen* / *Install* and start it from there: the tablet page has its own app
-   manifest, so it opens full screen on `/tablet`.
+   switch off *⋮ → Desktop-Website*: the page is laid out for the tablet's own width, and Firefox
+   drops the desktop-mode scaling in full screen, so with it on everything changes size when the
+   page goes full screen. (*Add to Home screen* gives only a shortcut that opens a normal tab -
+   Firefox installs a page as an app only over HTTPS with a certificate it trusts.)
    Browser: the Chrome that comes with old tablets is too old for the page, and after a reset the
    Play Store may refuse to sign in. Firefox 143 (the last version for Android 7, official APK from
    `archive.mozilla.org/pub/fenix/releases/143.0.4/android/`, armeabi-v7a for 32-bit tablets)
    installs over the cable with `adb install`.
 6. Screen: *Settings → Security → Screen lock → None* (a PIN or pattern cannot be skipped), and
    a short *Settings → Display → Screen timeout* (e.g. 1 minute). Leave *Developer options →
-   Stay awake* off. Every card scan wakes the screen through the same USB connection
-   (`adb shell input keyevent KEYCODE_WAKEUP`, then `wm dismiss-keyguard` - which exists only
-   from Android 8, so on Android 7 the screen lock really has to be *None*), so no app is needed
-   on the tablet. After a long sleep the page reconnects (or reloads) by itself within a few
+   Stay awake* off. Every card scan wakes the screen through the same USB connection, so no app
+   is needed on the tablet: a press of the power key written straight into the tablet's input
+   device (`sendevent`; the devices are found once with `getevent -pl`), because Android's own
+   `input` command starts a Java process and takes 2 seconds on a cheap tablet. `wm
+   dismiss-keyguard` exists only from Android 8, so on Android 7 the screen lock really has to be
+   *None*. After a long sleep the page reconnects (or reloads) by itself within a few
    seconds of waking. `Tablet:WakeOnScan=false` in the API's settings turns the wake-up off;
    `Tablet:AdbPath` points it at adb if it is not in one of the usual places.
 
@@ -66,8 +70,12 @@ The tablet's own cell holds the greeting, the total, **Correct** (the list with 
 **Done**. The kiosk screen follows the tablet: it shows what was picked, the total and the open
 amount, keeps the same countdown, and ends with the tablet's session.
 
-Full screen: the page asks for it on the first tap (Android confirms once with *OK*); an app
-added to the home screen from Firefox starts full screen anyway.
+Full screen: a page may only ask for it after a touch, and loses it when the screen goes off. So
+until it is full screen the page shows a welcome screen ("Hi Daniel! Tap the screen to start")
+over everything, and half a second after waking the screen the PC taps it (`sendevent`, in the
+tablet's own cell, which has no button even if the page got full screen meanwhile). A tap by the
+user does the same; either way the first tap hits nothing, and the page's jump when Firefox's bars
+go away happens behind the welcome screen, whose text stays at the middle of the physical screen.
 
 Pinned to the page: the updater (`start`, `tablet`, every watchdog run) pins Firefox with the page
 (Android's *screen pinning*, confirm once on the tablet) - Home, app switcher and notifications do
@@ -75,14 +83,12 @@ nothing, so nobody leaves it by accident. Holding Back + app switcher together e
 `Snackbox.Updater tablet --unlock` unpins it and keeps the watchdog from pinning again until
 `tablet --lock`.
 
-Screen: dark between customers. A scan wakes it (and, if the page is not full screen, the PC taps
-the top left of the page's bar once - a page may only go full screen after a touch, and Firefox
-installs a page as an app only over HTTPS). *Done* closes the purchase - achievements earned with
+Screen: dark between customers. A scan wakes it (see full screen above). *Done* closes the purchase - achievements earned with
 it show right away, with a close button - and the tablet stays on 5 seconds: a tap on a product
 starts a new purchase, the toolbar still works; then it goes dark, as it does when a purchase runs
 out. Those 5 seconds count from *Done*: reading a dialog may keep the screen on, but a pick after
-that needs a new scan, so whoever steps up next cannot book onto the previous card. While a purchase is open the page keeps the screen from dimming (Screen Wake Lock); between
-purchases Android's own screen timeout applies (Settings → Display).
+that needs a new scan, so whoever steps up next cannot book onto the previous card. While a
+purchase is open the page keeps the screen from dimming (Screen Wake Lock); between Android's own screen timeout applies (Settings → Display).
 
 The introduction plays by itself with a progress bar (as on the kiosk) until a button is tapped;
 it and the dialogs (correct, pay, purchases, payments, achievements) stop the countdown - 2 minutes
