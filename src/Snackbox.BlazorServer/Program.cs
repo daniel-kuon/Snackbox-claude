@@ -35,6 +35,7 @@ builder.Services.AddScoped<IUiTelemetry, UiTelemetry>();
 // Register Snackbar service
 builder.Services.AddScoped<SnackbarService>();
 builder.Services.AddSingleton<AppStartupState>();
+builder.Services.AddScoped<TabletClientAccess>();
 
 // Register delegating handler for authentication
 builder.Services.AddTransient<AuthenticationHeaderHandler>();
@@ -100,11 +101,16 @@ app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/install") &&
 
 // The tablet page shows whose purchase is open and what they owe: only for this PC itself, which
 // includes the USB tablet (adb reverse arrives from the loopback address) - not for phones on the
-// Wi-Fi, should the website ever be opened up for the phone app
+// Wi-Fi, should the website ever be opened up for the phone app. Behind Aspire's proxy every peer
+// is loopback, but that proxy itself only listens on 127.0.0.1, so they are all local programs; a
+// Wi-Fi endpoint for the phones is a Kestrel endpoint of its own, where the peer address is real.
+// The page checks again itself (TabletClientAccess) for navigation inside an existing circuit.
 app.Use(async (ctx, next) =>
 {
-    if (ctx.Request.Path.StartsWithSegments("/tablet") &&
-        !(ctx.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip)))
+    var local = ctx.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip);
+    ctx.RequestServices.GetRequiredService<TabletClientAccess>().IsLocal = local;
+
+    if (ctx.Request.Path.StartsWithSegments("/tablet") && !local)
     {
         ctx.Response.StatusCode = StatusCodes.Status404NotFound;
         return;

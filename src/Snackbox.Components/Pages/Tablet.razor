@@ -8,6 +8,8 @@
 @inject IPurchasesApi PurchasesApi
 @inject IPaymentsApi PaymentsApi
 @inject IJSRuntime JS
+@inject IServiceProvider Services
+@inject PersistentComponentState PersistentState
 
 @* The Android tablet in the shelf (Firefox over USB, see docs/TABLET.md). The shelf has 3x3
    compartments and the tablet sits in the top middle one, so the screen is the same 3x3 grid:
@@ -16,6 +18,11 @@
    who pick on the tablet book products by tapping them. *@
 
 <PageTitle>Snackbox</PageTitle>
+
+@if (!_allowed)
+{
+    return;
+}
 
 <div class="tablet @(_state.Active ? "active" : "")">
     @if (_state.Active)
@@ -321,10 +328,35 @@
         </button>
     };
 
+    // Only for browsers on this PC (the USB tablet): decided on the HTTP request while prerendering,
+    // then carried into the interactive circuit as protected state the browser cannot forge.
+    // Reached by navigation inside a circuit (no request, nothing persisted) it stays empty.
+    private const string AccessKey = "tablet-client-is-local";
+    private bool _allowed;
+    private PersistingComponentStateSubscription _persisting;
+
+    protected override void OnInitialized()
+    {
+        var access = Services.GetService(typeof(TabletClientAccess)) as TabletClientAccess; // registered by the website only
+        if (access?.IsLocal is { } isLocal)
+        {
+            _allowed = isLocal;
+            _persisting = PersistentState.RegisterOnPersisting(() =>
+            {
+                PersistentState.PersistAsJson(AccessKey, _allowed);
+                return Task.CompletedTask;
+            });
+        }
+        else
+        {
+            _allowed = PersistentState.TryTakeFromJson<bool>(AccessKey, out var persisted) && persisted;
+        }
+    }
+
     protected override void OnAfterRender(bool firstRender)
     {
         // Interactive only - not during the website's prerendering
-        if (firstRender) _ = PollAsync();
+        if (firstRender && _allowed) _ = PollAsync();
     }
 
     private async Task PollAsync()
@@ -521,5 +553,9 @@
     }
 
     // Cancelled, not disposed: the poll loop may still be reading the token
-    public void Dispose() => _cts.Cancel();
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _persisting.Dispose();
+    }
 }
