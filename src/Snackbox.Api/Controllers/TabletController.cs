@@ -23,8 +23,12 @@ public class TabletController(
     TabletSessionStore sessions,
     IStockCalculationService stockCalculation,
     IAchievementService achievementService,
-    IProductBestBeforeDateService bestBeforeDates) : ControllerBase
+    IProductBestBeforeDateService bestBeforeDates,
+    TabletDisplay display) : ControllerBase
 {
+    /// <summary>Recorded in user_wizard_steps once someone went through the tablet's introduction.</summary>
+    public const string IntroStepKey = "tablet_intro";
+
     /// <summary>Products with a price that are on the shelf.</summary>
     [HttpGet("products")]
     public async Task<ActionResult<List<TabletProductDto>>> GetProducts()
@@ -68,6 +72,7 @@ public class TabletController(
     {
         var session = sessions.Current;
         if (session == null) return Conflict(new { message = "Scan your card first" });
+        if (!session.Picking) return Conflict(new { message = "You pay with your card codes" });
 
         var product = await context.Products.FindAsync(productId);
         if (product?.Price == null) return NotFound(new { message = "Product not available" });
@@ -98,6 +103,7 @@ public class TabletController(
     {
         var session = sessions.Current;
         if (session == null) return Conflict(new { message = "Scan your card first" });
+        if (!session.Picking) return Conflict(new { message = "You pay with your card codes" });
 
         var scans = await context.BarcodeScans
             .Where(s => s.PurchaseId == session.PurchaseId && s.ProductId == productId)
@@ -120,6 +126,37 @@ public class TabletController(
     public ActionResult Complete()
     {
         sessions.End();
+        display.Sleep();
+        return NoContent();
+    }
+
+    /// <summary>The session ran out (no Done): the tablet asks to go dark. Ignored while someone uses it.</summary>
+    [HttpPost("sleep")]
+    public ActionResult Sleep()
+    {
+        if (sessions.Current == null) display.Sleep();
+        return NoContent();
+    }
+
+    /// <summary>Reading the introduction, the history or the PayPal code counts as activity.</summary>
+    [HttpPost("keepalive")]
+    public ActionResult KeepAlive()
+    {
+        sessions.Touch();
+        return NoContent();
+    }
+
+    [HttpPost("intro-seen")]
+    public async Task<ActionResult> IntroSeen()
+    {
+        var session = sessions.Current;
+        if (session == null) return Conflict(new { message = "Scan your card first" });
+
+        if (!await context.UserWizardSteps.AnyAsync(s => s.UserId == session.UserId && s.StepKey == IntroStepKey))
+        {
+            context.UserWizardSteps.Add(new UserWizardStep { UserId = session.UserId, StepKey = IntroStepKey, SeenAt = DateTime.UtcNow });
+            await context.SaveChangesAsync();
+        }
         return NoContent();
     }
 
@@ -174,7 +211,17 @@ public class TabletController(
         return new TabletStateDto
         {
             Active = true,
+            Picking = session.Picking,
+            UserId = session.UserId,
             Username = session.Username,
+            CardScans = scans
+                .Where(s => s.ProductId == null)
+                .GroupBy(s => s.Amount)
+                .Select(g => new TabletCardScanDto { Amount = g.Key, Count = g.Count() })
+                .OrderByDescending(c => c.Amount)
+                .ToList(),
+            OpenAmount = await UserBalance.OpenAmountAsync(context, session.UserId),
+            ShowIntro = !await context.UserWizardSteps.AnyAsync(s => s.UserId == session.UserId && s.StepKey == IntroStepKey),
             Items = scans
                 .Where(s => s.ProductId != null)
                 .GroupBy(s => new { s.ProductId, s.ProductName, s.Amount })

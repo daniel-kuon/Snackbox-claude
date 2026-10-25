@@ -18,11 +18,30 @@ public class TabletStateDto
 {
     /// <summary>False while nobody has scanned: the tablet just shows the products.</summary>
     public bool Active { get; set; }
+
+    /// <summary>The user picks products here; otherwise the tablet shows their card scans.</summary>
+    public bool Picking { get; set; }
+    public int UserId { get; set; }
     public string? Username { get; set; }
+
+    /// <summary>Card scans of this purchase, by amount (users who pay with their card codes).</summary>
+    public List<TabletCardScanDto> CardScans { get; set; } = new();
+
+    /// <summary>What the user owes now, this purchase included (negative = credit).</summary>
+    public decimal OpenAmount { get; set; }
+
+    /// <summary>First time on the tablet: play the introduction.</summary>
+    public bool ShowIntro { get; set; }
     public List<TabletItemDto> Items { get; set; } = new();
     public decimal Total { get; set; }
     public decimal DiscountedTotal { get; set; }
     public int SecondsLeft { get; set; }
+}
+
+public class TabletCardScanDto
+{
+    public decimal Amount { get; set; }
+    public int Count { get; set; }
 }
 
 public class TabletItemDto

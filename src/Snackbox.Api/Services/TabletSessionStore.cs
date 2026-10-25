@@ -1,13 +1,14 @@
 namespace Snackbox.Api.Services;
 
 /// <summary>
-/// The one tablet session at a time: opened when a user who picks on the tablet scans a card,
+/// The one tablet session at a time: opened by a card scan of a user with the tablet feature,
 /// ended by the Done button, by another user's scan or by the scanner timeout after the last
 /// action. In memory - after an API restart the next scan simply opens a new one.
 /// </summary>
 public class TabletSessionStore(IConfiguration configuration)
 {
-    public record Session(int UserId, string Username, int PurchaseId, int BarcodeId, DateTime LastActivity);
+    /// <param name="Picking">The user picks products here; otherwise the tablet only shows their card scans.</param>
+    public record Session(int UserId, string Username, int PurchaseId, int BarcodeId, bool Picking, DateTime LastActivity);
 
     private readonly Lock _lock = new();
     private Session? _current;

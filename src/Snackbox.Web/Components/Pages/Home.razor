@@ -223,113 +223,18 @@
                             }
                         }
 
-                        @* Balance-based payment reminders *@
-                        @if (session.OpenAmount >= 40)
-                        {
-                            var title = Pick([
-                                                 "FINAL NOTICE (Things Have Escalated)",
-                                                 "We’re Way Past Friendly Now",
-                                                 "This Is Where the Serious Music Starts Playing"
-                                             ]);
-
-                            var message = Pick([
-                                                   $"Your outstanding balance has reached {session.OpenAmount:C}. At this level, we’re no longer joking — internal meetings are happening, emails are being CC’d, and someone has mentioned *external partners*. You really don’t want to meet our friends at MOSKVA INКΛЅЅØ. Please pay immediately via PayPal.",
-
-                                                   $"Balance due: {session.OpenAmount:C}. This is the point where spreadsheets turn red and MOSKVA  INКΛЅЅØ’s contact card starts hovering over the keyboard. Let’s all agree to avoid that and settle this via PayPal right now.",
-
-                                                   $"We regret to inform you that your balance of {session.OpenAmount:C} has entered the \"Find Out\" phase. Payment now avoids awkward conversations involving our 'payment enforcement specialists'. Act fast. Seriously."
-                                               ]);
-
-                            <div class="balance-notification danger">
-                                <span class="notification-icon">☠️📞</span>
-                                <div class="notification-content">
-                                    <strong>@title</strong>
-                                    <p>@message</p>
-                                </div>
-                            </div>
-                        }
-                        else if (session.OpenAmount >= 30)
-                        {
-                            var title = Pick([
-                                                 "PAYMENT APOCALYPSE IMMINENT",
-                                                 "🚨 Maximum Urgency Mode Activated",
-                                                 "This Is Not a Drill"
-                                             ]);
-
-                            var message = Pick([
-                                                   $"Your balance has reached {session.OpenAmount:C}. At this stage, this is no longer a reminder — it’s a plea. Failure to pay may result in dramatic sighing, cancelled lunches, and existential despair. Please pay immediately via PayPal.",
-
-                                                   $"Outstanding balance: {session.OpenAmount:C}. If this remains unpaid, this business may collapse, dreams will be crushed, and a very sad meal will go unfunded. Save us. Pay now.",
-
-                                                   $"You currently owe {session.OpenAmount:C}. Time is an illusion, money is not. Please resolve this immediately before the situation becomes… administrative."
-                                               ]);
-
-                            <div class="balance-notification danger">
-                                <span class="notification-icon">🚨🔥</span>
-                                <div class="notification-content">
-                                    <strong>@title</strong>
-                                    <p>@message</p>
-                                </div>
-                            </div>
-                        }
-                        else if (session.OpenAmount >= 20)
-                        {
-                            var title = Pick([
-                                                 "Payment Requested (Before Things Get Weird)",
-                                                 "⚠️ Accountant Stress Detected",
-                                                 "Let’s Handle This Like Adults"
-                                             ]);
-
-                            var message = Pick([
-                                                   $"Your balance is {session.OpenAmount:C}. This is the phase where polite reminders are sent but concern is quietly growing. Please make a payment soon via PayPal.",
-
-                                                   $"Outstanding amount: {session.OpenAmount:C}. Nothing terrible has happened yet, but this is how stories *start*. Pay soon to keep things chill.",
-
-                                                   $"You owe {session.OpenAmount:C}. We’re still smiling — but it’s becoming forced. Please scan the PayPal QR code below."
-                                               ]);
-
-                            <div class="balance-notification warning">
-                                <span class="notification-icon">⚠️😬</span>
-                                <div class="notification-content">
-                                    <strong>@title</strong>
-                                    <p>@message</p>
-                                </div>
-                            </div>
-                        }
-                        else if (session.OpenAmount >= 10)
-                        {
-                            var title = Pick([
-                                                 "Friendly Nudge™",
-                                                 "A Gentle Financial Whisper",
-                                                 "No Pressure, Just Vibes"
-                                             ]);
-
-                            var message = Pick([
-                                                   $"Your balance is {session.OpenAmount:C}. No rush, no panic — just a friendly reminder that PayPal exists and Future You will appreciate this.",
-
-                                                   $"You currently owe {session.OpenAmount:C}. The vibes are still good. Let’s keep them that way by settling up when convenient.",
-
-                                                   $"Balance due: {session.OpenAmount:C}. Think of this as a digital sticky note saying “hey, don’t forget about me.”"
-                                               ]);
-
-                            <div class="balance-notification info">
-                                <span class="notification-icon">💡🙂</span>
-                                <div class="notification-content">
-                                    <strong>@title</strong>
-                                    <p>@message</p>
-                                </div>
-                            </div>
-                        }
+                        @* Balance-based payment reminders (shared with the tablet) *@
+                        <PaymentReminder OpenAmount="@session.OpenAmount" Seed="@session.StartTime.Ticks" />
                     </div>
 
                     <!-- QR Codes: payment and phone app install guide -->
                     <div class="qr-pair">
                         <div class="qr-col @SpotlightClass("payment")">
                             <h3 class="section-title qr-col-title">Pay via PayPal</h3>
-                            <QRCodeComponent Url="@($"https://paypal.me/dkuon/{Math.Abs(session.OpenAmount):F2}")"
+                            <QRCodeComponent Url="@PayPal.PayUrl(session.OpenAmount)"
                                              Size="250"/>
                             <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C") or go to
-                                https://paypal.me/dkuon/@(Math.Abs(session.OpenAmount).ToString("F2"))<br/>
+                                @PayPal.PayUrl(session.OpenAmount)<br/>
                                 Payments will not show up instantly.</p>
                         </div>
                         @if (_installUrl != null && IsFeatureEnabled(MobileAppFeature))
@@ -1340,6 +1245,9 @@
                 {
                     var state = await TabletApi.GetStateAsync();
                     ScannerService.ApplyTabletState(state);
+                    // The tablet's session decides when it ends (Done, timeout - reading the
+                    // introduction or the history there keeps it open), not the kiosk's own timer
+                    if (state.Active) ScannerService.SignalActivity();
                     if (state.Active && !AnyPopupOpen) _remainingSeconds = state.SecondsLeft;
                     await InvokeAsync(StateHasChanged);
                 }
@@ -1671,12 +1579,5 @@
         _errorTimer?.Dispose();
     }
 
-    private T Pick<T>(IList<T> items)
-    {
-        long startTimeTicks = ScannerService.CurrentSession?.StartTime.Ticks ?? 0;
-        var rand = new Random((int)startTimeTicks);
-        int index = rand.Next(items.Count);
-        return items[index];
-    }
 
 }

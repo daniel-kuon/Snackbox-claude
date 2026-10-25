@@ -1,0 +1,120 @@
+@* The graded payment reminder (10 / 20 / 30 / 40 EUR and up) - on the kiosk and on the tablet *@
+@if (OpenAmount >= 40)
+{
+    var title = Pick([
+                         "FINAL NOTICE (Things Have Escalated)",
+                         "We’re Way Past Friendly Now",
+                         "This Is Where the Serious Music Starts Playing"
+                     ]);
+
+    var message = Pick([
+                           $"Your outstanding balance has reached {OpenAmount:C}. At this level, we’re no longer joking — internal meetings are happening, emails are being CC’d, and someone has mentioned *external partners*. You really don’t want to meet our friends at MOSKVA INКΛЅЅØ. Please pay immediately via PayPal.",
+
+                           $"Balance due: {OpenAmount:C}. This is the point where spreadsheets turn red and MOSKVA  INКΛЅЅØ’s contact card starts hovering over the keyboard. Let’s all agree to avoid that and settle this via PayPal right now.",
+
+                           $"We regret to inform you that your balance of {OpenAmount:C} has entered the \"Find Out\" phase. Payment now avoids awkward conversations involving our 'payment enforcement specialists'. Act fast. Seriously."
+                       ]);
+
+    <div class="balance-notification danger">
+        <span class="notification-icon">☠️📞</span>
+        <div class="notification-content">
+            <strong>@title</strong>
+            <p>@message</p>
+        </div>
+    </div>
+}
+else if (OpenAmount >= 30)
+{
+    var title = Pick([
+                         "PAYMENT APOCALYPSE IMMINENT",
+                         "🚨 Maximum Urgency Mode Activated",
+                         "This Is Not a Drill"
+                     ]);
+
+    var message = Pick([
+                           $"Your balance has reached {OpenAmount:C}. At this stage, this is no longer a reminder — it’s a plea. Failure to pay may result in dramatic sighing, cancelled lunches, and existential despair. Please pay immediately via PayPal.",
+
+                           $"Outstanding balance: {OpenAmount:C}. If this remains unpaid, this business may collapse, dreams will be crushed, and a very sad meal will go unfunded. Save us. Pay now.",
+
+                           $"You currently owe {OpenAmount:C}. Time is an illusion, money is not. Please resolve this immediately before the situation becomes… administrative."
+                       ]);
+
+    <div class="balance-notification danger">
+        <span class="notification-icon">🚨🔥</span>
+        <div class="notification-content">
+            <strong>@title</strong>
+            <p>@message</p>
+        </div>
+    </div>
+}
+else if (OpenAmount >= 20)
+{
+    var title = Pick([
+                         "Payment Requested (Before Things Get Weird)",
+                         "⚠️ Accountant Stress Detected",
+                         "Let’s Handle This Like Adults"
+                     ]);
+
+    var message = Pick([
+                           $"Your balance is {OpenAmount:C}. This is the phase where polite reminders are sent but concern is quietly growing. Please make a payment soon via PayPal.",
+
+                           $"Outstanding amount: {OpenAmount:C}. Nothing terrible has happened yet, but this is how stories *start*. Pay soon to keep things chill.",
+
+                           $"You owe {OpenAmount:C}. We’re still smiling — but it’s becoming forced. Please scan the PayPal QR code below."
+                       ]);
+
+    <div class="balance-notification warning">
+        <span class="notification-icon">⚠️😬</span>
+        <div class="notification-content">
+            <strong>@title</strong>
+            <p>@message</p>
+        </div>
+    </div>
+}
+else if (OpenAmount >= 10)
+{
+    var title = Pick([
+                         "Friendly Nudge™",
+                         "A Gentle Financial Whisper",
+                         "No Pressure, Just Vibes"
+                     ]);
+
+    var message = Pick([
+                           $"Your balance is {OpenAmount:C}. No rush, no panic — just a friendly reminder that PayPal exists and Future You will appreciate this.",
+
+                           $"You currently owe {OpenAmount:C}. The vibes are still good. Let’s keep them that way by settling up when convenient.",
+
+                           $"Balance due: {OpenAmount:C}. Think of this as a digital sticky note saying “hey, don’t forget about me.”"
+                       ]);
+
+    <div class="balance-notification info">
+        <span class="notification-icon">💡🙂</span>
+        <div class="notification-content">
+            <strong>@title</strong>
+            <p>@message</p>
+        </div>
+    </div>
+}
+
+<style>
+    .balance-notification { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; }
+    .balance-notification.info { background: #d1ecf1; border-left: 4px solid #0dcaf0; }
+    .balance-notification.warning { background: #fff3cd; border-left: 4px solid #ffc107; }
+    .balance-notification.danger { background: #f8d7da; border-left: 4px solid #dc3545; }
+    .balance-notification .notification-icon { font-size: 1.5rem; line-height: 1; }
+    .balance-notification .notification-content { flex: 1; color: #191E1E; }
+    .balance-notification .notification-content strong { display: block; margin-bottom: 0.25rem; font-size: 0.95rem; }
+    .balance-notification .notification-content p { margin: 0; font-size: 0.85rem; line-height: 1.4; }
+    .balance-notification.info .notification-content strong { color: #055160; }
+    .balance-notification.warning .notification-content strong { color: #664d03; }
+    .balance-notification.danger .notification-content strong { color: #842029; }
+</style>
+
+@code {
+    [Parameter] public decimal OpenAmount { get; set; }
+
+    /// <summary>Same seed, same wording - the texts do not change while the same purchase is shown.</summary>
+    [Parameter] public long Seed { get; set; }
+
+    private T Pick<T>(IList<T> items) => items[new Random((int)Seed).Next(items.Count)];
+}

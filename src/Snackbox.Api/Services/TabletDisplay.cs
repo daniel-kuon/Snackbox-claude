@@ -15,6 +15,23 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
     private DateTime _lastWake = DateTime.MinValue;
     private bool _warnedNoAdb;
 
+    // `wm dismiss-keyguard` only exists from Android 8 - on older tablets (screen lock "None")
+    // there is no keyguard to dismiss, so its failure is ignored
+    private const string WakeCommand = "shell \"input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard >/dev/null 2>&1; true\"";
+    private const string SleepCommand = "shell input keyevent KEYCODE_SLEEP";
+
+    /// <summary>The purchase is over: dark until the next scan.</summary>
+    public void Sleep()
+    {
+        if (!configuration.GetValue("Tablet:WakeOnScan", true)) return;
+
+        // The next scan must wake it again, however soon it comes
+        lock (_lock) _lastWake = DateTime.MinValue;
+
+        var adb = FindAdb();
+        if (adb != null) _ = Task.Run(() => Run(adb, SleepCommand));
+    }
+
     public void Wake()
     {
         if (!configuration.GetValue("Tablet:WakeOnScan", true)) return;
@@ -34,18 +51,16 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
             return;
         }
 
-        _ = Task.Run(() => Run(adb));
+        _ = Task.Run(() => Run(adb, WakeCommand));
     }
 
-    private void Run(string adb)
+    private void Run(string adb, string arguments)
     {
         try
         {
             // No redirected output: if this call starts the adb server, the server would inherit
             // the pipes and keep them open
-            // `wm dismiss-keyguard` only exists from Android 8 - on older tablets (screen lock
-            // "None") there is no keyguard to dismiss, so its failure is ignored
-            using var process = Process.Start(new ProcessStartInfo(adb, "shell \"input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard >/dev/null 2>&1; true\"")
+            using var process = Process.Start(new ProcessStartInfo(adb, arguments)
             {
                 CreateNoWindow = true,
                 UseShellExecute = false
@@ -54,12 +69,12 @@ public class TabletDisplay(IConfiguration configuration, ILogger<TabletDisplay> 
             if (!process.WaitForExit(TimeSpan.FromSeconds(10)))
             {
                 process.Kill();
-                logger.LogWarning("Tablet: waking the screen timed out");
+                logger.LogWarning("Tablet: adb {Arguments} timed out", arguments);
             }
             else if (process.ExitCode != 0)
             {
                 // Usually the tablet is unplugged - worth a line, not an error
-                logger.LogInformation("Tablet: adb could not wake the screen (exit code {ExitCode})", process.ExitCode);
+                logger.LogInformation("Tablet: adb {Arguments} failed (exit code {ExitCode})", arguments, process.ExitCode);
             }
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)

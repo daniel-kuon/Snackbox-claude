@@ -108,8 +108,6 @@ public class ScannerController : ControllerBase
         var isInactive = !user.IsActive;
         _tablet.EndUnlessUser(user.Id);
 
-        // Someone is at the box: light up the tablet (it shows the shelf, or their session)
-        if (barcode is PurchaseBarcode) _tabletDisplay.Wake();
 
         // Which intro steps this user still needs, given the features enabled *for them*
         // (a beta-only feature is visible to beta testers only)
@@ -120,9 +118,12 @@ public class ScannerController : ControllerBase
             .ToListAsync();
         var pendingWizardSteps = WizardStepCatalog.GetPendingSteps(seenSteps, enabledFeatures.ToHashSet());
 
-        // A converted user's card opens the tablet instead of booking its printed amount -
-        // while the tablet feature is on for them (at first: beta testers only)
-        var picksOnTablet = user.UsesTabletSelection && barcode is PurchaseBarcode && enabledFeatures.Contains(FeatureFlagKeys.Tablet);
+        // The tablet feature (at first: beta testers only). With it, every card scan lights up the
+        // tablet with the user's purchase; a converted user's card even opens it for picking
+        // products instead of booking its printed amount.
+        var usesTablet = barcode is PurchaseBarcode && enabledFeatures.Contains(FeatureFlagKeys.Tablet);
+        var picksOnTablet = usesTablet && user.UsesTabletSelection;
+        if (usesTablet) _tabletDisplay.Wake();
 
         // Check if this is a login barcode - return success with user info but don't create a purchase
         if (barcode is LoginBarcode)
@@ -233,9 +234,9 @@ public class ScannerController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        if (picksOnTablet)
+        if (usesTablet)
         {
-            _tablet.Start(new TabletSessionStore.Session(user.Id, user.Username, currentPurchase.Id, barcode.Id, DateTime.UtcNow));
+            _tablet.Start(new TabletSessionStore.Session(user.Id, user.Username, currentPurchase.Id, barcode.Id, picksOnTablet, DateTime.UtcNow));
         }
 
         // Reload the purchase's scans with their barcodes. This must run for BOTH paths: when
@@ -258,30 +259,8 @@ public class ScannerController : ControllerBase
         // These can be checked on every scan, not just when the purchase completes
         await _achievementService.CheckImmediateAchievementsAsync(user.Id, currentPurchase.Id);
 
-        // Calculate user's balance (total spent - total paid).
-        // A purchase counts as ManualAmount when set, otherwise as the sum of its scans -
-        // the same rule the admin views use. Manual purchases (admin entries, corrections and
-        // imported legacy purchases without a mappable barcode) have no scans, so summing
-        // scans alone would silently under-count what the user owes.
-        var totalFromScans = await _context.BarcodeScans
-            .Where(bs => bs.Purchase.UserId == user.Id && bs.Purchase.ManualAmount == null)
-            .SumAsync(bs => bs.Amount);
-
-        var totalManual = await _context.Purchases
-            .Where(p => p.UserId == user.Id && p.ManualAmount != null)
-            .SumAsync(p => p.ManualAmount!.Value);
-
-        var totalDiscounts = await _context.PurchaseDiscounts
-            .Where(pd => pd.Purchase.UserId == user.Id)
-            .SumAsync(pd => pd.DiscountAmount);
-
-        var totalSpent = totalFromScans + totalManual - totalDiscounts;
-
-        var totalPaid = await _context.Payments
-            .Where(p => p.UserId == user.Id)
-            .SumAsync(p => p.Amount);
-
-        var balance = totalSpent - totalPaid;
+        // Calculate user's balance (total spent - total paid)
+        var balance = await UserBalance.OpenAmountAsync(_context, user.Id);
 
         // Get last payment
         var lastPayment = await _context.Payments

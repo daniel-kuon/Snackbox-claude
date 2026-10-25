@@ -32,18 +32,20 @@ public class TabletControllerTests : IDisposable
         _scanner = new ScannerController(_context, configuration, achievements, new FeatureFlagService(_context),
                                          NullLogger<ScannerController>.Instance, sessions, NoTabletDisplay);
         _tablet = new TabletController(_context, sessions, new StockCalculationService(), achievements,
-                                       new Moq.Mock<IProductBestBeforeDateService>().Object);
+                                       new Moq.Mock<IProductBestBeforeDateService>().Object, NoTabletDisplay);
 
         var now = DateTime.UtcNow;
         _context.Users.AddRange(
             new User { Id = 1, Username = "Tina", UsesTabletSelection = true, IsBetaTester = true, CreatedAt = now },
             new User { Id = 2, Username = "Carl", CreatedAt = now },
-            new User { Id = 3, Username = "Nina", UsesTabletSelection = true, CreatedAt = now });
+            new User { Id = 3, Username = "Nina", UsesTabletSelection = true, CreatedAt = now },
+            new User { Id = 4, Username = "Ben", IsBetaTester = true, CreatedAt = now });
         _context.FeatureFlags.Add(new FeatureFlag { Id = 3, Key = FeatureFlagKeys.Tablet, Name = "Tablet", Description = "", Audience = FeatureAudience.BetaTesters, UpdatedAt = now });
         _context.Barcodes.AddRange(
             new PurchaseBarcode { Id = 1, UserId = 1, Code = "TINA-50", Amount = 0.50m, CreatedAt = now },
             new PurchaseBarcode { Id = 2, UserId = 2, Code = "CARL-50", Amount = 0.50m, CreatedAt = now },
-            new PurchaseBarcode { Id = 3, UserId = 3, Code = "NINA-50", Amount = 0.50m, CreatedAt = now });
+            new PurchaseBarcode { Id = 3, UserId = 3, Code = "NINA-50", Amount = 0.50m, CreatedAt = now },
+            new PurchaseBarcode { Id = 4, UserId = 4, Code = "BEN-30", Amount = 0.30m, CreatedAt = now });
         _context.Products.AddRange(
             new Product { Id = 1, Name = "Mars", Price = 0.80m, CreatedAt = now },
             new Product { Id = 2, Name = "Chips", Price = 1.20m, CreatedAt = now },
@@ -94,6 +96,34 @@ public class TabletControllerTests : IDisposable
         Assert.False(response.IsTabletSession);
         Assert.Equal(0.50m, response.TotalAmount);
         Assert.False((await State()).Active);
+    }
+
+    [Fact]
+    public async Task BetaTesterWithCard_SeesTheirScansOnTheTabletButCannotPick()
+    {
+        var response = await Scan("BEN-30");
+        await Scan("BEN-30");
+
+        Assert.False(response.IsTabletSession);
+        var state = await State();
+        Assert.True(state.Active);
+        Assert.False(state.Picking);
+        Assert.Equal(new[] { (0.30m, 2) }, state.CardScans.Select(c => (c.Amount, c.Count)));
+        Assert.Equal(0.60m, state.OpenAmount);
+        Assert.IsType<ConflictObjectResult>((await _tablet.AddItem(1)).Result);
+    }
+
+    [Fact]
+    public async Task Introduction_IsShownUntilItWasSeen()
+    {
+        await Scan("TINA-50");
+        Assert.True((await State()).ShowIntro);
+
+        await _tablet.IntroSeen();
+        await _tablet.IntroSeen();
+
+        Assert.False((await State()).ShowIntro);
+        Assert.Equal(1, await _context.UserWizardSteps.CountAsync(s => s.StepKey == TabletController.IntroStepKey));
     }
 
     [Fact]

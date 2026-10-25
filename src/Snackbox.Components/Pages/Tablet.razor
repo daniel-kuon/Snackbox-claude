@@ -3,76 +3,82 @@
 @implements IDisposable
 @using Snackbox.Api.Dtos
 @using Snackbox.ApiClient
+@using Snackbox.Components.Components.History
 @inject ITabletApi TabletApi
+@inject IPurchasesApi PurchasesApi
+@inject IPaymentsApi PaymentsApi
 
 @* The Android tablet in the shelf (Firefox over USB, see docs/TABLET.md). The shelf has 3x3
-   compartments; the tablet sits in the top middle one, so the screen is the same 3x3 grid: each
-   product shows where it lies, and the tablet's own cell holds the total and the buttons. After
-   a card scan of someone who picks on the tablet, taps book products into their purchase. *@
+   compartments and the tablet sits in the top middle one, so the screen is the same 3x3 grid:
+   each product lies where it is shown, and the tablet's own cell holds the total and the
+   buttons. A card scan of a user with the tablet feature lights it up with their purchase; users
+   who pick on the tablet book products by tapping them. *@
 
 <PageTitle>Snackbox</PageTitle>
 
-<div class="shelf @(_state.Active ? "shelf-active" : "") @(Unplaced.Count > 0 ? "shelf-extra" : "")">
-    @for (var slot = 1; slot <= 9; slot++)
+<div class="tablet @(_state.Active ? "active" : "")">
+    @if (_state.Active)
     {
-        var s = slot;
-        if (s == TabletSlot)
+        <div class="toolbar @Spot("toolbar")">
+            <span class="who">👤 @_state.Username</span>
+            <button @onclick="ShowPurchases">🧾 Purchases</button>
+            <button @onclick="ShowPayments">💶 Payments</button>
+            <span class="open @(_state.OpenAmount > 0 ? "owes" : "credit")">
+                @(_state.OpenAmount > 0 ? "Open" : "Credit") @Math.Abs(_state.OpenAmount).ToString("0.00") €
+            </span>
+            @if (_state.OpenAmount > 0)
+            {
+                <button class="pay" @onclick="() => Open(Overlay.Pay)">Pay</button>
+            }
+            <button class="help @Spot("help")" @onclick="() => StartIntro(auto: false)" aria-label="Help">?</button>
+        </div>
+        @if (ShowReminder)
         {
-            <div class="cell cell-tablet">
-                @if (_state.Active)
-                {
-                    <div class="hello">Hi @_state.Username!</div>
-                    <div class="timer">@_state.SecondsLeft s</div>
-                    <div class="total">
-                        @if (_state.DiscountedTotal < _state.Total)
-                        {
-                            <s class="total-old">@_state.Total.ToString("0.00") €</s>
-                        }
-                        @_state.DiscountedTotal.ToString("0.00") €
-                    </div>
-                    <div class="actions">
-                        <button class="btn-correct" @onclick="() => _showCorrection = true" disabled="@(_busy || _state.Items.Count == 0)">Correct</button>
-                        <button class="btn-done" @onclick="Done" disabled="@_busy">Done</button>
-                    </div>
-                }
-                else
-                {
-                    <div class="hello">Snackbox</div>
-                    <div class="sub">Scan your card, then tap what you take</div>
-                }
-                @if (_hint != null)
-                {
-                    <div class="hint" @onclick="() => _hint = null">@_hint</div>
-                }
+            <div class="reminder">
+                <PaymentReminder OpenAmount="@_state.OpenAmount" Seed="@_state.UserId" />
             </div>
         }
-        else
-        {
-            var products = InSlot(s);
-            <div class="cell @(products.Count > 1 ? "cell-many" : "") @(products.Count > 2 ? "cell-four" : "")">
-                @foreach (var product in products)
-                {
-                    @ProductTile(product)
-                }
-            </div>
-        }
+    }
+    else
+    {
+        <div class="toolbar idle-bar">Snackbox · scan your card</div>
     }
 
-    @if (Unplaced.Count > 0)
-    {
-        <div class="extra">
-            @foreach (var product in Unplaced)
+    <div class="shelf @Spot("shelf") @(Unplaced.Count > 0 ? "shelf-extra" : "")">
+        @for (var slot = 1; slot <= 9; slot++)
+        {
+            var s = slot;
+            if (s == TabletSlot)
             {
-                @ProductTile(product)
+                @TabletCell()
             }
-        </div>
-    }
+            else
+            {
+                <div class="cell">
+                    @foreach (var product in InSlot(s))
+                    {
+                        @ProductRow(product)
+                    }
+                </div>
+            }
+        }
+
+        @if (Unplaced.Count > 0)
+        {
+            <div class="cell extra">
+                @foreach (var product in Unplaced)
+                {
+                    @ProductRow(product)
+                }
+            </div>
+        }
+    </div>
 </div>
 
-@if (_showCorrection && _state.Active)
+@if (_overlay == Overlay.Correction && _state.Active)
 {
-    <div class="overlay" @onclick="() => _showCorrection = false">
-        <div class="correction" @onclick:stopPropagation="true">
+    <div class="overlay" @onclick="Close">
+        <div class="panel" @onclick:stopPropagation="true">
             <h2>Your purchase</h2>
             @foreach (var item in _state.Items)
             {
@@ -91,47 +97,93 @@
             {
                 <p>Nothing picked.</p>
             }
-            <button class="btn-done" @onclick="() => _showCorrection = false">Close</button>
+            <button class="primary" @onclick="Close">Close</button>
+        </div>
+    </div>
+}
+
+@if (_overlay == Overlay.Pay && _state.Active)
+{
+    <div class="overlay" @onclick="Close">
+        <div class="panel pay-panel" @onclick:stopPropagation="true">
+            <h2>Pay @Math.Abs(_state.OpenAmount).ToString("0.00") € with PayPal</h2>
+            <QRCodeComponent Url="@PayPal.PayUrl(_state.OpenAmount)" Size="420" />
+            <p class="muted">Scan with your phone. Payments show up once the admin has booked them.</p>
+            <button class="primary" @onclick="Close">Close</button>
+        </div>
+    </div>
+}
+
+<PurchasesHistoryModal IsOpen="@(_overlay == Overlay.Purchases)" OnClose="Close" Purchases="@_purchases" />
+<PaymentsHistoryModal IsOpen="@(_overlay == Overlay.Payments)" OnClose="Close" Payments="@_payments" />
+
+@if (_intro != null)
+{
+    var step = _intro[_introStep];
+    <div class="intro-dim"></div>
+    <div class="intro-caption">
+        <div class="intro-count">@(_introStep + 1) / @_intro.Count</div>
+        <div class="intro-text">@step.Text</div>
+        <div class="intro-buttons">
+            <button @onclick="EndIntro">Skip</button>
+            @if (_introStep > 0)
+            {
+                <button @onclick="() => _introStep--">Back</button>
+            }
+            <button class="primary" @onclick="NextIntroStep">@(_introStep == _intro.Count - 1 ? "Let's go" : "Next")</button>
         </div>
     </div>
 }
 
 <style>
     html, body { margin: 0; background: var(--brand-anthracite, #191E1E); overflow: hidden; }
-    /* dvh: the height that is actually visible, without the browser's address bar */
-    .shelf { height: 100vh; height: 100dvh; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px; padding: 6px; box-sizing: border-box; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
+    .tablet { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--brand-gradient, linear-gradient(135deg, #0082CD, #191E1E)); user-select: none; -webkit-user-select: none; }
+    .toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #fff; color: #191E1E; font-size: 1rem; }
+    .toolbar button { border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); font-weight: 700; padding: 0.45rem 0.6rem; font-size: 0.95rem; }
+    .toolbar .who { font-weight: 700; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .toolbar .open { font-weight: 800; padding: 0 0.3rem; white-space: nowrap; }
+    .toolbar .owes { color: #c62828; }
+    .toolbar .credit { color: #2e7d32; }
+    .toolbar .pay { background: var(--brand-blue, #0082CD); color: #fff; }
+    .toolbar .help { width: 2.4rem; border-radius: 50%; padding: 0.45rem 0; }
+    .idle-bar { justify-content: center; font-weight: 700; font-size: 1.2rem; background: transparent; color: #fff; }
+    .reminder { padding: 4px 6px 0; }
+    .reminder .balance-notification { padding: 0.4rem 0.7rem; }
+    .reminder .balance-notification p { font-size: 0.8rem; }
+    .shelf { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 6px; padding: 6px; box-sizing: border-box; }
     .shelf-extra { grid-template-rows: repeat(3, 1fr) auto; }
-    .cell { background: rgba(255, 255, 255, 0.12); display: grid; gap: 4px; padding: 4px; min-height: 0; min-width: 0; }
-    .cell-many { grid-template-columns: 1fr 1fr; }
-    .cell-four { grid-template-rows: 1fr 1fr; }
-    .cell-tablet { background: #fff; color: #191E1E; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8px; position: relative; }
-    .hello { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
-    .sub { margin-top: 0.5rem; font-size: 1rem; opacity: 0.8; }
-    .timer { font-size: 0.95rem; opacity: 0.7; margin-top: 2px; }
-    .total { font-size: 2.6rem; font-weight: 800; color: var(--brand-blue, #0082CD); margin: 0.4rem 0; }
+    .cell { background: rgba(255, 255, 255, 0.14); display: flex; flex-direction: column; gap: 4px; padding: 4px; min-height: 0; min-width: 0; overflow-y: auto; }
+    .extra { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; max-height: 18vh; }
+    .extra .row { width: calc(33.33% - 3px); }
+    /* Bars are wide and flat: one product per row, picture over name and price */
+    .row { position: relative; flex: 0 0 auto; background: #fff; color: #191E1E; border: 3px solid transparent; padding: 4px 6px; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+    .row:active { transform: scale(0.98); }
+    .row.picked { border-color: var(--brand-cyan, #00BCD4); }
+    .row-picture { height: 58px; display: flex; align-items: center; justify-content: center; }
+    .row-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .row-placeholder { font-size: 2rem; }
+    .row-text { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
+    .row-name { font-weight: 600; font-size: 0.9rem; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-price { font-weight: 800; color: var(--brand-blue, #0082CD); white-space: nowrap; }
+    .count { position: absolute; top: 3px; right: 3px; min-width: 1.8rem; height: 1.8rem; padding: 0 0.35rem; border-radius: 0.9rem; background: var(--brand-cyan, #00BCD4); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+    .tablet-cell { background: #fff; color: #191E1E; align-items: center; justify-content: center; text-align: center; padding: 8px; gap: 4px; overflow: hidden; }
+    .hello { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+    .sub { font-size: 1rem; opacity: 0.8; }
+    .scans { font-size: 1.05rem; }
+    .total { font-size: 2.5rem; font-weight: 800; color: var(--brand-blue, #0082CD); }
     .total-old { font-size: 1.1rem; font-weight: 400; opacity: 0.5; margin-right: 0.3rem; color: #191E1E; }
-    .actions { display: flex; gap: 6px; width: 100%; }
-    .actions button { flex: 1; padding: 0.8rem 0.2rem; font-size: 1.1rem; font-weight: 700; border: none; }
+    .actions { display: flex; gap: 6px; width: 100%; align-items: stretch; }
+    .actions button { flex: 1; padding: 0.75rem 0.2rem; font-size: 1.05rem; font-weight: 700; border: none; }
     .btn-correct { background: #fff; color: var(--brand-blue, #0082CD); border: 2px solid var(--brand-blue, #0082CD) !important; }
     .btn-done { background: var(--brand-blue, #0082CD); color: #fff; }
-    .hint { position: absolute; left: 4px; right: 4px; bottom: 4px; padding: 0.5rem; background: #ffc107; font-weight: 700; }
-    .tile { position: relative; background: #fff; color: #191E1E; border: 3px solid transparent; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 0; min-width: 0; overflow: hidden; }
-    .tile:active { transform: scale(0.97); }
-    .tile.picked { border-color: var(--brand-cyan, #00BCD4); }
-    .tile-picture { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
-    .tile-picture img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .tile-placeholder { font-size: 3rem; }
-    .tile-name { font-weight: 600; font-size: 0.95rem; text-align: center; line-height: 1.15; max-height: 2.3em; overflow: hidden; }
-    .tile-price { font-size: 1.15rem; font-weight: 800; color: var(--brand-blue, #0082CD); }
-    .cell-four .tile-name { font-size: 0.8rem; }
-    .cell-four .tile-price { font-size: 0.95rem; }
-    .count { position: absolute; top: 4px; right: 4px; min-width: 2rem; height: 2rem; padding: 0 0.4rem; border-radius: 1rem; background: var(--brand-cyan, #00BCD4); color: #fff; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
-    .extra { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; max-height: 22vh; overflow-y: auto; }
-    .extra .tile { height: 150px; }
-    .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
-    .correction { background: #fff; color: #191E1E; width: 88vw; max-height: 85vh; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; }
-    .correction h2 { margin: 0 0 0.5rem; font-size: 1.5rem; }
-    .correction .btn-done { margin-top: 1rem; padding: 1rem; font-size: 1.3rem; font-weight: 700; border: none; }
+    .timer { flex: 0 0 auto; min-width: 3.2rem; display: flex; align-items: center; justify-content: center; border: 2px solid #191E1E; font-weight: 800; font-size: 1.05rem; }
+    .hint { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 0.6rem 1rem; background: #ffc107; color: #191E1E; font-weight: 700; z-index: 30; }
+    .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 40; }
+    .panel { background: #fff; color: #191E1E; width: 88vw; max-height: 88vh; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; }
+    .panel h2 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    .panel .primary { margin-top: 1rem; padding: 1rem; font-size: 1.3rem; font-weight: 700; border: none; background: var(--brand-blue, #0082CD); color: #fff; }
+    .pay-panel { align-items: center; text-align: center; }
+    .muted { opacity: 0.7; }
     .line { padding: 0.6rem 0; border-bottom: 1px solid #e5e5e5; }
     .line-name { font-weight: 600; font-size: 1.15rem; }
     .line-controls { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; }
@@ -139,23 +191,48 @@
     .qty { min-width: 2rem; text-align: center; font-size: 1.4rem; font-weight: 700; }
     .sum { margin-left: auto; font-weight: 700; font-size: 1.15rem; }
     .remove { width: 3rem; height: 3rem; border: none; background: #dc3545; color: #fff; font-size: 1.3rem; }
+    /* Introduction: a dimming layer over everything, the highlighted part lifted above it (a
+       huge box-shadow as the dimming, as on the kiosk, is not drawn by Firefox for some elements) */
+    .intro-dim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); z-index: 45; }
+    .spot { position: relative; z-index: 50; box-shadow: 0 0 0 4px var(--brand-cyan, #00BCD4); }
+    .intro-caption { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); width: 84vw; z-index: 60; background: #fff; color: #191E1E; padding: 1rem 1.2rem; box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5); }
+    .intro-count { font-size: 0.85rem; opacity: 0.6; }
+    .intro-text { font-size: 1.25rem; font-weight: 600; margin: 0.3rem 0 0.8rem; }
+    .intro-buttons { display: flex; gap: 8px; justify-content: flex-end; }
+    .intro-buttons button { padding: 0.7rem 1.1rem; font-size: 1.05rem; font-weight: 700; border: 2px solid var(--brand-blue, #0082CD); background: #fff; color: var(--brand-blue, #0082CD); }
+    .intro-buttons .primary { background: var(--brand-blue, #0082CD); color: #fff; }
 </style>
 
 @code {
     private static readonly TimeSpan StateInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan ProductsInterval = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan KeepAliveInterval = TimeSpan.FromSeconds(10);
+
+    // Compartments of the 3x3 shelf, numbered row by row; the tablet sits in the top middle one
+    private const int TabletSlot = 2;
+
+    private enum Overlay { None, Correction, Pay, Purchases, Payments }
+
+    private record IntroStep(string Target, string Text);
 
     private readonly CancellationTokenSource _cts = new();
     private List<TabletProductDto> _products = new();
     private TabletStateDto _state = new();
     private DateTime _productsLoadedAt = DateTime.MinValue;
+    private DateTime _lastKeepAlive = DateTime.MinValue;
     private string? _hint;
     private DateTime _hintUntil;
     private bool _busy;
-    private bool _showCorrection;
+    private bool _endedByDone;
+    private Overlay _overlay;
+    private IEnumerable<PurchaseDto>? _purchases;
+    private IEnumerable<PaymentDto>? _payments;
+    private List<IntroStep>? _intro;
+    private int _introStep;
+    private bool _introAuto;
+    private int? _introShownForUser;
 
-    // Compartments of the 3x3 shelf, numbered row by row; the tablet sits in the top middle one
-    private const int TabletSlot = 2;
+    private bool ShowReminder => _state.Active && _state.OpenAmount >= 10;
 
     private List<TabletProductDto> InSlot(int slot) => _products.Where(p => p.ShelfSlot == slot).ToList();
 
@@ -163,22 +240,67 @@
     private List<TabletProductDto> Unplaced =>
         _products.Where(p => p.ShelfSlot is not (>= 1 and <= 9) || p.ShelfSlot == TabletSlot).ToList();
 
-    private RenderFragment ProductTile(TabletProductDto product) => __builder =>
+    private string Spot(string target) => _intro != null && _intro[_introStep].Target == target ? "spot" : "";
+
+    private string FirstName => (_state.Username ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+
+    private RenderFragment TabletCell() => __builder =>
+    {
+        <div class="cell tablet-cell @Spot("total")">
+            @if (!_state.Active)
+            {
+                <div class="hello">Snackbox</div>
+                <div class="sub">Scan your card, then tap what you take</div>
+            }
+            else
+            {
+                <div class="hello">Hi @FirstName!</div>
+                @if (!_state.Picking)
+                {
+                    <div class="scans">
+                        @foreach (var scan in _state.CardScans)
+                        {
+                            <div>@scan.Count × @scan.Amount.ToString("0.00") €</div>
+                        }
+                    </div>
+                }
+                <div class="total">
+                    @if (_state.DiscountedTotal < _state.Total)
+                    {
+                        <s class="total-old">@_state.Total.ToString("0.00") €</s>
+                    }
+                    @_state.DiscountedTotal.ToString("0.00") €
+                </div>
+                <div class="actions">
+                    @if (_state.Picking)
+                    {
+                        <button class="btn-correct" @onclick="() => Open(Overlay.Correction)" disabled="@(_busy || _state.Items.Count == 0)">Correct</button>
+                    }
+                    <button class="btn-done @Spot("done")" @onclick="Done" disabled="@_busy">Done</button>
+                    <span class="timer" title="Seconds until the purchase closes by itself">@_state.SecondsLeft</span>
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment ProductRow(TabletProductDto product) => __builder =>
     {
         var quantity = _state.Items.Where(i => i.ProductId == product.Id).Sum(i => i.Quantity);
-        <button class="tile @(quantity > 0 ? "picked" : "")" @onclick="() => Add(product)" disabled="@_busy">
-            <div class="tile-picture">
+        <button class="row @(quantity > 0 ? "picked" : "")" @onclick="() => Add(product)" disabled="@_busy">
+            <div class="row-picture">
                 @if (product.HasImage)
                 {
                     <img src="tablet/image/@(product.Id)?v=@(product.ImageVersion)" alt="" loading="lazy" />
                 }
                 else
                 {
-                    <span class="tile-placeholder">🍫</span>
+                    <span class="row-placeholder">🍫</span>
                 }
             </div>
-            <div class="tile-name">@product.Name</div>
-            <div class="tile-price">@product.Price.ToString("0.00") €</div>
+            <div class="row-text">
+                <span class="row-name">@product.Name</span>
+                <span class="row-price">@product.Price.ToString("0.00") €</span>
+            </div>
             @if (quantity > 0)
             {
                 <span class="count">@quantity</span>
@@ -202,8 +324,28 @@
                 try
                 {
                     var wasActive = _state.Active;
+                    var previousUser = _state.UserId;
                     if (!_busy) _state = await TabletApi.GetStateAsync();
-                    if (!_state.Active) _showCorrection = false;
+
+                    if (wasActive && (!_state.Active || _state.UserId != previousUser)) ResetView();
+
+                    // Ran out without Done: dark until the next scan (Done does that on the server)
+                    if (wasActive && !_state.Active && !_endedByDone) await TabletApi.SleepAsync();
+                    if (_state.Active) _endedByDone = false;
+
+                    // First time on the tablet: the introduction, once per scan
+                    if (_state.Active && _state.ShowIntro && _intro == null && _introShownForUser != _state.UserId)
+                    {
+                        _introShownForUser = _state.UserId;
+                        StartIntro(auto: true);
+                    }
+
+                    // Reading counts as activity, so the purchase does not close meanwhile
+                    if (_state.Active && (_intro != null || _overlay != Overlay.None) && DateTime.UtcNow - _lastKeepAlive > KeepAliveInterval)
+                    {
+                        _lastKeepAlive = DateTime.UtcNow;
+                        await TabletApi.KeepAliveAsync();
+                    }
 
                     // Fresh shelf after a purchase, and once a minute in case an admin changed it
                     if (DateTime.UtcNow - _productsLoadedAt > ProductsInterval || (wasActive && !_state.Active))
@@ -227,6 +369,14 @@
         }
     }
 
+    private void ResetView()
+    {
+        _overlay = Overlay.None;
+        _intro = null;
+        _purchases = null;
+        _payments = null;
+    }
+
     private Task Add(TabletProductDto product) => AddById(product.Id);
 
     private async Task AddById(int productId)
@@ -234,6 +384,11 @@
         if (!_state.Active)
         {
             ShowHint("Scan your card first");
+            return;
+        }
+        if (!_state.Picking)
+        {
+            ShowHint("You pay with the codes on your card");
             return;
         }
 
@@ -251,7 +406,6 @@
         }
         catch (Refit.ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
         {
-            _state = new TabletStateDto();
             ShowHint("Your time ran out - scan your card again");
         }
         catch (Exception)
@@ -269,18 +423,78 @@
         _busy = true;
         try
         {
+            _endedByDone = true;
             await TabletApi.CompleteAsync();
             _state = new TabletStateDto();
-            ShowHint("Thanks - enjoy!");
+            ResetView();
             _productsLoadedAt = DateTime.MinValue;
         }
         catch (Exception)
         {
+            _endedByDone = false;
             ShowHint("That did not work - please try again");
         }
         finally
         {
             _busy = false;
+        }
+    }
+
+    private void Open(Overlay overlay) => _overlay = overlay;
+
+    private void Close() => _overlay = Overlay.None;
+
+    private async Task ShowPurchases()
+    {
+        _overlay = Overlay.Purchases;
+        _purchases = await PurchasesApi.GetByUserIdAsync(_state.UserId);
+    }
+
+    private async Task ShowPayments()
+    {
+        _overlay = Overlay.Payments;
+        _payments = await PaymentsApi.GetByUserIdAsync(_state.UserId);
+    }
+
+    private void StartIntro(bool auto)
+    {
+        _overlay = Overlay.None;
+        _introAuto = auto;
+        _introStep = 0;
+        _intro = _state.Picking
+            ? [
+                new("shelf", "Every compartment of the shelf is shown where it is. Tap a snack to take it - the number shows how many you have."),
+                new("total", "Your total. Tapped the wrong one? \"Correct\" lets you change or remove it."),
+                new("done", "Tap \"Done\" when you have everything. Otherwise the purchase closes by itself when the counter reaches 0."),
+                new("toolbar", "Your purchases, your payments and what is still open. \"Pay\" shows the PayPal code."),
+                new("help", "This button shows the introduction again.")
+            ]
+            : [
+                new("total", "Every amount you scan shows up here, with your total."),
+                new("done", "\"Done\" when you are finished - otherwise it closes by itself when the counter reaches 0."),
+                new("toolbar", "Your purchases, your payments and what is still open. \"Pay\" shows the PayPal code."),
+                new("help", "This button shows the introduction again.")
+            ];
+    }
+
+    private async Task NextIntroStep()
+    {
+        if (_intro != null && _introStep < _intro.Count - 1) _introStep++;
+        else await EndIntro();
+    }
+
+    private async Task EndIntro()
+    {
+        _intro = null;
+        if (!_introAuto) return;
+
+        try
+        {
+            await TabletApi.IntroSeenAsync();
+        }
+        catch (Exception)
+        {
+            // Shown again next time - not worth bothering the user
         }
     }
 

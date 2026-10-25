@@ -22,4 +22,13 @@ public interface ITabletApi
 
     [Post("/api/tablet/complete")]
     Task CompleteAsync();
+
+    [Post("/api/tablet/sleep")]
+    Task SleepAsync();
+
+    [Post("/api/tablet/keepalive")]
+    Task KeepAliveAsync();
+
+    [Post("/api/tablet/intro-seen")]
+    Task IntroSeenAsync();
 }
