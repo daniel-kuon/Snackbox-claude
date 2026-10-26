@@ -32,6 +32,11 @@ sandbox accounts.
   is missed and nothing is booked twice (the PayPal transaction id is unique).
 - Only completed payments into the account count - pending ones are picked up once completed,
   money sent from the account and refunds are ignored.
+- Only payments in euros are booked; one in another currency stays on the list - book it by
+  hand (converted) and dismiss it.
+- When PayPal takes a payment back (reversal, chargeback, refund) the payment is marked
+  *taken back*: never booked from then on, and if it was booked already it stays on the list in
+  red until the booked payment is corrected by hand and the row is marked *Done*.
 - *Dismiss* takes a payment off the open list (not for Snackbox after all, or already booked by
   hand); *Show booked and dismissed ones* brings it back.
 - Deleting a booked payment in the user's details puts the PayPal payment back to open.

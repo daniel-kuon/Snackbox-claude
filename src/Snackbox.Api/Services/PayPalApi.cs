@@ -18,10 +18,14 @@ public class PayPalApi(HttpClient http)
 
     private static readonly TimeSpan MaxRange = TimeSpan.FromDays(31);
 
+    /// <param name="ReferenceId">For money going out: the transaction it takes back (reversal, chargeback, refund).</param>
     public record Received(string TransactionId, DateTime At, decimal Amount, string Currency,
-                           string PayerKey, string? PayerName, string? PayerEmail, string? Note);
+                           string PayerKey, string? PayerName, string? PayerEmail, string? Note, string? ReferenceId = null);
 
-    /// <summary>Completed incoming payments between <paramref name="from"/> and <paramref name="to"/>.</summary>
+    /// <summary>
+    /// Completed incoming payments between <paramref name="from"/> and <paramref name="to"/>, and
+    /// the completed outgoing ones that take an earlier payment back (negative amount, ReferenceId).
+    /// </summary>
     public async Task<List<Received>> ReceivedAsync(string baseUrl, string clientId, string secret,
                                                     DateTime from, DateTime to, CancellationToken cancellationToken)
     {
@@ -64,12 +68,13 @@ public class PayPalApi(HttpClient http)
             if (Text(info, "transaction_status") != "S") continue;
             if (!info.TryGetProperty("transaction_amount", out var money)) continue;
             var amount = decimal.Parse(Text(money, "value") ?? "0", CultureInfo.InvariantCulture);
-            if (amount <= 0) continue; // money we sent, fees, refunds
+            var referenceId = Text(info, "paypal_reference_id");
+            if (amount == 0 || (amount < 0 && referenceId == null)) continue; // fees, money we sent
 
             detail.TryGetProperty("payer_info", out var payer);
             var email = payer.ValueKind == JsonValueKind.Object ? Text(payer, "email_address") : null;
             var accountId = payer.ValueKind == JsonValueKind.Object ? Text(payer, "account_id") : null;
-            var key = accountId ?? email;
+            var key = accountId ?? email ?? (amount < 0 ? "" : null);
             if (key == null) continue; // nobody to assign it to
 
             string? name = null;
@@ -91,7 +96,8 @@ public class PayPalApi(HttpClient http)
                 key,
                 string.IsNullOrWhiteSpace(name) ? null : name,
                 email,
-                note.Length == 0 ? null : note);
+                note.Length == 0 ? null : note,
+                amount < 0 ? referenceId : null);
         }
     }
 

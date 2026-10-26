@@ -82,12 +82,23 @@
                                         <div class="small text-muted">@t.PayerEmail</div>
                                     }
                                 </td>
-                                <td class="small">@t.Note</td>
+                                <td class="small">
+                                    @t.Note
+                                    @if (t.ReversedAt is { } reversedAt)
+                                    {
+                                        <div class="text-danger fw-bold">⚠ Taken back by PayPal on @reversedAt.ToLocalTime().ToString("dd.MM.yyyy")@(t.PaymentId != null ? " - the booked payment needs correcting" : "")</div>
+                                    }
+                                </td>
                                 <td class="text-end">@t.Amount.ToString("0.00") @t.Currency</td>
                                 @if (t.PaymentId != null)
                                 {
                                     <td>✓ @t.BookedUsername</td>
-                                    <td></td>
+                                    <td>
+                                        @if (t.ReversedAt != null)
+                                        {
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => DismissAsync(t, true)" disabled="@_busy" title="Corrected - hide it">Done</button>
+                                        }
+                                    </td>
                                 }
                                 else if (t.Dismissed)
                                 {
@@ -129,7 +140,8 @@
     private string? _error;
 
     private IEnumerable<PayPalTransactionDto> Shown =>
-        (_transactions ?? new()).Where(t => _showAll || (t.PaymentId == null && !t.Dismissed));
+        // Taken back by PayPal after booking: stays in sight until someone looked at it
+        (_transactions ?? new()).Where(t => _showAll || (t.PaymentId == null && !t.Dismissed) || (t.ReversedAt != null && !t.Dismissed));
 
     protected override async Task OnInitializedAsync()
     {

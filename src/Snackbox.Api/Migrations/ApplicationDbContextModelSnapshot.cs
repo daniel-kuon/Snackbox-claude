@@ -1025,6 +1025,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("received_at");
 
+                    b.Property<DateTime?>("ReversedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reversed_at");
+
                     b.Property<string>("TransactionId")
                         .IsRequired()
                         .HasMaxLength(64)

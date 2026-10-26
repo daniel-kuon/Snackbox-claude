@@ -20,6 +20,9 @@ public class PayPalTransactionDto
     public int? AssignedUserId { get; set; }
 
     public bool Dismissed { get; set; }
+
+    /// <summary>PayPal took the money back - see the booked payment.</summary>
+    public DateTime? ReversedAt { get; set; }
 }
 
 public class PayPalStatusDto

@@ -86,13 +86,42 @@ public class PayPalSyncTests
         Assert.Equal(new[] { 2.50m, 5.00m }, await _context.Payments.Select(p => p.Amount).OrderBy(a => a).ToArrayAsync());
     }
 
-    private static string Transaction(string id, string amount, string status, string payer, string note) => $$"""
+    [Fact]
+    public async Task PaymentsInOtherCurrencies_AreListedButNotBooked()
+    {
+        _paypal.Transactions = [Transaction("T1", "5.00", "S", "PAYER-A", "Snackbox", currency: "USD")];
+        await _sync.SyncAsync();
+        var transaction = await _context.PayPalTransactions.SingleAsync();
+
+        await Assert.ThrowsAsync<PayPalException>(() => _sync.AssignAsync(transaction.Id, userId: 1));
+
+        Assert.Empty(_context.Payments);
+    }
+
+    [Fact]
+    public async Task APaymentPayPalTakesBack_IsFlaggedAndNeverBooked()
+    {
+        _paypal.Transactions = [Transaction("T1", "5.00", "S", "PAYER-A", "Snackbox")];
+        await _sync.SyncAsync();
+
+        _paypal.Transactions = [Transaction("T9", "-5.00", "S", "PAYER-A", "", reference: "T1")];
+        await _sync.SyncAsync();
+        var transaction = await _context.PayPalTransactions.SingleAsync();
+        Assert.NotNull(transaction.ReversedAt);
+
+        await _sync.AssignAsync(transaction.Id, userId: 1);
+        Assert.Empty(_context.Payments);
+    }
+
+    private static string Transaction(string id, string amount, string status, string payer, string note,
+                                      string currency = "EUR", string? reference = null) => $$"""
         {
           "transaction_info": {
             "transaction_id": "{{id}}",
             "transaction_event_code": "T0011",
             "transaction_initiation_date": "2026-10-20T10:00:00+0000",
-            "transaction_amount": { "currency_code": "EUR", "value": "{{amount}}" },
+            "transaction_amount": { "currency_code": "{{currency}}", "value": "{{amount}}" },
+            {{(reference == null ? "" : $"\"paypal_reference_id\": \"{reference}\",")}}
             "transaction_status": "{{status}}",
             "transaction_note": "{{note}}"
           },

@@ -45,7 +45,8 @@ public class PayPalController(ApplicationDbContext context, PayPalSync sync) : C
             PaymentId = r.Transaction.PaymentId,
             BookedUsername = r.BookedUsername,
             AssignedUserId = payers.TryGetValue(r.Transaction.PayerKey, out var userId) ? userId : null,
-            Dismissed = r.Transaction.Dismissed
+            Dismissed = r.Transaction.Dismissed,
+            ReversedAt = r.Transaction.ReversedAt
         }).ToList();
         return Ok(transactions);
     }
@@ -76,7 +77,8 @@ public class PayPalController(ApplicationDbContext context, PayPalSync sync) : C
     {
         var transaction = await context.PayPalTransactions.FindAsync(id);
         if (transaction == null) return NotFound();
-        if (transaction.PaymentId != null) return BadRequest(new { message = "Already booked" });
+        // A booked one only once PayPal took it back and the admin has dealt with it
+        if (transaction.PaymentId != null && transaction.ReversedAt == null) return BadRequest(new { message = "Already booked" });
         transaction.Dismissed = dismissed;
         await context.SaveChangesAsync();
         return NoContent();

@@ -30,4 +30,10 @@ public class PayPalTransaction
 
     /// <summary>Not for Snackbox after all (or booked by hand): no longer listed as open.</summary>
     public bool Dismissed { get; set; }
+
+    /// <summary>
+    /// PayPal took the money back (reversal, chargeback, refund): never booked from then on, and a
+    /// booked one is flagged on the admin page - correcting it is the admin's call.
+    /// </summary>
+    public DateTime? ReversedAt { get; set; }
 }

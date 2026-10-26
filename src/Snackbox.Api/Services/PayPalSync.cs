@@ -75,11 +75,22 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
         return GetStatus();
     }
 
-    /// <summary>The Snackbox ones not stored yet.</summary>
+    /// <summary>The Snackbox ones not stored yet; marks stored ones PayPal took back.</summary>
     public async Task<int> AddAsync(IEnumerable<PayPalApi.Received> received, CancellationToken cancellationToken = default)
     {
-        var forUs = received
-            .Where(r => r.Note?.Contains(Keyword, StringComparison.OrdinalIgnoreCase) == true)
+        var all = received.ToList();
+        foreach (var reversal in all.Where(r => r.Amount < 0 && r.ReferenceId != null))
+        {
+            var original = await context.PayPalTransactions
+                .FirstOrDefaultAsync(t => t.TransactionId == reversal.ReferenceId && t.ReversedAt == null, cancellationToken);
+            if (original == null) continue;
+            original.ReversedAt = reversal.At;
+            logger.LogWarning("PayPal took back {TransactionId} ({Amount} {Currency}) - booked payment {PaymentId} needs a look",
+                              original.TransactionId, original.Amount, original.Currency, original.PaymentId);
+        }
+
+        var forUs = all
+            .Where(r => r.Amount > 0 && r.Note?.Contains(Keyword, StringComparison.OrdinalIgnoreCase) == true)
             .DistinctBy(r => r.TransactionId)
             .ToList();
         var ids = forUs.Select(r => r.TransactionId).ToList();
@@ -113,6 +124,8 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
     {
         var transaction = await context.PayPalTransactions.FindAsync(transactionId)
                           ?? throw new KeyNotFoundException("PayPal payment not found");
+        if (transaction.Currency != Currency)
+            throw new PayPalException($"Paid in {transaction.Currency}, not {Currency} - book it by hand and dismiss it here");
         if (!await context.Users.AnyAsync(u => u.Id == userId)) throw new KeyNotFoundException("User not found");
 
         var payer = await context.PayPalPayers.FirstOrDefaultAsync(p => p.PayerKey == transaction.PayerKey);
@@ -124,7 +137,10 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
         return await BookAssignedAsync();
     }
 
-    /// <summary>Books every open, not dismissed payment whose payer is assigned.</summary>
+    /// <summary>What balances are kept in. Payments in other currencies wait for the admin.</summary>
+    public const string Currency = "EUR";
+
+    /// <summary>Books every open, not dismissed, not reversed payment in euros whose payer is assigned.</summary>
     public async Task<int> BookAssignedAsync()
     {
         var adminUserId = configuration.GetValue<int?>("PayPal:AdminUserId");
@@ -132,7 +148,7 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
         if (admin == null) throw new PayPalException("The receiving admin in Admin → Settings → PayPal is missing or no admin");
 
         var open = await context.PayPalTransactions
-            .Where(t => t.PaymentId == null && !t.Dismissed)
+            .Where(t => t.PaymentId == null && !t.Dismissed && t.ReversedAt == null && t.Currency == Currency)
             .Join(context.PayPalPayers, t => t.PayerKey, p => p.PayerKey, (t, p) => new { Transaction = t, p.UserId })
             .OrderBy(x => x.Transaction.ReceivedAt)
             .ToListAsync();
