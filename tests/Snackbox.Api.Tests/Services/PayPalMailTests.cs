@@ -25,6 +25,20 @@ public class PayPalMailTests
     }
 
     [Fact]
+    public void Parse_TheNoteCannotPassForPayPalsOwnFields()
+    {
+        // A payer writing PayPal's labels into the note: a second code, amount and payer
+        var forged = Sample.Replace("Snackbox Max - für Oktober. Viele Grüße",
+            "Snackbox<br>Transaktionscode<br>9ZZ99999ZZ999999Z<br>Erhaltener Betrag<br>999,00 € EUR<br>Eve hat dir 999,00 € EUR gesendet");
+
+        var received = PayPalMail.Parse(forged, DateTime.UtcNow)!;
+
+        Assert.Equal("1AB23456CD789012E", received.TransactionId);
+        Assert.Equal(12.50m, received.Amount);
+        Assert.Equal("Max Beispiel", received.PayerName);
+    }
+
+    [Fact]
     public void Parse_IgnoresOtherMails() =>
         Assert.Null(PayPalMail.Parse("<p>Deine Rechnung ist da</p><p>Betrag 12,50 € EUR</p>", DateTime.UtcNow));
 

@@ -16,20 +16,24 @@ public static partial class PayPalMail
     {
         var text = ToText(html);
 
-        var id = TransactionId().Match(text);
-        var amount = Amount().Match(text);
-        var payer = Payer().Match(text);
-        if (!id.Success || !amount.Success || !payer.Success) return null;
+        // The note is the payer's own text: code, amount and payer come only from PayPal's part
+        // above it, and each label exactly once - a note cannot pass for any of them
+        var noteStart = NoteLabel().Match(text);
+        var head = noteStart.Success ? text[..noteStart.Index] : text;
+        var id = TransactionId().Matches(head);
+        var amount = Amount().Matches(head);
+        var payer = Payer().Matches(head);
+        if (id.Count != 1 || amount.Count != 1 || payer.Count != 1) return null;
 
-        var value = decimal.Parse(amount.Groups["value"].Value, NumberStyles.Number, CultureInfo.GetCultureInfo("de-DE"));
+        var value = decimal.Parse(amount[0].Groups["value"].Value, NumberStyles.Number, CultureInfo.GetCultureInfo("de-DE"));
         var note = Note().Match(text);
-        var name = payer.Groups["name"].Value.Trim();
+        var name = payer[0].Groups["name"].Value.Trim();
 
         return new PayPalApi.Received(
-            id.Groups["id"].Value,
+            id[0].Groups["id"].Value,
             receivedAt,
             value,
-            amount.Groups["currency"].Value,
+            amount[0].Groups["currency"].Value,
             PayerKey(name),
             name,
             null,
@@ -65,6 +69,9 @@ public static partial class PayPalMail
 
     [GeneratedRegex(@"(?m)^(?<name>.+?) hat dir [\d.]+,\d{2}\s*€?\s*[A-Z]{3} gesendet$")]
     private static partial Regex Payer();
+
+    [GeneratedRegex(@"(?m)^Mitteilung von ")]
+    private static partial Regex NoteLabel();
 
     // The note: the lines after "Mitteilung von <payer>" up to PayPal's own text below it
     [GeneratedRegex(@"(?ms)^Mitteilung von [^\n]+\n(?<note>.+?)(?=\n(Du siehst das Geld|Bist du zufrieden|Hilfe & Kontakt)|\z)")]

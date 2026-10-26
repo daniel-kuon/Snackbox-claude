@@ -159,7 +159,7 @@ public partial class PayPalMailbox(
 
         var result = new List<PayPalApi.Received>();
         string? next = $"{Graph}/me/mailFolders/inbox/messages?$filter=receivedDateTime ge {from.ToUniversalTime():yyyy-MM-ddTHH:mm:ssZ}" +
-                       "&$select=id,from,receivedDateTime&$top=100";
+                       "&$select=id,from,subject,receivedDateTime&$top=100";
         while (next != null)
         {
             using var response = await http.GetAsync(next, cancellationToken);
@@ -168,7 +168,8 @@ public partial class PayPalMailbox(
             var page = await response.Content.ReadFromJsonAsync<MessagePage>(cancellationToken);
             foreach (var message in page?.Value ?? [])
             {
-                if (!FromPayPal(message.From?.EmailAddress?.Address)) continue;
+                // "Du hast eine Zahlung erhalten" - not PayPal's other mails (requests, statements, ...)
+                if (!FromPayPal(message.From?.EmailAddress?.Address) || message.Subject?.Contains("Zahlung erhalten", StringComparison.OrdinalIgnoreCase) != true) continue;
 
                 using var full = await http.GetAsync($"{Graph}/me/messages/{message.Id}?$select=body,internetMessageHeaders,receivedDateTime", cancellationToken);
                 if (!full.IsSuccessStatusCode) continue;
@@ -304,6 +305,7 @@ public partial class PayPalMailbox(
     {
         [JsonPropertyName("id")] public string? Id { get; set; }
         [JsonPropertyName("receivedDateTime")] public DateTimeOffset? ReceivedDateTime { get; set; }
+        [JsonPropertyName("subject")] public string? Subject { get; set; }
         [JsonPropertyName("from")] public Recipient? From { get; set; }
         [JsonPropertyName("body")] public ItemBody? Body { get; set; }
         [JsonPropertyName("internetMessageHeaders")] public List<MessageHeader>? InternetMessageHeaders { get; set; }
