@@ -1,0 +1,186 @@
+@page "/admin/paypal"
+@inherits AdminPageBase
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@using Refit
+@inject IPayPalApi PayPalApi
+@inject IUsersApi UsersApi
+
+<PageTitle>PayPal - Snackbox Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="page-header">
+        <h2>PayPal payments</h2>
+        <p class="text-muted mb-0">
+            Payments received on the admin's PayPal account with "Snackbox" in the note, fetched every
+            30 minutes (PayPal lists them up to 3 hours late). Assign a payer to a user once: this payment
+            and every later one from them is booked as a PayPal payment by itself.
+        </p>
+    </div>
+
+    <div class="settings-section">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            @if (_status == null)
+            {
+                <span>Loading...</span>
+            }
+            else if (!_status.Configured)
+            {
+                <span class="text-warning">Not set up yet - client id, secret and whose account it is go into <a href="admin/settings">Admin → Settings → PayPal payments</a>.</span>
+            }
+            else
+            {
+                <span>
+                    Last fetched: @(_status.LastSyncAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "not yet")
+                    @if (_status.LastSyncAt != null)
+                    {
+                        <span class="text-muted"> - @_status.LastAdded new, @_status.LastBooked booked</span>
+                    }
+                </span>
+            }
+            <button class="btn btn-primary" @onclick="SyncAsync" disabled="@_busy">Fetch now</button>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="showAll" @bind="_showAll" />
+                <label class="form-check-label" for="showAll">Show booked and dismissed ones</label>
+            </div>
+        </div>
+        @if (_status?.LastError is { } lastError)
+        {
+            <div class="alert alert-danger mt-3 mb-0">@lastError</div>
+        }
+        @if (_error != null)
+        {
+            <div class="alert alert-danger mt-3 mb-0">@_error</div>
+        }
+    </div>
+
+    <div class="settings-section">
+        @if (_transactions == null)
+        {
+            <p>Loading...</p>
+        }
+        else if (!Shown.Any())
+        {
+            <p class="text-muted mb-0">@(_showAll ? "No Snackbox payments received yet." : "Nothing to assign - every Snackbox payment is booked.")</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr><th>Received</th><th>From</th><th>Note</th><th class="text-end">Amount</th><th>User</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in Shown)
+                        {
+                            <tr class="@(t.Dismissed ? "text-muted" : "")">
+                                <td>@t.ReceivedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>
+                                    @(t.PayerName ?? "?")
+                                    @if (t.PayerEmail != null)
+                                    {
+                                        <div class="small text-muted">@t.PayerEmail</div>
+                                    }
+                                </td>
+                                <td class="small">@t.Note</td>
+                                <td class="text-end">@t.Amount.ToString("0.00") @t.Currency</td>
+                                @if (t.PaymentId != null)
+                                {
+                                    <td>✓ @t.BookedUsername</td>
+                                    <td></td>
+                                }
+                                else if (t.Dismissed)
+                                {
+                                    <td>dismissed</td>
+                                    <td><button class="btn btn-sm btn-outline-secondary" @onclick="() => DismissAsync(t, false)" disabled="@_busy">Back to open</button></td>
+                                }
+                                else
+                                {
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="_choice[t.Id]">
+                                            <option value="0">- whose payment? -</option>
+                                            @foreach (var user in _users)
+                                            {
+                                                <option value="@user.Id">@user.Username</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td class="text-nowrap">
+                                        <button class="btn btn-sm btn-primary" @onclick="() => AssignAsync(t)" disabled="@(_busy || _choice[t.Id] == 0)">Assign &amp; book</button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => DismissAsync(t, true)" disabled="@_busy" title="Not for Snackbox, or booked by hand">Dismiss</button>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private PayPalStatusDto? _status;
+    private List<PayPalTransactionDto>? _transactions;
+    private List<UserDto> _users = new();
+    private readonly Dictionary<int, int> _choice = new();
+    private bool _showAll;
+    private bool _busy;
+    private string? _error;
+
+    private IEnumerable<PayPalTransactionDto> Shown =>
+        (_transactions ?? new()).Where(t => _showAll || (t.PaymentId == null && !t.Dismissed));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _users = (await UsersApi.GetAllAsync()).OrderBy(u => u.Username).ToList();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _status = await PayPalApi.GetStatusAsync();
+        _transactions = await PayPalApi.GetTransactionsAsync();
+        foreach (var t in _transactions)
+            _choice.TryAdd(t.Id, t.AssignedUserId ?? 0);
+    }
+
+    private Task SyncAsync() => RunAsync(async () => _status = await PayPalApi.SyncAsync());
+
+    private Task AssignAsync(PayPalTransactionDto t) =>
+        RunAsync(() => PayPalApi.AssignAsync(t.Id, new AssignPayPalPayerDto { UserId = _choice[t.Id] }));
+
+    private Task DismissAsync(PayPalTransactionDto t, bool dismissed) => RunAsync(() => PayPalApi.DismissAsync(t.Id, dismissed));
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await action();
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = $"The API refused the request: {ex.StatusCode}";
+            try
+            {
+                if (ex.Content is { Length: > 0 } content &&
+                    System.Text.Json.JsonDocument.Parse(content).RootElement.TryGetProperty("message", out var message))
+                    _error = message.GetString();
+            }
+            catch (System.Text.Json.JsonException)
+            {
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

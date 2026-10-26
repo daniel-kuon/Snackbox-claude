@@ -103,6 +103,10 @@ builder.Services.AddScoped<IProductCatalogService, ProductCatalogService>();
 builder.Services.AddScoped<IProductImageSearch, ProductImageSearch>();
 builder.Services.AddHttpClient(PublicInternet.HttpClientName).ConfigurePrimaryHttpMessageHandler(PublicInternet.CreateHandler);
 builder.Services.AddSingleton<TabletSessionStore>();
+builder.Services.AddHttpClient<PayPalApi>();
+builder.Services.AddScoped<PayPalSync>();
+builder.Services.AddSingleton<PayPalSync.Status>();
+builder.Services.AddHostedService<PayPalSyncBackgroundService>();
 builder.Services.AddSingleton<TabletDisplay>();
 builder.Services.AddSingleton<OneDriveBackup>();
 // Protects the OneDrive refresh token and the backup passphrase at rest (DPAPI on Windows).
@@ -295,7 +299,9 @@ app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api/auth")
                    && !ctx.Request.Path.StartsWithSegments("/api/legacyimport")
                    // SMTP password and API keys; the backup passphrase and OneDrive sign-in; backup files
                    && !ctx.Request.Path.StartsWithSegments("/api/settings")
-                   && !ctx.Request.Path.StartsWithSegments("/api/backup"),
+                   && !ctx.Request.Path.StartsWithSegments("/api/backup")
+                   // names and e-mail addresses of PayPal payers, people who may not use Snackbox
+                   && !ctx.Request.Path.StartsWithSegments("/api/paypal"),
             b => b.UseHttpLogging());
 
 app.UseHttpsRedirection();

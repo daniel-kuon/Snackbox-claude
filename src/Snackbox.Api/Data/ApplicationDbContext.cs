@@ -33,6 +33,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserWizardStep> UserWizardSteps => Set<UserWizardStep>();
     public DbSet<UnknownScan> UnknownScans => Set<UnknownScan>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<PayPalTransaction> PayPalTransactions => Set<PayPalTransaction>();
+    public DbSet<PayPalPayer> PayPalPayers => Set<PayPalPayer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -119,6 +121,27 @@ public class ApplicationDbContext : DbContext
             // Legacy keys are unique where set; rows created in this app leave them null.
             entity.HasIndex(e => e.LegacyUserId).IsUnique().HasFilter("legacy_user_id IS NOT NULL");
             entity.HasIndex(e => e.CardNumber).IsUnique().HasFilter("card_number IS NOT NULL");
+        });
+
+        modelBuilder.Entity<PayPalTransaction>(entity =>
+        {
+            entity.ToTable("paypal_transactions");
+            entity.HasIndex(e => e.TransactionId).IsUnique();
+            entity.HasIndex(e => e.PayerKey);
+            entity.Property(e => e.TransactionId).HasMaxLength(64);
+            entity.Property(e => e.PayerKey).HasMaxLength(320);
+            entity.Property(e => e.Currency).HasMaxLength(3);
+            entity.Property(e => e.Amount).HasPrecision(10, 2);
+            // Deleting the booked payment (admin) puts the PayPal payment back to open
+            entity.HasOne(e => e.Payment).WithMany().HasForeignKey(e => e.PaymentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PayPalPayer>(entity =>
+        {
+            entity.ToTable("paypal_payers");
+            entity.HasIndex(e => e.PayerKey).IsUnique();
+            entity.Property(e => e.PayerKey).HasMaxLength(320);
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Barcode>(entity =>

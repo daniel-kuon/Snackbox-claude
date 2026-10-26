@@ -6,6 +6,7 @@ using Snackbox.Api.Data;
 using Snackbox.Api.Dtos;
 using Snackbox.Api.Mappers;
 using Snackbox.Api.Models;
+using Snackbox.Api.Services;
 
 namespace Snackbox.Api.Controllers;
 
@@ -107,68 +108,7 @@ public class PaymentsController : ControllerBase
         try
         {
             var payment = dto.ToEntity();
-
-            // For PayPal payments, create a linked withdrawal for the admin
-            Withdrawal? withdrawal = null;
-            if (payment.Type == PaymentType.PayPal && adminUser != null)
-            {
-                withdrawal = new Withdrawal
-                {
-                    UserId = adminUser.Id,
-                    Amount = payment.Amount,
-                    WithdrawnAt = DateTime.UtcNow,
-                    Notes = $"PayPal payment from {user.Username}"
-                };
-                _context.Withdrawals.Add(withdrawal);
-            }
-
-            // For CashRegister payments, create a linked deposit
-            var deposit = new Deposit
-                          {
-                              UserId = user.Id,
-                              Amount = payment.Amount,
-                              DepositedAt = DateTime.UtcNow,
-                          };
-                _context.Deposits.Add(deposit);
-
-            _context.Payments.Add(payment);
-            await _context.SaveChangesAsync();
-
-            // Link the payment and withdrawal
-            if (withdrawal != null)
-            {
-                payment.LinkedWithdrawalId = withdrawal.Id;
-                withdrawal.LinkedPaymentId = payment.Id;
-            }
-
-            // Link the payment and deposit
-            payment.LinkedDepositId = deposit.Id;
-            deposit.LinkedPaymentId = payment.Id;
-
-            // Update cash register balance for cash register payments
-            if (payment.Type == PaymentType.CashRegister)
-            {
-                var cashRegister = await _context.CashRegister.FirstOrDefaultAsync();
-                if (cashRegister == null)
-                {
-                    // Initialize cash register if it doesn't exist
-                    cashRegister = new CashRegister
-                    {
-                        CurrentBalance = payment.Amount,
-                        LastUpdatedAt = DateTime.UtcNow,
-                        LastUpdatedByUserId = user.Id
-                    };
-                    _context.CashRegister.Add(cashRegister);
-                }
-                else
-                {
-                    cashRegister.CurrentBalance += payment.Amount;
-                    cashRegister.LastUpdatedAt = DateTime.UtcNow;
-                    cashRegister.LastUpdatedByUserId = user.Id;
-                }
-            }
-
-            await _context.SaveChangesAsync();
+            await PaymentBooking.BookAsync(_context, payment, user, adminUser);
             await transaction.CommitAsync();
 
             _logger.LogInformation("Payment created: {PaymentId} for user {UserId} - Amount: {Amount}, Type: {Type}",

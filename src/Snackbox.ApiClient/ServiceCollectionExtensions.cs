@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IUpdatesApi>();
         AddRefitClient<ITabletApi>();
         AddRefitClient<ICardsApi>();
+        AddRefitClient<IPayPalApi>();
 
         return services;
     }
@@ -139,6 +140,7 @@ public static class ServiceCollectionExtensions
         AddRefitClient<IUpdatesApi>();
         AddRefitClient<ITabletApi>();
         AddRefitClient<ICardsApi>();
+        AddRefitClient<IPayPalApi>();
     }
 
 }

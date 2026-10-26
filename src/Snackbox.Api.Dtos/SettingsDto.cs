@@ -32,6 +32,19 @@ public class ApplicationSettingsDto
     public EmailSettingsDto EmailSettings { get; set; } = new();
     public BackupSettingsDto BackupSettings { get; set; } = new();
     public BarcodeLookupSettingsDto BarcodeLookupSettings { get; set; } = new();
+    public PayPalSettingsDto PayPalSettings { get; set; } = new();
+}
+
+/// <summary>
+/// The REST app (developer.paypal.com, "Transaction search" switched on) of the PayPal account
+/// people pay to, and the admin who owns that account - payments are booked as PayPal to them.
+/// </summary>
+public class PayPalSettingsDto
+{
+    public string ClientId { get; set; } = string.Empty;
+    public string ClientSecret { get; set; } = string.Empty;
+    public bool Sandbox { get; set; }
+    public int? AdminUserId { get; set; }
 }
 
 public class TestResultDto

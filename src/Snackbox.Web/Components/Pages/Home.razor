@@ -236,7 +236,7 @@
                                              Size="250"/>
                             <p class="qr-instruction">Scan to pay @Math.Abs(session.OpenAmount).ToString("C") or go to
                                 @PayPal.PayUrl(session.OpenAmount)<br/>
-                                Payments will not show up instantly.</p>
+                                Write <strong>Snackbox</strong> in the note. Payments will not show up instantly.</p>
                         </div>
                         @if (_installUrl != null && IsFeatureEnabled(MobileAppFeature))
                         {

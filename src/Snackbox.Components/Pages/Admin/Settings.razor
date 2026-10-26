@@ -5,6 +5,7 @@
 @using Refit
 @inject ISettingsApi SettingsApi
 @inject IFeatureFlagsApi FeatureFlagsApi
+@inject IUsersApi UsersApi
 @inject NavigationManager Navigation
 
 <PageTitle>Settings - Snackbox Admin</PageTitle>
@@ -131,6 +132,43 @@
                         @_backupTestResult
                     </div>
                 }
+            </div>
+
+            <!-- PayPal: received payments with "Snackbox" in the note (Admin → PayPal) -->
+            <div class="settings-section">
+                <div class="settings-section-header">
+                    <h3>PayPal payments</h3>
+                </div>
+                <small class="form-text text-muted d-block mb-2">
+                    Reads the payments received on the PayPal account people pay to (every 30 minutes) and lists
+                    those with "Snackbox" in the note under <a href="admin/paypal">Admin → PayPal</a>.
+                    Needs a REST app on <a href="https://developer.paypal.com/dashboard/applications/live" target="_blank" rel="noopener">developer.paypal.com</a>
+                    with <em>Transaction search</em> switched on - PayPal gives live API access to business accounts only.
+                    See docs/PAYPAL.md.
+                </small>
+                <div class="form-group">
+                    <label class="form-label">Client ID</label>
+                    <input type="text" class="form-control" @bind="_settings.PayPalSettings.ClientId" placeholder="optional" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Secret</label>
+                    <input type="password" class="form-control" @bind="_settings.PayPalSettings.ClientSecret" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Account of</label>
+                    <select class="form-select" @bind="_settings.PayPalSettings.AdminUserId">
+                        <option value="">- choose the admin whose PayPal account it is -</option>
+                        @foreach (var admin in _admins)
+                        {
+                            <option value="@admin.Id">@admin.Username</option>
+                        }
+                    </select>
+                    <small class="form-text text-muted">Payments are booked as "PayPal to" this admin, like the ones entered by hand.</small>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="paypalSandbox" @bind="_settings.PayPalSettings.Sandbox" />
+                    <label class="form-check-label" for="paypalSandbox">Sandbox (PayPal's test system)</label>
+                </div>
             </div>
 
             <!-- Barcode Lookup Settings -->
@@ -447,12 +485,15 @@
         }
     }
 
+    private List<UserDto> _admins = new();
+
     private async Task LoadSettings()
     {
         try
         {
             _loading = true;
             _settings = await SettingsApi.GetSettingsAsync();
+            _admins = (await UsersApi.GetAllAsync()).Where(u => u.IsAdmin).OrderBy(u => u.Username).ToList();
         }
         catch (Exception ex)
         {

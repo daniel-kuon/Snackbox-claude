@@ -44,6 +44,13 @@ public class SettingsService : ISettingsService
             {
                 ApiKey = _configuration["SearchUpcData:ApiKey"] ?? "",
                 ImageSearchApiKey = _configuration["ImageSearch:SerpApiKey"] ?? ""
+            },
+            PayPalSettings = new PayPalSettingsDto
+            {
+                ClientId = _configuration["PayPal:ClientId"] ?? "",
+                ClientSecret = _configuration["PayPal:ClientSecret"] ?? "",
+                Sandbox = _configuration.GetValue<bool>("PayPal:Sandbox"),
+                AdminUserId = _configuration.GetValue<int?>("PayPal:AdminUserId")
             }
         };
 
@@ -98,6 +105,15 @@ public class SettingsService : ISettingsService
             writer.WritePropertyName("ImageSearch");
             writer.WriteStartObject();
             writer.WriteString("SerpApiKey", settings.BarcodeLookupSettings.ImageSearchApiKey);
+            writer.WriteEndObject();
+
+            // Received PayPal payments (PayPalSync)
+            writer.WritePropertyName("PayPal");
+            writer.WriteStartObject();
+            writer.WriteString("ClientId", settings.PayPalSettings.ClientId);
+            writer.WriteString("ClientSecret", settings.PayPalSettings.ClientSecret);
+            writer.WriteBoolean("Sandbox", settings.PayPalSettings.Sandbox);
+            if (settings.PayPalSettings.AdminUserId is { } adminUserId) writer.WriteNumber("AdminUserId", adminUserId);
             writer.WriteEndObject();
 
             writer.WriteEndObject();

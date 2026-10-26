@@ -135,7 +135,7 @@
         <div class="panel pay-panel" @onclick:stopPropagation="true">
             @PanelHead($"Pay {Math.Abs(_state.OpenAmount):0.00} € with PayPal")
             <QRCodeComponent Url="@PayPal.PayUrl(_state.OpenAmount)" Size="420" />
-            <p class="muted">Scan with your phone. Payments show up once the admin has booked them.</p>
+            <p class="muted">Scan with your phone and write <strong>Snackbox</strong> in the note. Payments show up once they are booked.</p>
         </div>
     </div>
 }
