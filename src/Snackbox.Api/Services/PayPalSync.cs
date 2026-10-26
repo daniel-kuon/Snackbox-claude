@@ -12,7 +12,7 @@ namespace Snackbox.Api.Services;
 /// PayPal admin page until someone assigns their payer, which books them and every later one.
 /// Run every <c>PayPal:PollMinutes</c> (30) by <see cref="PayPalSyncBackgroundService"/> and on demand.
 /// </summary>
-public class PayPalSync(ApplicationDbContext context, IConfiguration configuration, PayPalApi api,
+public class PayPalSync(ApplicationDbContext context, IConfiguration configuration, PayPalApi api, PayPalMailbox mailbox,
                         PayPalSync.Status status, ILogger<PayPalSync> logger)
 {
     /// <summary>What the last run did, for the admin page (one per API process).</summary>
@@ -30,14 +30,22 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
 
     private string Keyword => configuration["PayPal:Keyword"] is { Length: > 0 } keyword ? keyword : "Snackbox";
 
-    public bool Configured =>
+    private bool ApiConfigured =>
         !string.IsNullOrWhiteSpace(configuration["PayPal:ClientId"]) &&
-        !string.IsNullOrWhiteSpace(configuration["PayPal:ClientSecret"]) &&
-        configuration.GetValue<int?>("PayPal:AdminUserId") != null;
+        !string.IsNullOrWhiteSpace(configuration["PayPal:ClientSecret"]);
+
+    /// <summary>
+    /// Where payments come from: the mailbox PayPal's mails arrive in (a private account - PayPal's
+    /// API is for business accounts only), otherwise the API.
+    /// </summary>
+    public string? Source => mailbox.Connected ? "mailbox" : ApiConfigured ? "api" : null;
+
+    public bool Configured => Source != null && configuration.GetValue<int?>("PayPal:AdminUserId") != null;
 
     public PayPalStatusDto GetStatus() => new()
     {
         Configured = Configured,
+        Source = Source,
         LastSyncAt = status.LastSyncAt,
         LastError = status.LastError,
         LastAdded = status.LastAdded,
@@ -54,9 +62,11 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
             var newest = await context.PayPalTransactions.MaxAsync(t => (DateTime?)t.ReceivedAt, cancellationToken);
             var from = newest is { } latest ? latest - Overlap : now - FirstRun;
 
-            var received = await api.ReceivedAsync(
-                configuration.GetValue<bool>("PayPal:Sandbox") ? PayPalApi.SandboxUrl : PayPalApi.LiveUrl,
-                configuration["PayPal:ClientId"]!, configuration["PayPal:ClientSecret"]!, from, now, cancellationToken);
+            var received = Source == "mailbox"
+                ? await mailbox.ReceivedAsync(from, cancellationToken)
+                : await api.ReceivedAsync(
+                    configuration.GetValue<bool>("PayPal:Sandbox") ? PayPalApi.SandboxUrl : PayPalApi.LiveUrl,
+                    configuration["PayPal:ClientId"]!, configuration["PayPal:ClientSecret"]!, from, now, cancellationToken);
 
             var added = await AddAsync(received, cancellationToken);
             var booked = await BookAssignedAsync();
@@ -126,14 +136,26 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
         return added;
     }
 
-    /// <summary>Assigns the payer of <paramref name="transactionId"/> to a user and books all their open payments.</summary>
-    public async Task<int> AssignAsync(int transactionId, int userId)
+    /// <summary>
+    /// Books <paramref name="transactionId"/> to a user. With <paramref name="remember"/> the payer
+    /// is assigned to that user, which books all their open and later payments as well.
+    /// </summary>
+    public async Task<int> AssignAsync(int transactionId, int userId, bool remember = true)
     {
         var transaction = await context.PayPalTransactions.FindAsync(transactionId)
                           ?? throw new KeyNotFoundException("PayPal payment not found");
         if (transaction.Currency != Currency)
             throw new PayPalException($"Paid in {transaction.Currency}, not {Currency} - book it by hand and dismiss it here");
-        if (!await context.Users.AnyAsync(u => u.Id == userId)) throw new KeyNotFoundException("User not found");
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == userId) ?? throw new KeyNotFoundException("User not found");
+
+        if (!remember)
+        {
+            // Someone paying once for somebody else: this payment only
+            if (transaction.PaymentId != null || transaction.ReversedAt != null) return 0;
+            transaction.Dismissed = false;
+            await BookAsync(transaction, user, await ReceivingAdminAsync());
+            return 1;
+        }
 
         var payer = await context.PayPalPayers.FirstOrDefaultAsync(p => p.PayerKey == transaction.PayerKey);
         if (payer == null) context.PayPalPayers.Add(new PayPalPayer { PayerKey = transaction.PayerKey, UserId = userId });
@@ -150,9 +172,7 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
     /// <summary>Books every open, not dismissed, not reversed payment in euros whose payer is assigned.</summary>
     public async Task<int> BookAssignedAsync()
     {
-        var adminUserId = configuration.GetValue<int?>("PayPal:AdminUserId");
-        var admin = adminUserId == null ? null : await context.Users.FirstOrDefaultAsync(u => u.Id == adminUserId && u.IsAdmin);
-        if (admin == null) throw new PayPalException("The receiving admin in Admin → Settings → PayPal is missing or no admin");
+        var admin = await ReceivingAdminAsync();
 
         var open = await context.PayPalTransactions
             .Where(t => t.PaymentId == null && !t.Dismissed && t.ReversedAt == null && t.Currency == Currency)
@@ -161,26 +181,38 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
             .ToListAsync();
 
         foreach (var item in open)
-        {
-            var user = await context.Users.FirstAsync(u => u.Id == item.UserId);
-            var payment = new Payment
-            {
-                UserId = user.Id,
-                Amount = item.Transaction.Amount,
-                PaidAt = item.Transaction.ReceivedAt,
-                Type = PaymentType.PayPal,
-                AdminUserId = admin.Id,
-                Notes = $"PayPal {item.Transaction.TransactionId}: {item.Transaction.Note}"
-            };
-
-            // One payment at a time, all of it or nothing (the in-memory test database has no transactions)
-            await using var dbTransaction = context.Database.IsRelational() ? await context.Database.BeginTransactionAsync() : null;
-            await PaymentBooking.BookAsync(context, payment, user, admin);
-            item.Transaction.PaymentId = payment.Id;
-            await context.SaveChangesAsync();
-            if (dbTransaction != null) await dbTransaction.CommitAsync();
-        }
+            await BookAsync(item.Transaction, await context.Users.FirstAsync(u => u.Id == item.UserId), admin);
         return open.Count;
+    }
+
+    private async Task<User> ReceivingAdminAsync()
+    {
+        var adminUserId = configuration.GetValue<int?>("PayPal:AdminUserId");
+        var admin = adminUserId == null ? null : await context.Users.FirstOrDefaultAsync(u => u.Id == adminUserId && u.IsAdmin);
+        return admin ?? throw new PayPalException("The receiving admin in Admin → Settings → PayPal is missing or no admin");
+    }
+
+    private async Task BookAsync(PayPalTransaction transaction, User user, User admin)
+    {
+        if (transaction.Currency != Currency)
+            throw new PayPalException($"Paid in {transaction.Currency}, not {Currency} - book it by hand and dismiss it here");
+
+        var payment = new Payment
+        {
+            UserId = user.Id,
+            Amount = transaction.Amount,
+            PaidAt = transaction.ReceivedAt,
+            Type = PaymentType.PayPal,
+            AdminUserId = admin.Id,
+            Notes = $"PayPal {transaction.TransactionId}: {transaction.Note}"
+        };
+
+        // One payment at a time, all of it or nothing (the in-memory test database has no transactions)
+        await using var dbTransaction = context.Database.IsRelational() ? await context.Database.BeginTransactionAsync() : null;
+        await PaymentBooking.BookAsync(context, payment, user, admin);
+        transaction.PaymentId = payment.Id;
+        await context.SaveChangesAsync();
+        if (dbTransaction != null) await dbTransaction.CommitAsync();
     }
 }
 

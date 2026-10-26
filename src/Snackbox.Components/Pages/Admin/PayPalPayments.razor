@@ -5,6 +5,7 @@
 @using Refit
 @inject IPayPalApi PayPalApi
 @inject IUsersApi UsersApi
+@implements IDisposable
 
 <PageTitle>PayPal - Snackbox Admin</PageTitle>
 
@@ -19,6 +20,45 @@
     </div>
 
     <div class="settings-section">
+        <div class="settings-section-header"><h4>Where payments come from</h4></div>
+        <p class="text-muted small mb-2">
+            A private PayPal account gets no API access, but PayPal mails every payment
+            ("Du hast eine Zahlung erhalten"). Snackbox reads those mails from the Outlook.com / Microsoft 365
+            mailbox they arrive in - read-only, only PayPal's own mails in the inbox that the mail server confirmed as genuine.
+            The client id can be the one of the OneDrive backup's app registration (see docs/PAYPAL.md).
+        </p>
+        @if (_mailbox == null)
+        {
+            <p>Loading...</p>
+        }
+        else if (_signIn != null)
+        {
+            <div class="alert alert-info mb-0">
+                Open <a href="@_signIn.VerificationUri" target="_blank" rel="noopener">@_signIn.VerificationUri</a>
+                on any device and enter the code <strong>@_signIn.UserCode</strong>, then sign in to the mailbox PayPal's mails go to.
+            </div>
+        }
+        else if (_mailbox.Connected)
+        {
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <span>Mailbox: <strong>@_mailbox.Account</strong></span>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="DisconnectMailboxAsync" disabled="@_busy">Disconnect</button>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex flex-wrap align-items-end gap-2">
+                <div>
+                    <label class="form-label">Client id (app registration)</label>
+                    <input class="form-control" style="min-width: 22rem" @bind="_clientId" placeholder="00000000-0000-0000-0000-000000000000" />
+                </div>
+                <button class="btn btn-primary" @onclick="ConnectMailboxAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_clientId))">Connect mailbox</button>
+            </div>
+            <p class="text-muted small mt-2 mb-0">With a PayPal business account the PayPal API works instead: client id and secret in Admin → Settings.</p>
+        }
+    </div>
+
+    <div class="settings-section">
         <div class="d-flex flex-wrap align-items-center gap-3">
             @if (_status == null)
             {
@@ -26,7 +66,7 @@
             }
             else if (!_status.Configured)
             {
-                <span class="text-warning">Not set up yet - client id, secret and whose account it is go into <a href="admin/settings">Admin → Settings → PayPal payments</a>.</span>
+                <span class="text-warning">Not set up yet - connect the mailbox above and choose whose PayPal account it is in <a href="admin/settings">Admin → Settings → PayPal payments</a>.</span>
             }
             else
             {
@@ -117,7 +157,11 @@
                                         </select>
                                     </td>
                                     <td class="text-nowrap">
-                                        <button class="btn btn-sm btn-primary" @onclick="() => AssignAsync(t)" disabled="@(_busy || _choice[t.Id] == 0)">Assign &amp; book</button>
+                                        <div class="form-check form-check-inline small" title="Book this payer's later payments to the same user by themselves. Untick when someone pays once for somebody else.">
+                                            <input type="checkbox" class="form-check-input" id="remember@(t.Id)" checked="@Remember(t)" @onchange="e => _remember[t.Id] = (bool)e.Value!" />
+                                            <label class="form-check-label" for="remember@(t.Id)">always</label>
+                                        </div>
+                                        <button class="btn btn-sm btn-primary" @onclick="() => AssignAsync(t)" disabled="@(_busy || _choice[t.Id] == 0)">Book</button>
                                         <button class="btn btn-sm btn-outline-secondary" @onclick="() => DismissAsync(t, true)" disabled="@_busy" title="Not for Snackbox, or booked by hand">Dismiss</button>
                                     </td>
                                 }
@@ -135,6 +179,11 @@
     private List<PayPalTransactionDto>? _transactions;
     private List<UserDto> _users = new();
     private readonly Dictionary<int, int> _choice = new();
+    private readonly Dictionary<int, bool> _remember = new();
+    private PayPalMailboxStatusDto? _mailbox;
+    private OneDriveSignInDto? _signIn;
+    private string? _clientId;
+    private readonly CancellationTokenSource _cts = new();
     private bool _showAll;
     private bool _busy;
     private string? _error;
@@ -149,8 +198,12 @@
         await LoadAsync();
     }
 
+    private bool Remember(PayPalTransactionDto t) => _remember.TryGetValue(t.Id, out var remember) ? remember : true;
+
     private async Task LoadAsync()
     {
+        _mailbox = await PayPalApi.GetMailboxAsync();
+        _clientId ??= _mailbox.ClientId;
         _status = await PayPalApi.GetStatusAsync();
         _transactions = await PayPalApi.GetTransactionsAsync();
         foreach (var t in _transactions)
@@ -160,7 +213,46 @@
     private Task SyncAsync() => RunAsync(async () => _status = await PayPalApi.SyncAsync());
 
     private Task AssignAsync(PayPalTransactionDto t) =>
-        RunAsync(() => PayPalApi.AssignAsync(t.Id, new AssignPayPalPayerDto { UserId = _choice[t.Id] }));
+        RunAsync(() => PayPalApi.AssignAsync(t.Id, new AssignPayPalPayerDto { UserId = _choice[t.Id], Remember = Remember(t) }));
+
+    private Task ConnectMailboxAsync() => RunAsync(async () =>
+    {
+        await PayPalApi.SetMailboxClientIdAsync(new PayPalMailboxClientIdDto { ClientId = _clientId!.Trim() });
+        _signIn = await PayPalApi.StartMailboxSignInAsync();
+        _ = WaitForSignInAsync(_signIn);
+    });
+
+    private async Task WaitForSignInAsync(OneDriveSignInDto signIn)
+    {
+        var until = DateTime.UtcNow.AddSeconds(signIn.ExpiresInSeconds);
+        try
+        {
+            while (DateTime.UtcNow < until)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(signIn.IntervalSeconds), _cts.Token);
+                var result = (await PayPalApi.PollMailboxSignInAsync()).Result;
+                if (result == "pending") continue;
+                if (result != "connected") _error = $"Sign-in did not work: {result}";
+                break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+
+        _signIn = null;
+        await LoadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task DisconnectMailboxAsync() => RunAsync(() => PayPalApi.DisconnectMailboxAsync());
+
+    public void Dispose() => _cts.Cancel();
 
     private Task DismissAsync(PayPalTransactionDto t, bool dismissed) => RunAsync(() => PayPalApi.DismissAsync(t.Id, dismissed));
 

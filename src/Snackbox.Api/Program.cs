@@ -105,6 +105,7 @@ builder.Services.AddHttpClient(PublicInternet.HttpClientName).ConfigurePrimaryHt
 builder.Services.AddSingleton<TabletSessionStore>();
 builder.Services.AddHttpClient<PayPalApi>();
 builder.Services.AddScoped<PayPalSync>();
+builder.Services.AddSingleton<PayPalMailbox>();
 builder.Services.AddSingleton<PayPalSync.Status>();
 builder.Services.AddHostedService<PayPalSyncBackgroundService>();
 builder.Services.AddSingleton<TabletDisplay>();

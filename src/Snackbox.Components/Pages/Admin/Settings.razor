@@ -140,14 +140,14 @@
                     <h3>PayPal payments</h3>
                 </div>
                 <small class="form-text text-muted d-block mb-2">
-                    Reads the payments received on the PayPal account people pay to (every 30 minutes) and lists
-                    those with "Snackbox" in the note under <a href="admin/paypal">Admin → PayPal</a>.
-                    Needs a REST app on <a href="https://developer.paypal.com/dashboard/applications/live" target="_blank" rel="noopener">developer.paypal.com</a>
-                    with <em>Transaction search</em> switched on - PayPal gives live API access to business accounts only.
-                    See docs/PAYPAL.md.
+                    Payments received on the PayPal account people pay to with "Snackbox" in the note are listed under
+                    <a href="admin/paypal">Admin → PayPal</a> (every 30 minutes). A private PayPal account: connect the mailbox
+                    PayPal's mails arrive in there - client id and secret below stay empty. A business account can use PayPal's API
+                    instead: a REST app on <a href="https://developer.paypal.com/dashboard/applications/live" target="_blank" rel="noopener">developer.paypal.com</a>
+                    with <em>Transaction search</em>. Either way choose whose account it is. See docs/PAYPAL.md.
                 </small>
                 <div class="form-group">
-                    <label class="form-label">Client ID</label>
+                    <label class="form-label">API client ID (business accounts only)</label>
                     <input type="text" class="form-control" @bind="_settings.PayPalSettings.ClientId" placeholder="optional" />
                 </div>
                 <div class="form-group">

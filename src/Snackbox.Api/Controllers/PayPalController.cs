@@ -11,8 +11,53 @@ namespace Snackbox.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "Admin")]
-public class PayPalController(ApplicationDbContext context, PayPalSync sync) : ControllerBase
+public class PayPalController(ApplicationDbContext context, PayPalSync sync, PayPalMailbox mailbox) : ControllerBase
 {
+    // --- the mailbox PayPal's mails arrive in (private PayPal accounts) -------------------------
+
+    [HttpGet("mailbox")]
+    public ActionResult<PayPalMailboxStatusDto> Mailbox() => Ok(mailbox.GetStatus());
+
+    [HttpPut("mailbox/client-id")]
+    public async Task<IActionResult> SetMailboxClientId([FromBody] PayPalMailboxClientIdDto dto)
+    {
+        try
+        {
+            await mailbox.SetClientIdAsync(dto.ClientId);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("mailbox/sign-in")]
+    public async Task<ActionResult<OneDriveSignInDto>> StartMailboxSignIn()
+    {
+        try
+        {
+            return Ok(await mailbox.StartSignInAsync());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>"pending", "connected", "expired" or "failed: ..."</summary>
+    [HttpPost("mailbox/sign-in/poll")]
+    public async Task<ActionResult<OneDrivePollDto>> PollMailboxSignIn() => Ok(new OneDrivePollDto { Result = await mailbox.PollSignInAsync() });
+
+    [HttpPost("mailbox/disconnect")]
+    public async Task<IActionResult> DisconnectMailbox()
+    {
+        await mailbox.DisconnectAsync();
+        return NoContent();
+    }
+
+    // --- received payments ------------------------------------------------------------------
+
     [HttpGet("status")]
     public ActionResult<PayPalStatusDto> Status() => Ok(sync.GetStatus());
 
@@ -57,7 +102,7 @@ public class PayPalController(ApplicationDbContext context, PayPalSync sync) : C
     {
         try
         {
-            await sync.AssignAsync(id, dto.UserId);
+            await sync.AssignAsync(id, dto.UserId, dto.Remember);
             return Ok(sync.GetStatus());
         }
         catch (KeyNotFoundException ex)

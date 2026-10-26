@@ -26,10 +26,13 @@ public class PayPalSyncTests
             {
                 ["PayPal:ClientId"] = "id",
                 ["PayPal:ClientSecret"] = "secret",
-                ["PayPal:AdminUserId"] = "9"
+                ["PayPal:AdminUserId"] = "9",
+                ["PayPal:Mailbox:StateFile"] = Path.Combine(Path.GetTempPath(), $"paypal-mailbox-{Guid.NewGuid()}.json") // not connected
             })
             .Build();
-        _sync = new PayPalSync(_context, configuration, new PayPalApi(new HttpClient(_paypal)), new PayPalSync.Status(),
+        var mailbox = new PayPalMailbox(configuration, new Moq.Mock<IHttpClientFactory>().Object,
+                                        new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider(), NullLogger<PayPalMailbox>.Instance);
+        _sync = new PayPalSync(_context, configuration, new PayPalApi(new HttpClient(_paypal)), mailbox, new PayPalSync.Status(),
                                NullLogger<PayPalSync>.Instance);
 
         var now = DateTime.UtcNow;
@@ -84,6 +87,23 @@ public class PayPalSyncTests
         Assert.Equal(1, status.LastAdded);
         Assert.Equal(1, status.LastBooked);
         Assert.Equal(new[] { 2.50m, 5.00m }, await _context.Payments.Select(p => p.Amount).OrderBy(a => a).ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task BookingOnce_ForSomebodyElse_DoesNotRememberThePayer()
+    {
+        _paypal.Transactions = [Transaction("T1", "5.00", "S", "PAYER-A", "Snackbox for Tina")];
+        await _sync.SyncAsync();
+
+        await _sync.AssignAsync((await _context.PayPalTransactions.SingleAsync()).Id, userId: 1, remember: false);
+
+        Assert.Equal(1, (await _context.Payments.SingleAsync()).UserId);
+        Assert.Empty(_context.PayPalPayers);
+
+        // The same payer's next payment waits for the admin again
+        _paypal.Transactions = [Transaction("T2", "3.00", "S", "PAYER-A", "Snackbox")];
+        var status = await _sync.SyncAsync();
+        Assert.Equal(0, status.LastBooked);
     }
 
     [Fact]

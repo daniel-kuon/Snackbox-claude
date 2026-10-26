@@ -27,8 +27,11 @@ public class PayPalTransactionDto
 
 public class PayPalStatusDto
 {
-    /// <summary>Client id, secret and the receiving admin are set.</summary>
+    /// <summary>A source (mailbox or PayPal API) and the receiving admin are set.</summary>
     public bool Configured { get; set; }
+
+    /// <summary>"mailbox", "api" or null - where payments are read from.</summary>
+    public string? Source { get; set; }
 
     public DateTime? LastSyncAt { get; set; }
     public string? LastError { get; set; }
@@ -39,4 +42,23 @@ public class PayPalStatusDto
 public class AssignPayPalPayerDto
 {
     public int UserId { get; set; }
+
+    /// <summary>
+    /// Book this payer's later payments to the same user by themselves. Off for someone paying
+    /// once for somebody else: then only this payment is booked.
+    /// </summary>
+    public bool Remember { get; set; } = true;
+}
+
+/// <summary>The Outlook.com / Microsoft 365 mailbox PayPal's "payment received" mails are read from.</summary>
+public class PayPalMailboxStatusDto
+{
+    public string? ClientId { get; set; }
+    public bool Connected { get; set; }
+    public string? Account { get; set; }
+}
+
+public class PayPalMailboxClientIdDto
+{
+    public string ClientId { get; set; } = string.Empty;
 }
