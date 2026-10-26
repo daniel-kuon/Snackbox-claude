@@ -79,6 +79,12 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
     public async Task<int> AddAsync(IEnumerable<PayPalApi.Received> received, CancellationToken cancellationToken = default)
     {
         var all = received.ToList();
+        // A take-back may come in the same fetch as its payment (first run, or both since the last
+        // run): it marks new payments as well as stored ones - before anything is booked. Every
+        // fetch reaches back past the last run, so a take-back is never outside the window.
+        var takenBack = all.Where(r => r.Amount < 0 && r.ReferenceId != null)
+                           .GroupBy(r => r.ReferenceId!)
+                           .ToDictionary(g => g.Key, g => g.Min(r => r.At));
         foreach (var reversal in all.Where(r => r.Amount < 0 && r.ReferenceId != null))
         {
             var original = await context.PayPalTransactions
@@ -111,7 +117,8 @@ public class PayPalSync(ApplicationDbContext context, IConfiguration configurati
                 PayerKey = r.PayerKey,
                 PayerName = r.PayerName,
                 PayerEmail = r.PayerEmail,
-                Note = r.Note
+                Note = r.Note,
+                ReversedAt = takenBack.TryGetValue(r.TransactionId, out var reversedAt) ? reversedAt : null
             });
             added++;
         }

@@ -113,6 +113,19 @@ public class PayPalSyncTests
         Assert.Empty(_context.Payments);
     }
 
+    [Fact]
+    public async Task APaymentTakenBackInTheSameFetch_IsNeverBooked()
+    {
+        _context.PayPalPayers.Add(new PayPalPayer { PayerKey = "PAYER-A", UserId = 1 }); // assigned before
+        await _context.SaveChangesAsync();
+        _paypal.Transactions = [Transaction("T1", "5.00", "S", "PAYER-A", "Snackbox"), Transaction("T9", "-5.00", "S", "PAYER-A", "", reference: "T1")];
+
+        await _sync.SyncAsync();
+
+        Assert.NotNull((await _context.PayPalTransactions.SingleAsync()).ReversedAt);
+        Assert.Empty(_context.Payments);
+    }
+
     private static string Transaction(string id, string amount, string status, string payer, string note,
                                       string currency = "EUR", string? reference = null) => $$"""
         {
