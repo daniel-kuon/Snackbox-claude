@@ -185,7 +185,7 @@ public class AchievementServiceTests : IDisposable
     [Fact]
     public async Task CheckAndAwardAchievements_TotalSpent100_AwardsTotalSpent100()
     {
-        // Arrange - Add previous purchases totaling €95
+        // Arrange - Add previous purchases totaling €99.50, paid
         var oldPurchase = new Purchase
         {
             Id = 1,
@@ -194,12 +194,14 @@ public class AchievementServiceTests : IDisposable
             UpdatedAt = DateTime.UtcNow.AddDays(-5),
             Scans = new List<BarcodeScan>
             {
-                new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 95.00m, ScannedAt = DateTime.UtcNow.AddDays(-5) }
+                new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 99.50m, ScannedAt = DateTime.UtcNow.AddDays(-5) }
             }
         };
         _context.Purchases.Add(oldPurchase);
+        _context.Payments.Add(new Payment { Id = 1, UserId = 1, Amount = 100.50m, PaidAt = DateTime.UtcNow.AddDays(-5) });
 
-        // New purchase that pushes total over €100
+        // New small purchase that pushes total over €100 (small: no big-purchase achievement
+        // comes with it, which would hold total spent back)
         var newPurchase = new Purchase
         {
             Id = 2,
@@ -208,7 +210,7 @@ public class AchievementServiceTests : IDisposable
             UpdatedAt = DateTime.UtcNow,
             Scans = new List<BarcodeScan>
             {
-                new BarcodeScan { Id = 2, PurchaseId = 2, BarcodeId = 1, Amount = 10.00m, ScannedAt = DateTime.UtcNow }
+                new BarcodeScan { Id = 2, PurchaseId = 2, BarcodeId = 1, Amount = 1.00m, ScannedAt = DateTime.UtcNow }
             }
         };
         _context.Purchases.Add(newPurchase);
@@ -375,6 +377,7 @@ public class AchievementServiceTests : IDisposable
                 new BarcodeScan { Id = 1, PurchaseId = 1, BarcodeId = 1, Amount = 1.00m, ScannedAt = DateTime.UtcNow }
             }
         });
+        _context.Payments.Add(new Payment { Id = 1, UserId = 1, Amount = 101.00m, PaidAt = DateTime.UtcNow.AddDays(-1) });
         await _context.SaveChangesAsync();
 
         // Act
@@ -383,9 +386,78 @@ public class AchievementServiceTests : IDisposable
         // Assert - history carries over for counts, spending and comebacks...
         Assert.Contains(achievements, a => a.Code == "FIRST_PURCHASE");
         Assert.Contains(achievements, a => a.Code == "PURCHASE_10");
-        Assert.Contains(achievements, a => a.Code == "TOTAL_SPENT_100");
         // ...but "how often did you buy today" only looks at purchases made here.
         Assert.DoesNotContain(achievements, a => a.Code == "DAILY_BUYER_5");
+        // One lifetime category per purchase: total spent comes with the next one
+        Assert.DoesNotContain(achievements, a => a.Code == "TOTAL_SPENT_100");
+    }
+
+    [Fact]
+    public async Task LifetimeAchievements_OneCategoryPerQuietPurchase_PurchaseCountFirst()
+    {
+        // Arrange - a long-time user: €110 over 11 paid purchases, all of them in the past
+        _context.Achievements.AddRange(
+            new Achievement { Id = 100, Code = "FIRST_PURCHASE", Name = "First Purchase", Description = "First one", Category = AchievementCategory.Milestone },
+            new Achievement { Id = 101, Code = "PURCHASE_10", Name = "Regular", Description = "10 purchases", Category = AchievementCategory.Milestone },
+            new Achievement { Id = 102, Code = "TOTAL_SPENT_50", Name = "Fifty", Description = "€50", Category = AchievementCategory.TotalSpent });
+        for (var i = 0; i < 11; i++)
+        {
+            var when = DateTime.UtcNow.AddDays(-20 + i);
+            _context.Purchases.Add(new Purchase
+            {
+                Id = 100 + i, UserId = 1, CreatedAt = when, UpdatedAt = when,
+                Scans = new List<BarcodeScan> { new() { Id = 100 + i, PurchaseId = 100 + i, BarcodeId = 1, Amount = 10.00m, ScannedAt = when } }
+            });
+        }
+        _context.Payments.Add(new Payment { Id = 1, UserId = 1, Amount = 112.00m, PaidAt = DateTime.UtcNow.AddDays(-1) });
+        await _context.SaveChangesAsync();
+
+        // Act 1 - a purchase that brings a big-purchase achievement: nothing lifetime with it
+        AddCurrentPurchase(1, 2.00m);
+        var first = await _service.CheckImmediateAchievementsAsync(1, 1);
+        Assert.Equal(["BIG_SPENDER_2"], first.Select(a => a.Code));
+
+        // Act 2 - next scan of the same purchase: it already brought something
+        Assert.Empty(await _service.CheckImmediateAchievementsAsync(1, 1));
+
+        // Act 3 - a quiet purchase while the big-purchase one is still unshown: still waits
+        AddCurrentPurchase(2, 0.50m);
+        Assert.Empty(await _service.CheckImmediateAchievementsAsync(1, 2));
+
+        // Act 4 - shown now, next quiet purchase: every purchase-count level, nothing else
+        await MarkAllShownAsync();
+        AddCurrentPurchase(3, 0.50m);
+        var counts = await _service.CheckImmediateAchievementsAsync(1, 3);
+        Assert.Equal(["FIRST_PURCHASE", "PURCHASE_10"], counts.Select(a => a.Code).Order());
+
+        // Act 5 - the purchase after that: every total-spent level
+        await MarkAllShownAsync();
+        AddCurrentPurchase(4, 0.50m);
+        var spent = await _service.CheckImmediateAchievementsAsync(1, 4);
+        Assert.Equal(["TOTAL_SPENT_100", "TOTAL_SPENT_50"], spent.Select(a => a.Code).Order());
+
+        // Act 6 - nothing left to hand out
+        await MarkAllShownAsync();
+        AddCurrentPurchase(5, 0.50m);
+        Assert.Empty(await _service.CheckImmediateAchievementsAsync(1, 5));
+    }
+
+    private void AddCurrentPurchase(int id, decimal amount)
+    {
+        // A tick later than anything earned so far, as a real next purchase would be
+        var now = DateTime.UtcNow.AddMilliseconds(id);
+        _context.Purchases.Add(new Purchase
+        {
+            Id = id, UserId = 1, CreatedAt = now, UpdatedAt = now,
+            Scans = new List<BarcodeScan> { new() { Id = id, PurchaseId = id, BarcodeId = 1, Amount = amount, ScannedAt = now } }
+        });
+        _context.SaveChanges();
+    }
+
+    private async Task MarkAllShownAsync()
+    {
+        foreach (var ua in _context.UserAchievements) ua.HasBeenShown = true;
+        await _context.SaveChangesAsync();
     }
 
     public void Dispose()

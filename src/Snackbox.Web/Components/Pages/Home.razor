@@ -18,16 +18,6 @@
 
 <PageTitle>Snackbox Scanner</PageTitle>
 
-<!-- Achievement Notification Overlay -->
-@if (ScannerService.CurrentSession?.NewAchievements.Any() == true)
-{
-    <AchievementNotification
-        Achievements="@ScannerService.CurrentSession.NewAchievements"
-        CurrentScanInfo="@GetCurrentScanInfo()"
-        ShowCloseButton="true"
-        OnAllAchievementsShown="@ClearAchievements"/>
-}
-
 <div class="scanner-container">
     @if (_errorMessage != null)
     {
@@ -228,7 +218,9 @@
                         <PaymentReminder OpenAmount="@session.OpenAmount" Seed="@session.StartTime.Ticks" />
                     </div>
 
-                    <!-- QR Codes: payment and phone app install guide -->
+                    <!-- QR Codes: payment and phone app install guide; earned achievements play over them -->
+                    <div class="qr-area">
+                    <AchievementSlam Achievements="@session.NewAchievements" OnPlayingChanged="AchievementsPlayingChanged"/>
                     <div class="qr-pair">
                         <div class="qr-col @SpotlightClass("payment")">
                             <h3 class="section-title qr-col-title">Pay via PayPal</h3>
@@ -252,6 +244,7 @@
                     <!-- Scan instruction -->
                     <div class="scan-instruction-box">
                         <p>Continue scanning or wait for auto-complete</p>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -841,6 +834,15 @@
         }
     }
 
+    /* QR codes and the scan hint - the stage the achievements play on */
+    .qr-area {
+        position: relative;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 460px;
+    }
+
     .qr-pair {
         display: flex;
         justify-content: center;
@@ -1291,7 +1293,15 @@
         _showSetupWizard
         || _showPurchasesModal
         || _showPaymentsModal
-        || (ScannerService.CurrentSession?.NewAchievements.Any() ?? false);
+        || _achievementsPlaying;
+
+    private bool _achievementsPlaying;
+
+    private void AchievementsPlayingChanged(bool playing)
+    {
+        _achievementsPlaying = playing;
+        UpdateTimerState();
+    }
 
     private void UpdateTimerState()
     {
@@ -1435,21 +1445,6 @@
         _errorMessage = null;
     }
 
-    private string GetCurrentScanInfo()
-    {
-        if (ScannerService.CurrentSession == null)
-            return string.Empty;
-
-        var session = ScannerService.CurrentSession;
-        if (session.ScannedBarcodes.Any())
-        {
-            var lastScan = session.ScannedBarcodes.Last();
-            return $"{lastScan.Amount:C}";
-        }
-
-        return $"Total: {session.TotalAmount:C}";
-    }
-
     // Highlights the element the current wizard step is talking about
     private string SpotlightClass(string targetKey, bool primary = true)
         => _spotlightTarget != targetKey ? string.Empty : primary ? "sb-spotlight" : "sb-spotlight-extra";
@@ -1554,16 +1549,6 @@
         catch
         {
             return null;
-        }
-    }
-
-    private void ClearAchievements()
-    {
-        if (ScannerService.CurrentSession != null)
-        {
-            ScannerService.CurrentSession.NewAchievements.Clear();
-            UpdateTimerState();
-            StateHasChanged();
         }
     }
 

@@ -67,17 +67,14 @@ public class AchievementService : IAchievementService
         // Check high debt achievements
         await CheckHighDebtAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
 
-        // Check total spent achievements
-        await CheckTotalSpentAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
-
         // Check time-based achievements
         await CheckTimeBasedAchievements(userId, purchase.UpdatedAt, userAchievements, earnedAchievements, achievementLookup);
 
-        // Check milestone achievements
-        await CheckMilestoneAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
-
         // Check special achievements
         await CheckSpecialAchievements(userId, purchaseId, purchaseAmount, userAchievements, earnedAchievements, achievementLookup);
+
+        // Purchase count and total spent: one category, only on an otherwise quiet purchase
+        await ReleaseLifetimeAchievements(userId, purchase, userAchievements, earnedAchievements, achievementLookup);
 
         // Save all earned achievements
         if (earnedAchievements.Any())
@@ -139,17 +136,14 @@ public class AchievementService : IAchievementService
         // Check high debt achievements (based on current balance)
         await CheckHighDebtAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
 
-        // Check total spent achievements (based on all-time spending)
-        await CheckTotalSpentAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
-
         // Check time-based achievements (current time)
         await CheckTimeBasedAchievements(userId, DateTime.UtcNow, userAchievements, earnedAchievements, achievementLookup);
 
-        // Check milestone achievements (total purchase count)
-        await CheckMilestoneAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
-
         // Check special achievements
         await CheckSpecialAchievements(userId, purchaseId, purchaseAmount, userAchievements, earnedAchievements, achievementLookup);
+
+        // Purchase count and total spent: one category, only on an otherwise quiet purchase
+        await ReleaseLifetimeAchievements(userId, purchase, userAchievements, earnedAchievements, achievementLookup);
 
         // Save all earned achievements
         if (earnedAchievements.Any())
@@ -177,6 +171,27 @@ public class AchievementService : IAchievementService
         }
 
         return earnedAchievements;
+    }
+
+    /// <summary>
+    /// Purchase count and total spent stay true once reached, so a long-time user with imported
+    /// history would get every level of both on their first scan. They are handed out one
+    /// category per purchase instead - all its pending levels at once, purchase count first - and
+    /// only on a purchase that brings nothing else: achievements tied to the moment (debt, time
+    /// of day, a big purchase, ...) may not hold next time, these will.
+    /// </summary>
+    private async Task ReleaseLifetimeAchievements(int userId, Purchase purchase, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
+    {
+        if (earned.Count > 0)
+            return;
+
+        // Something is still waiting to be shown, or this purchase already brought something
+        if (userAchievements.Any(ua => !ua.HasBeenShown || ua.EarnedAt >= purchase.CreatedAt))
+            return;
+
+        await CheckMilestoneAchievements(userId, userAchievements, earned, achievementLookup);
+        if (earned.Count == 0)
+            await CheckTotalSpentAchievements(userId, userAchievements, earned, achievementLookup);
     }
 
     private bool CanEarnAchievement(string achievementCode, AchievementCategory category, List<UserAchievement> userAchievements, decimal? currentDebt = null)

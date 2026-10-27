@@ -1,0 +1,163 @@
+@using Snackbox.Components.Models
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@* Achievements earned with a scan, played over the QR area (wwwroot/js/achievementSlam.js):
+   each one slams in and moves into a row, lowest level first. The purchase stays visible. *@
+<div class="ach-slam-overlay @(_playing ? "on" : "")">
+    <button class="ach-slam-close" @onclick="SkipAsync" aria-label="Close">✕</button>
+    <div class="ach-slam-stage" @ref="_stage"></div>
+</div>
+
+<style>
+    .ach-slam-overlay {
+        position: absolute; inset: 0; z-index: 20; overflow: hidden; border-radius: 8px;
+        background: var(--brand-gradient, linear-gradient(135deg, #0082CD 0%, #0a3d5c 45%, #191E1E 100%));
+        opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s; color: #fff;
+    }
+    .ach-slam-overlay.on { opacity: 1; visibility: visible; }
+    .ach-slam-close {
+        position: absolute; top: .6rem; right: .6rem; z-index: 5; width: 2.6rem; height: 2.6rem;
+        border: none; border-radius: 50%; background: rgba(255,255,255,.9); color: #191E1E;
+        font-size: 1.2rem; font-weight: 700; cursor: pointer;
+    }
+    .ach-slam-stage { position: absolute; inset: 0; }
+
+    .ach-slam-headline {
+        position: absolute; top: 5%; left: 0; right: 0; text-align: center; font-size: 1.8rem; font-weight: 800;
+        text-shadow: 0 3px 12px rgba(0,0,0,.5);
+    }
+    .ach-slam-count { display: inline-block; color: #00BCD4; }
+    .ach-slam-count.bump { animation: ach-slam-bump .35s ease-out; }
+    @@keyframes ach-slam-bump { 50% { transform: scale(1.5); } }
+
+    .ach-slam-card {
+        position: absolute; left: 50%; top: 42%; width: 290px; padding: 1.2rem 1.1rem 1.1rem; text-align: center;
+        background: #fff; color: #191E1E; box-shadow: 0 20px 60px rgba(0,0,0,.6); border-top: 6px solid #0082CD;
+    }
+    .ach-slam-icon svg { width: 110px; height: 110px; }
+    .ach-slam-icon { font-size: 80px; line-height: 110px; }
+    .ach-slam-name { margin: .5rem 0 .25rem; font-size: 1.35rem; font-weight: 700; }
+    .ach-slam-desc { color: #4a5558; }
+    .ach-slam-tier { position: absolute; top: .45rem; right: .6rem; font-size: .8rem; font-weight: 700; color: #0082CD; }
+
+    .ach-slam-in { animation: ach-slam-in .45s cubic-bezier(.2,.9,.25,1.25) forwards; }
+    @@keyframes ach-slam-in {
+        0%   { transform: translate(-50%,-50%) scale(3.2) rotate(-8deg); opacity: 0; filter: blur(6px); }
+        60%  { transform: translate(-50%,-50%) scale(.9) rotate(1deg); opacity: 1; filter: blur(0); }
+        80%  { transform: translate(-50%,-50%) scale(1.05) rotate(0); }
+        100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+    }
+    .ach-slam-shake { animation: ach-slam-shake .3s linear; }
+    @@keyframes ach-slam-shake { 20% { transform: translate(-6px,4px); } 40% { transform: translate(6px,-4px); }
+                                 60% { transform: translate(-4px,-2px); } 80% { transform: translate(3px,2px); } }
+
+    .ach-slam-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+    .ach-slam-flash.go { animation: ach-slam-flash .25s ease-out; }
+    @@keyframes ach-slam-flash { 0% { opacity: .35; } 100% { opacity: 0; } }
+
+    .ach-slam-ring {
+        position: absolute; left: 50%; top: 42%; width: 300px; height: 300px; border: 6px solid #00BCD4; border-radius: 50%;
+        transform: translate(-50%,-50%) scale(.3); opacity: 0; pointer-events: none;
+    }
+    .ach-slam-ring.go { animation: ach-slam-ring .55s ease-out; }
+    @@keyframes ach-slam-ring { 0% { opacity: .9; transform: translate(-50%,-50%) scale(.3); }
+                                100% { opacity: 0; transform: translate(-50%,-50%) scale(1.6); } }
+
+    .ach-slam-spark { position: absolute; left: 50%; top: 42%; width: 10px; height: 10px; border-radius: 2px; pointer-events: none; }
+
+    .ach-slam-shelf {
+        position: absolute; left: 0; right: 0; bottom: 4%; display: flex; flex-wrap: wrap; justify-content: center;
+        gap: .6rem; padding: 0 .75rem;
+    }
+    .ach-slam-mini { width: 86px; text-align: center; opacity: 0; }
+    .ach-slam-mini-box { background: #fff; padding: .35rem; border-top: 4px solid #0082CD; box-shadow: 0 8px 20px rgba(0,0,0,.4); font-size: 40px; line-height: 56px; }
+    .ach-slam-mini-box svg { width: 56px; height: 56px; display: block; margin: 0 auto; }
+    .ach-slam-mini-name { font-size: .72rem; font-weight: 700; margin-top: .3rem; line-height: 1.15; text-shadow: 0 1px 4px #000; }
+    .ach-slam-mini.landed { opacity: 1; animation: ach-slam-land .3s ease-out; }
+    @@keyframes ach-slam-land { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
+    .ach-slam-finale .ach-slam-mini.landed { animation: ach-slam-wave .5s ease-in-out; }
+    @@keyframes ach-slam-wave { 50% { transform: translateY(-12px) scale(1.08); } }
+
+    .ach-slam-flying { position: absolute; transform-origin: top left; transition: all .55s cubic-bezier(.5,0,.3,1); }
+</style>
+
+@code {
+    /// <summary>The session's newly earned achievements; each scan replaces the list.</summary>
+    [Parameter] public List<Achievement> Achievements { get; set; } = new();
+
+    /// <summary>True while playing - the scan screen holds its countdown meanwhile.</summary>
+    [Parameter] public EventCallback<bool> OnPlayingChanged { get; set; }
+
+    private ElementReference _stage;
+    private readonly HashSet<(int, DateTime)> _seen = new();
+    private readonly Queue<List<Achievement>> _queue = new();
+    private DotNetObjectReference<AchievementSlam>? _self;
+    private bool _playing;
+    private bool _startPending;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var fresh = Achievements.Where(a => _seen.Add((a.Id, a.EarnedAt))).ToList();
+        if (fresh.Count == 0) return;
+
+        // One sequence per scan: each category together, lowest level first
+        _queue.Enqueue(fresh.GroupBy(a => a.Category).SelectMany(g => g.OrderBy(Tier)).ToList());
+        if (_playing) return;
+
+        _playing = true;
+        _startPending = true;
+        await OnPlayingChanged.InvokeAsync(true);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_startPending) return;
+        _startPending = false;
+        await PlayNextAsync();
+    }
+
+    [JSInvokable]
+    public Task SlamFinished() => InvokeAsync(PlayNextAsync);
+
+    private async Task PlayNextAsync()
+    {
+        if (_queue.TryDequeue(out var batch))
+        {
+            _self ??= DotNetObjectReference.Create(this);
+            var items = batch.Select(a => new { name = a.Name, description = a.Description, svg = a.ImageUrl }).ToList();
+            await JS.InvokeVoidAsync("snackboxAchievementSlam.play", _stage, items, _self);
+            return;
+        }
+
+        _playing = false;
+        StateHasChanged();
+        await OnPlayingChanged.InvokeAsync(false);
+    }
+
+    private async Task SkipAsync()
+    {
+        _queue.Clear();
+        await JS.InvokeVoidAsync("snackboxAchievementSlam.stop", _stage);
+        await PlayNextAsync();
+    }
+
+    // FIRST_PURCHASE before PURCHASE_10, TOTAL_SPENT_50 before TOTAL_SPENT_100, ...
+    private static int Tier(Achievement a)
+    {
+        var i = a.Code.LastIndexOf('_');
+        return i > 0 && int.TryParse(a.Code[(i + 1)..], out var tier) ? tier : 0;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_playing) await JS.InvokeVoidAsync("snackboxAchievementSlam.stop", _stage);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        _self?.Dispose();
+    }
+}

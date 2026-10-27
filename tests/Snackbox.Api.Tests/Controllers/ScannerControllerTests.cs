@@ -596,6 +596,31 @@ public class ScannerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task ScanBarcode_ImportedLastPurchase_IsNotCheckedForAchievements()
+    {
+        // A long-time user's newest purchase came from the old Snackbox: three scans, months ago.
+        // Their first scan here must not award that purchase (Triple Threat) as if it just ended.
+        _context.Achievements.Add(new Achievement { Id = 42, Code = "TRIPLE_THREAT", Name = "Triple Threat", Description = "3 scans", Category = AchievementCategory.Special });
+        var then = DateTime.UtcNow.AddMonths(-3);
+        _context.Purchases.Add(new Purchase
+        {
+            Id = 102,
+            UserId = 1,
+            IsLegacyImport = true,
+            CreatedAt = then,
+            UpdatedAt = then,
+            Scans = Enumerable.Range(0, 3).Select(i => new BarcodeScan { Id = 200 + i, PurchaseId = 102, BarcodeId = 1, Amount = 0.50m, ScannedAt = then.AddSeconds(i) }).ToList()
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _controller.ScanBarcode(new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" });
+
+        var response = Assert.IsType<ScanBarcodeResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.DoesNotContain(response.NewAchievements, a => a.Code == "TRIPLE_THREAT");
+        Assert.NotNull(await _context.Purchases.FindAsync(102)); // kept as it was
+    }
+
+    [Fact]
     public async Task GetRecent_ListsKnownAndUnknownScans_NewestFirst()
     {
         await _controller.ScanBarcode(new ScanBarcodeRequest { BarcodeCode = "TEST-5EUR" });

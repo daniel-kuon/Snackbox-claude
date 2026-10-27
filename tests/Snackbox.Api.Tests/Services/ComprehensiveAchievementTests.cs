@@ -553,9 +553,7 @@ public class ComprehensiveAchievementTests : IDisposable
     public async Task TotalSpent_ExactThreshold_AwardsAchievement()
     {
         // Arrange: Spend exactly €50
-        var purchase = CreatePurchase(1, 50.00m);
-        _context.Purchases.Add(purchase);
-        await _context.SaveChangesAsync();
+        await SpentBeforeAsync(49.50m);
 
         // Act
         var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
@@ -582,17 +580,11 @@ public class ComprehensiveAchievementTests : IDisposable
     [Fact]
     public async Task TotalSpent_AccumulatesAcrossPurchases_AwardsAchievement()
     {
-        // Arrange: Two purchases totaling €100 (€60 + €40)
-        var purchase1 = CreatePurchase(1, 60.00m, completedAt: DateTime.UtcNow.AddDays(-1));
-        _context.Purchases.Add(purchase1);
-        await _context.SaveChangesAsync();
-
-        var purchase2 = CreatePurchase(2, 40.00m);
-        _context.Purchases.Add(purchase2);
-        await _context.SaveChangesAsync();
+        // Arrange: Two purchases totaling €100 (€99.50 + €0.50)
+        await SpentBeforeAsync(99.50m);
 
         // Act
-        var achievements = await _service.CheckAndAwardAchievementsAsync(1, 2);
+        var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
 
         // Assert: Should award TOTAL_SPENT_50 and TOTAL_SPENT_100
         Assert.Contains(achievements, a => a.Code == "TOTAL_SPENT_50");
@@ -602,10 +594,8 @@ public class ComprehensiveAchievementTests : IDisposable
     [Fact]
     public async Task TotalSpent_MultipleThresholds_AwardsAllQualified()
     {
-        // Arrange: Single purchase of €500
-        var purchase = CreatePurchase(1, 500.00m);
-        _context.Purchases.Add(purchase);
-        await _context.SaveChangesAsync();
+        // Arrange: €500 in total
+        await SpentBeforeAsync(499.50m);
 
         // Act
         var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
@@ -630,17 +620,10 @@ public class ComprehensiveAchievementTests : IDisposable
             EarnedAt = DateTime.UtcNow.AddDays(-1),
             HasBeenShown = true
         });
-        
-        var oldPurchase = CreatePurchase(1, 50.00m, completedAt: DateTime.UtcNow.AddDays(-1));
-        _context.Purchases.Add(oldPurchase);
-        await _context.SaveChangesAsync();
-
-        var newPurchase = CreatePurchase(2, 50.00m);
-        _context.Purchases.Add(newPurchase);
-        await _context.SaveChangesAsync();
+        await SpentBeforeAsync(99.50m);
 
         // Act
-        var achievements = await _service.CheckAndAwardAchievementsAsync(1, 2);
+        var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
 
         // Assert: Should award TOTAL_SPENT_100 but not TOTAL_SPENT_50 again
         Assert.Contains(achievements, a => a.Code == "TOTAL_SPENT_100");
@@ -652,7 +635,7 @@ public class ComprehensiveAchievementTests : IDisposable
     #region Edge Cases and Integration Tests
 
     [Fact]
-    public async Task MultipleCategories_SinglePurchase_AwardsMultipleTypes()
+    public async Task MultipleCategories_SinglePurchase_HoldsBackTotalSpent()
     {
         // Arrange: Large purchase that triggers multiple achievement types
         var purchase = CreatePurchase(1, 100.00m);
@@ -662,10 +645,10 @@ public class ComprehensiveAchievementTests : IDisposable
         // Act
         var achievements = await _service.CheckAndAwardAchievementsAsync(1, 1);
 
-        // Assert: Should award single purchase, high debt, and total spent achievements
+        // Assert: single purchase and high debt now, total spent waits for a quieter purchase
         Assert.Contains(achievements, a => a.Code.StartsWith("BIG_SPENDER"));
         Assert.Contains(achievements, a => a.Code.StartsWith("IN_DEBT"));
-        Assert.Contains(achievements, a => a.Code.StartsWith("TOTAL_SPENT"));
+        Assert.DoesNotContain(achievements, a => a.Code.StartsWith("TOTAL_SPENT"));
     }
 
     [Fact]
@@ -724,6 +707,16 @@ public class ComprehensiveAchievementTests : IDisposable
     #endregion
 
     #region Helper Methods
+
+    // History from yesterday, paid off, and a small purchase now (id 1): nothing tied to the
+    // moment (a big purchase, debt) comes up, so the lifetime achievements are released
+    private async Task SpentBeforeAsync(decimal amount, decimal now = 0.50m)
+    {
+        _context.Purchases.Add(CreatePurchase(100, amount, completedAt: DateTime.UtcNow.AddDays(-1)));
+        _context.Purchases.Add(CreatePurchase(1, now));
+        _context.Payments.Add(new Payment { Id = 1, UserId = 1, Amount = amount + now, PaidAt = DateTime.UtcNow.AddDays(-1) });
+        await _context.SaveChangesAsync();
+    }
 
     private Purchase CreatePurchase(int id, decimal amount, DateTime? completedAt = null)
     {

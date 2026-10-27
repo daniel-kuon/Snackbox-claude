@@ -115,6 +115,18 @@ When a user earns an achievement:
 - Frontend clears achievements from display after showing them
 - Purchases imported from the previous Snackbox carry `Purchase.IsLegacyImport`. They count towards total spent, streaks, the current balance (debt), purchase-count milestones and comebacks, so a long-time user keeps their history. They are ignored for daily activity ("how often did you buy today" is about this app) and the snack birthday (an imported first purchase from years ago would make the anniversary meaningless)
 
+### Long-time users: one category per purchase
+
+Purchase count (`Milestone`) and total spent (`TotalSpent`) stay true once reached, so a user
+with imported history would get every level of both on their first scan. Instead
+`ReleaseLifetimeAchievements` hands out one category per purchase - all its pending levels at
+once, purchase count first - and only when the purchase brings nothing else and nothing earned
+earlier is still unshown. Everything else (debt, time of day, big purchase, streaks, ...) is
+awarded as soon as it happens, because it may not hold next time.
+
+On the kiosk, `AchievementSlam` plays them over the QR area: each one slams in, then shrinks
+into a row at the bottom and the next follows, lowest level first.
+
 ## Testing
 
 Unit tests are provided in `AchievementServiceTests.cs` that cover:

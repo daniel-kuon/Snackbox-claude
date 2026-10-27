@@ -170,8 +170,10 @@ public class ScannerController : ControllerBase
             }
             else
             {
-                // Timeout expired - finalize the old purchase and create a new one
-                if (lastPurchase.Scans.Any())
+                // Timeout expired - finalize the old purchase and create a new one.
+                // An imported one from the old Snackbox is complete already - checking it here
+                // would award a years-old purchase on a long-time user's first scan
+                if (lastPurchase.Scans.Any() && !lastPurchase.IsLegacyImport)
                 {
                     // Use the last scan time as the update time (more accurate than "now")
                     lastPurchase.UpdatedAt = lastScan?.ScannedAt ?? DateTime.UtcNow;
@@ -182,7 +184,7 @@ public class ScannerController : ControllerBase
                     // Check for achievements earned from the purchase
                     await _achievementService.CheckAndAwardAchievementsAsync(user.Id, lastPurchase.Id);
                 }
-                else if (lastPurchase.ManualAmount == null)
+                else if (!lastPurchase.Scans.Any() && lastPurchase.ManualAmount == null)
                 {
                     // Truly empty purchase - no scans and no manual amount. Only these are
                     // safe to drop. A manual purchase (admin entry, correction, or an
