@@ -194,7 +194,7 @@ public class AchievementService : IAchievementService
             await CheckTotalSpentAchievements(userId, userAchievements, earned, achievementLookup);
     }
 
-    private bool CanEarnAchievement(string achievementCode, AchievementCategory category, List<UserAchievement> userAchievements, decimal? currentDebt = null)
+    private bool CanEarnAchievement(string achievementCode, AchievementCategory category, List<UserAchievement> userAchievements)
     {
         var previousAchievements = userAchievements.Where(ua => ua.Achievement.Code == achievementCode).ToList();
 
@@ -216,21 +216,6 @@ public class AchievementService : IAchievementService
             case AchievementCategory.TotalSpent:
                 // Can only be earned once ever
                 return false;
-
-            case AchievementCategory.HighDebt:
-                // Can re-earn if debt dropped below the threshold since last earning
-                if (!currentDebt.HasValue || !mostRecent.DebtAtEarning.HasValue)
-                    return false;
-
-                // Extract threshold from achievement code (e.g., "IN_DEBT_20" -> 20)
-                var thresholdStr = achievementCode.Replace("IN_DEBT_", "");
-                if (!decimal.TryParse(thresholdStr, out var threshold))
-                    return false;
-
-                // User can re-earn if their previous debt was >= threshold,
-                // and current debt is >= threshold (they're back in debt territory)
-                // Simplified: we assume if earning again, debt must have dropped in between
-                return currentDebt.Value >= threshold;
 
             case AchievementCategory.TimeBased:
                 // Monday/Friday can only be earned once per month
@@ -453,33 +438,65 @@ public class AchievementService : IAchievementService
 
         if (debt >= 15 && achievementLookup.TryGetValue("IN_DEBT_15", out var achievement15))
         {
-            if (CanEarnAchievement("IN_DEBT_15", AchievementCategory.HighDebt, userAchievements, debt))
+            if (await CanEarnDebtAchievementAsync(userId, "IN_DEBT_15", userAchievements))
                 earned.Add(achievement15);
         }
 
         if (debt >= 20 && achievementLookup.TryGetValue("IN_DEBT_20", out var achievement20))
         {
-            if (CanEarnAchievement("IN_DEBT_20", AchievementCategory.HighDebt, userAchievements, debt))
+            if (await CanEarnDebtAchievementAsync(userId, "IN_DEBT_20", userAchievements))
                 earned.Add(achievement20);
         }
 
         if (debt >= 25 && achievementLookup.TryGetValue("IN_DEBT_25", out var achievement25))
         {
-            if (CanEarnAchievement("IN_DEBT_25", AchievementCategory.HighDebt, userAchievements, debt))
+            if (await CanEarnDebtAchievementAsync(userId, "IN_DEBT_25", userAchievements))
                 earned.Add(achievement25);
         }
 
         if (debt >= 30 && achievementLookup.TryGetValue("IN_DEBT_30", out var achievement30))
         {
-            if (CanEarnAchievement("IN_DEBT_30", AchievementCategory.HighDebt, userAchievements, debt))
+            if (await CanEarnDebtAchievementAsync(userId, "IN_DEBT_30", userAchievements))
                 earned.Add(achievement30);
         }
 
         if (debt >= 35 && achievementLookup.TryGetValue("IN_DEBT_35", out var achievement35))
         {
-            if (CanEarnAchievement("IN_DEBT_35", AchievementCategory.HighDebt, userAchievements, debt))
+            if (await CanEarnDebtAchievementAsync(userId, "IN_DEBT_35", userAchievements))
                 earned.Add(achievement35);
         }
+    }
+
+    /// <summary>
+    /// A debt level is earned once, and again only after the debt was paid off in the meantime -
+    /// otherwise someone who stays in debt got it again every day.
+    /// </summary>
+    private async Task<bool> CanEarnDebtAchievementAsync(int userId, string achievementCode, List<UserAchievement> userAchievements)
+    {
+        var last = userAchievements.FirstOrDefault(ua => ua.Achievement.Code == achievementCode); // newest first
+        return last == null || await PaidOffSinceAsync(userId, last.EarnedAt);
+    }
+
+    /// <summary>Whether the balance was settled at some point after <paramref name="since"/>: only a payment lowers the debt.</summary>
+    private async Task<bool> PaidOffSinceAsync(int userId, DateTime since)
+    {
+        var paymentTimes = await _context.Payments
+            .Where(p => p.UserId == userId && p.PaidAt > since)
+            .Select(p => p.PaidAt)
+            .ToListAsync();
+
+        foreach (var at in paymentTimes)
+        {
+            var spent = await _context.BarcodeScans
+                .Where(bs => bs.Purchase.UserId == userId && bs.ScannedAt <= at)
+                .SumAsync(bs => bs.Amount);
+            var paid = await _context.Payments
+                .Where(p => p.UserId == userId && p.PaidAt <= at)
+                .SumAsync(p => p.Amount);
+            if (spent <= paid) return true;
+        }
+
+        return false;
     }
 
     private async Task CheckTotalSpentAchievements(int userId, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)

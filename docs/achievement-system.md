@@ -25,7 +25,7 @@ The Snackbox achievement system rewards users with fun, humorous achievements ba
    - **The Return** - First purchase after 2 months away
    - **Lazarus Rising** - First purchase after 3 months away
 
-5. **High Debt** - Based on unpaid balance (humorous!)
+5. **High Debt** - Based on unpaid balance (humorous!). A level is earned again only after the debt was paid off in between
    - **Credit Card Lifestyle** - €50 or more unpaid
    - **Financial Freedom? Never Heard of It** - €100 or more unpaid
    - **Living on the Edge** - €150 or more unpaid

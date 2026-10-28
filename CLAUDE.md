@@ -96,6 +96,7 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Visual Notifications**: Animated overlays with celebration effects
 - **Humor**: Lighthearted names and descriptions (e.g., "Living on the Edge" for high debt)
 - **One-Time Only**: Each achievement can only be earned once per user
+- **Debt levels repeat only after paying off**: an `IN_DEBT_*` achievement is earned again only if the balance was settled (spent <= paid at some payment) after it was last earned - it used to come again every day for anyone who stayed in debt
 - **Spread out for long-time users**: purchase count and total spent stay true once reached, so imported history would award every level of both on the first scan. `AchievementService.ReleaseLifetimeAchievements` hands them out one category per purchase (all pending levels at once, purchase count first) and only on a purchase that brings nothing else and while nothing is unshown - achievements tied to the moment (debt, time of day, big purchase, ...) go first because they may not hold next time. The first scan does not re-check the user's last *imported* purchase either
 - **Kiosk display** (`AchievementSlam.razor` + `wwwroot/js/achievementSlam.js` in Snackbox.Web): plays over the QR area so the purchase stays visible - each achievement slams in, then moves into a row, lowest level first; the countdown holds while it plays. The tablet keeps `AchievementNotification`
 - See [Achievement System Documentation](docs/achievement-system.md) for full details

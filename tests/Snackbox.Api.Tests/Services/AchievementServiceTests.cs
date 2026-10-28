@@ -442,6 +442,30 @@ public class AchievementServiceTests : IDisposable
         Assert.Empty(await _service.CheckImmediateAchievementsAsync(1, 5));
     }
 
+    [Fact]
+    public async Task DebtAchievement_EarnedAgainOnlyAfterTheDebtWasPaidOff()
+    {
+        // Arrange - €20 in debt, IN_DEBT_15 earned two days ago
+        var twoDaysAgo = DateTime.UtcNow.AddDays(-2);
+        _context.Purchases.Add(new Purchase
+        {
+            Id = 100, UserId = 1, CreatedAt = twoDaysAgo, UpdatedAt = twoDaysAgo,
+            Scans = new List<BarcodeScan> { new() { Id = 100, PurchaseId = 100, BarcodeId = 1, Amount = 19.50m, ScannedAt = twoDaysAgo } }
+        });
+        _context.UserAchievements.Add(new UserAchievement { UserId = 1, AchievementId = 6, EarnedAt = twoDaysAgo, HasBeenShown = true });
+        await _context.SaveChangesAsync();
+
+        // Still in debt on a later day: not again
+        AddCurrentPurchase(1, 0.50m);
+        Assert.DoesNotContain(await _service.CheckImmediateAchievementsAsync(1, 1), a => a.Code == "IN_DEBT_15");
+
+        // Paid off yesterday, €20 in debt again now: earned again
+        _context.Payments.Add(new Payment { Id = 1, UserId = 1, Amount = 20.00m, PaidAt = DateTime.UtcNow.AddDays(-1) });
+        await _context.SaveChangesAsync();
+        AddCurrentPurchase(2, 19.50m);
+        Assert.Contains(await _service.CheckImmediateAchievementsAsync(1, 2), a => a.Code == "IN_DEBT_15");
+    }
+
     private void AddCurrentPurchase(int id, decimal amount)
     {
         // A tick later than anything earned so far, as a real next purchase would be
