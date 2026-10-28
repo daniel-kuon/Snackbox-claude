@@ -38,16 +38,15 @@
                     </select>
                     @if (theme.Mode == ThemeMode.Dates)
                     {
+                        @* Only day and month count - the year in the picker is just this year *@
                         <span>from</span>
-                        <input type="number" class="form-control theme-day" min="1" max="31" @bind="theme.StartDay" />
-                        <span>.</span>
-                        <input type="number" class="form-control theme-day" min="1" max="12" @bind="theme.StartMonth" />
-                        <span>. to</span>
-                        <input type="number" class="form-control theme-day" min="1" max="31" @bind="theme.EndDay" />
-                        <span>.</span>
-                        <input type="number" class="form-control theme-day" min="1" max="12" @bind="theme.EndMonth" />
-                        <span>.</span>
+                        <input type="date" class="form-control" style="width: 11rem" value="@DateValue(theme.StartMonth, theme.StartDay)"
+                               @onchange="e => SetDay(e.Value, (m, d) => (theme.StartMonth, theme.StartDay) = (m, d))" />
+                        <span>to</span>
+                        <input type="date" class="form-control" style="width: 11rem" value="@DateValue(theme.EndMonth, theme.EndDay)"
+                               @onchange="e => SetDay(e.Value, (m, d) => (theme.EndMonth, theme.EndDay) = (m, d))" />
                         <button class="btn btn-sm btn-outline-primary" disabled="@(_saving == theme.Key)" @onclick="() => SaveAsync(theme)">Save dates</button>
+                        <small class="text-muted w-100">every year, both days included</small>
                     }
                 </div>
                 <small class="form-text text-muted">@theme.Description</small>
@@ -63,7 +62,6 @@
 
 <style>
     .theme-row { margin-bottom: 1rem; }
-    .theme-day { width: 4.5rem; }
 </style>
 
 @code {
@@ -83,6 +81,16 @@
             _themes = new List<ThemeDto>();
             _message = "Could not load the themes.";
         }
+    }
+
+    private static string DateValue(int month, int day) =>
+        new DateTime(DateTime.Today.Year, month, Math.Min(day, DateTime.DaysInMonth(DateTime.Today.Year, month))).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static void SetDay(object? value, Action<int, int> set)
+    {
+        if (DateTime.TryParseExact(value?.ToString(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                                   System.Globalization.DateTimeStyles.None, out var date))
+            set(date.Month, date.Day);
     }
 
     private Task SetModeAsync(ThemeDto theme, string? value)
