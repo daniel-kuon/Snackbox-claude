@@ -48,7 +48,8 @@ window.snackboxAchievementSlam = (() => {
         const ring = el('ach-slam-ring'), flash = el('ach-slam-flash'), shelf = el('ach-slam-shelf');
         stage.append(headline, ring, flash, shelf);
 
-        const minis = items.map(a => {
+        // The last one - the highest level - stays large in the middle; only the others move to the row
+        const minis = items.slice(0, -1).map(a => {
             const m = el('ach-slam-mini');
             m.append(el('ach-slam-mini-box', a.svg || '🏆'), text('ach-slam-mini-name', a.name));
             shelf.appendChild(m);
@@ -70,6 +71,7 @@ window.snackboxAchievementSlam = (() => {
             restart(count, 'bump');
 
             await wait(1500); if (!alive()) return;
+            if (i === items.length - 1) break;
 
             // Into its slot in the row
             const from = card.getBoundingClientRect(), to = minis[i].getBoundingClientRect(), base = stage.getBoundingClientRect();
