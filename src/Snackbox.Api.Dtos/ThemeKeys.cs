@@ -4,4 +4,8 @@ namespace Snackbox.Api.Dtos;
 public static class ThemeKeys
 {
     public const string Halloween = "halloween";
+    public const string BlackFriday = "black_friday";
+    public const string Nikolaus = "nikolaus";
+    public const string Christmas = "christmas";
+    public const string NewYearsEve = "new_years_eve";
 }

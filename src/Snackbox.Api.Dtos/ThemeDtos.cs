@@ -8,7 +8,9 @@ public enum ThemeMode
     /// <summary>Every year between the start and end day (both included; may wrap over New Year).</summary>
     Dates = 1,
     /// <summary>Always, until switched back.</summary>
-    Always = 2
+    Always = 2,
+    /// <summary>On the theme's own day, worked out for every year (Black Friday, St. Nikolaus) - see ThemeCalendar.</summary>
+    Auto = 3
 }
 
 public class ThemeDto
@@ -22,8 +24,11 @@ public class ThemeDto
     public int EndMonth { get; set; }
     public int EndDay { get; set; }
 
-    /// <summary>Whether the theme is showing right now.</summary>
+    /// <summary>Whether the theme is on right now (when themes overlap, the kiosk shows the shortest).</summary>
     public bool Active { get; set; }
+
+    /// <summary>For a theme with its own day: the next one (today included), otherwise null.</summary>
+    public DateTime? AutoDay { get; set; }
 }
 
 public class UpdateThemeDto

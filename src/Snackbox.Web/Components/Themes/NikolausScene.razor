@@ -1,0 +1,206 @@
+@inherits ThemeSceneBase
+
+@* St. Nikolaus on the kiosk: a snowy night over the roofs, St. Nikolaus with mitre, staff and
+   sack, a row of boots filled with treats and a golden -30 % star; on a purchase he peeks in at
+   every scan. The discount itself is the API's (a seeded theme discount). *@
+<div class="nk-scene @(Welcome ? "nk-welcome" : "nk-purchase") @(Quiet ? "nk-quiet" : "") @(Resting ? "nk-resting" : "")" aria-hidden="true">
+    <div class="nk-back">
+        <div class="nk-sky"></div>
+        @foreach (var s in Stars)
+        {
+            <span class="nk-star" style="@s"></span>
+        }
+
+        <svg class="nk-roofs" viewBox="0 0 1000 300" preserveAspectRatio="none">
+            <path d="M0 300 L0 170 L90 110 L180 170 L180 140 L280 80 L380 140 L380 190 L470 130 L560 190 L560 150 L650 100 L760 160 L760 120 L860 70 L1000 150 L1000 300 Z" fill="#0b1630" />
+            <path d="M0 175 L90 115 L180 175 M180 145 L280 85 L380 145 M380 195 L470 135 L560 195 M560 155 L650 105 L760 165 M760 125 L860 75 L1000 155"
+                  fill="none" stroke="#e8f1ff" stroke-width="9" stroke-linejoin="round" />
+            <rect x="310" y="70" width="26" height="46" fill="#0b1630" /><rect x="306" y="64" width="34" height="10" fill="#e8f1ff" />
+            <rect x="880" y="60" width="24" height="44" fill="#0b1630" /><rect x="876" y="54" width="32" height="10" fill="#e8f1ff" />
+            <g fill="#ffcf5a">
+                <rect x="70" y="200" width="22" height="26" /><rect x="250" y="170" width="22" height="26" class="nk-win" />
+                <rect x="300" y="210" width="22" height="26" /><rect x="450" y="215" width="22" height="26" class="nk-win w2" />
+                <rect x="620" y="180" width="22" height="26" /><rect x="830" y="150" width="22" height="26" class="nk-win w3" />
+                <rect x="900" y="200" width="22" height="26" />
+            </g>
+        </svg>
+        <div class="nk-ground"></div>
+        <Snowfall Light="!Welcome" />
+    </div>
+
+    <div class="nk-front">
+        @if (Welcome)
+        {
+            <div class="nk-boots">
+                @foreach (var boot in Boots)
+                {
+                    <svg class="nk-boot @boot.Class" viewBox="0 0 120 140"><use href="@boot.Treat" /><use href="#nk-boot-shape" /></svg>
+                }
+            </div>
+
+            <div class="nk-saint"><svg viewBox="0 0 220 320"><use href="#nk-saint-shape" /></svg></div>
+
+            <div class="nk-badge">
+                <svg viewBox="0 0 100 100"><path d="M50 2 L62 36 L98 36 L69 57 L80 92 L50 71 L20 92 L31 57 L2 36 L38 36 Z" /></svg>
+                <span><strong>-30%</strong>1st purchase<br />today</span>
+            </div>
+        }
+        else
+        {
+            @if (ScanCount > 0)
+            {
+                <div class="nk-peek" @key="ScanCount">
+                    <svg viewBox="0 0 220 320"><use href="#nk-saint-shape" /></svg>
+                    <span class="nk-bubble">Ho ho ho!</span>
+                </div>
+            }
+        }
+    </div>
+
+    <svg width="0" height="0" style="position:absolute">
+        <defs>
+            <g id="nk-saint-shape">
+                @* staff *@
+                <path d="M184 316 L184 70 M184 70 C184 40 150 36 150 60 C150 76 170 76 170 64" fill="none" stroke="#e6b422" stroke-width="7" stroke-linecap="round" />
+                @* sack *@
+                <path d="M10 236 C0 180 30 150 52 168 L62 252 C40 266 16 262 10 236 Z" fill="#8a5a2b" />
+                <path d="M40 160 C48 150 60 154 58 166" fill="none" stroke="#5b3a1a" stroke-width="5" />
+                @* robe and cloak *@
+                <path d="M60 150 L160 150 L182 310 L38 310 Z" fill="#c4161c" />
+                <path d="M100 150 L120 150 L126 310 L94 310 Z" fill="#f2c94c" />
+                <path d="M36 300 L184 300 L186 316 L34 316 Z" fill="#fff" />
+                <path d="M52 156 C40 220 44 270 40 304 L60 304 C66 250 70 200 78 152 Z M168 156 C180 220 176 270 180 304 L160 304 C154 250 150 200 142 152 Z" fill="#9c0f14" />
+                @* arm holding the staff *@
+                <path d="M146 170 C170 176 184 180 184 196 L172 204 C160 196 150 194 140 190 Z" fill="#c4161c" />
+                <circle cx="182" cy="198" r="10" fill="#f5d0b0" />
+                @* head, beard *@
+                <circle cx="110" cy="112" r="30" fill="#f5d0b0" />
+                <path d="M76 112 C74 170 96 196 110 200 C124 196 146 170 144 112 C136 132 124 130 110 128 C96 130 84 132 76 112 Z" fill="#fff" />
+                <path d="M92 124 C100 116 108 120 110 124 C112 120 120 116 128 124 C120 130 112 128 110 126 C108 128 100 130 92 124 Z" fill="#f3f3f3" stroke="#ddd" stroke-width="1" />
+                <circle cx="100" cy="108" r="3" fill="#3a2a20" /><circle cx="120" cy="108" r="3" fill="#3a2a20" />
+                <ellipse cx="95" cy="117" rx="5" ry="3" fill="rgba(230,120,120,.5)" /><ellipse cx="125" cy="117" rx="5" ry="3" fill="rgba(230,120,120,.5)" />
+                @* mitre *@
+                <path d="M80 92 C78 50 96 22 110 8 C124 22 142 50 140 92 Z" fill="#c4161c" />
+                <path d="M80 86 L140 86 L140 96 L80 96 Z" fill="#f2c94c" />
+                <path d="M106 34 L114 34 L114 48 L124 48 L124 56 L114 56 L114 76 L106 76 L106 56 L96 56 L96 48 L106 48 Z" fill="#f2c94c" />
+            </g>
+            <g id="nk-boot-shape">
+                <path d="M30 40 L74 40 L76 100 C100 102 116 110 116 126 L116 134 L22 134 L24 100 Z" fill="#6b3b1f" />
+                <path d="M26 40 L78 40 L78 54 L26 54 Z" fill="#fff" />
+                <path d="M22 126 L116 126 L116 134 L22 134 Z" fill="#3e2210" />
+            </g>
+            <g id="nk-treat-chocolate"><rect x="36" y="4" width="22" height="40" rx="3" fill="#5a2e14" /><rect x="34" y="16" width="26" height="22" fill="#c4161c" /></g>
+            <g id="nk-treat-orange"><circle cx="52" cy="26" r="17" fill="#f39019" /><path d="M52 9 C56 3 62 4 64 6" stroke="#2f7d32" stroke-width="3" fill="none" /></g>
+            <g id="nk-treat-cane"><path d="M46 46 L46 14 C46 2 66 2 66 14 L66 20" fill="none" stroke="#fff" stroke-width="7" /><path d="M46 46 L46 14 C46 2 66 2 66 14 L66 20" fill="none" stroke="#d7152a" stroke-width="7" stroke-dasharray="6 6" /></g>
+            <g id="nk-treat-coins"><circle cx="40" cy="30" r="12" fill="#e6b422" stroke="#a87d00" stroke-width="2" /><circle cx="62" cy="24" r="12" fill="#f2c94c" stroke="#a87d00" stroke-width="2" /></g>
+        </defs>
+    </svg>
+</div>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@@700&display=swap');
+
+    /* ---------- the screen it decorates ---------- */
+    .sb-theme-nikolaus .scan-prompt-container,
+    .sb-theme-nikolaus .scanner-active { position: relative; z-index: 1; background: transparent; }
+    .sb-theme-nikolaus .scanner-active { padding: 0.9rem; }
+
+    .sb-theme-nikolaus .scan-title {
+        font-family: 'Mountains of Christmas', Georgia, serif; font-weight: 700; color: #fff;
+        text-shadow: 0 0 .1em #ffd76a, 0 .05em 0 #8a0f14, 0 0 .5em rgba(255, 215, 106, .45);
+    }
+    .sb-theme-nikolaus .scan-instruction { color: #ffd76a; text-shadow: 0 0 .5em rgba(255, 215, 106, .5); }
+
+    .sb-theme-nikolaus .purchase-section,
+    .sb-theme-nikolaus .qr-section { background: #fffdf8; box-shadow: 0 0 0 3px #c4161c, 0 0 0 7px #f2c94c, 0 12px 34px rgba(0, 0, 0, .55); }
+    .sb-theme-nikolaus .section-title,
+    .sb-theme-nikolaus .user-name { font-family: 'Mountains of Christmas', Georgia, serif; font-weight: 700; color: #c4161c; }
+    .sb-theme-nikolaus .purchase-total:not(.with-discount) .total-amount { color: #c4161c; }
+    .sb-theme-nikolaus .discount-row { background: #fff4d6; border-radius: 6px; padding: .3rem .6rem; }
+    .sb-theme-nikolaus .savings-badge { background: #c4161c; color: #fff; }
+    .sb-theme-nikolaus .timer-circle { background: radial-gradient(circle at 50% 40%, #e43b40, #9c0f14); box-shadow: 0 0 0 3px #f2c94c, 0 0 16px rgba(242, 201, 76, .6); }
+    .sb-theme-nikolaus .timer-text { color: #fff; }
+
+    .sb-theme-nikolaus .ach-slam-overlay { background: radial-gradient(ellipse at 50% 30%, #23407a 0%, #0b1630 60%, #050a18 100%); }
+    .sb-theme-nikolaus .ach-slam-card,
+    .sb-theme-nikolaus .ach-slam-mini-box { border-top-color: #c4161c; }
+    .sb-theme-nikolaus .ach-slam-count { color: #f2c94c; }
+    .sb-theme-nikolaus .ach-slam-ring { border-color: #f2c94c; }
+
+    /* ---------- the scene ---------- */
+    .nk-scene, .nk-back, .nk-front { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .nk-back { z-index: 0; }
+    .nk-front { z-index: 40; transition: opacity .4s; }
+    .nk-quiet .nk-front { opacity: 0; }
+    .nk-resting * { animation-play-state: paused !important; }
+    .nk-star, .nk-saint, .nk-boot, .nk-badge, .nk-peek { will-change: transform, opacity; }
+
+    .nk-sky { position: absolute; inset: 0; background: linear-gradient(#050a18 0%, #0f2350 55%, #23407a 100%); }
+    .nk-star { position: absolute; border-radius: 50%; background: #fff6d0; opacity: .3; animation: nk-twinkle 4s ease-in-out infinite; }
+    @@keyframes nk-twinkle { 50% { opacity: 1; transform: scale(1.5); } }
+
+    .nk-roofs { position: absolute; left: 0; right: 0; bottom: 12vh; width: 100%; height: 30vh; }
+    .nk-purchase .nk-roofs { height: 16vh; bottom: 6vh; opacity: .7; }
+    .nk-win { animation: nk-window 7s steps(1) infinite; }
+    .nk-win.w2 { animation-delay: -3s; animation-duration: 9s; }
+    .nk-win.w3 { animation-delay: -5s; }
+    @@keyframes nk-window { 0%, 100% { opacity: 1; } 55% { opacity: .2; } 70% { opacity: 1; } }
+    .nk-ground { position: absolute; left: 0; right: 0; bottom: 0; height: 13vh; background: linear-gradient(#f4f8ff, #cddcf5); border-radius: 50% 50% 0 0 / 3vh 3vh 0 0; }
+    .nk-purchase .nk-ground { height: 7vh; }
+
+    .nk-saint { position: absolute; right: 8vw; bottom: 5vh; width: 26vmin; transform-origin: 50% 100%; animation: nk-sway 5s ease-in-out infinite; }
+    .nk-saint svg { width: 100%; display: block; filter: drop-shadow(0 1vmin 2vmin rgba(0, 0, 0, .45)); }
+    @@keyframes nk-sway { 50% { transform: rotate(2deg) translateY(-.6vmin); } }
+
+    .nk-boots { position: absolute; left: 4vw; bottom: 4vh; display: flex; align-items: flex-end; gap: 1.2vw; }
+    .nk-boot { width: 11vmin; display: block; }
+    .nk-boot.big { width: 14vmin; }
+    .nk-boot.hop { animation: nk-hop 4.5s ease-in-out infinite; }
+    .nk-boot.hop2 { animation: nk-hop 6s ease-in-out infinite; animation-delay: -2s; }
+    @@keyframes nk-hop { 0%, 80%, 100% { transform: translateY(0); } 86% { transform: translateY(-3vmin) rotate(-6deg); } 93% { transform: translateY(0) rotate(4deg); } }
+
+    .nk-badge { position: absolute; top: 6vh; right: 10vw; width: 22vmin; height: 22vmin; animation: nk-badge 6s ease-in-out infinite; }
+    .nk-badge svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .nk-badge path { fill: #f2c94c; stroke: #b8860b; stroke-width: 2; }
+    .nk-badge span { position: absolute; inset: 31% 24% 0; text-align: center; color: #8a0f14; font-weight: 800; font-size: 1.25vmin; line-height: 1.15; text-transform: uppercase; }
+    .nk-badge strong { display: block; margin: 0 -20%; font-size: 4.2vmin; line-height: 1; }
+    @@keyframes nk-badge { 0%, 100% { transform: rotate(-6deg) scale(1); } 50% { transform: rotate(6deg) scale(1.06); } }
+
+    .nk-peek { position: absolute; left: 1vw; bottom: 0; width: 18vmin; animation: nk-peek 2.6s ease-in-out forwards; }
+    .nk-peek svg { width: 100%; display: block; }
+    .nk-bubble {
+        position: absolute; left: 80%; top: 6%; padding: .6vmin 1.4vmin; white-space: nowrap; border-radius: 2vmin;
+        background: #fff; color: #c4161c; font: 700 3.4vmin/1.1 'Mountains of Christmas', Georgia, serif; box-shadow: 0 .5vmin 1.5vmin rgba(0, 0, 0, .3);
+    }
+    @@keyframes nk-peek {
+        0% { transform: translateY(100%); }
+        25%, 75% { transform: translateY(45%) rotate(4deg); }
+        50% { transform: translateY(42%) rotate(-3deg); }
+        100% { transform: translateY(100%); }
+    }
+</style>
+
+@code {
+    private sealed record Boot(string Class, string Treat);
+
+    private static readonly Boot[] Boots =
+    [
+        new("", "#nk-treat-chocolate"),
+        new("big hop", "#nk-treat-orange"),
+        new("", "#nk-treat-cane"),
+        new("hop2", "#nk-treat-coins"),
+    ];
+
+    // Fixed seed: the same sky on every render
+    private static readonly string[] Stars = MakeStars();
+
+    private static string[] MakeStars()
+    {
+        var random = new Random(6);
+        return Enumerable.Range(0, 40).Select(_ =>
+        {
+            var size = random.Next(1, 4);
+            return Css($"left:{random.NextDouble() * 100:0.0}%;top:{random.NextDouble() * 50:0.0}%;width:{size}px;height:{size}px;animation-delay:{random.NextDouble() * 4:0.0}s;animation-duration:{3 + random.NextDouble() * 3:0.0}s");
+        }).ToArray();
+    }
+}

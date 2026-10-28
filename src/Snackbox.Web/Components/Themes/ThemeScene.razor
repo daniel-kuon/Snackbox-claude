@@ -9,6 +9,18 @@
     case ThemeKeys.Halloween:
         <HalloweenScene Welcome="Welcome" ScanCount="ScanCount" Quiet="Quiet" />
         break;
+    case ThemeKeys.BlackFriday:
+        <BlackFridayScene Welcome="Welcome" ScanCount="ScanCount" Quiet="Quiet" />
+        break;
+    case ThemeKeys.Nikolaus:
+        <NikolausScene Welcome="Welcome" ScanCount="ScanCount" Quiet="Quiet" />
+        break;
+    case ThemeKeys.Christmas:
+        <ChristmasScene Welcome="Welcome" ScanCount="ScanCount" Quiet="Quiet" />
+        break;
+    case ThemeKeys.NewYearsEve:
+        <NewYearsEveScene Welcome="Welcome" ScanCount="ScanCount" Quiet="Quiet" />
+        break;
 }
 
 @code {
@@ -27,6 +39,10 @@
     public static string? WelcomeLine(string? key) => key switch
     {
         ThemeKeys.Halloween => "Scan your card... if you dare 🎃",
+        ThemeKeys.BlackFriday => "Black Friday: 30 % off your first purchase today! 🛍️",
+        ThemeKeys.Nikolaus => "St. Nikolaus is here: 30 % off your first purchase today! 🎁",
+        ThemeKeys.Christmas => "Merry Christmas! Scan your card 🎄",
+        ThemeKeys.NewYearsEve => DateTime.Now.Month == 12 ? $"Get ready for {NewYearsEveScene.Year}! 🎆" : $"Happy New Year {NewYearsEveScene.Year}! 🎆",
         _ => null
     };
 }

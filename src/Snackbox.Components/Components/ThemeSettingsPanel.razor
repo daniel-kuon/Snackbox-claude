@@ -8,9 +8,10 @@
         <h3>Themes</h3>
     </div>
     <p class="form-text text-muted">
-        Seasonal looks of the kiosk, each with its own achievements. <em>Dates</em> repeats every year
-        (the end may lie in the next year); <em>Always</em> keeps it on until switched back.
-        Saved right away - the kiosk follows within a minute.
+        Seasonal looks of the kiosk, some with their own achievements or discount. <em>Dates</em> repeats
+        every year (the end may lie in the next year); <em>Its day</em> is worked out every year (Black
+        Friday, St. Nikolaus); <em>Always</em> keeps it on until switched back. When two are on, the
+        shorter one shows. Saved right away - the kiosk follows within a minute.
     </p>
 
     @if (_themes == null)
@@ -34,6 +35,10 @@
                             @onchange="e => SetModeAsync(theme, e.Value?.ToString())">
                         <option value="@ThemeMode.Off">Off</option>
                         <option value="@ThemeMode.Dates">Dates</option>
+                        @if (theme.AutoDay != null)
+                        {
+                            <option value="@ThemeMode.Auto">Its day</option>
+                        }
                         <option value="@ThemeMode.Always">Always</option>
                     </select>
                     @if (theme.Mode == ThemeMode.Dates)
@@ -47,6 +52,10 @@
                                @onchange="e => SetDay(e.Value, (m, d) => (theme.EndMonth, theme.EndDay) = (m, d))" />
                         <button class="btn btn-sm btn-outline-primary" disabled="@(_saving == theme.Key)" @onclick="() => SaveAsync(theme)">Save dates</button>
                         <small class="text-muted w-100">every year, both days included</small>
+                    }
+                    else if (theme.Mode == ThemeMode.Auto && theme.AutoDay is { } day)
+                    {
+                        <span class="text-muted">next: @day.ToString("ddd dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture)</span>
                     }
                 </div>
                 <small class="form-text text-muted">@theme.Description</small>

@@ -1,0 +1,232 @@
+@inherits ThemeSceneBase
+
+@* Christmas on the kiosk: a snowy night, a Christmas tree with twinkling lights and a glowing
+   star, presents, a snowman, and now and then a sleigh across the moon; on a purchase a garland
+   of lights over the screen and a present that pops open at every scan. *@
+<div class="xm-scene @(Welcome ? "xm-welcome" : "xm-purchase") @(Quiet ? "xm-quiet" : "") @(Resting ? "xm-resting" : "")" aria-hidden="true">
+    <div class="xm-back">
+        <div class="xm-sky"></div>
+        <div class="xm-moon"></div>
+
+        @if (Welcome)
+        {
+            <svg class="xm-sleigh" viewBox="0 0 300 70"><use href="#xm-sleigh-shape" /></svg>
+
+            <svg class="xm-hills" viewBox="0 0 1000 200" preserveAspectRatio="none">
+                <path d="M0 200 L0 90 Q180 30 380 80 T760 60 T1000 80 L1000 200 Z" fill="#dbe7fb" />
+                <path d="M0 200 L0 140 Q260 90 520 130 T1000 120 L1000 200 Z" fill="#f4f8ff" />
+            </svg>
+
+            <div class="xm-tree">
+                <svg viewBox="0 0 300 400">
+                    <rect x="134" y="330" width="32" height="50" fill="#6b3b1f" />
+                    <polygon points="150,40 60,170 100,170 30,270 90,270 10,350 290,350 210,270 270,270 200,170 240,170" fill="#1f6b3a" />
+                    <path d="M70 200 Q150 240 230 196 M48 296 Q150 340 256 292" fill="none" stroke="#e8c45a" stroke-width="4" />
+                    <g>
+                        <circle cx="150" cy="120" r="9" fill="#c4161c" /><circle cx="118" cy="232" r="10" fill="#e6b422" /><circle cx="196" cy="226" r="10" fill="#c4161c" />
+                        <circle cx="96" cy="318" r="11" fill="#c4161c" /><circle cx="160" cy="262" r="9" fill="#2a74d6" /><circle cx="214" cy="320" r="11" fill="#e6b422" />
+                    </g>
+                    <g class="xm-lights a">
+                        @foreach (var l in LightsA)
+                        {
+                            <circle cx="@l.X" cy="@l.Y" r="7" fill="@l.Color" />
+                        }
+                    </g>
+                    <g class="xm-lights b">
+                        @foreach (var l in LightsB)
+                        {
+                            <circle cx="@l.X" cy="@l.Y" r="7" fill="@l.Color" />
+                        }
+                    </g>
+                </svg>
+                <div class="xm-star"><svg viewBox="0 0 100 100"><path d="M50 2 L62 36 L98 36 L69 57 L80 92 L50 71 L20 92 L31 57 L2 36 L38 36 Z" /></svg></div>
+            </div>
+
+            <div class="xm-presents">
+                <svg class="xm-present" viewBox="0 0 100 100"><use href="#xm-present-red" /></svg>
+                <svg class="xm-present big hop" viewBox="0 0 100 100"><use href="#xm-present-blue" /></svg>
+                <svg class="xm-present" viewBox="0 0 100 100"><use href="#xm-present-gold" /></svg>
+            </div>
+
+            <svg class="xm-snowman" viewBox="0 0 160 220"><use href="#xm-snowman-shape" /></svg>
+        }
+        <Snowfall Light="!Welcome" />
+    </div>
+
+    <div class="xm-front">
+        @if (!Welcome)
+        {
+            <svg class="xm-garland" viewBox="0 0 1000 60" preserveAspectRatio="none">
+                <path d="M0 6 Q125 50 250 6 Q375 50 500 6 Q625 50 750 6 Q875 50 1000 6" fill="none" stroke="#1f6b3a" stroke-width="7" />
+            </svg>
+            <div class="xm-bulbs">
+                @for (var i = 0; i < 16; i++)
+                {
+                    <span class="xm-bulb @(i % 2 == 0 ? "a" : "b")" style="@Bulb(i)"></span>
+                }
+            </div>
+
+            @if (ScanCount > 0)
+            {
+                <div class="xm-pop" @key="ScanCount">
+                    <svg viewBox="0 0 100 100"><use href="@PopPresent" /></svg>
+                    <span>Ho ho ho!</span>
+                </div>
+            }
+        }
+    </div>
+
+    <svg width="0" height="0" style="position:absolute">
+        <defs>
+            <g id="xm-present-red"><rect x="10" y="34" width="80" height="62" fill="#c4161c" /><rect x="4" y="22" width="92" height="16" fill="#e0262d" /><rect x="44" y="22" width="12" height="74" fill="#f2c94c" /><path d="M50 22 C30 0 18 14 50 22 C82 14 70 0 50 22" fill="none" stroke="#f2c94c" stroke-width="5" /></g>
+            <g id="xm-present-blue"><rect x="10" y="34" width="80" height="62" fill="#1d5fb8" /><rect x="4" y="22" width="92" height="16" fill="#2a74d6" /><rect x="44" y="22" width="12" height="74" fill="#fff" /><path d="M50 22 C30 0 18 14 50 22 C82 14 70 0 50 22" fill="none" stroke="#fff" stroke-width="5" /></g>
+            <g id="xm-present-gold"><rect x="10" y="34" width="80" height="62" fill="#e6b422" /><rect x="4" y="22" width="92" height="16" fill="#f2c94c" /><rect x="44" y="22" width="12" height="74" fill="#c4161c" /><path d="M50 22 C30 0 18 14 50 22 C82 14 70 0 50 22" fill="none" stroke="#c4161c" stroke-width="5" /></g>
+            <g id="xm-snowman-shape">
+                <circle cx="80" cy="160" r="54" fill="#fff" stroke="#c9d8f0" stroke-width="3" />
+                <circle cx="80" cy="80" r="38" fill="#fff" stroke="#c9d8f0" stroke-width="3" />
+                <rect x="52" y="40" width="56" height="9" fill="#1b1b1b" /><rect x="61" y="6" width="38" height="36" fill="#1b1b1b" /><rect x="61" y="32" width="38" height="6" fill="#c4161c" />
+                <circle cx="68" cy="72" r="4" fill="#1b1b1b" /><circle cx="92" cy="72" r="4" fill="#1b1b1b" />
+                <path d="M80 82 L108 88 L80 90 Z" fill="#f39019" />
+                <path d="M46 108 Q80 124 114 108 L114 120 Q80 136 46 120 Z" fill="#c4161c" /><rect x="94" y="114" width="14" height="40" fill="#c4161c" />
+                <circle cx="80" cy="146" r="4" fill="#1b1b1b" /><circle cx="80" cy="166" r="4" fill="#1b1b1b" />
+                <path d="M30 140 L-4 112 M132 140 L160 110" stroke="#6b3b1f" stroke-width="5" stroke-linecap="round" />
+            </g>
+            <g id="xm-sleigh-shape" fill="#0b1630">
+                <path d="M200 40 L270 40 C290 40 296 26 290 16 L284 16 C286 24 282 32 270 32 L214 32 Z" />
+                <rect x="210" y="14" width="56" height="20" rx="4" />
+                <path d="M196 46 L290 46" stroke="#0b1630" stroke-width="3" />
+                <g class="xm-deer"><path d="M20 30 L70 30 L74 44 L66 44 L64 36 L30 36 L26 44 L18 44 Z M66 30 L76 14 L82 16 L74 32 Z M76 14 L72 2 M76 14 L86 4" stroke="#0b1630" stroke-width="2" /></g>
+                <g class="xm-deer" transform="translate(90 0)"><path d="M20 30 L70 30 L74 44 L66 44 L64 36 L30 36 L26 44 L18 44 Z M66 30 L76 14 L82 16 L74 32 Z M76 14 L72 2 M76 14 L86 4" stroke="#0b1630" stroke-width="2" /></g>
+                <path d="M74 24 L210 24" stroke="#0b1630" stroke-width="1.5" fill="none" />
+            </g>
+        </defs>
+    </svg>
+</div>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@@700&display=swap');
+
+    /* ---------- the screen it decorates ---------- */
+    .sb-theme-christmas .scan-prompt-container,
+    .sb-theme-christmas .scanner-active { position: relative; z-index: 1; background: transparent; }
+    .sb-theme-christmas .scanner-active { padding: 0.9rem; padding-top: 3.2rem; }
+
+    .sb-theme-christmas .scan-title {
+        font-family: 'Mountains of Christmas', Georgia, serif; font-weight: 700; color: #fff;
+        text-shadow: 0 0 .1em #ffe9a6, 0 .05em 0 #1f6b3a, 0 0 .5em rgba(255, 233, 166, .5);
+    }
+    .sb-theme-christmas .scan-instruction { color: #ffe9a6; text-shadow: 0 0 .5em rgba(255, 233, 166, .5); }
+
+    .sb-theme-christmas .purchase-section,
+    .sb-theme-christmas .qr-section { background: #fffdf8; box-shadow: 0 0 0 3px #1f6b3a, 0 0 0 7px #c4161c, 0 12px 34px rgba(0, 0, 0, .55); }
+    .sb-theme-christmas .section-title,
+    .sb-theme-christmas .user-name { font-family: 'Mountains of Christmas', Georgia, serif; font-weight: 700; color: #1f6b3a; }
+    .sb-theme-christmas .purchase-total:not(.with-discount) .total-amount { color: #c4161c; }
+    .sb-theme-christmas .timer-circle { background: radial-gradient(circle at 50% 40%, #e43b40, #9c0f14); box-shadow: 0 0 0 3px #fff, 0 0 16px rgba(255, 255, 255, .5); }
+    .sb-theme-christmas .timer-text { color: #fff; }
+
+    .sb-theme-christmas .ach-slam-overlay { background: radial-gradient(ellipse at 50% 30%, #1f6b3a 0%, #0b2a1a 60%, #04100a 100%); }
+    .sb-theme-christmas .ach-slam-card,
+    .sb-theme-christmas .ach-slam-mini-box { border-top-color: #c4161c; }
+    .sb-theme-christmas .ach-slam-count { color: #f2c94c; }
+    .sb-theme-christmas .ach-slam-ring { border-color: #f2c94c; }
+
+    /* ---------- the scene ---------- */
+    .xm-scene, .xm-back, .xm-front { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .xm-back { z-index: 0; }
+    .xm-front { z-index: 40; transition: opacity .4s; }
+    .xm-quiet .xm-front { opacity: 0; }
+    .xm-resting * { animation-play-state: paused !important; }
+    .xm-sleigh, .xm-star, .xm-present, .xm-pop, .xm-lights, .xm-bulb { will-change: transform, opacity; }
+
+    .xm-sky { position: absolute; inset: 0; background: linear-gradient(#060b1f 0%, #12224d 60%, #2b4a86 100%); }
+    .xm-moon {
+        position: absolute; top: 7vh; right: 14vw; width: 16vmin; height: 16vmin; border-radius: 50%;
+        background: radial-gradient(circle at 40% 38%, #fffdf0, #f1e7c0 70%, #d8cb98);
+        box-shadow: 0 0 6vmin rgba(255, 245, 210, .45);
+    }
+    .xm-purchase .xm-moon { top: -6vmin; right: 6vw; width: 12vmin; height: 12vmin; opacity: .7; }
+
+    .xm-sleigh { position: absolute; top: 8vh; left: 0; width: 34vmin; opacity: 0; animation: xm-sleigh 26s linear infinite; animation-delay: 3s; }
+    @@keyframes xm-sleigh {
+        0% { transform: translate(-40vw, 12vh) rotate(-6deg); opacity: 1; }
+        35% { transform: translate(110vw, -6vh) rotate(-8deg); opacity: 1; }
+        36%, 100% { transform: translate(110vw, -6vh); opacity: 0; }
+    }
+
+    .xm-hills { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 26vh; }
+
+    .xm-tree { position: absolute; right: 9vw; bottom: 8vh; width: 30vmin; }
+    .xm-tree svg { width: 100%; display: block; filter: drop-shadow(0 1vmin 2vmin rgba(0, 0, 0, .4)); }
+    .xm-lights.a { animation: xm-blink 1.6s steps(1) infinite; }
+    .xm-lights.b { animation: xm-blink 1.6s steps(1) infinite; animation-delay: -.8s; }
+    @@keyframes xm-blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+    .xm-star { position: absolute; left: 50%; top: -4%; width: 9vmin; margin-left: -4.5vmin; filter: drop-shadow(0 0 1.6vmin rgba(255, 220, 90, .9)); animation: xm-star 3s ease-in-out infinite; }
+    .xm-star svg { width: 100%; display: block; }
+    .xm-star path { fill: #ffd84a; }
+    @@keyframes xm-star { 50% { transform: scale(1.15) rotate(8deg); } }
+
+    .xm-presents { position: absolute; right: 30vw; bottom: 5vh; display: flex; align-items: flex-end; gap: .6vw; }
+    .xm-present { width: 9vmin; display: block; }
+    .xm-present.big { width: 12vmin; }
+    .xm-present.hop { animation: xm-hop 5s ease-in-out infinite; }
+    @@keyframes xm-hop { 0%, 78%, 100% { transform: translateY(0); } 84% { transform: translateY(-3.5vmin) rotate(-7deg); } 91% { transform: translateY(0) rotate(5deg); } }
+
+    .xm-snowman { position: absolute; left: 5vw; bottom: 5vh; width: 18vmin; animation: xm-wobble 7s ease-in-out infinite; transform-origin: 50% 100%; }
+    @@keyframes xm-wobble { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+
+    .xm-garland { position: absolute; top: 0; left: 0; width: 100%; height: 6vh; }
+    .xm-bulbs { position: absolute; inset: 0; }
+    .xm-bulb { position: absolute; width: 1.6vmin; height: 2.4vmin; border-radius: 50% 50% 45% 45%; box-shadow: 0 0 1.2vmin currentColor; background: currentColor; }
+    .xm-bulb.a { animation: xm-blink 1.4s steps(1) infinite; }
+    .xm-bulb.b { animation: xm-blink 1.4s steps(1) infinite; animation-delay: -.7s; }
+
+    .xm-pop { position: absolute; left: 22vw; top: 40vh; width: 14vmin; text-align: center; animation: xm-pop 1.6s ease-out forwards; }
+    .xm-pop svg { width: 100%; display: block; filter: drop-shadow(0 0 2vmin rgba(255, 230, 150, .8)); }
+    .xm-pop span { display: block; white-space: nowrap; font: 700 5vmin/1.1 'Mountains of Christmas', Georgia, serif; color: #fff; text-shadow: 0 0 10px #ffd84a, 0 2px 0 #9c0f14; }
+    @@keyframes xm-pop {
+        0% { transform: scale(.2) translateY(20vh); opacity: 0; }
+        25% { transform: scale(1.2) rotate(-5deg); opacity: 1; }
+        45% { transform: scale(1) rotate(5deg); }
+        70% { opacity: 1; }
+        100% { transform: scale(.9) translateY(-16vh); opacity: 0; }
+    }
+</style>
+
+@code {
+    private sealed record Light(int X, int Y, string Color);
+
+    private static readonly string[] Colors = ["#ff4d4d", "#ffd84a", "#4dc3ff", "#7dff6a", "#ff8af0"];
+
+    // Along the two garlands on the tree, alternately in group a and b
+    private static readonly Light[] AllLights = MakeLights();
+    private static readonly Light[] LightsA = AllLights.Where((_, i) => i % 2 == 0).ToArray();
+    private static readonly Light[] LightsB = AllLights.Where((_, i) => i % 2 == 1).ToArray();
+
+    private static Light[] MakeLights()
+    {
+        var lights = new List<Light>();
+        // Points on the quadratic curves drawn in the tree: M70 200 Q150 240 230 196 and M48 296 Q150 340 256 292
+        foreach (var (x0, y0, cx, cy, x1, y1, n) in new[] { (70, 200, 150, 240, 230, 196, 7), (48, 296, 150, 340, 256, 292, 9), (110, 130, 150, 150, 190, 128, 4) })
+        {
+            for (var i = 0; i < n; i++)
+            {
+                var t = (i + .5) / n;
+                var x = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * cx + t * t * x1;
+                var y = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * cy + t * t * y1;
+                lights.Add(new Light((int)x, (int)y, Colors[lights.Count % Colors.Length]));
+            }
+        }
+        return lights.ToArray();
+    }
+
+    // The garland sags between five hooks; each bulb hangs on the curve
+    private static string Bulb(int i)
+    {
+        var x = (i + .5) / 16;
+        var sag = (1 - Math.Cos(x * 8 * Math.PI)) / 2; // 0 at the hooks, 1 in between
+        return Css($"left:{x * 100:0.0}%;top:{0.6 + sag * 2.6:0.0}vh;color:{Colors[i % Colors.Length]}");
+    }
+
+    private string PopPresent => (ScanCount % 3) switch { 0 => "#xm-present-red", 1 => "#xm-present-blue", _ => "#xm-present-gold" };
+}

@@ -1,0 +1,234 @@
+@inherits ThemeSceneBase
+
+@* New Year's Eve on the kiosk: rockets and fireworks over a city skyline, falling confetti,
+   the new year's number in gold and two glasses clinking; on a purchase a firework bursts
+   at every scan. Each burst animates as one piece (its sparks sit still inside it). *@
+<div class="ny-scene @(Welcome ? "ny-welcome" : "ny-purchase") @(Quiet ? "ny-quiet" : "") @(Resting ? "ny-resting" : "")" aria-hidden="true">
+    <div class="ny-back">
+        <div class="ny-sky"></div>
+
+        @foreach (var b in Welcome ? WelcomeBursts : PurchaseBursts)
+        {
+            <span class="ny-rocket" style="@b"></span>
+            <div class="ny-burst" style="@b">
+                @for (var i = 0; i < 16; i++)
+                {
+                    <i style="@Css($"--a:{i * 22.5}deg")"></i>
+                }
+            </div>
+        }
+
+        @* On a purchase behind the panels, so nothing falls across the amounts *@
+        @if (!Welcome)
+        {
+            @foreach (var c in PurchaseConfetti)
+            {
+                <span class="ny-confetti" style="@c"></span>
+            }
+        }
+
+        <svg class="ny-city" viewBox="0 0 1000 220" preserveAspectRatio="none">
+            <path d="M0 220 L0 150 L40 150 L40 110 L90 110 L90 160 L130 160 L130 80 L150 60 L170 80 L170 170 L220 170 L220 120 L270 120 L270 60 L300 60 L300 140 L350 140 L350 100 L380 100 L380 30 L392 10 L404 30 L404 150 L460 150 L460 90 L520 90 L520 160 L560 160 L560 70 L610 70 L610 130 L660 130 L660 50 L700 50 L700 150 L750 150 L750 100 L800 100 L800 160 L840 160 L840 80 L890 80 L890 140 L940 140 L940 110 L1000 110 L1000 220 Z" fill="#05060f" />
+            <g fill="#ffd76a" class="ny-windows">
+                @foreach (var w in Windows)
+                {
+                    <rect x="@w.X" y="@w.Y" width="6" height="8" class="@w.Class" />
+                }
+            </g>
+        </svg>
+    </div>
+
+    <div class="ny-front">
+        @if (Welcome)
+        {
+            @foreach (var c in WelcomeConfetti)
+            {
+                <span class="ny-confetti" style="@c"></span>
+            }
+            <div class="ny-year">@Year</div>
+            <svg class="ny-glasses" viewBox="0 0 200 160">
+                <g class="ny-glass left"><use href="#ny-glass-shape" /></g>
+                <g class="ny-glass right" transform="translate(200 0) scale(-1 1)"><use href="#ny-glass-shape" /></g>
+            </svg>
+        }
+        else if (ScanCount > 0)
+        {
+            <div class="ny-pop" @key="ScanCount" style="@Css($"--c:{PopColors[ScanCount % PopColors.Length]}")">
+                @for (var i = 0; i < 16; i++)
+                {
+                    <i style="@Css($"--a:{i * 22.5}deg")"></i>
+                }
+            </div>
+        }
+    </div>
+
+    <svg width="0" height="0" style="position:absolute">
+        <defs>
+            <g id="ny-glass-shape">
+                <path d="M50 20 L90 20 L84 70 C82 84 74 90 70 90 C66 90 58 84 56 70 Z" fill="rgba(255,255,255,.18)" stroke="#e8e8f0" stroke-width="3" />
+                <path d="M53 44 L87 44 L84 70 C82 82 75 87 70 87 C65 87 58 82 56 70 Z" fill="#f5cf5a" />
+                <circle cx="66" cy="58" r="2" fill="#fff8d8" /><circle cx="74" cy="66" r="1.6" fill="#fff8d8" /><circle cx="70" cy="50" r="1.4" fill="#fff8d8" />
+                <path d="M70 90 L70 134 M54 136 L86 136" stroke="#e8e8f0" stroke-width="4" stroke-linecap="round" />
+            </g>
+        </defs>
+    </svg>
+</div>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Anton&display=swap');
+
+    /* ---------- the screen it decorates ---------- */
+    .sb-theme-new_years_eve .scan-prompt-container,
+    .sb-theme-new_years_eve .scanner-active { position: relative; z-index: 1; background: transparent; }
+    .sb-theme-new_years_eve .scanner-active { padding: 0.9rem; }
+
+    .sb-theme-new_years_eve .scan-title {
+        font-family: 'Great Vibes', 'Segoe Script', cursive; font-weight: 400; letter-spacing: .01em; color: #ffe08a;
+        text-shadow: 0 0 .06em #fff6d0, 0 0 .35em rgba(255, 200, 80, .6), 0 .04em 0 #7a5a00;
+    }
+    .sb-theme-new_years_eve .scan-instruction { color: #fff; text-shadow: 0 0 .5em rgba(255, 255, 255, .45); }
+
+    .sb-theme-new_years_eve .purchase-section,
+    .sb-theme-new_years_eve .qr-section { background: #fffdf6; box-shadow: 0 0 0 3px #d4af37, 0 0 26px rgba(212, 175, 55, .45), 0 10px 34px rgba(0, 0, 0, .7); }
+    .sb-theme-new_years_eve .section-title,
+    .sb-theme-new_years_eve .user-name { color: #8a6a00; }
+    .sb-theme-new_years_eve .purchase-total:not(.with-discount) .total-amount { color: #b8860b; }
+    .sb-theme-new_years_eve .timer-circle { background: radial-gradient(circle at 50% 40%, #2b2f5a, #0b0d22); box-shadow: 0 0 0 3px #d4af37, 0 0 16px rgba(212, 175, 55, .6); }
+    .sb-theme-new_years_eve .timer-text { color: #ffe08a; }
+
+    .sb-theme-new_years_eve .ach-slam-overlay { background: radial-gradient(ellipse at 50% 30%, #2b2f5a 0%, #0b0d22 60%, #020208 100%); }
+    .sb-theme-new_years_eve .ach-slam-card,
+    .sb-theme-new_years_eve .ach-slam-mini-box { border-top-color: #d4af37; }
+    .sb-theme-new_years_eve .ach-slam-count { color: #ffe08a; }
+    .sb-theme-new_years_eve .ach-slam-ring { border-color: #d4af37; }
+
+    /* ---------- the scene ---------- */
+    .ny-scene, .ny-back, .ny-front { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .ny-back { z-index: 0; }
+    .ny-front { z-index: 40; transition: opacity .4s; }
+    .ny-quiet .ny-front { opacity: 0; }
+    .ny-resting * { animation-play-state: paused !important; }
+    .ny-burst, .ny-rocket, .ny-confetti, .ny-year, .ny-glass, .ny-pop { will-change: transform, opacity; }
+
+    .ny-sky { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 120%, #2b2f5a 0%, #10122b 45%, #03040c 100%); }
+
+    .ny-city { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 24vh; }
+    .ny-purchase .ny-city { height: 12vh; }
+    .ny-windows .w { animation: ny-window 6s steps(1) infinite; }
+    .ny-windows .w2 { animation: ny-window 8s steps(1) infinite; animation-delay: -3s; }
+    @@keyframes ny-window { 0%, 100% { opacity: 1; } 50% { opacity: .15; } }
+
+    /* A rocket climbs to the burst's point, then the burst opens there - same duration and delay */
+    .ny-rocket, .ny-burst { position: absolute; left: var(--x); top: var(--y); }
+    .ny-rocket {
+        width: .5vmin; height: 5vmin; margin-left: -.25vmin; border-radius: .5vmin; opacity: 0;
+        background: linear-gradient(to top, rgba(255, 255, 255, 0), var(--c));
+        animation: ny-rise var(--dur) ease-out infinite; animation-delay: var(--delay);
+    }
+    @@keyframes ny-rise {
+        0% { transform: translateY(70vh); opacity: 1; }
+        20% { transform: translateY(0); opacity: 1; }
+        21%, 100% { transform: translateY(0); opacity: 0; }
+    }
+    .ny-burst { width: 0; height: 0; opacity: 0; animation: ny-burst var(--dur) ease-out infinite; animation-delay: var(--delay); }
+    .ny-burst i, .ny-pop i {
+        position: absolute; left: 0; top: 0; width: var(--len, 3.4vmin); height: .5vmin; margin-top: -.25vmin; border-radius: .5vmin;
+        background: linear-gradient(to right, rgba(255, 255, 255, 0), var(--c)); box-shadow: 0 0 .8vmin var(--c);
+        transform-origin: 0 50%; transform: rotate(var(--a)) translateX(var(--r, 8vmin));
+    }
+    @@keyframes ny-burst {
+        0%, 20% { transform: scale(.05); opacity: 0; }
+        21% { transform: scale(.15); opacity: 1; }
+        42% { transform: scale(1); opacity: 1; }
+        62% { transform: scale(1.08) translateY(3vmin); opacity: 0; }
+        100% { transform: scale(1.08) translateY(3vmin); opacity: 0; }
+    }
+
+    .ny-confetti { position: absolute; top: -5vh; left: var(--x); width: 1vmin; height: 1.8vmin; background: var(--c); animation: ny-fall var(--dur) linear infinite; animation-delay: var(--delay); }
+    @@keyframes ny-fall {
+        from { transform: translate(0, 0) rotate(0); }
+        to { transform: translate(var(--drift), 112vh) rotate(var(--spin)); }
+    }
+
+    .ny-year {
+        position: absolute; right: 7vw; top: 8vh; font: 400 22vmin/1 'Anton', Impact, sans-serif; letter-spacing: .02em;
+        color: #ffd76a; background: linear-gradient(180deg, #fff6d0 0%, #ffd76a 40%, #b8860b 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 2vmin rgba(255, 200, 80, .55)); animation: ny-year 4s ease-in-out infinite;
+    }
+    @@keyframes ny-year { 50% { transform: scale(1.06) rotate(-2deg); } }
+
+    .ny-glasses { position: absolute; left: 5vw; bottom: 4vh; width: 24vmin; overflow: visible; }
+    .ny-glass.left { transform-origin: 70px 136px; animation: ny-clink-left 3s ease-in-out infinite; }
+    .ny-glass.right use { transform-origin: 70px 136px; animation: ny-clink-left 3s ease-in-out infinite; }
+    @@keyframes ny-clink-left { 0%, 60%, 100% { transform: rotate(0); } 75% { transform: rotate(14deg); } 82% { transform: rotate(10deg); } }
+
+    .ny-pop { position: absolute; left: 24vw; top: 40vh; width: 0; height: 0; --len: 6vmin; --r: 14vmin; animation: ny-pop 1.5s ease-out forwards; }
+    @@keyframes ny-pop {
+        0% { transform: scale(.1); opacity: 1; }
+        45% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(1.15) translateY(4vmin); opacity: 0; }
+    }
+</style>
+
+@code {
+    /// <summary>The year being welcomed: next year until the end of December, then this one.</summary>
+    public static int Year => DateTime.Now.Month == 12 ? DateTime.Now.Year + 1 : DateTime.Now.Year;
+
+    private static readonly string[] PopColors = ["#ffd76a", "#ff5d8f", "#5de0ff", "#9dff6a", "#c58bff"];
+
+    private sealed record Window(int X, int Y, string Class);
+
+    // Each burst: where, colour, length of its cycle and where in it it starts
+    private static readonly string[] WelcomeBursts =
+    [
+        Burst(14, 52, "#ffd76a", 6.0, 0),
+        Burst(36, 42, "#ff5d8f", 7.0, -2.2),
+        Burst(56, 58, "#5de0ff", 5.5, -4.1),
+        Burst(74, 44, "#9dff6a", 8.0, -1.0),
+        Burst(90, 60, "#c58bff", 6.5, -5.3),
+        Burst(28, 64, "#ffd76a", 7.5, -3.4),
+    ];
+
+    private static readonly string[] PurchaseBursts =
+    [
+        Burst(8, 12, "#ffd76a", 9.0, -1.0),
+        Burst(92, 16, "#5de0ff", 11.0, -6.0),
+    ];
+
+    private static string Burst(double x, double y, string color, double duration, double delay) =>
+        Css($"--x:{x}vw;--y:{y}vh;--c:{color};--dur:{duration}s;--delay:{delay}s");
+
+    private static readonly string[] WelcomeConfetti = MakeConfetti(22, 12);
+    private static readonly string[] PurchaseConfetti = MakeConfetti(8, 13);
+
+    // Fixed seed: the same confetti on every render
+    private static string[] MakeConfetti(int count, int seed)
+    {
+        var random = new Random(seed);
+        return Enumerable.Range(0, count).Select(i =>
+        {
+            var duration = 7 + random.NextDouble() * 7;
+            return Css($"--x:{random.NextDouble() * 98:0.0}vw;--c:{PopColors[i % PopColors.Length]};--dur:{duration:0.0}s;--delay:{-random.NextDouble() * duration:0.0}s;--drift:{random.Next(-10, 10)}vw;--spin:{random.Next(-720, 720)}deg");
+        }).ToArray();
+    }
+
+    // Lit windows in the skyline's towers
+    private static readonly Window[] Windows = MakeWindows();
+
+    private static Window[] MakeWindows()
+    {
+        var random = new Random(31);
+        (int Left, int Right, int Top)[] towers = [(40, 90, 110), (130, 170, 80), (220, 270, 120), (270, 300, 60), (380, 404, 30), (460, 520, 90), (560, 610, 70), (660, 700, 50), (750, 800, 100), (840, 890, 80), (940, 1000, 110)];
+        var windows = new List<Window>();
+        foreach (var (left, right, top) in towers)
+        {
+            for (var y = top + 10; y < 210; y += 16)
+            for (var x = left + 6; x < right - 8; x += 12)
+            {
+                var roll = random.NextDouble();
+                if (roll < .45) windows.Add(new Window(x, y, roll < .06 ? "w" : roll < .1 ? "w2" : ""));
+            }
+        }
+        return windows.ToArray();
+    }
+}

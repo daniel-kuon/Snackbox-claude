@@ -11,6 +11,10 @@ public class DiscountDto
     public decimal Value { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>Set for a theme's discount (seeded): it only applies while that theme is on.</summary>
+    public string? ThemeName { get; set; }
+    public bool FirstPurchaseOnly { get; set; }
 }
 
 public class AppliedDiscountDto

@@ -12,14 +12,22 @@ namespace Snackbox.Api.Controllers;
 [Route("api/[controller]")]
 public class ThemesController(ApplicationDbContext context, TimeProvider time) : ControllerBase
 {
-    /// <summary>The theme showing now: Always beats a date range, then the first by id.</summary>
+    /// <summary>
+    /// The theme showing now: Always beats the rest, then the shortest run (St. Nikolaus within
+    /// Christmas), then the first by id.
+    /// </summary>
     [HttpGet("active")]
     [AllowAnonymous]
     public async Task<ActionResult<ActiveThemeDto>> GetActive()
     {
         var now = time.GetLocalNow().DateTime;
-        var themes = await context.Themes.OrderByDescending(t => t.Mode).ThenBy(t => t.Id).ToListAsync();
-        return Ok(new ActiveThemeDto { Key = themes.FirstOrDefault(t => t.IsActiveOn(now))?.Key });
+        var showing = (await context.Themes.ToListAsync())
+                      .Where(t => t.IsActiveOn(now))
+                      .OrderByDescending(t => t.Mode == ThemeMode.Always)
+                      .ThenBy(t => t.RunDays)
+                      .ThenBy(t => t.Id)
+                      .FirstOrDefault();
+        return Ok(new ActiveThemeDto { Key = showing?.Key });
     }
 
     [HttpGet]
@@ -39,6 +47,8 @@ public class ThemesController(ApplicationDbContext context, TimeProvider time) :
         if (theme == null) return NotFound(new { message = "Unknown theme" });
         if (!ValidDay(dto.StartMonth, dto.StartDay) || !ValidDay(dto.EndMonth, dto.EndDay))
             return BadRequest(new { message = "Start and end must be real days of the year" });
+        if (dto.Mode == ThemeMode.Auto && theme.AutoDay(2026) == null)
+            return BadRequest(new { message = $"{theme.Name} has no day of its own - use dates" });
 
         theme.Mode = dto.Mode;
         theme.StartMonth = dto.StartMonth;
@@ -64,6 +74,7 @@ public class ThemesController(ApplicationDbContext context, TimeProvider time) :
         StartDay = t.StartDay,
         EndMonth = t.EndMonth,
         EndDay = t.EndDay,
-        Active = t.IsActiveOn(now)
+        Active = t.IsActiveOn(now),
+        AutoDay = t.AutoDay(now.Year) is { } day && day >= now.Date ? day : t.AutoDay(now.Year + 1)
     };
 }

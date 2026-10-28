@@ -2,7 +2,9 @@
    ghosts, a spider and the odd lightning on the welcome screen; on a purchase the same night
    around the panels, a pumpkin countdown and a ghost that says BOO at every scan. Only
    transform/opacity are animated - cheap enough for the kiosk PC. *@
-<div class="hw-scene @(Welcome ? "hw-welcome" : "hw-purchase") @(Quiet ? "hw-quiet" : "") @(_resting && Welcome ? "hw-resting" : "")" aria-hidden="true">
+@inherits ThemeSceneBase
+
+<div class="hw-scene @(Welcome ? "hw-welcome" : "hw-purchase") @(Quiet ? "hw-quiet" : "") @(Resting ? "hw-resting" : "")" aria-hidden="true">
     <div class="hw-back">
         <div class="hw-sky"></div>
         @foreach (var s in Stars)
@@ -199,7 +201,7 @@
     .sb-theme-halloween .user-name {
         font-family: 'Creepster', 'Chiller', fantasy; font-weight: 400; letter-spacing: .05em; color: #d9600a;
     }
-    .sb-theme-halloween .total-amount { color: #d9600a; text-shadow: 0 0 12px rgba(255, 117, 24, .45); }
+    .sb-theme-halloween .purchase-total:not(.with-discount) .total-amount { color: #d9600a; text-shadow: 0 0 12px rgba(255, 117, 24, .45); }
 
     /* The countdown as a jack-o'-lantern */
     .sb-theme-halloween .timer-circle {
@@ -226,8 +228,7 @@
     .hw-front { z-index: 40; transition: opacity .4s; }
     .hw-quiet .hw-front { opacity: 0; }
 
-    /* Any running animation costs WebView2 a frame every vsync - about 8 % of a core even for
-       one star. The welcome screen is up all day, so it plays in bursts and holds still in between. */
+    /* The welcome screen's rest (ThemeSceneBase) */
     .hw-resting *, .sb-theme-halloween:has(.hw-resting) .scan-title, .sb-theme-halloween:has(.hw-resting) .scan-instruction { animation-play-state: paused !important; }
 
     /* Own GPU layers: moving them then costs no repaint (the kiosk PC is an old i5) */
@@ -369,43 +370,7 @@
     }
 </style>
 
-@implements IDisposable
-
 @code {
-    [Parameter] public bool Welcome { get; set; }
-    [Parameter] public int ScanCount { get; set; }
-    [Parameter] public bool Quiet { get; set; }
-
-    private static readonly TimeSpan PlayFor = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan RestFor = TimeSpan.FromSeconds(135);
-    private bool _resting;
-    private Timer? _cycle;
-
-    protected override void OnInitialized() =>
-        _cycle = new Timer(_ => InvokeAsync(() =>
-        {
-            _resting = !_resting;
-            _cycle?.Change(_resting ? RestFor : PlayFor, Timeout.InfiniteTimeSpan);
-            StateHasChanged();
-        }), null, PlayFor, Timeout.InfiniteTimeSpan);
-
-    private bool _wasWelcome = true;
-
-    protected override void OnParametersSet()
-    {
-        // Back on the welcome screen after a purchase: play a full burst first
-        if (Welcome && !_wasWelcome)
-        {
-            _resting = false;
-            _cycle?.Change(PlayFor, Timeout.InfiniteTimeSpan);
-        }
-        _wasWelcome = Welcome;
-    }
-
-    public void Dispose() => _cycle?.Dispose();
-
-    // Styles are written with the invariant culture: the kiosk runs in German, where 12.5 is "12,5"
-
     // Fixed seed: the same sky on every render
     private static readonly string[] Stars = MakeStars();
 

@@ -1,0 +1,242 @@
+@inherits ThemeSceneBase
+
+@* Black Friday on the kiosk: black and gold, sweeping spotlights, a swinging -30 % tag, a
+   flickering SALE sign, falling price tags and coins, shopping bags; on a purchase "KA-CHING!"
+   and a shower of coins at every scan. The discount itself is the API's (a seeded theme discount). *@
+<div class="bf-scene @(Welcome ? "bf-welcome" : "bf-purchase") @(Quiet ? "bf-quiet" : "") @(Resting ? "bf-resting" : "")" aria-hidden="true">
+    <div class="bf-back">
+        <div class="bf-sky"></div>
+        <div class="bf-beam b1"></div>
+        <div class="bf-beam b2"></div>
+        <div class="bf-floor"></div>
+
+        @* On a purchase behind the panels, so nothing falls across the amounts *@
+        @if (!Welcome)
+        {
+            @FallingItems(PurchaseFalling)
+        }
+
+        @if (Welcome)
+        {
+            <div class="bf-sale">SALE</div>
+
+            <div class="bf-bags">
+                @foreach (var bag in Bags)
+                {
+                    <svg class="bf-bag @(bag.Hop ? "hop" : "")" style="@bag.Style" viewBox="0 0 100 120"><use href="@bag.Shape" /></svg>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="bf-front">
+        @if (Welcome)
+        {
+            @FallingItems(WelcomeFalling)
+
+            <div class="bf-hanger">
+                <div class="bf-price">
+                    <span class="bf-price-hole"></span>
+                    <strong>-30%</strong>
+                    <small>1st purchase today</small>
+                </div>
+            </div>
+        }
+
+        @if (!Welcome && ScanCount > 0)
+        {
+            <div class="bf-kaching" @key="ScanCount">
+                <span class="bf-kaching-text">KA-CHING!</span>
+                @for (var i = 0; i < 10; i++)
+                {
+                    <span class="bf-spark" style="@Css($"--a:{i * 36}deg")">€</span>
+                }
+            </div>
+        }
+    </div>
+
+    <svg width="0" height="0" style="position:absolute">
+        <defs>
+            <g id="bf-bag-gold">
+                <path d="M30 34 C30 10 70 10 70 34" fill="none" stroke="#c9a227" stroke-width="5" />
+                <path d="M12 32 L88 32 L94 116 L6 116 Z" fill="#141414" stroke="#c9a227" stroke-width="3" />
+                <text x="50" y="84" text-anchor="middle" font-family="Anton, Impact, sans-serif" font-size="26" fill="#f5c84b">SALE</text>
+            </g>
+            <g id="bf-bag-red">
+                <path d="M30 34 C30 10 70 10 70 34" fill="none" stroke="#111" stroke-width="5" />
+                <path d="M12 32 L88 32 L94 116 L6 116 Z" fill="#d7152a" />
+                <text x="50" y="86" text-anchor="middle" font-family="Anton, Impact, sans-serif" font-size="32" fill="#fff">%</text>
+            </g>
+        </defs>
+    </svg>
+</div>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+
+    /* ---------- the screen it decorates ---------- */
+    .sb-theme-black_friday .scan-prompt-container,
+    .sb-theme-black_friday .scanner-active { position: relative; z-index: 1; background: transparent; }
+    .sb-theme-black_friday .scanner-active { padding: 0.9rem; }
+
+    .sb-theme-black_friday .scan-title {
+        font-family: 'Anton', Impact, sans-serif; font-weight: 400; letter-spacing: .06em; text-transform: uppercase;
+        color: #f5c84b; text-shadow: 0 0 .06em #fff3c4, 0 0 .4em rgba(245, 200, 75, .6), 0 .06em 0 #6b4e00;
+    }
+    .sb-theme-black_friday .scan-instruction {
+        display: inline-block; padding: .3em .8em; background: #d7152a; color: #fff; font-weight: 700;
+        transform: rotate(-1.5deg); box-shadow: 0 .3em 1em rgba(215, 21, 42, .5);
+        animation: bf-pulse 2.4s ease-in-out infinite;
+    }
+    @@keyframes bf-pulse { 50% { transform: rotate(-1.5deg) scale(1.05); } }
+
+    .sb-theme-black_friday .purchase-section,
+    .sb-theme-black_friday .qr-section {
+        background: #fffdf6;
+        box-shadow: 0 0 0 3px #c9a227, 0 0 28px rgba(245, 200, 75, .45), 0 10px 34px rgba(0, 0, 0, .7);
+    }
+    .sb-theme-black_friday .section-title,
+    .sb-theme-black_friday .user-name { font-family: 'Anton', Impact, sans-serif; font-weight: 400; letter-spacing: .04em; color: #111; }
+    .sb-theme-black_friday .purchase-total:not(.with-discount) .total-amount { color: #b8860b; }
+    .sb-theme-black_friday .discount-row { background: #111; color: #f5c84b; border-radius: 6px; padding: .3rem .6rem; }
+    .sb-theme-black_friday .discount-amount { color: #ff4d5e; font-weight: 800; }
+    .sb-theme-black_friday .discount-name { color: #f5c84b; }
+    .sb-theme-black_friday .purchase-total.with-discount { background: #111; color: #f5c84b; }
+    .sb-theme-black_friday .purchase-total.with-discount .total-amount { color: #f5c84b; }
+    .sb-theme-black_friday .savings-badge { background: #d7152a; color: #fff; }
+    .sb-theme-black_friday .timer-circle { background: radial-gradient(circle at 50% 40%, #3a3a3a, #0a0a0a); box-shadow: 0 0 0 3px #c9a227, 0 0 18px rgba(245, 200, 75, .6); }
+    .sb-theme-black_friday .timer-text { color: #f5c84b; }
+
+    .sb-theme-black_friday .ach-slam-overlay { background: radial-gradient(ellipse at 50% 30%, #3b2f0a 0%, #111 60%, #000 100%); }
+    .sb-theme-black_friday .ach-slam-card,
+    .sb-theme-black_friday .ach-slam-mini-box { border-top-color: #f5c84b; }
+    .sb-theme-black_friday .ach-slam-count { color: #f5c84b; }
+    .sb-theme-black_friday .ach-slam-ring { border-color: #f5c84b; }
+
+    /* ---------- the scene ---------- */
+    .bf-scene, .bf-back, .bf-front { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .bf-back { z-index: 0; }
+    .bf-front { z-index: 40; transition: opacity .4s; }
+    .bf-quiet .bf-front { opacity: 0; }
+    .bf-resting *, .sb-theme-black_friday:has(.bf-resting) .scan-instruction { animation-play-state: paused !important; }
+    .bf-beam, .bf-fall, .bf-price, .bf-sale, .bf-bag, .bf-kaching, .sb-theme-black_friday .scan-instruction { will-change: transform, opacity; }
+
+    .bf-sky { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 110%, #2a2006 0%, #0d0d0d 45%, #000 100%); }
+    .bf-floor { position: absolute; left: 0; right: 0; bottom: 0; height: 18vh; background: linear-gradient(#000 0%, #17130a 100%); border-top: 2px solid rgba(201, 162, 39, .5); }
+    .bf-purchase .bf-floor { display: none; }
+
+    .bf-beam {
+        position: absolute; bottom: -10vh; width: 30vmin; height: 130vh; transform-origin: 50% 100%;
+        background: linear-gradient(to top, rgba(255, 220, 120, .35), rgba(255, 220, 120, 0) 85%);
+        clip-path: polygon(42% 100%, 58% 100%, 100% 0, 0 0);
+        animation: bf-sweep 9s ease-in-out infinite alternate;
+    }
+    .bf-beam.b1 { left: 8vw; --from: -28deg; --to: 18deg; }
+    .bf-beam.b2 { right: 8vw; --from: 26deg; --to: -16deg; animation-duration: 11s; }
+    .bf-purchase .bf-beam { opacity: .45; }
+    @@keyframes bf-sweep { from { transform: rotate(var(--from)); } to { transform: rotate(var(--to)); } }
+
+    .bf-sale {
+        position: absolute; left: 6vw; bottom: 22vh; font-family: 'Anton', Impact, sans-serif; font-size: 16vmin; line-height: 1;
+        color: #ff2d45; text-shadow: 0 0 .04em #fff, 0 0 .12em #ff2d45, 0 0 .4em rgba(255, 45, 69, .7);
+        transform: rotate(-8deg); animation: bf-neon 6s steps(1) infinite;
+    }
+    @@keyframes bf-neon { 0%, 100% { opacity: 1; } 61% { opacity: .25; } 63% { opacity: 1; } 66% { opacity: .35; } 68% { opacity: 1; } }
+
+    .bf-bags { position: absolute; right: 4vw; bottom: 4vh; display: flex; align-items: flex-end; gap: 1vw; }
+    .bf-bag { width: 11vmin; display: block; }
+    .bf-bag.hop { animation: bf-hop 5s ease-in-out infinite; }
+    @@keyframes bf-hop { 0%, 78%, 100% { transform: translateY(0); } 84% { transform: translateY(-4vmin) rotate(-7deg); } 90% { transform: translateY(0) rotate(5deg); } }
+
+    .bf-hanger { position: absolute; top: 0; right: 9vw; }
+    .bf-price {
+        position: relative; margin-top: 4vh; transform-origin: 50% -4vh; animation: bf-swing 4s ease-in-out infinite;
+        width: 22vmin; padding: 2.4vmin 1vmin 2vmin; text-align: center; color: #111;
+        background: linear-gradient(135deg, #ffe08a, #f5c84b 45%, #c9a227); border-radius: 1.2vmin;
+        clip-path: polygon(15% 0, 85% 0, 100% 12%, 100% 100%, 0 100%, 0 12%);
+        box-shadow: 0 1vmin 3vmin rgba(0, 0, 0, .6);
+    }
+    .bf-price::before { content: ""; position: absolute; left: 50%; top: -4vh; height: 4.6vh; width: 2px; background: #c9a227; }
+    .bf-price-hole { position: absolute; left: 50%; top: 1vmin; width: 1.4vmin; height: 1.4vmin; margin-left: -.7vmin; border-radius: 50%; background: #111; }
+    .bf-price strong { display: block; font-family: 'Anton', Impact, sans-serif; font-weight: 400; font-size: 8vmin; line-height: 1.05; color: #d7152a; }
+    .bf-price small { display: block; font-weight: 700; font-size: 1.7vmin; text-transform: uppercase; letter-spacing: .05em; }
+    @@keyframes bf-swing { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+
+    .bf-fall { position: absolute; top: -10vh; left: var(--x); animation: bf-fall var(--dur) linear infinite; animation-delay: var(--delay); }
+    @@keyframes bf-fall {
+        from { transform: translate(0, 0) rotate(0); }
+        to { transform: translate(var(--drift), 120vh) rotate(var(--spin)); }
+    }
+    .bf-tag {
+        display: block; padding: .6vmin 1.4vmin; font: 400 calc(var(--size) * .55)/1 'Anton', Impact, sans-serif; color: #111;
+        background: #f5c84b; clip-path: polygon(22% 0, 100% 0, 100% 100%, 22% 100%, 0 50%);
+        padding-left: 2.2vmin;
+    }
+    .bf-coin {
+        display: grid; place-items: center; width: var(--size); height: var(--size); border-radius: 50%;
+        font: 800 calc(var(--size) * .55)/1 Georgia, serif; color: #7a5a00;
+        background: radial-gradient(circle at 35% 30%, #fff4c2, #f5c84b 45%, #b8860b); border: 2px solid #8a6a00;
+    }
+
+    .bf-kaching { position: absolute; left: 24vw; top: 36vh; width: 1px; height: 1px; animation: bf-kaching 1.4s ease-out forwards; }
+    .bf-kaching-text {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-8deg); white-space: nowrap;
+        font: 400 7vmin/1 'Anton', Impact, sans-serif; color: #f5c84b; text-shadow: 0 0 10px rgba(245, 200, 75, .8), 0 3px 0 #6b4e00;
+    }
+    .bf-spark {
+        position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 4vmin; height: 4vmin; margin: -2vmin;
+        border-radius: 50%; font: 800 2.2vmin/1 Georgia, serif; color: #7a5a00; background: radial-gradient(circle at 35% 30%, #fff4c2, #f5c84b 45%, #b8860b);
+        transform: rotate(var(--a)) translateX(14vmin);
+    }
+    @@keyframes bf-kaching {
+        0% { transform: scale(.2); opacity: 0; }
+        20% { transform: scale(1.15); opacity: 1; }
+        35% { transform: scale(1); }
+        70% { opacity: 1; }
+        100% { transform: scale(1.3) translateY(-10vh); opacity: 0; }
+    }
+</style>
+
+@code {
+    private sealed record Falling(string Style, bool Coin);
+
+    private static RenderFragment FallingItems(Falling[] items) => @<text>
+        @foreach (var f in items)
+        {
+            <div class="bf-fall" style="@f.Style">
+                @if (f.Coin)
+                {
+                    <span class="bf-coin">€</span>
+                }
+                else
+                {
+                    <span class="bf-tag">%</span>
+                }
+            </div>
+        }
+    </text>;
+    private sealed record Bag(string Style, string Shape, bool Hop = false);
+
+    private static readonly Falling[] WelcomeFalling = MakeFalling(14, 7);
+    private static readonly Falling[] PurchaseFalling = MakeFalling(5, 11);
+
+    // Fixed seed: the same shower on every render
+    private static Falling[] MakeFalling(int count, int seed)
+    {
+        var random = new Random(seed);
+        return Enumerable.Range(0, count).Select(i =>
+        {
+            var duration = 9 + random.NextDouble() * 9;
+            return new Falling(Css($"--x:{random.NextDouble() * 96:0.0}vw;--dur:{duration:0.0}s;--delay:{-random.NextDouble() * duration:0.0}s;--drift:{random.Next(-12, 12)}vw;--spin:{random.Next(-540, 540)}deg;--size:{4 + random.NextDouble() * 3:0.0}vmin"),
+                               i % 3 != 0);
+        }).ToArray();
+    }
+
+    private static readonly Bag[] Bags =
+    [
+        new("", "#bf-bag-red"),
+        new("width:15vmin", "#bf-bag-gold", Hop: true),
+        new("", "#bf-bag-gold"),
+        new("width:9vmin", "#bf-bag-red"),
+    ];
+}

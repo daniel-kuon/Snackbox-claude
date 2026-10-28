@@ -26,15 +26,34 @@ public class Theme
     {
         ThemeMode.Always => true,
         ThemeMode.Dates => InWindow(localDate),
+        ThemeMode.Auto => AutoDay(localDate.Year) == localDate.Date,
         _ => false
     };
+
+    /// <summary>This theme's own day in a year (ThemeMode.Auto), or null if it has none.</summary>
+    public DateTime? AutoDay(int year) => ThemeCalendar.Day(Key, year);
 
     /// <summary>The first day of the run the date falls in - for "during Halloween week" counts.</summary>
     public DateTime PeriodStart(DateTime localDate)
     {
+        if (Mode == ThemeMode.Auto && AutoDay(localDate.Year) is { } day && day <= localDate.Date) return day;
         if (Mode != ThemeMode.Dates) return new DateTime(localDate.Year, 1, 1);
         var start = Day(localDate.Year, StartMonth, StartDay);
         return start <= localDate.Date ? start : Day(localDate.Year - 1, StartMonth, StartDay);
+    }
+
+    /// <summary>How many days a run lasts. Of two themes on at once the kiosk shows the shorter: St. Nikolaus within Christmas.</summary>
+    public int RunDays => Mode switch
+    {
+        ThemeMode.Auto => 1,
+        ThemeMode.Dates => DatesRunDays(),
+        _ => 366
+    };
+
+    private int DatesRunDays()
+    {
+        var days = (Day(2001, EndMonth, EndDay) - Day(2001, StartMonth, StartDay)).Days;
+        return days >= 0 ? days + 1 : days + 366; // over New Year
     }
 
     private bool InWindow(DateTime date)

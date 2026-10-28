@@ -90,6 +90,46 @@ public class ApplicationDbContext : DbContext
                 Mode = ThemeMode.Dates,
                 StartMonth = 10, StartDay = 24, EndMonth = 11, EndDay = 1,
                 UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Theme
+            {
+                Id = 2,
+                Key = ThemeKeys.BlackFriday,
+                Name = "Black Friday",
+                Description = "Black and gold, neon and falling price tags - and 30 % off everyone's first purchase of the day.",
+                Mode = ThemeMode.Auto,
+                StartMonth = 11, StartDay = 27, EndMonth = 11, EndDay = 27,
+                UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Theme
+            {
+                Id = 3,
+                Key = ThemeKeys.Nikolaus,
+                Name = "St. Nikolaus",
+                Description = "St. Nikolaus with his sack, filled boots and snow - and 30 % off everyone's first purchase of the day. On a weekend it moves to the Monday after.",
+                Mode = ThemeMode.Auto,
+                StartMonth = 12, StartDay = 6, EndMonth = 12, EndDay = 6,
+                UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Theme
+            {
+                Id = 4,
+                Key = ThemeKeys.Christmas,
+                Name = "Christmas",
+                Description = "Snow, a twinkling Christmas tree, presents and a snowman.",
+                Mode = ThemeMode.Dates,
+                StartMonth = 12, StartDay = 1, EndMonth = 12, EndDay = 26,
+                UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Theme
+            {
+                Id = 5,
+                Key = ThemeKeys.NewYearsEve,
+                Name = "New Year's Eve",
+                Description = "Fireworks over the city, confetti and the new year's number.",
+                Mode = ThemeMode.Dates,
+                StartMonth = 12, StartDay = 27, EndMonth = 1, EndDay = 2,
+                UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, DateTimeKind.Utc)
             });
         });
 
@@ -306,6 +346,24 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.MinimumPurchaseAmount).HasPrecision(10, 2);
             entity.Property(e => e.Value).HasPrecision(10, 2);
+            entity.Property(e => e.ThemeKey).HasMaxLength(50);
+
+            // High ids: discounts created by hand already use the low ones
+            entity.HasData(
+                new Discount
+                {
+                    Id = 9001, Name = "Black Friday: 30 % off your first purchase", ThemeKey = ThemeKeys.BlackFriday, FirstPurchaseOnly = true,
+                    Type = DiscountType.Percentage, Value = 30, IsActive = true,
+                    ValidFrom = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), ValidTo = new DateTime(2100, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    CreatedAt = new DateTime(2026, 10, 28, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Discount
+                {
+                    Id = 9002, Name = "St. Nikolaus: 30 % off your first purchase", ThemeKey = ThemeKeys.Nikolaus, FirstPurchaseOnly = true,
+                    Type = DiscountType.Percentage, Value = 30, IsActive = true,
+                    ValidFrom = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), ValidTo = new DateTime(2100, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    CreatedAt = new DateTime(2026, 10, 28, 0, 0, 0, DateTimeKind.Utc)
+                });
         });
 
         modelBuilder.Entity<PurchaseDiscount>(entity =>

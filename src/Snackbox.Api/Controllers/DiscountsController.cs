@@ -43,7 +43,9 @@ public class DiscountsController : ControllerBase
                 Type = d.Type.ToString(),
                 Value = d.Value,
                 IsActive = d.IsActive,
-                CreatedAt = d.CreatedAt
+                CreatedAt = d.CreatedAt,
+                ThemeName = _context.Themes.Where(t => t.Key == d.ThemeKey).Select(t => t.Name).FirstOrDefault(),
+                FirstPurchaseOnly = d.FirstPurchaseOnly
             })
             .ToListAsync();
 
@@ -71,7 +73,9 @@ public class DiscountsController : ControllerBase
             Type = discount.Type.ToString(),
             Value = discount.Value,
             IsActive = discount.IsActive,
-            CreatedAt = discount.CreatedAt
+            CreatedAt = discount.CreatedAt,
+            ThemeName = await _context.Themes.Where(t => t.Key == discount.ThemeKey).Select(t => t.Name).FirstOrDefaultAsync(),
+            FirstPurchaseOnly = discount.FirstPurchaseOnly
         };
 
         return Ok(discountDto);

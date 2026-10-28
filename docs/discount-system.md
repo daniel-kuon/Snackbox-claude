@@ -11,6 +11,7 @@ The discount system allows administrators to create and manage discounts that ar
 - **Date-Based Validity**: Discounts are only active within their ValidFrom and ValidTo date range
 - **Minimum Purchase Requirement**: Discounts can require a minimum purchase amount to qualify
 - **Active/Inactive Toggle**: Discounts can be temporarily disabled without deletion
+- **Theme discounts**: `theme_key` limits a discount to the days its seasonal theme is on, `first_purchase_only` to a user's first purchase of the day (kiosk PC local time). Seeded: 30 % off the first purchase on Black Friday and St. Nikolaus (see [THEMES.md](THEMES.md))
 
 ## Database Schema
 

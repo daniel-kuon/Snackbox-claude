@@ -745,6 +745,10 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<bool>("FirstPurchaseOnly")
+                        .HasColumnType("boolean")
+                        .HasColumnName("first_purchase_only");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -759,6 +763,11 @@ namespace Snackbox.Api.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
+
+                    b.Property<string>("ThemeKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("theme_key");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer")
@@ -780,6 +789,36 @@ namespace Snackbox.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("discounts");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 9001,
+                            CreatedAt = new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Utc),
+                            FirstPurchaseOnly = true,
+                            IsActive = true,
+                            MinimumPurchaseAmount = 0m,
+                            Name = "Black Friday: 30 % off your first purchase",
+                            ThemeKey = "black_friday",
+                            Type = 1,
+                            ValidFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ValidTo = new DateTime(2100, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = 30m
+                        },
+                        new
+                        {
+                            Id = 9002,
+                            CreatedAt = new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Utc),
+                            FirstPurchaseOnly = true,
+                            IsActive = true,
+                            MinimumPurchaseAmount = 0m,
+                            Name = "St. Nikolaus: 30 % off your first purchase",
+                            ThemeKey = "nikolaus",
+                            Type = 1,
+                            ValidFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ValidTo = new DateTime(2100, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = 30m
+                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.FeatureFlag", b =>
@@ -1485,6 +1524,58 @@ namespace Snackbox.Api.Migrations
                             Name = "Halloween",
                             StartDay = 24,
                             StartMonth = 10,
+                            UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Description = "Black and gold, neon and falling price tags - and 30 % off everyone's first purchase of the day.",
+                            EndDay = 27,
+                            EndMonth = 11,
+                            Key = "black_friday",
+                            Mode = 3,
+                            Name = "Black Friday",
+                            StartDay = 27,
+                            StartMonth = 11,
+                            UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Description = "St. Nikolaus with his sack, filled boots and snow - and 30 % off everyone's first purchase of the day. On a weekend it moves to the Monday after.",
+                            EndDay = 6,
+                            EndMonth = 12,
+                            Key = "nikolaus",
+                            Mode = 3,
+                            Name = "St. Nikolaus",
+                            StartDay = 6,
+                            StartMonth = 12,
+                            UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Description = "Snow, a twinkling Christmas tree, presents and a snowman.",
+                            EndDay = 26,
+                            EndMonth = 12,
+                            Key = "christmas",
+                            Mode = 1,
+                            Name = "Christmas",
+                            StartDay = 1,
+                            StartMonth = 12,
+                            UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Description = "Fireworks over the city, confetti and the new year's number.",
+                            EndDay = 2,
+                            EndMonth = 1,
+                            Key = "new_years_eve",
+                            Mode = 1,
+                            Name = "New Year's Eve",
+                            StartDay = 27,
+                            StartMonth = 12,
                             UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });

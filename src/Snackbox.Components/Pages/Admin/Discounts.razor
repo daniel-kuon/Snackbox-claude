@@ -71,6 +71,13 @@
                         <tr>
                             <td>
                                 <strong>@discount.Name</strong>
+                                @if (discount.ThemeName != null || discount.FirstPurchaseOnly)
+                                {
+                                    <br/>
+                                    <small class="text-muted">
+                                        @(discount.ThemeName != null ? $"only while the {discount.ThemeName} theme is on" : "")@(discount.ThemeName != null && discount.FirstPurchaseOnly ? " · " : "")@(discount.FirstPurchaseOnly ? "first purchase only" : "")
+                                    </small>
+                                }
                             </td>
                             <td>
                                 @if (discount.Type == "FixedAmount")

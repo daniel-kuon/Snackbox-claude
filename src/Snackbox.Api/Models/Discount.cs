@@ -10,6 +10,12 @@ public class Discount
     public DiscountType Type { get; set; }
     public decimal Value { get; set; } // Either cents amount or percentage
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Only while this theme is on (ThemeKeys) - on top of ValidFrom/ValidTo.</summary>
+    public string? ThemeKey { get; set; }
+
+    /// <summary>Only a user's first purchase of the day (the kiosk PC's local day).</summary>
+    public bool FirstPurchaseOnly { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
