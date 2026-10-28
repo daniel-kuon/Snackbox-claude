@@ -26,10 +26,39 @@ public sealed class Stack(Installation installation, Log log)
 
     public void Start(bool withKiosk)
     {
-        EnsureDockerRunning();
-        StartAppHost();
-        if (withKiosk) StartKiosk();
-        Tablet.Connect(installation, log);
+        // Two starts at once (two autostart entries, a click on start-snackbox.bat at logon)
+        // opened two AppHosts and two kiosks. One at a time, and each skips what already runs.
+        using var single = new Mutex(false, @"Local\Snackbox.Updater.Start");
+        var owned = false;
+        try
+        {
+            try
+            {
+                owned = single.WaitOne(TimeSpan.FromMinutes(10));
+            }
+            catch (AbandonedMutexException)
+            {
+                owned = true; // the other start died - carry on
+            }
+
+            Autostart.RemoveDuplicate(log);
+            EnsureDockerRunning();
+            if (IsRunning("Snackbox.AppHost")) log.Write("The AppHost is already running.");
+            else StartAppHost();
+            if (withKiosk) StartKiosk();
+            Tablet.Connect(installation, log);
+        }
+        finally
+        {
+            if (owned) single.ReleaseMutex();
+        }
+    }
+
+    private static bool IsRunning(string processName)
+    {
+        var processes = Process.GetProcessesByName(processName);
+        foreach (var p in processes) p.Dispose();
+        return processes.Length > 0;
     }
 
     public void Stop()
@@ -187,6 +216,12 @@ public sealed class Stack(Installation installation, Log log)
     {
         var kiosk = Path.Combine(installation.Root, "src", "Snackbox.Web", "bin", "Release",
                                  KioskFramework, "win-x64", "Snackbox.Web.exe");
+
+        if (IsRunning("Snackbox.Web"))
+        {
+            log.Write("The kiosk is already running.");
+            return;
+        }
 
         if (!File.Exists(kiosk))
         {

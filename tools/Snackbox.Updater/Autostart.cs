@@ -67,6 +67,19 @@ public static class Autostart
         }
     }
 
+    /// <summary>
+    /// A scheduled task made by hand (in an admin shell, with the command from the log) next to
+    /// the Startup-folder fallback from before ran "start" twice at every logon. The task wins.
+    /// </summary>
+    public static void RemoveDuplicate(Log log)
+    {
+        if (!File.Exists(StartupCommandFile)) return;
+        if (Installation.Run("schtasks", $"/query /tn \"{TaskName}\"", Environment.CurrentDirectory, throwOnError: false).Length == 0) return;
+
+        RemoveStartupCommand();
+        log.Write($"The scheduled task \"{TaskName}\" starts Snackbox, so {StartupCommandFile} was removed - both started it twice.");
+    }
+
     private static void RemoveStartupCommand()
     {
         try
