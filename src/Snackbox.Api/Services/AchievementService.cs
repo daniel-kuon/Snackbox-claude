@@ -474,29 +474,46 @@ public class AchievementService : IAchievementService
     private async Task<bool> CanEarnDebtAchievementAsync(int userId, string achievementCode, List<UserAchievement> userAchievements)
     {
         var last = userAchievements.FirstOrDefault(ua => ua.Achievement.Code == achievementCode); // newest first
-        return last == null || await PaidOffSinceAsync(userId, last.EarnedAt);
+        return last == null || (await BalancesSinceAsync(userId, last.EarnedAt)).Any(debt => debt <= 0);
     }
 
-    /// <summary>Whether the balance was settled at some point after <paramref name="since"/>: only a payment lowers the debt.</summary>
-    private async Task<bool> PaidOffSinceAsync(int userId, DateTime since)
+    /// <summary>
+    /// Debt Free and Generous Soul hold as long as someone stays paid up, so they came again
+    /// every day. Like the debt levels they are earned again only after the user was back in
+    /// debt in the meantime.
+    /// </summary>
+    private async Task<bool> CanEarnPaidUpAchievementAsync(int userId, string achievementCode, List<UserAchievement> userAchievements)
     {
-        var paymentTimes = await _context.Payments
+        var last = userAchievements.FirstOrDefault(ua => ua.Achievement.Code == achievementCode); // newest first
+        return last == null || (await BalancesSinceAsync(userId, last.EarnedAt)).Any(debt => debt > 0);
+    }
+
+    /// <summary>The debt (spent - paid) after each scan and payment since <paramref name="since"/>, oldest first.</summary>
+    private async Task<List<decimal>> BalancesSinceAsync(int userId, DateTime since)
+    {
+        var debt = await _context.BarcodeScans
+                       .Where(bs => bs.Purchase.UserId == userId && bs.ScannedAt <= since)
+                       .SumAsync(bs => bs.Amount)
+                   - await _context.Payments
+                       .Where(p => p.UserId == userId && p.PaidAt <= since)
+                       .SumAsync(p => p.Amount);
+
+        var scans = await _context.BarcodeScans
+            .Where(bs => bs.Purchase.UserId == userId && bs.ScannedAt > since)
+            .Select(bs => new { At = bs.ScannedAt, Change = bs.Amount })
+            .ToListAsync();
+        var payments = await _context.Payments
             .Where(p => p.UserId == userId && p.PaidAt > since)
-            .Select(p => p.PaidAt)
+            .Select(p => new { At = p.PaidAt, Change = -p.Amount })
             .ToListAsync();
 
-        foreach (var at in paymentTimes)
+        var balances = new List<decimal>();
+        foreach (var e in scans.Concat(payments).OrderBy(e => e.At))
         {
-            var spent = await _context.BarcodeScans
-                .Where(bs => bs.Purchase.UserId == userId && bs.ScannedAt <= at)
-                .SumAsync(bs => bs.Amount);
-            var paid = await _context.Payments
-                .Where(p => p.UserId == userId && p.PaidAt <= at)
-                .SumAsync(p => p.Amount);
-            if (spent <= paid) return true;
+            debt += e.Change;
+            balances.Add(debt);
         }
-
-        return false;
+        return balances;
     }
 
     private async Task CheckTotalSpentAchievements(int userId, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
@@ -718,7 +735,7 @@ public class AchievementService : IAchievementService
         // Debt Free - check if user has paid off their balance
         if (achievementLookup.TryGetValue("PAID_UP", out var achievementPaid))
         {
-            if (CanEarnAchievement("PAID_UP", AchievementCategory.Special, userAchievements))
+            if (await CanEarnPaidUpAchievementAsync(userId, "PAID_UP", userAchievements))
             {
                 var totalSpent = await _context.BarcodeScans
                     .Where(bs => bs.Purchase.UserId == userId)
@@ -739,7 +756,7 @@ public class AchievementService : IAchievementService
         // Generous Soul - positive balance of €10 or more
         if (achievementLookup.TryGetValue("GENEROUS_SOUL", out var achievementGenerous))
         {
-            if (CanEarnAchievement("GENEROUS_SOUL", AchievementCategory.Special, userAchievements))
+            if (await CanEarnPaidUpAchievementAsync(userId, "GENEROUS_SOUL", userAchievements))
             {
                 var totalSpent = await _context.BarcodeScans
                     .Where(bs => bs.Purchase.UserId == userId)

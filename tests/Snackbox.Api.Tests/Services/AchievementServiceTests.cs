@@ -466,6 +466,38 @@ public class AchievementServiceTests : IDisposable
         Assert.Contains(await _service.CheckImmediateAchievementsAsync(1, 2), a => a.Code == "IN_DEBT_15");
     }
 
+    [Fact]
+    public async Task DebtFree_EarnedAgainOnlyAfterBeingBackInDebt()
+    {
+        // Arrange - €5 spent, €10 paid, Debt Free earned two days ago
+        _context.Achievements.Add(new Achievement { Id = 46, Code = "PAID_UP", Name = "Debt Free!", Description = "Paid off", Category = AchievementCategory.Special });
+        var twoDaysAgo = DateTime.UtcNow.AddDays(-2);
+        _context.Purchases.Add(new Purchase
+        {
+            Id = 100, UserId = 1, CreatedAt = twoDaysAgo, UpdatedAt = twoDaysAgo,
+            Scans = new List<BarcodeScan> { new() { Id = 100, PurchaseId = 100, BarcodeId = 1, Amount = 5.00m, ScannedAt = twoDaysAgo } }
+        });
+        _context.Payments.Add(new Payment { Id = 1, UserId = 1, Amount = 10.00m, PaidAt = twoDaysAgo });
+        _context.UserAchievements.Add(new UserAchievement { UserId = 1, AchievementId = 46, EarnedAt = twoDaysAgo.AddMinutes(1), HasBeenShown = true });
+        await _context.SaveChangesAsync();
+
+        // Still paid up on a later day: not again
+        AddCurrentPurchase(1, 0.50m);
+        Assert.DoesNotContain(await _service.CheckImmediateAchievementsAsync(1, 1), a => a.Code == "PAID_UP");
+
+        // Yesterday €10 in debt, then paid off: earned again
+        var yesterday = DateTime.UtcNow.AddDays(-1);
+        _context.Purchases.Add(new Purchase
+        {
+            Id = 101, UserId = 1, CreatedAt = yesterday, UpdatedAt = yesterday,
+            Scans = new List<BarcodeScan> { new() { Id = 101, PurchaseId = 101, BarcodeId = 1, Amount = 10.00m, ScannedAt = yesterday } }
+        });
+        _context.Payments.Add(new Payment { Id = 2, UserId = 1, Amount = 10.00m, PaidAt = yesterday.AddHours(1) });
+        await _context.SaveChangesAsync();
+        AddCurrentPurchase(2, 0.50m);
+        Assert.Contains(await _service.CheckImmediateAchievementsAsync(1, 2), a => a.Code == "PAID_UP");
+    }
+
     private void AddCurrentPurchase(int id, decimal amount)
     {
         // A tick later than anything earned so far, as a real next purchase would be

@@ -1366,11 +1366,15 @@
 
     private void HandleUserMouse()
     {
-        // Reset UI countdown and service timeout when mouse is used
+        // Mouse over the page (incl. the spotlighted element) pauses the tour
+        _setupWizard?.NotifyUserActivity();
+
+        // Reset UI countdown and service timeout when mouse is used - not while a popup holds
+        // them: that restarted the countdown under the open wizard
+        if (AnyPopupOpen)
+            return;
         ResetCountdownTimer();
         ScannerService.SignalActivity();
-        // Mouse over the page (incl. the spotlighted element) hands the tour to the user
-        _setupWizard?.NotifyUserActivity();
     }
 
     private async Task EnsureAllPurchasesLoadedAsync()
@@ -1460,6 +1464,13 @@
 
     private void MaybeAutoOpenSetupWizard(PurchaseSession session)
     {
+        // Still open from the previous user: it is not this user's
+        if (_showSetupWizard && _wizardUserId != session.UserId)
+        {
+            _showSetupWizard = false;
+            _spotlightTarget = null;
+        }
+
         // Auto-open once per user per app run: for setup (inactive card), or whenever the
         // API reports intro steps this user has not seen - including steps added later for
         // a feature that has since been enabled.
@@ -1478,8 +1489,11 @@
             OpenWizard(session);
     }
 
+    private string? _wizardUserId;
+
     private void OpenWizard(PurchaseSession session)
     {
+        _wizardUserId = session.UserId;
         _wizardRequiresSetup = session.IsUserInactive;
         _wizardBarcodeCode = session.ScannedCardCode;
         _wizardPendingSteps = session.PendingWizardSteps.Count > 0

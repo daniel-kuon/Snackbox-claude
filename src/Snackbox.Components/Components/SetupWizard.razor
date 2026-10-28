@@ -100,14 +100,14 @@
         </div>
         @if (_autoAdvancing && _currentStep != Step.Setup)
         {
-            <div class="sw-autobar" title="Continues on its own — move the mouse to take over">
+            <div class="sw-autobar" title="Continues on its own — paused while the mouse moves">
                 <div class="sw-autobar-fill" @key="_currentStep" style="animation-duration:@(_autoAdvanceMs)ms"></div>
             </div>
         }
         <p class="sw-hint">
             @(_autoAdvancing && _currentStep != Step.Setup
-                ? "Continues automatically — move the mouse to take over"
-                : "Use Enter / arrow keys to navigate · Esc to close")
+                ? "Continues automatically — move the mouse to pause"
+                : $"Continues by itself {ResumeAfterIdleMs / 1000} s after the mouse stops · Enter / arrow keys · Esc to close")
         </p>
     </div>
 }
@@ -174,14 +174,17 @@
     private bool _wasOpen;
     private ElementReference _modalElement;
 
-    // Idle auto-advance: with nobody touching the kiosk the tour plays itself; the first
-    // mouse movement hands control to the user for the rest of this wizard session.
-    private const int AutoAdvanceBaseMs = 3500;
-    private const int AutoAdvancePerCharMs = 45;
-    private const int AutoAdvanceMinMs = 4000;
-    private const int AutoAdvanceMaxMs = 22000;
+    // Idle auto-advance: with nobody touching the kiosk the tour plays itself; moving the
+    // mouse pauses it, and it carries on once the mouse has been still for a few seconds.
+    private const int AutoAdvanceBaseMs = 2000;
+    private const int AutoAdvancePerCharMs = 25;
+    private const int AutoAdvanceMinMs = 3000;
+    private const int AutoAdvanceMaxMs = 14000;
+    private const int ResumeAfterIdleMs = 5000;
     private System.Timers.Timer? _autoAdvanceTimer;
-    private bool _autoAdvancing = true; // false once the user moves the mouse
+    private System.Timers.Timer? _idleTimer;
+    private bool _autoAdvancing = true; // false while the user moves the mouse
+    private string? _openedForCode;     // whose wizard this is - the next user's scan starts over
     private int _autoAdvanceMs;
     private int? _autoAdvanceStep;      // step index the running timer belongs to
     private bool _isDisposed;
@@ -206,9 +209,13 @@
         var pending = PendingStepKeys.ToHashSet();
         _visibleSteps = BuildAllSteps().Where(s => pending.Contains(s.Key)).ToList();
 
-        if (IsOpen && !_wasOpen)
+        // Reset each time the wizard opens - also when it is still open from the previous
+        // user: their step, progress and paused state must not carry over
+        if (IsOpen && (!_wasOpen || BarcodeCode != _openedForCode))
         {
-            // Reset state each time the wizard opens
+            _openedForCode = BarcodeCode;
+            StopTimer();
+            _idleTimer?.Stop();
             _currentStep = RequiresSetup ? Step.Setup : FirstIntroStep;
             _username = string.Empty;
             _email = string.Empty;
@@ -293,14 +300,38 @@
     /// <summary>Called by the host page when it detects user activity outside the wizard card.</summary>
     public void NotifyUserActivity() => StopAutoAdvance();
 
-    // First mouse movement (from the modal or the host page) hands control to the user.
+    // Mouse movement (on the modal or the host page) pauses the tour; it carries on, with the
+    // current step from the start, once the mouse has been still for ResumeAfterIdleMs.
     private void StopAutoAdvance()
     {
+        RestartIdleTimer();
         if (!_autoAdvancing)
             return;
         _autoAdvancing = false;
         StopTimer();
         StateHasChanged();
+    }
+
+    private void RestartIdleTimer()
+    {
+        if (_idleTimer == null)
+        {
+            _idleTimer = new System.Timers.Timer(ResumeAfterIdleMs) { AutoReset = false };
+            _idleTimer.Elapsed += async (_, _) =>
+            {
+                if (_isDisposed)
+                    return;
+                await InvokeAsync(() =>
+                {
+                    if (!IsOpen || _autoAdvancing)
+                        return;
+                    _autoAdvancing = true;
+                    StateHasChanged(); // OnAfterRender starts the step's timer again
+                });
+            };
+        }
+        _idleTimer.Stop();
+        _idleTimer.Start();
     }
 
     private void StopTimer()
@@ -429,6 +460,7 @@
     {
         _isDisposed = true;
         StopTimer();
+        _idleTimer?.Dispose();
     }
 
     private static string? ExtractMessage(ApiException ex)
