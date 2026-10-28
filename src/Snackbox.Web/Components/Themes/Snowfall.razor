@@ -1,50 +1,60 @@
+@using System.Globalization
 @* Falling snow for the winter scenes. Each layer is one tall sheet of flakes that moves as a
-   whole: three animations instead of one per flake (the kiosk PC is an old i5). The sheet moves
-   by 1000px, a multiple of every tile size below, so the loop has no seam. *@
+   whole, inside a wrapper that sways it sideways: six animations instead of one per flake (the
+   kiosk PC is an old i5). The flakes sit at random spots of one 1400 x 1000 tile per layer - wider
+   than the kiosk's screen, so no pattern repeats across it - and the sheet moves by 1000px, the
+   tile's height, so the loop has no seam. *@
 <div class="sb-snow @(Light ? "sb-snow-light" : "")" aria-hidden="true">
-    <div class="sb-snow-layer s1"></div>
-    <div class="sb-snow-layer s2"></div>
-    <div class="sb-snow-layer s3"></div>
+    @for (var i = 0; i < Tiles.Length; i++)
+    {
+        <div class="sb-snow-sway w@(i + 1)">
+            <div class="sb-snow-layer s@(i + 1)" style="background-image:url('@Tiles[i]')"></div>
+        </div>
+    }
 </div>
 
 <style>
     .sb-snow { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .sb-snow-sway { position: absolute; inset: 0 -8vw; will-change: transform; animation: sb-snowsway ease-in-out infinite alternate; }
+    .sb-snow-sway.w1 { animation-duration: 9s; }
+    .sb-snow-sway.w2 { animation-duration: 13s; animation-delay: -5s; }
+    .sb-snow-sway.w3 { animation-duration: 6s; animation-delay: -2s; }
     .sb-snow-layer {
         position: absolute; left: 0; right: 0; top: -1000px; height: calc(100% + 1000px);
-        will-change: transform; animation: sb-snowfall linear infinite;
+        background-size: 1400px 1000px; will-change: transform; animation: sb-snowfall linear infinite;
     }
-    /* Tile sizes all divide 1000px; several offset tiles per layer so the flakes do not line up */
-    .sb-snow-layer.s1 {
-        background:
-            radial-gradient(circle, #fff 0 2.5px, transparent 3.5px) 30px 40px / 200px 200px,
-            radial-gradient(circle, rgba(255, 255, 255, .85) 0 2px, transparent 3px) 140px 120px / 250px 250px,
-            radial-gradient(circle, #fff 0 2.2px, transparent 3.2px) 310px 260px / 500px 500px,
-            radial-gradient(circle, rgba(255, 255, 255, .9) 0 2.6px, transparent 3.6px) 77px 413px / 500px 500px,
-            radial-gradient(circle, #fff 0 2px, transparent 3px) 433px 71px / 1000px 1000px,
-            radial-gradient(circle, #fff 0 2.4px, transparent 3.4px) 712px 655px / 1000px 1000px;
-        animation-duration: 18s; opacity: .95;
-    }
-    .sb-snow-layer.s2 {
-        background:
-            radial-gradient(circle, rgba(255, 255, 255, .8) 0 1.6px, transparent 2.4px) 80px 10px / 125px 125px,
-            radial-gradient(circle, rgba(255, 255, 255, .7) 0 1.4px, transparent 2.2px) 13px 67px / 200px 200px,
-            radial-gradient(circle, rgba(255, 255, 255, .75) 0 1.5px, transparent 2.3px) 171px 233px / 250px 250px,
-            radial-gradient(circle, rgba(255, 255, 255, .7) 0 1.3px, transparent 2.1px) 389px 151px / 500px 500px;
-        animation-duration: 28s; opacity: .8;
-    }
-    .sb-snow-layer.s3 {
-        background:
-            radial-gradient(circle, rgba(255, 255, 255, .9) 0 4px, transparent 5.5px) 60px 90px / 500px 500px,
-            radial-gradient(circle, rgba(255, 255, 255, .85) 0 3.5px, transparent 5px) 610px 470px / 1000px 1000px,
-            radial-gradient(circle, rgba(255, 255, 255, .9) 0 4.5px, transparent 6px) 290px 820px / 1000px 1000px;
-        animation-duration: 12s; opacity: .7;
-    }
-    .sb-snow-light .sb-snow-layer.s2 { display: none; }
+    .sb-snow-layer.s1 { animation-duration: 19s; opacity: .95; }
+    .sb-snow-layer.s2 { animation-duration: 31s; opacity: .8; }
+    .sb-snow-layer.s3 { animation-duration: 11s; opacity: .75; }
+    .sb-snow-light .sb-snow-sway.w2 { display: none; }
     .sb-snow-light .sb-snow-layer { opacity: .55; }
     @@keyframes sb-snowfall { to { transform: translateY(1000px); } }
+    @@keyframes sb-snowsway { from { transform: translateX(-3vw); } to { transform: translateX(3vw); } }
 </style>
 
 @code {
     /// <summary>Fewer, fainter flakes - behind the purchase panels.</summary>
     [Parameter] public bool Light { get; set; }
+
+    // Middle, far (small, many) and near (big, few) layer; fixed seeds, so the snow looks the same every start
+    private static readonly string[] Tiles = [Tile(1, 70, 2.4, 4.2), Tile(2, 130, 1.3, 2.3), Tile(3, 18, 4.5, 7.5)];
+
+    private static string Tile(int seed, int count, double minRadius, double maxRadius)
+    {
+        const int width = 1400, height = 1000;
+        var random = new Random(seed);
+        var svg = new System.Text.StringBuilder(
+            $"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}'>" +
+            "<defs><radialGradient id='f'><stop offset='.5' stop-color='#fff'/><stop offset='1' stop-color='#fff' stop-opacity='0'/></radialGradient></defs>");
+        for (var i = 0; i < count; i++)
+        {
+            var r = minRadius + random.NextDouble() * (maxRadius - minRadius);
+            // Kept inside the tile: a flake cut at its edge would show as half a flake
+            var x = r + random.NextDouble() * (width - 2 * r);
+            var y = r + random.NextDouble() * (height - 2 * r);
+            var opacity = .55 + random.NextDouble() * .45;
+            svg.Append(string.Create(CultureInfo.InvariantCulture, $"<circle cx='{x:0.#}' cy='{y:0.#}' r='{r:0.##}' fill='url(#f)' opacity='{opacity:0.##}'/>"));
+        }
+        return "data:image/svg+xml," + Uri.EscapeDataString(svg.Append("</svg>").ToString());
+    }
 }
