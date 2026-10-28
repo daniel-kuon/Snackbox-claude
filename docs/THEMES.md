@@ -43,6 +43,9 @@ kiosk PC, where the API runs.
    - Restyle the screen under the class `sb-theme-<key>`, which Home puts on its container.
    - The welcome screen's second line comes from `ThemeScene.WelcomeLine`.
    - Animate only `transform` and `opacity`: the kiosk PC is an old 4-core i5.
+     Shadow pulses (`text-shadow`, `box-shadow`) and smooth changes inside SVGs repaint every
+     frame (use `steps()`). Even one running animation costs WebView2 about 8 % of a core, so the
+     Halloween welcome scene, which is up all day, plays for 45 s and then rests, paused, for 135 s.
 4. Optional achievements: seed them with `Category = Seasonal` and `ThemeKey`, then check them
    in `CheckSeasonalAchievements`.
 
