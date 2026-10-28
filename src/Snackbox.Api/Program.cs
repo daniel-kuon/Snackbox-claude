@@ -146,6 +146,7 @@ builder.Services.AddScoped<ILegacyImportService, LegacyImportService>();
 
 // Checks GitHub for new releases and hands installing them to tools/Snackbox.Updater
 builder.Services.AddScoped<IUpdateService, UpdateService>();
+builder.Services.AddHostedService<UpdateDownloadBackgroundService>();
 
 // Register database seeder service
 builder.Services.AddScoped<DatabaseSeeder>();

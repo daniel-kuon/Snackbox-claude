@@ -81,6 +81,10 @@
                 <button class="btn btn-primary" @onclick="InstallAsync" disabled="@(_busy || !_status.CanUpdate)">
                     Install @_status.Latest.Tag
                 </button>
+                @if (_status.Downloaded)
+                {
+                    <span class="text-muted small ms-2">Already downloaded - installing only swaps the files.</span>
+                }
             </div>
         }
         else if (_status.Latest != null && _status.CheckError == null)

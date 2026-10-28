@@ -13,6 +13,7 @@ public interface IUpdateService
     Task<InstallUpdateResponseDto> InstallAsync(string? tag, CancellationToken ct = default);
     UpdateLogDto GetLog(int lines = 200);
     string? GetDashboardUrl();
+    Task DownloadLatestAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -67,6 +68,7 @@ public partial class UpdateService : IUpdateService
         {
             status.Latest = await GetLatestReleaseAsync(ct);
             status.UpdateAvailable = status.Latest != null && IsNewer(status.Latest.Tag, status.CurrentVersion);
+            status.Downloaded = status.UpdateAvailable && root != null && Directory.Exists(PackageFolder(root, status.Latest!.Tag));
         }
         catch (Exception ex)
         {
@@ -195,6 +197,63 @@ public partial class UpdateService : IUpdateService
             Message = "The update is running in a terminal window on the Snackbox PC. Snackbox stops, swaps the new version in and starts again - this page loses its connection for a minute or two."
         };
     }
+
+    // -------------------------------------------------------------- download
+
+    /// <summary>
+    /// Downloads and unpacks the newest release's prebuilt package (see tools/package-release.ps1)
+    /// into the folder Snackbox.Updater looks in first (ReleasePackage), so installing it only
+    /// stops, copies and starts. Unpacked under a temporary name and renamed when complete: the
+    /// updater must never pick up half a package.
+    /// </summary>
+    public async Task DownloadLatestAsync(CancellationToken ct = default)
+    {
+        var root = FindInstallationRoot();
+        if (root == null) return;
+
+        var latest = await GetLatestReleaseAsync(ct);
+        // The tag becomes part of a path
+        if (latest == null || !ReleaseTagPattern.IsMatch(latest.Tag) || !IsNewer(latest.Tag, CurrentVersion(root))) return;
+
+        var folder = PackageFolder(root, latest.Tag);
+        var state = Path.GetDirectoryName(folder)!;
+
+        // Older downloads, and what an interrupted one left behind
+        if (Directory.Exists(state))
+        {
+            foreach (var old in Directory.GetDirectories(state, "release-*").Where(d => d != folder))
+            {
+                Directory.Delete(old, recursive: true);
+            }
+        }
+
+        if (Directory.Exists(folder)) return;
+
+        var asset = $"snackbox-{latest.Tag}-win-x64.zip"; // ReleasePackage.AssetName
+        var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromMinutes(15);
+        using var response = await client.GetAsync($"https://github.com/{Repository}/releases/download/{latest.Tag}/{asset}",
+                                                   HttpCompletionOption.ResponseHeadersRead, ct);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _logger.LogInformation("Release {Tag} has no prebuilt package; installing it will build from source", latest.Tag);
+            return;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var partial = $"{folder}.partial-{Guid.NewGuid():N}";
+        Directory.CreateDirectory(state);
+        await using (var zip = await response.Content.ReadAsStreamAsync(ct))
+        {
+            await System.IO.Compression.ZipFile.ExtractToDirectoryAsync(zip, partial, ct);
+        }
+
+        Directory.Move(partial, folder);
+        _logger.LogInformation("Downloaded release {Tag}, ready to install", latest.Tag);
+    }
+
+    private static string PackageFolder(string root, string tag) => Path.Combine(root, ".snackbox", $"release-{tag}");
 
     public UpdateLogDto GetLog(int lines = 200)
     {

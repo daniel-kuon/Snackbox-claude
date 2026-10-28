@@ -14,6 +14,9 @@ public class UpdateStatusDto
     public ReleaseDto? Latest { get; set; }
     public bool UpdateAvailable { get; set; }
 
+    /// <summary>The latest release's package is already downloaded - installing only swaps files.</summary>
+    public bool Downloaded { get; set; }
+
     /// <summary>Set when GitHub could not be reached; the current version is still reported.</summary>
     public string? CheckError { get; set; }
 }

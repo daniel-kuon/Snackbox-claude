@@ -17,12 +17,20 @@ public sealed partial class ReleasePackage(Installation installation, Log log)
     public static string AssetName(string tag) => $"snackbox-{tag}-win-x64.zip";
 
     /// <summary>
-    /// Downloads and unpacks the release's package while the old version still runs. Null when
-    /// there is none - an older release, a private repository, no network - and the update then
-    /// builds from source as it always did.
+    /// Downloads and unpacks the release's package while the old version still runs - unless the
+    /// API already did, in the background (UpdateService.DownloadLatestAsync, same folder). Null
+    /// when there is none - an older release, a private repository, no network - and the update
+    /// then builds from source as it always did.
     /// </summary>
     public string? Download(string tag)
     {
+        var folder = Path.Combine(installation.StateDirectory, $"release-{tag}");
+        if (Directory.Exists(folder))
+        {
+            log.Write("The release was already downloaded in the background.");
+            return folder;
+        }
+
         var repository = GitHubRepository(installation.Git("remote get-url origin", throwOnError: false).Trim());
         if (repository == null)
         {
@@ -32,7 +40,6 @@ public sealed partial class ReleasePackage(Installation installation, Log log)
 
         var url = $"https://github.com/{repository}/releases/download/{tag}/{AssetName(tag)}";
         var zip = Path.Combine(installation.StateDirectory, AssetName(tag));
-        var folder = Path.Combine(installation.StateDirectory, $"release-{tag}");
 
         try
         {
@@ -51,8 +58,11 @@ public sealed partial class ReleasePackage(Installation installation, Log log)
                 response.Content.CopyToAsync(file).GetAwaiter().GetResult();
             }
 
-            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
-            ZipFile.ExtractToDirectory(zip, folder);
+            // Complete or not there at all: a folder of that name is taken as ready to install
+            var partial = $"{folder}.partial-{Guid.NewGuid():N}";
+            ZipFile.ExtractToDirectory(zip, partial);
+            if (Directory.Exists(folder)) Directory.Delete(partial, recursive: true); // the API was quicker
+            else Directory.Move(partial, folder);
             log.Write("Downloaded and unpacked.");
             return folder;
         }
