@@ -14,8 +14,9 @@ public sealed class Log(string path)
     public void Write(string message)
     {
         var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}";
-        Console.WriteLine(line);
+        // The file first: a console write can block (see QuickEdit), the Updates page reads the file
         Append(line);
+        Console.WriteLine(line);
     }
 
     /// <summary>Output of a child process - already formatted, and dropped when empty.</summary>

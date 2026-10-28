@@ -65,6 +65,7 @@ try
 
         case "update":
             var tag = arguments.Value("tag") ?? throw new UpdaterException("update needs --tag, for example --tag v1.2.3.");
+            QuickEdit.Disable();
 
             // The update replaces this very executable (package or build), and
             // Windows will not overwrite a running file. Continue from a copy in the temp
