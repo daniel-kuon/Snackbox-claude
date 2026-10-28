@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Nextended.Aspire;
 using Projects;
 
@@ -35,9 +36,12 @@ var postgres = builder.AddPostgres("postgres", password: postgresPassword)
                       // pg_upgrade. The minor version floats: 18.x releases share the format.
                       .WithImageTag("18")
                       .WithVolume("snackbox-postgres", "/var/lib/postgresql")
+                      // ~250 MB on a PC with 8 GB, for something needed now and then:
+                      // started by hand in the Aspire dashboard (Admin -> Updates links to it)
                       .WithPgAdmin(b => b.WithContainerName("snackbox-pgadmin")
                                          .WithHostPort(15654)
-                                         .WithLifetime(ContainerLifetime.Persistent))
+                                         .WithLifetime(ContainerLifetime.Persistent)
+                                         .WithExplicitStart())
                       .AddDatabase("snackboxdb");
 
 // SigNoz stack (ClickHouse, collector, UI on http://localhost:3301) via its own compose file.
@@ -79,11 +83,15 @@ var nativeApp = builder.AddExecutable("native-app", "dotnet", workingDirectory: 
 // Add a custom resource for database reset using dotnet ef commands
 // This will appear in the Aspire dashboard and can be started manually
 // Note: Working directory is set to the API project directory for proper EF Core context
-// ReSharper disable once UnusedVariable
-var resetDb = builder.AddExecutable("reset-db", "cmd", workingDirectory: "../Snackbox.Api")
-                     .WithArgs("/c", "dotnet ef database drop --force && dotnet ef database update")
-                     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
-                     .WithExplicitStart()
-                     .ExcludeFromManifest();
+// Development only: an installation's dashboard is one click away from Admin -> Updates, and
+// this drops the database.
+if (builder.Environment.IsDevelopment())
+{
+    builder.AddExecutable("reset-db", "cmd", workingDirectory: "../Snackbox.Api")
+           .WithArgs("/c", "dotnet ef database drop --force && dotnet ef database update")
+           .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
+           .WithExplicitStart()
+           .ExcludeFromManifest();
+}
 
 builder.Build().EnsureDockerRunningIfLocalDebug().Run();

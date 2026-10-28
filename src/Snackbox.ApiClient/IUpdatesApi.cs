@@ -14,4 +14,7 @@ public interface IUpdatesApi
 
     [Get("/api/updates/log")]
     Task<UpdateLogDto> GetLogAsync([Query] int lines = 200);
+
+    [Get("/api/updates/dashboard")]
+    Task<DashboardLinkDto> GetDashboardAsync();
 }

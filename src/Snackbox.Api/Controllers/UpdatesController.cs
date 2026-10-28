@@ -50,4 +50,9 @@ public class UpdatesController : ControllerBase
     [HttpGet("log")]
     public ActionResult<UpdateLogDto> GetLog([FromQuery] int lines = 200)
         => Ok(_updates.GetLog(lines));
+
+    /// <summary>Login link of the Aspire dashboard on this machine (pgAdmin, SigNoz, logs).</summary>
+    [HttpGet("dashboard")]
+    public ActionResult<DashboardLinkDto> GetDashboard()
+        => Ok(new DashboardLinkDto { Url = _updates.GetDashboardUrl() });
 }

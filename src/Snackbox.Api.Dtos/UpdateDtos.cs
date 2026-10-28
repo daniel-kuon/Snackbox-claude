@@ -46,3 +46,9 @@ public class UpdateLogDto
     public string[] Lines { get; set; } = [];
     public DateTime? LastWrite { get; set; }
 }
+
+/// <summary>The Aspire dashboard's login link of the running AppHost (localhost only), or null.</summary>
+public class DashboardLinkDto
+{
+    public string? Url { get; set; }
+}

@@ -89,6 +89,9 @@
     /// <summary>True while playing - the scan screen holds its countdown meanwhile.</summary>
     [Parameter] public EventCallback<bool> OnPlayingChanged { get; set; }
 
+    /// <summary>Hold new achievements back (while the setup wizard / intro is open); they play once it is false again.</summary>
+    [Parameter] public bool Paused { get; set; }
+
     private ElementReference _stage;
     private readonly HashSet<(int, DateTime)> _seen = new();
     private readonly Queue<List<Achievement>> _queue = new();
@@ -99,11 +102,11 @@
     protected override async Task OnParametersSetAsync()
     {
         var fresh = Achievements.Where(a => _seen.Add((a.Id, a.EarnedAt))).ToList();
-        if (fresh.Count == 0) return;
 
         // One sequence per scan: each category together, lowest level first
-        _queue.Enqueue(fresh.GroupBy(a => a.Category).SelectMany(g => g.OrderBy(Tier)).ToList());
-        if (_playing) return;
+        if (fresh.Count > 0)
+            _queue.Enqueue(fresh.GroupBy(a => a.Category).SelectMany(g => g.OrderBy(Tier)).ToList());
+        if (_playing || Paused || _queue.Count == 0) return;
 
         _playing = true;
         _startPending = true;

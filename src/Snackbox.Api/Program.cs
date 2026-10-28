@@ -302,7 +302,11 @@ app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/api/auth")
                    && !ctx.Request.Path.StartsWithSegments("/api/settings")
                    && !ctx.Request.Path.StartsWithSegments("/api/backup")
                    // names and e-mail addresses of PayPal payers, people who may not use Snackbox
-                   && !ctx.Request.Path.StartsWithSegments("/api/paypal"),
+                   && !ctx.Request.Path.StartsWithSegments("/api/paypal")
+                   // the Aspire dashboard's login link
+                   && !ctx.Request.Path.StartsWithSegments("/api/updates/dashboard")
+                   // health checks, feature flags, tablet state: every few seconds, nothing to see
+                   && !PollingRequests.IsPolling(ctx.Request.Path.Value),
             b => b.UseHttpLogging());
 
 app.UseHttpsRedirection();

@@ -107,8 +107,26 @@ services:
       - ./common/clickhouse/custom-function.xml:/etc/clickhouse-server/custom-function.xml
       - ./common/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/
       - ./common/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml
+      - ./common/clickhouse/low-resources.xml:/etc/clickhouse-server/config.d/low-resources.xml
       - clickhouse:/var/lib/clickhouse/
       # - ./common/clickhouse/storage.xml:/etc/clickhouse-server/config.d/storage.xml
+  # ClickHouse no longer writes its own logging tables (common/clickhouse/low-resources.xml);
+  # this drops what they had collected - on the kiosk PC far more than SigNoz's own data
+  trim-clickhouse-logs:
+    !!merge <<: *common
+    image: clickhouse/clickhouse-server:25.5.6
+    container_name: signoz-trim-clickhouse-logs
+    restart: on-failure
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    entrypoint:
+      - bash
+      - -c
+      - |
+        for t in query_log query_thread_log query_views_log part_log trace_log text_log metric_log asynchronous_metric_log opentelemetry_span_log processors_profile_log error_log latency_log query_metric_log; do
+          clickhouse-client --host clickhouse -q "DROP TABLE IF EXISTS system.$$t SYNC" || exit 1
+        done
   signoz:
     !!merge <<: *db-depend
     image: signoz/signoz:${VERSION:-v0.108.0}

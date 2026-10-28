@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Snackbox.Api.Dtos;
 using Snackbox.ServiceDefaults.Tracing;
 
@@ -11,6 +12,7 @@ public interface IUpdateService
     Task<UpdateStatusDto> GetStatusAsync(CancellationToken ct = default);
     Task<InstallUpdateResponseDto> InstallAsync(string? tag, CancellationToken ct = default);
     UpdateLogDto GetLog(int lines = 200);
+    string? GetDashboardUrl();
 }
 
 /// <summary>
@@ -19,7 +21,7 @@ public interface IUpdateService
 /// tools/Snackbox.Updater, which has to run outside this process - it stops the app it updates.
 /// </summary>
 [Traced]
-public class UpdateService : IUpdateService
+public partial class UpdateService : IUpdateService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
@@ -220,6 +222,34 @@ public class UpdateService : IUpdateService
             return new UpdateLogDto();
         }
     }
+
+    /// <summary>
+    /// The Aspire dashboard (pgAdmin and SigNoz are started from there) wants a login token that
+    /// changes with every start. The AppHost prints its login link at startup, and the updater
+    /// sends that output to .snackbox/apphost.log - the newest link there is the running one.
+    /// </summary>
+    [NotTraced] // the link logs in
+    public string? GetDashboardUrl()
+    {
+        var root = FindInstallationRoot();
+        var path = root == null ? null : Path.Combine(root, ".snackbox", "apphost.log");
+        if (path == null || !File.Exists(path)) return null;
+
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+            var links = DashboardLoginLink().Matches(reader.ReadToEnd());
+            return links.Count > 0 ? links[^1].Value : null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    [GeneratedRegex(@"https?://localhost:\d+/login\?t=[0-9A-Za-z]+")]
+    private static partial Regex DashboardLoginLink();
 
     // ----------------------------------------------------------------- paths
 

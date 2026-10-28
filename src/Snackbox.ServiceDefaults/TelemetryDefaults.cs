@@ -100,6 +100,7 @@ public static class ServiceDefaultsExtensions
                     tracing.AddAspNetCoreInstrumentation(options =>
                     {
                         options.RecordException = true;
+                        options.Filter = context => !PollingRequests.IsPolling(context.Request.Path.Value);
                         options.EnrichWithHttpRequest = (activity, request) =>
                         {
                             EnrichWithUser(activity, request.HttpContext.User, telemetryOptions.UserIdentityMode);
@@ -109,7 +110,11 @@ public static class ServiceDefaultsExtensions
 
                 if (instrumentationOptions.EnableHttpClientInstrumentation)
                 {
-                    tracing.AddHttpClientInstrumentation(options => { options.RecordException = true; });
+                    tracing.AddHttpClientInstrumentation(options =>
+                    {
+                        options.RecordException = true;
+                        options.FilterHttpRequestMessage = request => !PollingRequests.IsPolling(request.RequestUri?.AbsolutePath);
+                    });
                 }
 
                 // Make Npgsql's stable db.* attributes recognisable to SigNoz

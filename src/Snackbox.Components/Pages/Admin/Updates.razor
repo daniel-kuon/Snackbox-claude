@@ -99,6 +99,22 @@
         <div class="alert alert-danger">@_error</div>
     }
 
+    <div class="settings-section">
+        <div class="settings-section-header"><h4>Aspire dashboard</h4></div>
+        <p class="text-muted small mb-2">
+            Every part of the installation and its logs. pgAdmin (database admin) is not started by
+            default: start it there with ▶ and stop it again when done. Only works on the Snackbox PC itself.
+        </p>
+        @if (_dashboardUrl != null)
+        {
+            <a class="btn btn-outline-primary" href="@_dashboardUrl" target="_blank" rel="noopener">Open the Aspire dashboard</a>
+        }
+        else
+        {
+            <span class="text-muted">No dashboard found - it is only there in an installation started by the updater.</span>
+        }
+    </div>
+
     @if (_log is { Lines.Length: > 0 })
     {
         <div class="settings-section">
@@ -135,12 +151,21 @@
     private bool _following;
     private string? _error;
     private string? _installMessage;
+    private string? _dashboardUrl;
     private Timer? _followTimer;
 
     protected override async Task OnInitializedAsync()
     {
         await RefreshAsync();
         await LoadLogAsync();
+        try
+        {
+            _dashboardUrl = (await UpdatesApi.GetDashboardAsync()).Url;
+        }
+        catch (Exception)
+        {
+            // An older API without the endpoint - the page works without the link
+        }
     }
 
     private async Task RefreshAsync()

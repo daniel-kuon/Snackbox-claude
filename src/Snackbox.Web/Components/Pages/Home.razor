@@ -220,7 +220,7 @@
 
                     <!-- QR Codes: payment and phone app install guide; earned achievements play over them -->
                     <div class="qr-area">
-                    <AchievementSlam Achievements="@session.NewAchievements" OnPlayingChanged="AchievementsPlayingChanged"/>
+                    <AchievementSlam Achievements="@session.NewAchievements" Paused="@_showSetupWizard" OnPlayingChanged="AchievementsPlayingChanged"/>
                     <div class="qr-pair">
                         <div class="qr-col @SpotlightClass("payment")">
                             <h3 class="section-title qr-col-title">Pay via PayPal</h3>
