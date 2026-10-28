@@ -6,6 +6,7 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @inject TestHelperClient TestHelper
 @inject Snackbox.ApiClient.ITabletApi TabletApi
+@inject Snackbox.ApiClient.IThemesApi ThemesApi
 @using System.Net
 @using System.Net.Sockets
 @using System.Timers
@@ -14,11 +15,15 @@
 @using Snackbox.Api.Dtos
 @using Snackbox.Components.Models
 @using Snackbox.Web.Services
+@using Snackbox.Web.Components.Themes
 @implements IDisposable
 
 <PageTitle>Snackbox Scanner</PageTitle>
 
-<div class="scanner-container">
+<div class="scanner-container @(_themeKey != null ? $"sb-theme-{_themeKey}" : "")">
+    @* Seasonal decoration (Admin -> Settings -> Themes) around the welcome screen and the purchase *@
+    <ThemeScene Key="@_themeKey" Welcome="@(!ScannerService.IsSessionActive)"
+                ScanCount="@(ScannerService.CurrentSession?.ScannedBarcodes.Count ?? 0)" Quiet="@_showSetupWizard" />
     @if (_errorMessage != null)
     {
         @* Click-through dimming: hard to miss from a few steps away, gone after a few seconds *@
@@ -37,7 +42,7 @@
         <div class="scan-prompt-container">
             <div class="scan-prompt-content">
                 <h1 class="scan-title">Welcome to Snackbox</h1>
-                <p class="scan-instruction">Please scan your card to continue</p>
+                <p class="scan-instruction">@(ThemeScene.WelcomeLine(_themeKey) ?? "Please scan your card to continue")</p>
             </div>
 
             @* Way in without a card - for remote maintenance, where nobody can scan *@
@@ -1110,6 +1115,41 @@
 
         // Development-only test helper - null (and hidden) unless the API enables it
         _testUsers = await TestHelper.GetUsersAsync();
+
+        _ = FollowThemeAsync(_themeCts.Token);
+    }
+
+    private string? _themeKey;
+    private readonly CancellationTokenSource _themeCts = new();
+
+    // The seasonal theme follows the date and Admin -> Settings, so it is asked for again every minute
+    private async Task FollowThemeAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var key = (await ThemesApi.GetActiveAsync()).Key;
+                if (key != _themeKey)
+                {
+                    _themeKey = key;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (Exception)
+            {
+                // API not there (yet) - keep the current look and ask again
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromMinutes(1), ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
     }
 
     private void SimulateScan(string code)
@@ -1577,6 +1617,7 @@
 
         StopCountdownTimer();
         _errorTimer?.Dispose();
+        _themeCts.Cancel();
     }
 
 

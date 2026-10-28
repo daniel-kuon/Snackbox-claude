@@ -89,6 +89,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 // Register achievement service
+builder.Services.AddSingleton(TimeProvider.System); // local time for the seasonal themes
 builder.Services.AddScoped<IAchievementService, AchievementService>();
 
 // Resolves which features a given user may see (off / beta testers / everyone)

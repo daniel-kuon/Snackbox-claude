@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Snackbox.Api.Data;
+using Snackbox.Api.Dtos;
 using Snackbox.Api.Models;
 using Snackbox.ServiceDefaults.Tracing;
 
@@ -20,10 +21,12 @@ public interface IAchievementService
 public class AchievementService : IAchievementService
 {
     private readonly ApplicationDbContext _context;
+    private readonly TimeProvider _time;
 
-    public AchievementService(ApplicationDbContext context)
+    public AchievementService(ApplicationDbContext context, TimeProvider? time = null)
     {
         _context = context;
+        _time = time ?? TimeProvider.System;
     }
 
     public async Task<List<Achievement>> CheckAndAwardAchievementsAsync(int userId, int purchaseId)
@@ -72,6 +75,9 @@ public class AchievementService : IAchievementService
 
         // Check special achievements
         await CheckSpecialAchievements(userId, purchaseId, purchaseAmount, userAchievements, earnedAchievements, achievementLookup);
+
+        // Halloween & co, while their theme is on
+        await CheckSeasonalAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
 
         // Purchase count and total spent: one category, only on an otherwise quiet purchase
         await ReleaseLifetimeAchievements(userId, purchase, userAchievements, earnedAchievements, achievementLookup);
@@ -141,6 +147,9 @@ public class AchievementService : IAchievementService
 
         // Check special achievements
         await CheckSpecialAchievements(userId, purchaseId, purchaseAmount, userAchievements, earnedAchievements, achievementLookup);
+
+        // Halloween & co, while their theme is on
+        await CheckSeasonalAchievements(userId, userAchievements, earnedAchievements, achievementLookup);
 
         // Purchase count and total spent: one category, only on an otherwise quiet purchase
         await ReleaseLifetimeAchievements(userId, purchase, userAchievements, earnedAchievements, achievementLookup);
@@ -216,6 +225,10 @@ public class AchievementService : IAchievementService
             case AchievementCategory.TotalSpent:
                 // Can only be earned once ever
                 return false;
+
+            case AchievementCategory.Seasonal:
+                // Once each time the season comes round
+                return mostRecent.EarnedAt.Year != DateTime.UtcNow.Year;
 
             case AchievementCategory.TimeBased:
                 // Monday/Friday can only be earned once per month
@@ -514,6 +527,36 @@ public class AchievementService : IAchievementService
             balances.Add(debt);
         }
         return balances;
+    }
+
+    /// <summary>
+    /// Achievements of the theme(s) on right now, judged by the kiosk's local time (the API runs
+    /// on the kiosk PC): 31 October is the local day, "after 6 pm" the local evening.
+    /// </summary>
+    private async Task CheckSeasonalAchievements(int userId, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)
+    {
+        var now = _time.GetLocalNow().DateTime;
+        var halloween = (await _context.Themes.Where(t => t.Key == ThemeKeys.Halloween).ToListAsync()).FirstOrDefault(t => t.IsActiveOn(now));
+        if (halloween == null)
+            return;
+
+        void Award(string code, bool condition)
+        {
+            if (condition && achievementLookup.TryGetValue(code, out var achievement)
+                          && CanEarnAchievement(code, AchievementCategory.Seasonal, userAchievements))
+                earned.Add(achievement);
+        }
+
+        Award("HALLOWEEN_TREAT", true);
+        Award("HALLOWEEN_DAY", now.Month == 10 && now.Day == 31);
+        Award("HALLOWEEN_WITCHING_HOUR", now.Hour >= 18);
+
+        if (achievementLookup.ContainsKey("HALLOWEEN_MONSTER"))
+        {
+            var since = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(halloween.PeriodStart(now), DateTimeKind.Unspecified), _time.LocalTimeZone);
+            var purchases = await _context.Purchases.CountAsync(p => p.UserId == userId && !p.IsLegacyImport && p.CreatedAt >= since);
+            Award("HALLOWEEN_MONSTER", purchases >= 5);
+        }
     }
 
     private async Task CheckTotalSpentAchievements(int userId, List<UserAchievement> userAchievements, List<Achievement> earned, Dictionary<string, Achievement> achievementLookup)

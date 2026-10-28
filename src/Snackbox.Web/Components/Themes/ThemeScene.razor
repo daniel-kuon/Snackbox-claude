@@ -1,0 +1,32 @@
+@using Snackbox.Api.Dtos
+
+@* The active seasonal theme's decoration for the scan screen. A new theme: a key in ThemeKeys,
+   a seeded row in the API's themes table, a component here and a case below. Each scene draws
+   behind (z-index 0) and in front (z-index 40) of the screen, which Home lifts to z-index 1, and
+   restyles it under the class Home puts on its container: sb-theme-<key>. *@
+@switch (Key)
+{
+    case ThemeKeys.Halloween:
+        <HalloweenScene Welcome="Welcome" ScanCount="ScanCount" Quiet="Quiet" />
+        break;
+}
+
+@code {
+    [Parameter] public string? Key { get; set; }
+
+    /// <summary>The welcome screen (true) or a purchase.</summary>
+    [Parameter] public bool Welcome { get; set; }
+
+    /// <summary>Scans of the current purchase - a scene can react to each new one.</summary>
+    [Parameter] public int ScanCount { get; set; }
+
+    /// <summary>Hold the foreground decoration back, e.g. while the intro wizard explains the screen.</summary>
+    [Parameter] public bool Quiet { get; set; }
+
+    /// <summary>The welcome screen's second line in this theme, or null for the usual one.</summary>
+    public static string? WelcomeLine(string? key) => key switch
+    {
+        ThemeKeys.Halloween => "Scan your card... if you dare 🎃",
+        _ => null
+    };
+}

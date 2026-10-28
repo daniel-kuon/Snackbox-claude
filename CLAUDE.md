@@ -101,6 +101,11 @@ Snackbox is an employee snack purchasing and inventory management system that st
 - **Kiosk display** (`AchievementSlam.razor` + `wwwroot/js/achievementSlam.js` in Snackbox.Web): plays over the QR area so the purchase stays visible - each achievement slams in, then moves into a row, lowest level first; the countdown holds while it plays. The tablet keeps `AchievementNotification`
 - See [Achievement System Documentation](docs/achievement-system.md) for full details
 
+#### 8a. Seasonal themes (see [docs/THEMES.md](docs/THEMES.md))
+- **Kiosk dress-up**: a theme (`themes` table: key, mode Off / Dates (yearly, inclusive, may wrap New Year) / Always) decorates the kiosk's welcome and purchase screen. Admin -> Settings -> Themes (`ThemeSettingsPanel`, `GET/PUT /api/themes`, admin); the kiosk asks `GET /api/themes/active` (anonymous; Always beats Dates) every minute. `ThemeScene` maps the key to a scene component in `Snackbox.Web/Components/Themes` that draws behind (z 0) and in front (z 40) of the screen and restyles it under `sb-theme-<key>`
+- **Halloween** (Dates 24.10.-1.11.): night sky, moon, haunted house, graves, pumpkins, bats, ghosts, witch, spider, lightning; on a purchase a pumpkin countdown and a BOO ghost per scan; the foreground waits while the intro wizard is open. Only transform/opacity animate (old i5)
+- **Theme achievements**: `Achievement.ThemeKey` + category `Seasonal`, only while the theme is on, once per year, judged in the kiosk PC's local time (`TimeProvider`): Trick or Treat!, Happy Halloween! (31.10.), Witching Hour (after 18:00), Monster Muncher (5 purchases since the theme started)
+
 #### 9. Discount System
 - **Automatic Application**: Discounts are automatically detected and applied during barcode scanning
 - **Two Types**: Fixed amount (e.g., 0.50€ off) or percentage (e.g., 10% off)

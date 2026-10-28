@@ -30,6 +30,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Discount> Discounts => Set<Discount>();
     public DbSet<PurchaseDiscount> PurchaseDiscounts => Set<PurchaseDiscount>();
     public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
+    public DbSet<Theme> Themes => Set<Theme>();
     public DbSet<UserWizardStep> UserWizardSteps => Set<UserWizardStep>();
     public DbSet<UnknownScan> UnknownScans => Set<UnknownScan>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
@@ -72,6 +73,24 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasIndex(e => e.Key).IsUnique();
             entity.Property(e => e.Key).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Theme>(entity =>
+        {
+            entity.HasIndex(e => e.Key).IsUnique();
+            entity.Property(e => e.Key).HasMaxLength(50);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.HasData(new Theme
+            {
+                Id = 1,
+                Key = ThemeKeys.Halloween,
+                Name = "Halloween",
+                Description = "Night sky, bats, ghosts, a haunted house and glowing pumpkins on the kiosk - and Halloween achievements.",
+                Mode = ThemeMode.Dates,
+                StartMonth = 10, StartDay = 24, EndMonth = 11, EndDay = 1,
+                UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, DateTimeKind.Utc)
+            });
         });
 
         modelBuilder.Entity<UserWizardStep>(entity =>
@@ -263,6 +282,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Code).HasMaxLength(50);
             entity.Property(e => e.Name).HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.ThemeKey).HasMaxLength(50);
         });
 
         modelBuilder.Entity<UserAchievement>(entity =>
@@ -382,7 +402,12 @@ public class ApplicationDbContext : DbContext
             new Achievement { Id = 47, Code = "GENEROUS_SOUL", Name = "Generous Soul", Description = "Have a positive balance (credit) of €10 or more", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFD700\" stroke=\"#FFA500\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">💝</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#B8860B\">+€10</text></svg>" },
             new Achievement { Id = 48, Code = "SNACK_BIRTHDAY", Name = "Happy Snack-iversary!", Description = "Made a purchase exactly 1 year after your first", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FFB6C1\" stroke=\"#FF1493\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">🎂</text><text x=\"60\" y=\"85\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#C71585\">1 year</text></svg>" },
             new Achievement { Id = 49, Code = "THIRTEENTH", Name = "Unlucky 13", Description = "Made a purchase totaling exactly €13", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#2F4F4F\" stroke=\"#000000\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">🖤</text><text x=\"60\" y=\"85\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FFD700\">€13</text></svg>" },
-            new Achievement { Id = 50, Code = "NICE", Name = "Nice.", Description = "Made a purchase totaling exactly €6.90", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF69B4\" stroke=\"#FF1493\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">😏</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">€6.90</text></svg>" }
+            new Achievement { Id = 50, Code = "NICE", Name = "Nice.", Description = "Made a purchase totaling exactly €6.90", Category = AchievementCategory.Special, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF69B4\" stroke=\"#FF1493\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">😏</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">€6.90</text></svg>" },
+            // Halloween theme: earned again each year it comes round
+            new Achievement { Id = 51, Code = "HALLOWEEN_TREAT", Name = "Trick or Treat!", Description = "Bought a snack while Snackbox dressed up for Halloween", Category = AchievementCategory.Seasonal, ThemeKey = ThemeKeys.Halloween, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#2B1240\" stroke=\"#FF7518\" stroke-width=\"4\"/><text x=\"60\" y=\"62\" font-size=\"44\" text-anchor=\"middle\">🎃</text><text x=\"60\" y=\"94\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF7518\">BOO!</text></svg>" },
+            new Achievement { Id = 52, Code = "HALLOWEEN_DAY", Name = "Happy Halloween!", Description = "Bought a snack on 31 October", Category = AchievementCategory.Seasonal, ThemeKey = ThemeKeys.Halloween, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#1A0B2E\" stroke=\"#FF7518\" stroke-width=\"4\"/><text x=\"60\" y=\"62\" font-size=\"44\" text-anchor=\"middle\">👻</text><text x=\"60\" y=\"94\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF7518\">31.10.</text></svg>" },
+            new Achievement { Id = 53, Code = "HALLOWEEN_WITCHING_HOUR", Name = "Witching Hour", Description = "Bought a snack after 6 pm in Halloween week", Category = AchievementCategory.Seasonal, ThemeKey = ThemeKeys.Halloween, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#120A1C\" stroke=\"#FF7518\" stroke-width=\"4\"/><text x=\"60\" y=\"62\" font-size=\"44\" text-anchor=\"middle\">🧙</text><text x=\"60\" y=\"94\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF7518\">6 PM</text></svg>" },
+            new Achievement { Id = 54, Code = "HALLOWEEN_MONSTER", Name = "Monster Muncher", Description = "Made 5 purchases in Halloween week", Category = AchievementCategory.Seasonal, ThemeKey = ThemeKeys.Halloween, ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#2B1240\" stroke=\"#FF7518\" stroke-width=\"4\"/><text x=\"60\" y=\"62\" font-size=\"44\" text-anchor=\"middle\">🧟</text><text x=\"60\" y=\"94\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF7518\">x5</text></svg>" }
         );
     }
 }

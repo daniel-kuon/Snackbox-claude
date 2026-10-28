@@ -9,6 +9,9 @@ public class Achievement
     public AchievementCategory Category { get; set; }
     public string? ImageUrl { get; set; } // Optional custom image
 
+    /// <summary>Seasonal achievements belong to a theme (ThemeKeys) and can only be earned while it is on.</summary>
+    public string? ThemeKey { get; set; }
+
     // Navigation properties
     public ICollection<UserAchievement> UserAchievements { get; set; } = new List<UserAchievement>();
 }
@@ -23,5 +26,6 @@ public enum AchievementCategory
     TotalSpent,
     TimeBased,
     Milestone,
-    Special
+    Special,
+    Seasonal
 }

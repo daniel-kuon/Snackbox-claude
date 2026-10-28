@@ -1,0 +1,123 @@
+@using Snackbox.Api.Dtos
+@using Snackbox.ApiClient
+@inject IThemesApi ThemesApi
+
+@* Seasonal looks of the kiosk (Admin -> Settings). Saved right away; the kiosk picks it up within a minute. *@
+<div class="settings-section">
+    <div class="settings-section-header">
+        <h3>Themes</h3>
+    </div>
+    <p class="form-text text-muted">
+        Seasonal looks of the kiosk, each with its own achievements. <em>Dates</em> repeats every year
+        (the end may lie in the next year); <em>Always</em> keeps it on until switched back.
+        Saved right away - the kiosk follows within a minute.
+    </p>
+
+    @if (_themes == null)
+    {
+        <div class="spinner-border spinner-border-sm"></div>
+    }
+    else
+    {
+        @foreach (var theme in _themes)
+        {
+            <div class="form-group theme-row">
+                <label class="form-label">
+                    <strong>@theme.Name</strong>
+                    @if (theme.Active)
+                    {
+                        <span class="badge bg-success ms-2">showing now</span>
+                    }
+                </label>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <select class="form-select w-auto" value="@theme.Mode" disabled="@(_saving == theme.Key)"
+                            @onchange="e => SetModeAsync(theme, e.Value?.ToString())">
+                        <option value="@ThemeMode.Off">Off</option>
+                        <option value="@ThemeMode.Dates">Dates</option>
+                        <option value="@ThemeMode.Always">Always</option>
+                    </select>
+                    @if (theme.Mode == ThemeMode.Dates)
+                    {
+                        <span>from</span>
+                        <input type="number" class="form-control theme-day" min="1" max="31" @bind="theme.StartDay" />
+                        <span>.</span>
+                        <input type="number" class="form-control theme-day" min="1" max="12" @bind="theme.StartMonth" />
+                        <span>. to</span>
+                        <input type="number" class="form-control theme-day" min="1" max="31" @bind="theme.EndDay" />
+                        <span>.</span>
+                        <input type="number" class="form-control theme-day" min="1" max="12" @bind="theme.EndMonth" />
+                        <span>.</span>
+                        <button class="btn btn-sm btn-outline-primary" disabled="@(_saving == theme.Key)" @onclick="() => SaveAsync(theme)">Save dates</button>
+                    }
+                </div>
+                <small class="form-text text-muted">@theme.Description</small>
+            </div>
+        }
+
+        @if (_message != null)
+        {
+            <div class="alert @(_success ? "alert-success" : "alert-danger")">@_message</div>
+        }
+    }
+</div>
+
+<style>
+    .theme-row { margin-bottom: 1rem; }
+    .theme-day { width: 4.5rem; }
+</style>
+
+@code {
+    private List<ThemeDto>? _themes;
+    private string? _saving;
+    private string? _message;
+    private bool _success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _themes = await ThemesApi.GetAllAsync();
+        }
+        catch (Exception)
+        {
+            _themes = new List<ThemeDto>();
+            _message = "Could not load the themes.";
+        }
+    }
+
+    private Task SetModeAsync(ThemeDto theme, string? value)
+    {
+        if (!Enum.TryParse<ThemeMode>(value, out var mode)) return Task.CompletedTask;
+        theme.Mode = mode;
+        return SaveAsync(theme);
+    }
+
+    private async Task SaveAsync(ThemeDto theme)
+    {
+        _saving = theme.Key;
+        _message = null;
+        try
+        {
+            var saved = await ThemesApi.UpdateAsync(theme.Key, new UpdateThemeDto
+            {
+                Mode = theme.Mode,
+                StartMonth = theme.StartMonth,
+                StartDay = theme.StartDay,
+                EndMonth = theme.EndMonth,
+                EndDay = theme.EndDay
+            });
+            theme.Active = saved.Active;
+            _message = $"\"{theme.Name}\" saved - {(saved.Active ? "showing now" : "not showing now")}.";
+            _success = true;
+        }
+        catch (Exception)
+        {
+            _message = $"Could not save \"{theme.Name}\" - are start and end real days?";
+            _success = false;
+        }
+        finally
+        {
+            _saving = null;
+        }
+    }
+}

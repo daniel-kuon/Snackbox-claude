@@ -57,6 +57,11 @@ namespace Snackbox.Api.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
+                    b.Property<string>("ThemeKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("theme_key");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
@@ -514,6 +519,46 @@ namespace Snackbox.Api.Migrations
                             Description = "Made a purchase totaling exactly €6.90",
                             ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#FF69B4\" stroke=\"#FF1493\" stroke-width=\"3\"/><text x=\"60\" y=\"55\" font-size=\"40\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">😏</text><text x=\"60\" y=\"85\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#8B008B\">€6.90</text></svg>",
                             Name = "Nice."
+                        },
+                        new
+                        {
+                            Id = 51,
+                            Category = 9,
+                            Code = "HALLOWEEN_TREAT",
+                            Description = "Bought a snack while Snackbox dressed up for Halloween",
+                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#2B1240\" stroke=\"#FF7518\" stroke-width=\"4\"/><text x=\"60\" y=\"62\" font-size=\"44\" text-anchor=\"middle\">🎃</text><text x=\"60\" y=\"94\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF7518\">BOO!</text></svg>",
+                            Name = "Trick or Treat!",
+                            ThemeKey = "halloween"
+                        },
+                        new
+                        {
+                            Id = 52,
+                            Category = 9,
+                            Code = "HALLOWEEN_DAY",
+                            Description = "Bought a snack on 31 October",
+                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#1A0B2E\" stroke=\"#FF7518\" stroke-width=\"4\"/><text x=\"60\" y=\"62\" font-size=\"44\" text-anchor=\"middle\">👻</text><text x=\"60\" y=\"94\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF7518\">31.10.</text></svg>",
+                            Name = "Happy Halloween!",
+                            ThemeKey = "halloween"
+                        },
+                        new
+                        {
+                            Id = 53,
+                            Category = 9,
+                            Code = "HALLOWEEN_WITCHING_HOUR",
+                            Description = "Bought a snack after 6 pm in Halloween week",
+                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#120A1C\" stroke=\"#FF7518\" stroke-width=\"4\"/><text x=\"60\" y=\"62\" font-size=\"44\" text-anchor=\"middle\">🧙</text><text x=\"60\" y=\"94\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF7518\">6 PM</text></svg>",
+                            Name = "Witching Hour",
+                            ThemeKey = "halloween"
+                        },
+                        new
+                        {
+                            Id = 54,
+                            Category = 9,
+                            Code = "HALLOWEEN_MONSTER",
+                            Description = "Made 5 purchases in Halloween week",
+                            ImageUrl = "<svg width=\"120\" height=\"120\" viewBox=\"0 0 120 120\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"60\" r=\"55\" fill=\"#2B1240\" stroke=\"#FF7518\" stroke-width=\"4\"/><text x=\"60\" y=\"62\" font-size=\"44\" text-anchor=\"middle\">🧟</text><text x=\"60\" y=\"94\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#FF7518\">x5</text></svg>",
+                            Name = "Monster Muncher",
+                            ThemeKey = "halloween"
                         });
                 });
 
@@ -1368,6 +1413,80 @@ namespace Snackbox.Api.Migrations
                     b.HasIndex("ProductBatchId");
 
                     b.ToTable("shelving_actions");
+                });
+
+            modelBuilder.Entity("Snackbox.Api.Models.Theme", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("EndDay")
+                        .HasColumnType("integer")
+                        .HasColumnName("end_day");
+
+                    b.Property<int>("EndMonth")
+                        .HasColumnType("integer")
+                        .HasColumnName("end_month");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("key");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("integer")
+                        .HasColumnName("mode");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("StartDay")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_day");
+
+                    b.Property<int>("StartMonth")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_month");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("themes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Description = "Night sky, bats, ghosts, a haunted house and glowing pumpkins on the kiosk - and Halloween achievements.",
+                            EndDay = 1,
+                            EndMonth = 11,
+                            Key = "halloween",
+                            Mode = 1,
+                            Name = "Halloween",
+                            StartDay = 24,
+                            StartMonth = 10,
+                            UpdatedAt = new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
                 });
 
             modelBuilder.Entity("Snackbox.Api.Models.UnknownScan", b =>
