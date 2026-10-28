@@ -1,12 +1,13 @@
 name: Release
 
-# A Snackbox installation is a git checkout that is built and run in place (see
-# install-snackbox.ps1), so a release is a tag plus notes - there is nothing to ship as a
-# binary. In particular the Aspire AppHost cannot be published: its generated project metadata
-# hardcodes the build machine's absolute .csproj paths, which do not exist anywhere else.
+# A Snackbox installation is a git checkout that runs in place (see install-snackbox.ps1). A
+# release is a tag, notes and a zip of prebuilt binaries laid out like the checkout
+# (tools/package-release.ps1), which the updater copies over it instead of building the
+# solution on the kiosk PC. The Aspire AppHost is not in it: its build hardcodes the build
+# machine's absolute paths, so the updater builds that one small project on the machine.
 #
-# This workflow builds the solution to prove the tag is sound, then publishes the release the
-# app's Updates page reads.
+# This workflow builds the solution to prove the tag is sound, packs the binaries, then
+# publishes the release the app's Updates page reads.
 
 on:
   push:
@@ -88,6 +89,11 @@ jobs:
         run: dotnet test Snackbox.sln -c Release --no-build
         continue-on-error: true
 
+      # The name is what Snackbox.Updater downloads (ReleasePackage.AssetName)
+      - name: Package the binaries
+        shell: pwsh
+        run: ./tools/package-release.ps1 -Output "snackbox-${{ steps.version.outputs.TAG }}-win-x64.zip"
+
       - name: Create tag
         if: github.event_name == 'workflow_dispatch'
         shell: pwsh
@@ -116,9 +122,10 @@ jobs:
 
           ## Updating
 
-          Open **Admin -> Updates** in Snackbox and press Install. The machine stops, moves its
-          checkout to this tag, rebuilds and starts again - a few minutes of downtime. A failed
-          build rolls back to the previous commit automatically.
+          Open **Admin -> Updates** in Snackbox and press Install. The machine downloads the
+          prebuilt binaries attached below, stops, moves its checkout to this tag, copies them in
+          and starts again. If they do not come up, it builds the release itself; a failed build
+          rolls back to the previous commit automatically.
 
           From the command line instead:
 
@@ -143,6 +150,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.TAG }}
           name: Snackbox ${{ steps.version.outputs.TAG }}
           body_path: release-notes.md
+          files: snackbox-${{ steps.version.outputs.TAG }}-win-x64.zip
           draft: false
           prerelease: ${{ inputs.prerelease == true }}
         env:

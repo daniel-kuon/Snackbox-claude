@@ -260,6 +260,7 @@ tools/**
 # Snackbox.sln references it, so a clone that lacks it cannot even restore.
 !tools/Snackbox.Updater/
 !tools/Snackbox.Updater/**
+!tools/package-release.ps1
 tools/Snackbox.Updater/bin/
 tools/Snackbox.Updater/obj/
 

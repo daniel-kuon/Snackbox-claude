@@ -67,6 +67,24 @@ public sealed class Watchdog(Stack stack, Log log)
         return false;
     }
 
+    /// <summary>Polls until the API and the website answer, for a stack that was just started.</summary>
+    public static bool WaitUntilAnswering(TimeSpan timeout)
+    {
+        using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            Timeout = TimeSpan.FromSeconds(10)
+        };
+
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (Endpoints.All(url => Answers(http, url))) return true;
+            Thread.Sleep(TimeSpan.FromSeconds(10));
+        }
+
+        return false;
+    }
+
     private static bool Answers(HttpClient http, string url)
     {
         try

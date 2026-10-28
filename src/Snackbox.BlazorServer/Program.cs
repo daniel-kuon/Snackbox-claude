@@ -7,13 +7,23 @@ using Snackbox.Components.Services;
 using Snackbox.ServiceDefaults;
 using Snackbox.ServiceDefaults.Tracing;
 
-var builder = WebApplication.CreateBuilder(args);
+// An installation runs this as Production, from one of two layouts in bin:
+//  - its own build: static web assets - _framework/blazor.web.js and the Razor library files
+//    such as brand.css - are listed in a manifest pointing into the sources, obj and the NuGet
+//    cache. It is only read automatically in Development; otherwise every one of them answers
+//    500 and the site renders without any interactivity.
+//  - a release's published output (tools/package-release.ps1): no manifest, every asset sits in
+//    bin's own wwwroot - not the project's wwwroot, which "dotnet run" would take as web root.
+var isBuildOutput = File.Exists(Path.Combine(AppContext.BaseDirectory, "Snackbox.BlazorServer.staticwebassets.runtime.json"));
+var publishedWebRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
 
-// An installation runs the build output (not a publish) as Production. Static web assets -
-// _framework/blazor.web.js and the Razor library files such as brand.css - are only mapped
-// automatically in Development; otherwise they are listed but not found, every one of them
-// answers 500 and the site renders without any interactivity.
-builder.WebHost.UseStaticWebAssets();
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    WebRootPath = !isBuildOutput && Directory.Exists(publishedWebRoot) ? publishedWebRoot : null
+});
+
+if (isBuildOutput) builder.WebHost.UseStaticWebAssets();
 
 builder.Services.AddSnackboxOpenTelemetry(builder.Configuration, new TelemetryInstrumentationOptions
 {

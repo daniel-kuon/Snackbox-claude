@@ -13,8 +13,8 @@
     <div class="page-header">
         <h2>Updates</h2>
         <p class="text-muted mb-0">
-            Checks GitHub for new releases. Installing stops Snackbox, rebuilds the checkout and
-            starts it again, so the kiosk is unavailable for a few minutes.
+            Checks GitHub for new releases. Installing downloads the release, stops Snackbox, swaps
+            the new version in and starts it again, so the kiosk is unavailable for a minute or two.
         </p>
     </div>
 
@@ -195,7 +195,7 @@
         if (_status?.Latest == null) return;
 
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"Install {_status.Latest.Tag}? Snackbox stops, rebuilds and starts again - the kiosk is unavailable for a few minutes.");
+            $"Install {_status.Latest.Tag}? Snackbox stops, swaps the new version in and starts again - the kiosk is unavailable for a minute or two.");
         if (!confirmed) return;
 
         _busy = true;

@@ -1,10 +1,11 @@
 using Snackbox.Updater;
 
-// Snackbox updater. Runs outside the app so it can stop it, rebuild the checkout and start it
+// Snackbox updater. Runs outside the app so it can stop it, update the checkout and start it
 // again. Commands:
 //
 //   status                         what is installed and what is running
-//   update --tag v1.2.3            stop, check the tag out, build, start again
+//   update --tag v1.2.3            stop, check the tag out, install its prebuilt package (or build),
+//                                  start again
 //   start [--no-kiosk]             Docker, then the Aspire AppHost, then the kiosk
 //   stop                           stop everything this tool started
 //   install-autostart [--no-kiosk] register a scheduled task that runs "start" at logon
@@ -65,7 +66,7 @@ try
         case "update":
             var tag = arguments.Value("tag") ?? throw new UpdaterException("update needs --tag, for example --tag v1.2.3.");
 
-            // The update rebuilds the whole solution, which includes this very executable, and
+            // The update replaces this very executable (package or build), and
             // Windows will not overwrite a running file. Continue from a copy in the temp
             // folder. SelfCopy sets the marker below on the copy; it is not for callers, and
             // passing it by hand is how you get "the file is used by another process".

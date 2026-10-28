@@ -192,7 +192,7 @@ public partial class UpdateService : IUpdateService
         {
             Started = true,
             Tag = tag,
-            Message = "The update is running in a terminal window on the Snackbox PC. Snackbox stops, rebuilds and starts again - this page loses its connection for a few minutes."
+            Message = "The update is running in a terminal window on the Snackbox PC. Snackbox stops, swaps the new version in and starts again - this page loses its connection for a minute or two."
         };
     }
 

@@ -1,9 +1,9 @@
 namespace Snackbox.Updater;
 
 /// <summary>
-/// Moves the installation to a release tag: stop, check out, build, start. If the build fails
-/// the previous commit is restored and started again, so a bad release cannot leave the snack
-/// machine dead.
+/// Moves the installation to a release tag: stop, check out, install the release's prebuilt
+/// package (or build, for a release without one), start. If that fails the previous commit is
+/// restored and started again, so a bad release cannot leave the snack machine dead.
 /// </summary>
 public sealed class UpdateCommand(Installation installation, Stack stack, Log log)
 {
@@ -36,6 +36,10 @@ public sealed class UpdateCommand(Installation installation, Stack stack, Log lo
                 Environment.NewLine + dirty);
         }
 
+        // Also while the old version still runs: the download costs no downtime either
+        var package = new ReleasePackage(installation, log);
+        var prebuilt = package.Download(tag);
+
         // A watchdog run that is under way would see the stopped stack and start it again
         // mid-build - and its running executable would block the build from replacing it.
         Watchdog.WaitForOtherUpdaters(log);
@@ -46,7 +50,23 @@ public sealed class UpdateCommand(Installation installation, Stack stack, Log lo
             log.Write($"Checking out {tag}...");
             installation.Git($"-c advice.detachedHead=false checkout --force {target}");
 
-            Build();
+            if (prebuilt == null)
+            {
+                Build();
+            }
+            else
+            {
+                package.Install(prebuilt);
+
+                // Binaries built elsewhere are new territory: if they do not come up, the
+                // update falls back to building here, which has always worked
+                if (start && !StartsAndAnswers(withKiosk))
+                {
+                    log.Write("Snackbox does not answer with the prebuilt release - building it here instead.");
+                    stack.Stop();
+                    Build();
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -78,6 +98,13 @@ public sealed class UpdateCommand(Installation installation, Stack stack, Log lo
         stack.Start(withKiosk);
         log.Write($"Updated to {installation.CurrentVersion()} and started.");
         return 0;
+    }
+
+    private bool StartsAndAnswers(bool withKiosk)
+    {
+        stack.Start(withKiosk);
+        log.Write("Waiting for the API and the website to answer...");
+        return Watchdog.WaitUntilAnswering(TimeSpan.FromMinutes(5));
     }
 
     private void Build()
