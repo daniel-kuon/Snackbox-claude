@@ -29,42 +29,28 @@ public class UsersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetAll([FromQuery] bool includeRetired = false)
     {
-        var usersQuery = _context.Users
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Payments)
-            .Include(u => u.Withdrawals)
-            .Select(u => new
+        var open = await UserBalance.OpenAmountsAsync(_context);
+        var users = await _context.Users
+            .Select(u => new UserDto
             {
-                User = u,
-                Balance = u.Payments.Sum(p => p.Amount) - u.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - u.Withdrawals.Sum(w => w.Amount)
-            });
-
-        // Hide retired users by default unless they have a non-zero balance
-        if (!includeRetired)
-        {
-            usersQuery = usersQuery.Where(x => !x.User.IsRetired || x.Balance != 0);
-        }
-
-        var users = await usersQuery
-            .Select(x => new UserDto
-            {
-                Id = x.User.Id,
-                Username = x.User.Username,
-                Email = x.User.Email,
-                IsAdmin = x.User.IsAdmin,
-                IsActive = x.User.IsActive,
-                IsRetired = x.User.IsRetired,
-                IsBetaTester = x.User.IsBetaTester,
-                UsesTabletSelection = x.User.UsesTabletSelection,
-                Balance = x.Balance,
-                CreatedAt = x.User.CreatedAt,
-                HasPurchases = x.User.Purchases.Any(),
-                HasPassword = !string.IsNullOrEmpty(x.User.PasswordHash)
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                IsAdmin = u.IsAdmin,
+                IsActive = u.IsActive,
+                IsRetired = u.IsRetired,
+                IsBetaTester = u.IsBetaTester,
+                UsesTabletSelection = u.UsesTabletSelection,
+                CreatedAt = u.CreatedAt,
+                HasPurchases = u.Purchases.Any(),
+                HasPassword = !string.IsNullOrEmpty(u.PasswordHash)
             })
             .ToListAsync();
 
-        return Ok(users);
+        foreach (var user in users) user.Balance = -open.GetValueOrDefault(user.Id);
+
+        // Hide retired users by default unless they have a non-zero balance
+        return Ok(includeRetired ? users : users.Where(u => !u.IsRetired || u.Balance != 0).ToList());
     }
 
     [HttpPost("{id}/set-password")]
@@ -89,10 +75,6 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> GetById(int id)
     {
         var user = await _context.Users
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Payments)
-            .Include(u => u.Withdrawals)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
@@ -100,7 +82,7 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
+        var balance = -await UserBalance.OpenAmountAsync(_context, user.Id);
         return Ok(user.ToDtoWithBalance(balance));
     }
 
@@ -337,10 +319,6 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> Update(int id, [FromBody] UpdateUserDto dto)
     {
         var user = await _context.Users
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Payments)
-            .Include(u => u.Withdrawals)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
@@ -364,7 +342,7 @@ public class UsersController : ControllerBase
 
         _logger.LogInformation("User updated: {UserId} - {Username}", user.Id, user.Username);
 
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
+        var balance = -await UserBalance.OpenAmountAsync(_context, user.Id);
         return Ok(user.ToDtoWithBalance(balance));
     }
 
@@ -404,10 +382,6 @@ public class UsersController : ControllerBase
     {
         var user = await _context.Users
             .Include(u => u.Barcodes)
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Payments)
-            .Include(u => u.Withdrawals)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user == null)
@@ -450,7 +424,7 @@ public class UsersController : ControllerBase
             user.Id, user.Username, user.Barcodes.Count, placeholder.Id);
 
         // Return the retired user and the new placeholder info
-        var balance = user.Payments.Sum(p => p.Amount) - user.Purchases.Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount)) - user.Withdrawals.Sum(w => w.Amount);
+        var balance = -await UserBalance.OpenAmountAsync(_context, user.Id);
         return Ok(new
         {
             RetiredUser = user.ToDtoWithBalance(balance),

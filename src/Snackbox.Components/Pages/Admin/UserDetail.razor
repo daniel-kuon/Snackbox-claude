@@ -311,6 +311,33 @@
                         <p>No payments recorded yet.</p>
                     </div>
                 }
+
+                @if (_withdrawals is { Count: > 0 })
+                {
+                    @* An admin who received a PayPal payment or took cash out holds the box's money - it counts as owed *@
+                    <div class="section-header mt-4">
+                        <h3>Money held for the box</h3>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var withdrawal in _withdrawals)
+                            {
+                                <tr>
+                                    <td>@withdrawal.WithdrawnAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="text-danger">€@withdrawal.Amount.ToString("F2")</td>
+                                    <td>@withdrawal.Notes</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
             }
             else if (_activeTab == "purchases")
             {
@@ -331,6 +358,10 @@
                 }
                 else if (_purchases.Any())
                 {
+                    @if (_revertError != null)
+                    {
+                        <div class="alert alert-danger">@_revertError</div>
+                    }
                     <table class="table">
                         <thead>
                             <tr>
@@ -444,6 +475,25 @@
                                         <button class="btn btn-sm btn-outline-warning" @onclick="() => ShowCorrectionForPurchase(purchase.Id)">
                                             Create Correction
                                         </button>
+                                        @if (purchase.Type != "Correction" && purchase.TotalAmount != 0)
+                                        {
+                                            var open = OpenAfterCorrections(purchase);
+                                            if (open == 0)
+                                            {
+                                                <span class="badge bg-secondary ms-1">Reverted</span>
+                                            }
+                                            else if (_confirmRevertId == purchase.Id)
+                                            {
+                                                <button class="btn btn-sm btn-danger ms-1" disabled="@_isSaving" @onclick="() => RevertPurchase(purchase.Id, open)">
+                                                    Revert €@open.ToString("F2")?
+                                                </button>
+                                                <button class="btn btn-sm btn-link" @onclick="() => _confirmRevertId = null">Cancel</button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => _confirmRevertId = purchase.Id">Revert</button>
+                                            }
+                                        }
                                     </td>
                                 </tr>
                             }
@@ -591,6 +641,15 @@
                         <label>Amount (€)</label>
                         <InputNumber @bind-Value="_paymentForm.Amount" class="form-control" step="0.01" />
                         <ValidationMessage For="@(() => _paymentForm.Amount)" />
+                        @if (_user.Balance < 0)
+                        {
+                            <small class="form-text text-muted">Open amount: €@((-_user.Balance).ToString("F2"))</small>
+                        }
+                    </div>
+
+                    <div class="form-group">
+                        <label>Received on</label>
+                        <InputDate @bind-Value="_paymentForm.PaidOn" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
                     </div>
 
                     <div class="form-group">
@@ -624,22 +683,6 @@
                                 }
                             </InputSelect>
                             <ValidationMessage For="@(() => _paymentForm.AdminUserId)" />
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Password:</span>
-                            <span class="info-value">
-                                @if (_user.HasPassword)
-                                {
-                                    <span class="badge bg-success">Set</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">Not Set</span>
-                                }
-                                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="ShowSetPasswordModal">
-                                    @(_user.HasPassword ? "Change Password" : "Set Password")
-                                </button>
-                            </span>
                         </div>
                     }
 
@@ -1370,6 +1413,9 @@
     private BarcodeFormModel _barcodeForm = new();
     private ManualPurchaseFormModel _manualPurchaseForm = new();
     private CorrectionFormModel _correctionForm = new();
+    private int? _confirmRevertId;
+    private List<WithdrawalDto>? _withdrawals;
+    private string? _revertError;
     private UserEditFormModel _userEditForm = new();
     private PasswordFormModel _passwordForm = new();
     private string? _modalError;
@@ -1523,6 +1569,7 @@
         try
         {
             _payments = await Http.GetFromJsonAsync<List<PaymentDto>>($"api/payments/user/{UserId}");
+            _withdrawals = await Http.GetFromJsonAsync<List<WithdrawalDto>>($"api/withdrawals/user/{UserId}");
         }
         catch (Exception ex)
         {
@@ -1578,7 +1625,13 @@
 
     private async Task ShowAddPayment()
     {
-        _paymentForm = new PaymentFormModel { Type = "CashRegister" };
+        // The open amount is what is usually paid
+        _paymentForm = new PaymentFormModel
+        {
+            Type = "CashRegister",
+            Amount = _user is { Balance: < 0 } ? -_user.Balance : 0,
+            PaidOn = DateOnly.FromDateTime(DateTime.Today)
+        };
         _modalError = null;
 
         // Load admin users if not already loaded
@@ -1626,7 +1679,8 @@
                 amount = _paymentForm.Amount,
                 notes = _paymentForm.Notes,
                 type = _paymentForm.Type,
-                adminUserId = _paymentForm.AdminUserId
+                adminUserId = _paymentForm.AdminUserId,
+                paidOn = _paymentForm.PaidOn
             });
 
             if (response.IsSuccessStatusCode)
@@ -1801,6 +1855,47 @@
         catch (Exception ex)
         {
             _modalError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    /// <summary>What a purchase still costs after the corrections that refer to it.</summary>
+    private decimal OpenAfterCorrections(PurchaseDto purchase) =>
+        purchase.TotalAmount + _purchases!.Where(c => c.Type == "Correction" && c.ReferencePurchaseId == purchase.Id).Sum(c => c.TotalAmount);
+
+    /// <summary>Books a correction that cancels what is left of the purchase.</summary>
+    private async Task RevertPurchase(int purchaseId, decimal open)
+    {
+        _isSaving = true;
+        _revertError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/purchases/correction", new
+            {
+                userId = UserId,
+                referencePurchaseId = purchaseId,
+                amount = -open
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                _confirmRevertId = null;
+                _purchases = null;
+                await LoadPurchases();
+                await LoadUserData(); // Refresh balance
+            }
+            else
+            {
+                _revertError = "Failed to revert the purchase. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _revertError = $"Error: {ex.Message}";
         }
         finally
         {
@@ -2014,6 +2109,8 @@
         public string Type { get; set; } = "CashRegister";
 
         public int? AdminUserId { get; set; }
+
+        public DateOnly PaidOn { get; set; }
     }
 
     private int? _editingBarcodeId;

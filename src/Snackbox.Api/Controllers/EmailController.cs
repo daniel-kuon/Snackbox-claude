@@ -28,12 +28,7 @@ public class EmailController : ControllerBase
     [HttpPost("send-payment-reminder/{userId}")]
     public async Task<IActionResult> SendPaymentReminder(int userId)
     {
-        var user = await _context.Users
-            .Include(u => u.Payments)
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Withdrawals)
-            .FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null)
         {
@@ -45,12 +40,8 @@ public class EmailController : ControllerBase
             return BadRequest(new { message = "User does not have an email address" });
         }
 
-        // Calculate balance (positive = user owes money)
-        var totalPaid = user.Payments.Sum(p => p.Amount);
-        var totalSpent = user.Purchases
-            .Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount));
-        var totalWithdrawn = user.Withdrawals.Sum(w => w.Amount);
-        var balance = totalSpent - totalPaid + totalWithdrawn;
+        // Positive = user owes money
+        var balance = await UserBalance.OpenAmountAsync(_context, userId);
 
         if (balance <= 0)
         {
@@ -84,22 +75,12 @@ public class EmailController : ControllerBase
 
         // Get all users with their financial data
         var users = await _context.Users
-            .Include(u => u.Payments)
-            .Include(u => u.Purchases)
-                .ThenInclude(p => p.Scans)
-            .Include(u => u.Withdrawals)
             .Where(u => u.Email != null && u.Email != "")
             .ToListAsync();
+        var open = await UserBalance.OpenAmountsAsync(_context);
 
         var usersToRemind = users
-            .Select(u => new
-            {
-                User = u,
-                Balance = u.Purchases
-                    .Sum(p => p.ManualAmount ?? p.Scans.Sum(s => s.Amount))
-                    - u.Payments.Sum(p => p.Amount)
-                    + u.Withdrawals.Sum(w => w.Amount)
-            })
+            .Select(u => new { User = u, Balance = open.GetValueOrDefault(u.Id) })
             .Where(u => u.Balance >= minBalance)
             .ToList();
 

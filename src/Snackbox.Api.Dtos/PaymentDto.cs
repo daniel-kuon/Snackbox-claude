@@ -22,6 +22,9 @@ public class CreatePaymentDto
     public string? Notes { get; set; }
     public string Type { get; set; } = "CashRegister";
     public int? AdminUserId { get; set; }
+
+    /// <summary>The day the money was received; empty or today = now.</summary>
+    public DateOnly? PaidOn { get; set; }
 }
 
 public class WithdrawalDto

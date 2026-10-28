@@ -82,6 +82,12 @@ public class PaymentsController : ControllerBase
             return BadRequest(new { message = "Payment amount must be greater than zero" });
         }
 
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        if (dto.PaidOn > today)
+        {
+            return BadRequest(new { message = "The payment cannot have been received in the future" });
+        }
+
         // Validate PayPal payment has admin user
         if (dto.Type == "PayPal" && dto.AdminUserId == null)
         {
@@ -108,6 +114,14 @@ public class PaymentsController : ControllerBase
         try
         {
             var payment = dto.ToEntity();
+
+            // Received on an earlier day: booked at that day's noon (the machine's local time);
+            // today keeps the time it was entered
+            if (dto.PaidOn is { } day && day != today)
+            {
+                payment.PaidAt = day.ToDateTime(new TimeOnly(12, 0), DateTimeKind.Local).ToUniversalTime();
+            }
+
             await PaymentBooking.BookAsync(_context, payment, user, adminUser);
             await transaction.CommitAsync();
 

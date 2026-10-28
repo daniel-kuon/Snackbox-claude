@@ -21,7 +21,7 @@ public static class PaymentBooking
             {
                 UserId = adminUser.Id,
                 Amount = payment.Amount,
-                WithdrawnAt = DateTime.UtcNow,
+                WithdrawnAt = payment.PaidAt,
                 Notes = $"PayPal payment from {user.Username}"
             };
             context.Withdrawals.Add(withdrawal);
@@ -31,7 +31,7 @@ public static class PaymentBooking
         {
             UserId = user.Id,
             Amount = payment.Amount,
-            DepositedAt = DateTime.UtcNow,
+            DepositedAt = payment.PaidAt,
         };
         context.Deposits.Add(deposit);
 
