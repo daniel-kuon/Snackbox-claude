@@ -104,7 +104,10 @@ public sealed class UpdateCommand(Installation installation, Stack stack, Log lo
     {
         stack.Start(withKiosk);
         log.Write("Waiting for the API and the website to answer...");
-        return Watchdog.WaitUntilAnswering(TimeSpan.FromMinutes(5));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var answers = Watchdog.WaitUntilAnswering(TimeSpan.FromMinutes(5));
+        if (answers) log.Write($"They answer after {watch.Elapsed.TotalSeconds:0} s.");
+        return answers;
     }
 
     private void Build()

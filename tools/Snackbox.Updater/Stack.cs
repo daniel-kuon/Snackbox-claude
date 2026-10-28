@@ -28,13 +28,19 @@ public sealed class Stack(Installation installation, Log log)
     {
         // Two starts at once (two autostart entries, a click on start-snackbox.bat at logon)
         // opened two AppHosts and two kiosks. One at a time, and each skips what already runs.
+        log.Write("Starting Snackbox...");
         using var single = new Mutex(false, @"Local\Snackbox.Updater.Start");
         var owned = false;
         try
         {
             try
             {
-                owned = single.WaitOne(TimeSpan.FromMinutes(10));
+                owned = single.WaitOne(0);
+                if (!owned)
+                {
+                    log.Write("Another start is under way - waiting for it to finish...");
+                    owned = single.WaitOne(TimeSpan.FromMinutes(10));
+                }
             }
             catch (AbandonedMutexException)
             {
@@ -63,25 +69,25 @@ public sealed class Stack(Installation installation, Log log)
 
     public void Stop()
     {
+        var watch = Stopwatch.StartNew();
+
         // Aspire's orchestrator (dcp.exe) outlives a killed AppHost and goes on shutting its
         // resources down for a while - long enough to take the next AppHost's API and website
-        // with it, which left an installation without a backend after an update. Each DCP is
-        // told which AppHost to watch ("--monitor <pid>"), so only ours are stopped, not the
-        // DCP of some other Aspire app on the machine. Found before anything is killed, while
-        // the AppHosts still exist to be matched against.
+        // with it, which left an installation without a backend after an update. It goes first:
+        // killed after the AppHost it was already busy tearing down containers and processes,
+        // and on the kiosk PC killing it then took 49 s. Each DCP is told which AppHost to watch
+        // ("--monitor <pid>"), so only ours are stopped, not the DCP of some other Aspire app on
+        // the machine. Found before anything is killed, while the AppHosts still exist to be
+        // matched against.
         var orchestrators = OrchestratorsMonitoring(Process.GetProcessesByName("Snackbox.AppHost").Select(p => p.Id));
 
-        foreach (var pid in installation.RememberedProcesses())
+        var stopped = new List<Process>();
+        foreach (var pid in orchestrators.Concat(installation.RememberedProcesses()))
         {
-            KillTree(pid);
+            KillTree(pid, stopped);
         }
 
         installation.ForgetProcesses();
-
-        foreach (var pid in orchestrators)
-        {
-            KillTree(pid);
-        }
 
         // Aspire's DCP starts the API and the website outside the AppHost's process tree, so
         // killing the "dotnet run" we remembered leaves them behind - and they hold the very
@@ -90,11 +96,23 @@ public sealed class Stack(Installation installation, Log log)
         {
             foreach (var process in Process.GetProcessesByName(name))
             {
-                KillTree(process.Id);
+                KillTree(process.Id, stopped);
             }
         }
 
-        log.Write("Stack stopped.");
+        // Killing only asks Windows to end them; their files are free once they have exited
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        foreach (var process in stopped)
+        {
+            var left = deadline - DateTime.UtcNow;
+            if (!process.WaitForExit(left > TimeSpan.Zero ? left : TimeSpan.Zero))
+            {
+                log.Write($"Process {process.Id} has not exited after 60 s.");
+            }
+            process.Dispose();
+        }
+
+        log.Write($"Stack stopped ({watch.Elapsed.TotalSeconds:0} s).");
     }
 
     private List<int> OrchestratorsMonitoring(IEnumerable<int> appHostPids)
@@ -113,15 +131,39 @@ public sealed class Stack(Installation installation, Log log)
                      .ToList();
     }
 
-    private void KillTree(int pid)
+    /// <summary>
+    /// In-process rather than taskkill, which on the kiosk PC sat for most of a minute on one
+    /// process tree. Does not wait for the exit - <see cref="Stop"/> waits for all at once.
+    /// </summary>
+    private void KillTree(int pid, List<Process> stopped)
     {
+        Process process;
         try
         {
-            Installation.Run("taskkill", $"/PID {pid} /T /F", installation.Root, throwOnError: false);
-            log.Write($"Stopped process {pid}.");
+            process = Process.GetProcessById(pid);
         }
-        catch (Exception ex)
+        catch (ArgumentException)
         {
+            return; // already gone, e.g. with the tree of a process stopped before
+        }
+
+        try
+        {
+            var name = process.ProcessName;
+            process.Kill(entireProcessTree: true);
+            stopped.Add(process);
+            log.Write($"Stopped process {pid} ({name}).");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or AggregateException)
+        {
+            // A process that is ending already refuses to be killed again
+            if (process.HasExited)
+            {
+                process.Dispose();
+                return;
+            }
+
+            stopped.Add(process);
             log.Write($"Could not stop process {pid}: {ex.Message}");
         }
     }
