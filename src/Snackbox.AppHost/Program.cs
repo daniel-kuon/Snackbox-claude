@@ -70,6 +70,21 @@ web.WithEnvironment("Telemetry__SignozUrl", "http://localhost:3301");
 api.WithEnvironment("ASPNETCORE_ENVIRONMENT", builder.Environment.EnvironmentName);
 web.WithEnvironment("ASPNETCORE_ENVIRONMENT", builder.Environment.EnvironmentName);
 
+// An installation runs on the kiosk PC (8 GB). Aspire keeps a second copy of everything the
+// API and the website send it - the dashboard all traces and logs, request bodies included,
+// the AppHost every console line - in memory: 2.5 GB AppHost and 2 GB dashboard after a while,
+// the PC swapping at 100 % disk. SigNoz has all of it anyway, so an installation sends the
+// dashboard nothing (an empty endpoint switches that exporter off, see TelemetryDefaults) and
+// prints only warnings to the console. From the IDE both stay as they are.
+if (!builder.Environment.IsDevelopment())
+{
+    foreach (var project in new IResourceBuilder<ProjectResource>[] { api, web })
+    {
+        project.WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+               .WithEnvironment("Logging__Console__LogLevel__Default", "Warning");
+    }
+}
+
 // Note: Windows native MAUI app should be run separately from Visual Studio/Rider
 // Run using: dotnet run --project src/Snackbox.Web -f net10.0-windows10.0.19041.0
 
