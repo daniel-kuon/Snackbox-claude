@@ -93,7 +93,7 @@ try
             return 0;
 
         case "uninstall-watchdog":
-            Watchdog.UninstallTask(log);
+            Watchdog.UninstallTask(installation, log);
             return 0;
 
         case "tablet":

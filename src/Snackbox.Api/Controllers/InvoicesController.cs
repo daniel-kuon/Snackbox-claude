@@ -461,7 +461,7 @@ public class InvoicesController : ControllerBase
             {
                 var product = await _context.Products
                     .Include(p => p.Barcodes)
-                    .FirstOrDefaultAsync(p => p.Id == itemDto.MatchedProductId.Value);
+                    .FirstOrDefaultAsync(p => p.Id == itemDto.MatchedProductId!.Value);
 
                 if (product != null && !product.Barcodes.Any(b => b.Barcode == itemDto.ArticleNumber))
                 {

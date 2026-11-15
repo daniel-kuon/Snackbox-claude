@@ -48,6 +48,7 @@ public sealed class Stack(Installation installation, Log log)
             }
 
             Autostart.RemoveDuplicate(log);
+            Watchdog.EnsureTask(installation, withKiosk, log);
             EnsureDockerRunning();
             if (IsRunning("Snackbox.AppHost")) log.Write("The AppHost is already running.");
             else StartAppHost();

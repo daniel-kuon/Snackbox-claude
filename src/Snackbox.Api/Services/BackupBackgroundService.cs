@@ -89,7 +89,7 @@ public class BackupBackgroundService : BackgroundService
             }
 
             // Send email once per week (on weekly backup day)
-            if (backupType == BackupType.Weekly && ShouldSendWeeklyEmail())
+            if (backup != null && backupType == BackupType.Weekly && ShouldSendWeeklyEmail())
             {
                 await SendBackupEmailAsync(backupService, emailService, backup);
                 _lastWeeklyEmailSent = DateTime.UtcNow;

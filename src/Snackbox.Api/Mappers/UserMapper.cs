@@ -20,6 +20,9 @@ public static partial class UserMapper
     [MapperIgnoreTarget(nameof(UserDto.HasPurchases))]
     [MapperIgnoreTarget(nameof(UserDto.HasPassword))]
     [MapperIgnoreSource(nameof(User.UserAchievements))]
+    [MapperIgnoreSource(nameof(User.CardNumber))]
+    [MapperIgnoreSource(nameof(User.LegacyUserId))]
+    [MapperIgnoreSource(nameof(User.WizardSteps))]
     public static partial UserDto ToDto(this User source);
 
     /// <summary>

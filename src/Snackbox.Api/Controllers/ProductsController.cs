@@ -184,7 +184,8 @@ public class ProductsController : ControllerBase
         Response.Headers.CacheControl = "public, max-age=3600";
         Response.Headers.XContentTypeOptions = "nosniff";
         Response.Headers.ContentSecurityPolicy = "default-src 'none'; sandbox";
-        return File(image.Data, image.ContentType, lastModified: image.UpdatedAt, entityTag: null);
+        // No ETag - the only overload with Last-Modified takes one, and accepts null despite its annotation
+        return File(image.Data, image.ContentType, lastModified: image.UpdatedAt, entityTag: null!);
     }
 
     [HttpPut("{id}/image")]

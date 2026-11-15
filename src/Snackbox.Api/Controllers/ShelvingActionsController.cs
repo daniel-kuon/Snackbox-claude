@@ -32,7 +32,7 @@ public class ShelvingActionsController : ControllerBase
     {
         var query = _context.ShelvingActions
             .Include(sa => sa.ProductBatch)
-            .ThenInclude(pb => pb.Product)
+            .ThenInclude(pb => pb!.Product)
             .AsQueryable();
 
         if (productId.HasValue)
@@ -74,7 +74,7 @@ public class ShelvingActionsController : ControllerBase
     {
         var action = await _context.ShelvingActions
             .Include(sa => sa.ProductBatch)
-            .ThenInclude(pb => pb.Product)
+            .ThenInclude(pb => pb!.Product)
             .ThenInclude(p => p.Barcodes)
             .FirstOrDefaultAsync(sa => sa.Id == id);
 
@@ -477,7 +477,7 @@ public class ShelvingActionsController : ControllerBase
             batch = new ProductBatch
             {
                 ProductId = product.Id,
-                BestBeforeDate = dto.BestBeforeDate.Value.Date,
+                BestBeforeDate = dto.BestBeforeDate!.Value.Date,
                 CreatedAt = DateTime.UtcNow
             };
             _context.ProductBatches.Add(batch);

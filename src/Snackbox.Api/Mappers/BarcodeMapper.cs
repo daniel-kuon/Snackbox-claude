@@ -13,6 +13,8 @@ public static partial class BarcodeMapper
     /// </summary>
     [MapperIgnoreSource(nameof(Barcode.User))]
     [MapperIgnoreSource(nameof(Barcode.Scans))]
+    [MapperIgnoreSource(nameof(Barcode.LegacyCodeId))]
+    [MapperIgnoreTarget(nameof(BarcodeDto.IsLoginOnly))]
     [MapperIgnoreTarget(nameof(BarcodeDto.Username))]
     public static partial BarcodeDto ToDto(this Barcode source);
 

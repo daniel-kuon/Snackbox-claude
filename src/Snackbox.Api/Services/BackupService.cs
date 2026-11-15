@@ -195,7 +195,7 @@ public class BackupService : IBackupService
             try
             {
                 var preRestoreBackup = await CreateBackupAsync(BackupType.Manual);
-                _logger.LogInformation("Pre-restore backup created: {BackupId}", preRestoreBackup.Id);
+                _logger.LogInformation("Pre-restore backup created: {BackupId}", preRestoreBackup?.Id);
             }
             catch (Exception ex)
             {

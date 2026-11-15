@@ -149,7 +149,6 @@ public class ScannerController : ControllerBase
             .FirstOrDefaultAsync();
 
         Purchase currentPurchase;
-        bool isNewPurchase = false;
 
         // Check if we should add to existing purchase or create new one
         if (lastPurchase != null)
@@ -200,7 +199,6 @@ public class ScannerController : ControllerBase
                     UpdatedAt = DateTime.UtcNow
                 };
                 _context.Purchases.Add(currentPurchase);
-                isNewPurchase = true;
             }
         }
         else
@@ -213,7 +211,6 @@ public class ScannerController : ControllerBase
                 UpdatedAt = DateTime.UtcNow
             };
             _context.Purchases.Add(currentPurchase);
-            isNewPurchase = true;
         }
 
         // Add the barcode scan to the purchase - unless the user picks on the tablet, where

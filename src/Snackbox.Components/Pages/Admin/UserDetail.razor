@@ -641,9 +641,9 @@
                         <label>Amount (€)</label>
                         <InputNumber @bind-Value="_paymentForm.Amount" class="form-control" step="0.01" />
                         <ValidationMessage For="@(() => _paymentForm.Amount)" />
-                        @if (_user.Balance < 0)
+                        @if (_user is { Balance: < 0 } owing)
                         {
-                            <small class="form-text text-muted">Open amount: €@((-_user.Balance).ToString("F2"))</small>
+                            <small class="form-text text-muted">Open amount: €@((-owing.Balance).ToString("F2"))</small>
                         }
                     </div>
 

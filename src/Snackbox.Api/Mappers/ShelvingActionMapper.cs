@@ -12,6 +12,9 @@ public static partial class ShelvingActionMapper
     /// Product-related properties and BestBeforeDate must be set from navigation properties.
     /// </summary>
     [MapperIgnoreSource(nameof(ShelvingAction.ProductBatch))]
+    [MapperIgnoreSource(nameof(ShelvingAction.InvoiceItem))]
+    [MapperIgnoreSource(nameof(ShelvingAction.BarcodeScan))]
+    [MapperIgnoreSource(nameof(ShelvingAction.BarcodeScanId))]
     [MapperIgnoreTarget(nameof(ShelvingActionDto.ProductId))]
     [MapperIgnoreTarget(nameof(ShelvingActionDto.ProductName))]
     [MapperIgnoreTarget(nameof(ShelvingActionDto.ProductBarcode))]
@@ -24,10 +27,12 @@ public static partial class ShelvingActionMapper
     public static ShelvingActionDto ToDtoWithProduct(this ShelvingAction source)
     {
         var dto = source.ToDto();
-        dto.ProductId = source.ProductBatch.ProductId;
-        dto.BestBeforeDate = source.ProductBatch.BestBeforeDate;
-        dto.ProductName = source.ProductBatch.Product.Name;
-        dto.ProductBarcode = source.ProductBatch.Product.Barcodes
+        if (source.ProductBatch is not { } batch) return dto; // consumed items have no batch
+
+        dto.ProductId = batch.ProductId;
+        dto.BestBeforeDate = batch.BestBeforeDate;
+        dto.ProductName = batch.Product.Name;
+        dto.ProductBarcode = batch.Product.Barcodes
                                    .OrderBy(b => b.Id)
                                    .Select(b => b.Barcode)
                                    .FirstOrDefault() ?? string.Empty;

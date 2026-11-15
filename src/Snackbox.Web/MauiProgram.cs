@@ -5,6 +5,7 @@ using Snackbox.Components.Services;
 using Snackbox.Web.Services;
 using Snackbox.ServiceDefaults;
 using OpenTelemetry;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Trace; // TracerProvider.ForceFlush extension
 using Snackbox.ServiceDefaults.Tracing;
 using System.Reflection;
@@ -132,25 +133,66 @@ public static class MauiProgram
         return app;
     }
 
-    // Anything that escapes the UI is what we most need to see remotely. Log it as
-    // Critical (so it exports to SigNoz) and force-flush the trace exporter, because a
-    // terminating process won't wait for the batch exporter's timer.
+    private static ILogger? _crashLogger;
+    private static TracerProvider? _tracerProvider;
+    private static LoggerProvider? _loggerProvider;
+
+    // Anything that escapes the UI is what we most need to see remotely. Logged as Critical
+    // (so it exports to SigNoz) and both exporters are flushed - a terminating process does not
+    // wait for the batch exporters' timers. Only the traces used to be flushed, so the crash's
+    // own log record died with the process. The start and the exit are logged too: a start
+    // without an exit before it is a crash that no handler saw (native, WebView2, fail-fast).
     private static void HookUnhandledExceptions(IServiceProvider services)
     {
-        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Snackbox.Web.Unhandled");
-        var tracerProvider = services.GetService<OpenTelemetry.Trace.TracerProvider>();
+        _crashLogger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Snackbox.Web.Unhandled");
+        _tracerProvider = services.GetService<TracerProvider>();
+        _loggerProvider = services.GetService<LoggerProvider>();
+
+        _crashLogger.LogInformation("Kiosk started (version {Version}, pid {Pid})",
+            Assembly.GetExecutingAssembly().GetName().Version, Environment.ProcessId);
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            ReportCrash(e.ExceptionObject as Exception, $"AppDomain, terminating: {e.IsTerminating}");
+
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
-            logger.LogCritical(e.ExceptionObject as Exception,
-                "Unhandled exception in kiosk (terminating: {IsTerminating})", e.IsTerminating);
-            tracerProvider?.ForceFlush(3000);
+            _crashLogger.LogInformation("Kiosk exiting");
+            Flush();
         };
 
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
-            logger.LogError(e.Exception, "Unobserved task exception in kiosk");
+            _crashLogger.LogError(e.Exception, "Unobserved task exception in kiosk");
             e.SetObserved();
         };
+    }
+
+    /// <summary>
+    /// Also called by WinUI's own UnhandledException (Platforms/Windows/App.xaml.cs): an exception
+    /// on the UI thread reaches that one, and often never the AppDomain's.
+    /// </summary>
+    public static void ReportCrash(Exception? exception, string source)
+    {
+        // First the file: it needs no network, and the exporters may not get out in time
+        try
+        {
+            var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Snackbox", "logs");
+            Directory.CreateDirectory(directory);
+            File.AppendAllText(Path.Combine(directory, "kiosk-crash.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {source}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Reporting a crash must not cause another one
+        }
+
+        _crashLogger?.LogCritical(exception, "Unhandled exception in kiosk ({Source})", source);
+        Flush();
+    }
+
+    private static void Flush()
+    {
+        _tracerProvider?.ForceFlush(3000);
+        _loggerProvider?.ForceFlush(3000);
     }
 }

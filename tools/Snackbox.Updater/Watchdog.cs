@@ -122,7 +122,10 @@ public sealed class Watchdog(Stack stack, Log log)
     /// </summary>
     public static void InstallTask(Installation installation, bool withKiosk, Log log)
     {
-        var updater = Environment.ProcessPath
+        File.Delete(RemovedMarker(installation));
+
+        // The installed executable, not this process: an update runs from a temp copy
+        var updater = InstalledUpdater(installation) ?? Environment.ProcessPath
                       ?? throw new UpdaterException("Could not determine the path of the updater itself.");
 
         var arguments = $"watchdog --dir \\\"{installation.Root}\\\"" + (withKiosk ? "" : " --no-kiosk");
@@ -133,9 +136,39 @@ public sealed class Watchdog(Stack stack, Log log)
         log.Write($"Watchdog registered as the scheduled task \"{TaskName}\" (every 5 minutes).");
     }
 
-    public static void UninstallTask(Log log)
+    /// <summary>
+    /// Run by every start: installations only ever registered the autostart, so the watchdog
+    /// existed only where someone had run install-watchdog by hand. Left alone after
+    /// uninstall-watchdog.
+    /// </summary>
+    public static void EnsureTask(Installation installation, bool withKiosk, Log log)
+    {
+        if (File.Exists(RemovedMarker(installation))) return;
+        if (Installation.Run("schtasks", $"/query /tn \"{TaskName}\"", installation.Root, throwOnError: false).Length > 0) return;
+
+        try
+        {
+            InstallTask(installation, withKiosk, log);
+        }
+        catch (UpdaterException ex)
+        {
+            log.Write($"Could not register the watchdog: {ex.Message}");
+        }
+    }
+
+    private static string? InstalledUpdater(Installation installation)
+    {
+        var path = Path.Combine(installation.Root, "tools", "Snackbox.Updater", "bin", "Release", "net10.0", "Snackbox.Updater.exe");
+        return File.Exists(path) ? path : null;
+    }
+
+    private static string RemovedMarker(Installation installation) => Path.Combine(installation.StateDirectory, "watchdog-removed");
+
+    public static void UninstallTask(Installation installation, Log log)
     {
         Installation.Run("schtasks", $"/delete /tn \"{TaskName}\" /f", Environment.CurrentDirectory, throwOnError: false);
+        Directory.CreateDirectory(installation.StateDirectory);
+        File.WriteAllText(RemovedMarker(installation), "uninstall-watchdog was run; install-watchdog brings it back");
         log.Write("Watchdog task removed.");
     }
 }
